@@ -2662,6 +2662,8 @@ function layoutIniSwapBetween(ul, host, overlay) {
 
 export function setupInitiativeList(element, { onListChange } = {}) {
   let restoreFocusItemId = null
+  /** @type {{ itemId: string, inputId: string, selectionStart: number | null, selectionEnd: number | null } | null} */
+  let restoreHeroInputFocus = null
   let lastItems = []
 
   const roundIntroBoard = document.querySelector('[data-kampf-round-intro]')
@@ -5546,6 +5548,21 @@ function bindStampContextRemove(el, stamp, items) {
         ? listScrollEl.scrollTop
         : null
 
+    const activeEl = document.activeElement
+    restoreHeroInputFocus = null
+    if (activeEl instanceof HTMLInputElement && activeEl.id) {
+      const li = activeEl.closest('li[data-item-id]')
+      const itemId = li?.getAttribute('data-item-id') ?? ''
+      if (itemId && activeEl.id.startsWith('hero-ex-')) {
+        restoreHeroInputFocus = {
+          itemId,
+          inputId: activeEl.id,
+          selectionStart: activeEl.selectionStart,
+          selectionEnd: activeEl.selectionEnd,
+        }
+      }
+    }
+
     element.replaceChildren(frag)
 
     if (heroSettingsItemId) {
@@ -5650,6 +5667,23 @@ function bindStampContextRemove(el, stamp, items) {
         inp.setSelectionRange(len, len)
       }
       restoreFocusItemId = null
+    }
+    if (restoreHeroInputFocus) {
+      const focusSel = `li[data-item-id="${CSS.escape(restoreHeroInputFocus.itemId)}"] #${CSS.escape(restoreHeroInputFocus.inputId)}`
+      const inp = element.querySelector(focusSel)
+      if (inp instanceof HTMLInputElement) {
+        inp.focus({ preventScroll: true })
+        const start =
+          typeof restoreHeroInputFocus.selectionStart === 'number'
+            ? restoreHeroInputFocus.selectionStart
+            : inp.value.length
+        const end =
+          typeof restoreHeroInputFocus.selectionEnd === 'number'
+            ? restoreHeroInputFocus.selectionEnd
+            : start
+        inp.setSelectionRange(start, end)
+      }
+      restoreHeroInputFocus = null
     }
 
     onListChange?.(items)

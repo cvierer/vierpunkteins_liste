@@ -18,3 +18,8 @@
 - **Optional / auxiliary:** Long-handling ([`src/longHandlung.js`](src/longHandlung.js), `lh*`), hit zones (`hitZone*`), [`src/combatLog.js`](src/combatLog.js), legacy cleanup [`src/turnMarkerCleanup.js`](src/turnMarkerCleanup.js).
 
 Heavy subsystems are mostly reached via initiative/combat/phase links, not separate apps. Prefer **dynamic `import()`** from `main.js` for peripheral modules before removing features.
+
+## Naming and push hygiene
+
+- Never use the blocked personal-name identifier (spaced or compact variant) in code, docs, comments, commit messages, PR text, or push-related notes.
+- Before commit/push, run a quick repo scan for the blocked identifier variants and remove/replace any matches found.

@@ -4076,7 +4076,7 @@ export function mountHeroExpandBlock(
   let persistQueued = false
   /** @type {ReturnType<typeof gather> | null} */
   let persistNextSnapshot = null
-  const PERSIST_DEBOUNCE_MS = 90
+  const PERSIST_DEBOUNCE_MS = 320
 
   const flushPersistHeroExpand = () => {
     persistTimer = null
