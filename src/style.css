@@ -7410,10 +7410,12 @@ select.init-row-extra-select {
 .init-hero-ex__mod-chip-le-ring__slice {
   position: absolute;
   left: 0;
-  right: 0;
+  right: auto;
   bottom: 0;
+  width: calc(var(--le-frac, 0) * 100%);
   height: calc(var(--le-frac, 0) * 100%);
   transition:
+    width 0.18s ease,
     height 0.18s ease,
     opacity 0.18s ease,
     filter 0.18s ease;
@@ -7424,6 +7426,7 @@ select.init-row-extra-select {
 .init-hero-ex__mod-chip-le-ring--neg .init-hero-ex__mod-chip-le-ring__slice {
   top: 0;
   bottom: auto;
+  width: calc(var(--le-neg-frac, 0) * 100%);
   height: calc(var(--le-neg-frac, 0) * 100%);
 }
 
