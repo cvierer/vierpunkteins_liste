@@ -527,8 +527,7 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
   let wundenCount = Math.min(3, Math.max(0, Math.floor(Number(zSnap.w)) || 0))
   const w20Text = formatWappenW20(def?.w20Range)
   const w20Hint = w20Text ? `W20: ${w20Text} (Fußkampf)` : 'Fußkampf'
-  const rsHint =
-    'In den Rüstungskästchen (früher Wappenkästchen) den Rüstungsschutz eintragen'
+  const rsHint = 'In den Rüstungskästchen den Rüstungsschutz eintragen'
   const titleBase =
     String(def?.tooltip || def?.label || def?.id || '').trim() ||
     String(def?.id || '')
