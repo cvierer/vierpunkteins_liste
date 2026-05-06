@@ -4106,6 +4106,14 @@ export function mountHeroExpandBlock(
     if (persistTimer != null) clearTimeout(persistTimer)
     persistTimer = setTimeout(flushPersistHeroExpand, PERSIST_DEBOUNCE_MS)
   }
+  const cancelPendingPersistHeroExpand = () => {
+    if (persistTimer != null) {
+      clearTimeout(persistTimer)
+      persistTimer = null
+    }
+    persistQueued = false
+    persistNextSnapshot = null
+  }
 
   /** TP: kein Sofort-Persist ab 2 Ziffern; stattdessen 4s nach letzter Eingabe (außer Blur/Enter). */
   const TP_TYPING_DEBOUNCE_MS = 4000
@@ -4128,6 +4136,10 @@ export function mountHeroExpandBlock(
   spTzBridgeBtn.addEventListener('click', async (e) => {
     e.preventDefault()
     e.stopPropagation()
+    // Offene Debounce-Persistenz kann ansonsten kurz danach alte Werte zurückschreiben
+    // und frisch entstandene Auto-Mods (Wunden/LE-Band) wieder entfernen.
+    cancelPendingPersistHeroExpand()
+    clearTpTypingPersistTimer()
     const g0 = structuredClone(gather())
     const res = applyHitZoneStrikeFromSpTz(g0)
     if (!res) {
