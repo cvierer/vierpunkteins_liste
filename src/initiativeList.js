@@ -174,6 +174,9 @@ import { cancelLh } from './lhEngine.js'
 import { createHitZoneOverlay, HIT_ZONE_INFO_ICON_SVG } from './hitZoneOverlay.js'
 import {
   bulkApplyIniFromIbBeW6ForTrackedParticipants,
+  HERO_EX_ENERGY_MODE,
+  HERO_EX_LE_THRESHOLD,
+  HERO_EX_SHOW_FK,
   mountHeroExpandBlock,
 } from './iniModMeta.js'
 import { purgeKrMarksBeforeRound } from './krCombatMarks.js'
@@ -3227,6 +3230,30 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       </fieldset>
       <div data-kampf-hero-wappen-host hidden></div>
     </div>
+    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
+      <h3 class="kampf-settings-panel__sub">Feldsichtbarkeit und Energie</h3>
+      <fieldset class="kampf-settings-convert-announce">
+        <legend class="kampf-settings-convert-announce__legend">Energie-Feld im Heldenblock</legend>
+        <label class="kampf-settings-radio-label">
+          <input type="radio" name="kampf-hero-energy-mode" value="ae" />
+          <span><strong>AE</strong> anzeigen.</span>
+        </label>
+        <label class="kampf-settings-radio-label">
+          <input type="radio" name="kampf-hero-energy-mode" value="ke" />
+          <span><strong>KE</strong> anzeigen.</span>
+        </label>
+      </fieldset>
+      <label class="kampf-settings-checkbox-label">
+        <input type="checkbox" data-kampf-hero-show-fk />
+        <span><strong>FK anzeigen:</strong> bei Vierbeiner standardmäßig ausblendbar.</span>
+      </label>
+      <label class="kampf-settings-checkbox-label">
+        <input type="checkbox" data-kampf-hero-le-threshold-enabled />
+        <span><strong>LE-Schwelle aktivieren:</strong> zusätzliche Schwelle unterhalb der Prozentbänder.</span>
+      </label>
+      <label class="init-row-extra-label" for="kampf-hero-le-threshold-value">LE-Schwelle (Zahl)</label>
+      <input type="text" id="kampf-hero-le-threshold-value" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Positive Zahl, z. B. 5. Leer oder deaktiviert = keine zusätzliche Schwelle." />
+    </div>
     <div class="kampf-settings-panel__actions">
       <button type="button" class="btn kampf-settings-panel__cancel" data-kampf-hero-settings-cancel>Abbrechen</button>
       <button type="button" class="btn btn--primary kampf-settings-panel__save" data-kampf-hero-settings-save>Speichern und schließen</button>
@@ -3297,6 +3324,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const heroWappenHost = heroSettingsPanel.querySelector(
     '[data-kampf-hero-wappen-host]'
   )
+  const heroShowFkCb = heroSettingsPanel.querySelector('[data-kampf-hero-show-fk]')
+  const heroLeThresholdEnabledCb = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-le-threshold-enabled]'
+  )
+  const heroLeThresholdInp = heroSettingsPanel.querySelector(
+    '#kampf-hero-le-threshold-value'
+  )
 
   /** @type {ReturnType<typeof mountWappenEditor> | null} */
   let heroWappenEditor = null
@@ -3331,6 +3365,22 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    * Bedarf das 2.A.-Objekt / P-Schild für die Zusatzaktion an.
    */
   let heroPending = null
+
+  const readHeroEnergyMode = (m) =>
+    String(m?.[HERO_EX_ENERGY_MODE] ?? '').trim().toLowerCase() === 'ke' ? 'ke' : 'ae'
+
+  const readHeroShowFk = (m, fallbackIsVierbeiner) => {
+    const raw = String(m?.[HERO_EX_SHOW_FK] ?? '').trim().toLowerCase()
+    if (!raw) return !fallbackIsVierbeiner
+    return !['0', 'false', 'off', 'no', 'nein'].includes(raw)
+  }
+
+  const readHeroLeThreshold = (m) => {
+    const raw = String(m?.[HERO_EX_LE_THRESHOLD] ?? '').trim().toLowerCase()
+    if (!raw || ['off', 'none', 'false', '0'].includes(raw)) return null
+    const n = Math.floor(Number(raw.replace(',', '.')))
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
 
   if (heroColorGrid instanceof HTMLElement) {
     const swatchHost = document.createElement('div')
@@ -3457,6 +3507,30 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         ? Boolean(heroPending.hideForeignHeroColors)
         : Boolean(room.hideForeignHeroColors)
     }
+    const energyMode = heroPending?.energyMode ?? 'ae'
+    const energyRadios = heroSettingsPanel.querySelectorAll(
+      'input[name="kampf-hero-energy-mode"]'
+    )
+    for (const r of energyRadios) {
+      if (r instanceof HTMLInputElement) {
+        r.checked = r.value === energyMode
+        r.disabled = !heroSettingsGmMode
+      }
+    }
+    if (heroShowFkCb instanceof HTMLInputElement) {
+      heroShowFkCb.checked = heroPending ? heroPending.showFk !== false : true
+      heroShowFkCb.disabled = !heroSettingsGmMode
+    }
+    if (
+      heroLeThresholdEnabledCb instanceof HTMLInputElement &&
+      heroLeThresholdInp instanceof HTMLInputElement
+    ) {
+      const threshold = heroPending?.leThreshold ?? null
+      heroLeThresholdEnabledCb.checked = threshold != null
+      heroLeThresholdEnabledCb.disabled = !heroSettingsGmMode
+      heroLeThresholdInp.disabled = !heroSettingsGmMode || threshold == null
+      heroLeThresholdInp.value = threshold == null ? '' : String(threshold)
+    }
     if (heroSettingsItemId) {
       const it = lastItems.find((i) => i.id === heroSettingsItemId)
       const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
@@ -3571,6 +3645,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       : wappenTemplateRaw === 'vierbeiner'
         ? 'vierbeiner'
         : 'global'
+    const isVierbeinerDefault = initialWappenSource === 'vierbeiner'
     heroPending = {
       heroFaMax:
         m?.heroFaMax == null
@@ -3590,6 +3665,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroIniNegActionsLost: readHeroIniNegActionsLost(m),
       heroIniNegAngMode: readHeroIniNegAngMode(m),
       modDisplayMode: readModDisplayMode(m),
+      energyMode: readHeroEnergyMode(m),
+      showFk: readHeroShowFk(m, isVierbeinerDefault),
+      leThreshold: readHeroLeThreshold(m),
       wappenSource: initialWappenSource,
       wappenOverride: hasWappenOverride
         ? normalizeWappenDefs(wappenOverrideRaw)
@@ -3836,6 +3914,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         m[HERO_ACTION_POOL_ABW] = pend.heroActionPoolAbw
         m[HERO_INI_NEG_ACTIONS_LOST] = pend.heroIniNegActionsLost
         m[HERO_INI_NEG_ANG_MODE] = pend.heroIniNegAngMode
+        if (pend.energyMode === 'ke') m[HERO_EX_ENERGY_MODE] = 'ke'
+        else delete m[HERO_EX_ENERGY_MODE]
+        m[HERO_EX_SHOW_FK] = pend.showFk === false ? '0' : '1'
+        if (pend.leThreshold != null && Number.isFinite(Number(pend.leThreshold))) {
+          m[HERO_EX_LE_THRESHOLD] = String(
+            Math.max(1, Math.floor(Number(pend.leThreshold)))
+          )
+        } else {
+          delete m[HERO_EX_LE_THRESHOLD]
+        }
         if (pend.wappenSource === 'own' && Array.isArray(pend.wappenOverride)) {
           m[HERO_EX_WAPPEN_OVERRIDE] = normalizeWappenDefs(pend.wappenOverride)
           delete m[HERO_EX_WAPPEN_TEMPLATE]
@@ -4027,7 +4115,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         : t.value === 'vierbeiner'
           ? 'vierbeiner'
           : 'global'
+    if (heroPending.wappenSource === 'vierbeiner') {
+      heroPending.showFk = false
+    }
     syncHeroWappenUi(getRoomSettings())
+    syncHeroSettingsCheckboxes()
   })
 
   heroSettingsPanel.addEventListener('change', (e) => {
@@ -4037,6 +4129,42 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     heroPending.modDisplayMode =
       t.value === 'integrated' ? 'integrated' : 'separate'
   })
+
+  heroSettingsPanel.addEventListener('change', (e) => {
+    const t = e.target
+    if (!(t instanceof HTMLInputElement) || !heroPending) return
+    if (t.name === 'kampf-hero-energy-mode') {
+      heroPending.energyMode = t.value === 'ke' ? 'ke' : 'ae'
+      return
+    }
+    if (t === heroShowFkCb) {
+      heroPending.showFk = t.checked
+      return
+    }
+    if (t === heroLeThresholdEnabledCb) {
+      if (!t.checked) {
+        heroPending.leThreshold = null
+      } else if (heroPending.leThreshold == null) {
+        heroPending.leThreshold = 5
+      }
+      syncHeroSettingsCheckboxes()
+    }
+  })
+
+  if (heroLeThresholdInp instanceof HTMLInputElement) {
+    heroLeThresholdInp.addEventListener('change', () => {
+      if (!isGmSync() || !heroPending) return
+      const n = Math.floor(
+        Number(heroLeThresholdInp.value.trim().replace(',', '.'))
+      )
+      if (!Number.isFinite(n) || n <= 0) {
+        syncHeroSettingsCheckboxes()
+        return
+      }
+      heroPending.leThreshold = Math.max(1, Math.min(999, n))
+      heroLeThresholdInp.value = String(heroPending.leThreshold)
+    })
+  }
 
   heroHideForeignCb?.addEventListener('change', () => {
     if (!isGmSync() || !(heroHideForeignCb instanceof HTMLInputElement)) return

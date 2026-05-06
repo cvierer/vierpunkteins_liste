@@ -31,6 +31,7 @@ import { getRoomSettings } from './roomSettings.js'
 import {
   cleanupOrphanHitZoneKeys,
   effectiveWappenForHero,
+  HERO_EX_WAPPEN_TEMPLATE,
 } from './wappenDefs.js'
 import {
   AUTO_MOD_BUNDLE_PREFIX,
@@ -221,6 +222,9 @@ export const HERO_EX_CMOD = 'heroExCMod'
 export const HERO_EX_AU = 'heroExAu'
 /** @deprecated Nur Lesen/Migration */
 export const HERO_EX_KE = 'heroExKe'
+export const HERO_EX_ENERGY_MODE = 'heroExEnergyMode'
+export const HERO_EX_SHOW_FK = 'heroExShowFk'
+export const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
 /** @deprecated Nur Lesen/Migration */
 export const HERO_EX_AEKE_LEGACY = 'heroExAeKe'
 /** @deprecated Nur Lesen/Migration */
@@ -267,6 +271,36 @@ export function readHeroExpandSnapshot(meta) {
       : !['0', 'false', 'nein', 'off'].includes(
           String(frontalRaw).trim().toLowerCase()
         )
+  const energyModeRaw = String(meta?.[HERO_EX_ENERGY_MODE] ?? '')
+    .trim()
+    .toLowerCase()
+  const energyMode = energyModeRaw === 'ke' ? 'ke' : 'ae'
+  const aeVal = strOrEmpty(meta?.[HERO_EX_AE])
+  const keVal = strOrEmpty(meta?.[HERO_EX_KE])
+  const aeKeLegacy = strOrEmpty(meta?.[HERO_EX_AEKE_LEGACY])
+  const energyVal = energyMode === 'ke' ? keVal || aeKeLegacy : aeVal || aeKeLegacy
+  const showFkRaw = String(meta?.[HERO_EX_SHOW_FK] ?? '')
+    .trim()
+    .toLowerCase()
+  const wappenTemplate = String(meta?.[HERO_EX_WAPPEN_TEMPLATE] ?? '')
+    .trim()
+    .toLowerCase()
+  const showFkDefault = wappenTemplate !== 'vierbeiner'
+  const showFk =
+    showFkRaw === ''
+      ? showFkDefault
+      : !['0', 'false', 'off', 'no', 'nein'].includes(showFkRaw)
+  const leThresholdRaw = String(meta?.[HERO_EX_LE_THRESHOLD] ?? '')
+    .trim()
+    .toLowerCase()
+  const leThresholdNum = Math.floor(Number(leThresholdRaw.replace(',', '.')))
+  const leThreshold =
+    !leThresholdRaw ||
+    ['off', 'none', 'false', '0'].includes(leThresholdRaw) ||
+    !Number.isFinite(leThresholdNum) ||
+    leThresholdNum <= 0
+      ? null
+      : leThresholdNum
   const room = getRoomSettings()
   const wappenDefs = effectiveWappenForHero(meta, room)
   return {
@@ -275,7 +309,8 @@ export function readHeroExpandSnapshot(meta) {
     a: strOrEmpty(meta?.[HERO_EX_A]),
     le: strOrEmpty(meta?.[HERO_EX_LE]),
     leMax: strOrEmpty(meta?.[HERO_EX_LE_MAX]),
-    ae: strOrEmpty(meta?.[HERO_EX_AE]),
+    ae: energyVal,
+    energyMode,
     au: strOrEmpty(meta?.[HERO_EX_AU]),
     ko: strOrEmpty(meta?.[HERO_EX_KO]),
     tp: strOrEmpty(meta?.[HERO_EX_TP]),
@@ -283,6 +318,8 @@ export function readHeroExpandSnapshot(meta) {
     tz: strOrEmpty(meta?.[HERO_EX_TZ]),
     frontal,
     fk: strOrEmpty(meta?.[HERO_EX_FK]),
+    showFk,
+    leThreshold,
     gs: strOrEmpty(meta?.[HERO_EX_GS]),
     ib: strOrEmpty(meta?.[HERO_EX_IB]),
     be: strOrEmpty(meta?.[HERO_EX_BE]),
@@ -379,7 +416,17 @@ export async function applyHeroExpandFields(itemId, next) {
       setStr(HERO_EX_A, next.a)
       setStr(HERO_EX_LE, next.le)
       setStr(HERO_EX_LE_MAX, next.leMax)
-      setStr(HERO_EX_AE, next.ae)
+      const energyMode =
+        String(next.energyMode ?? '').trim().toLowerCase() === 'ke' ? 'ke' : 'ae'
+      if (energyMode === 'ke') {
+        setStr(HERO_EX_KE, next.ae)
+        delete m[HERO_EX_AE]
+        m[HERO_EX_ENERGY_MODE] = 'ke'
+      } else {
+        setStr(HERO_EX_AE, next.ae)
+        delete m[HERO_EX_KE]
+        delete m[HERO_EX_ENERGY_MODE]
+      }
       setStr(HERO_EX_AU, next.au)
       setStr(HERO_EX_KO, next.ko)
       setStr(HERO_EX_TP, next.tp)
@@ -388,6 +435,14 @@ export async function applyHeroExpandFields(itemId, next) {
       if (next.frontal === false) m[HERO_EX_FRONTAL] = '0'
       else delete m[HERO_EX_FRONTAL]
       setStr(HERO_EX_FK, next.fk)
+      if (next.showFk === false) m[HERO_EX_SHOW_FK] = '0'
+      else if (next.showFk === true) m[HERO_EX_SHOW_FK] = '1'
+      else delete m[HERO_EX_SHOW_FK]
+      if (Number.isFinite(Number(next.leThreshold)) && Number(next.leThreshold) > 0) {
+        m[HERO_EX_LE_THRESHOLD] = String(Math.floor(Number(next.leThreshold)))
+      } else {
+        delete m[HERO_EX_LE_THRESHOLD]
+      }
       setStr(HERO_EX_GS, next.gs)
       setStr(HERO_EX_IB, next.ib)
       setStr(HERO_EX_BE, next.be)
@@ -629,6 +684,13 @@ export function mountHeroExpandBlock(
   { itemId, meta, canEdit, leadButtons, displayName }
 ) {
   const snap = readHeroExpandSnapshot(meta)
+  const energyFieldLabel = snap.energyMode === 'ke' ? 'Karmaenergie (KE)' : 'Astralenergie (AE)'
+  const energyFieldAbbr = snap.energyMode === 'ke' ? 'KE' : 'AE'
+  const showFkField = snap.showFk !== false
+  const customLeThreshold =
+    Number.isFinite(Number(snap.leThreshold)) && Number(snap.leThreshold) > 0
+      ? Math.floor(Number(snap.leThreshold))
+      : null
   const auSnap = snap.au
   const hitZoneNotizFrozen = snap.hitZones.notiz
   const __combatRound = getCombat()
@@ -1002,11 +1064,11 @@ export function mountHeroExpandBlock(
     true
   )
   const ae = mkMicro(
-    'AE',
-    'Astralenergie (AE)',
+    energyFieldAbbr,
+    energyFieldLabel,
     'ae',
     microDisplayForModField('ae', snap.ae),
-    2,
+    3,
     '',
     true
   )
@@ -1305,7 +1367,7 @@ export function mountHeroExpandBlock(
     const leVal = parseSignedIntLoose(le.inp.value)
     const leMaxVal = parseNonNegIntLoose(leMax.inp.value)
     if (leVal === null || leMaxVal === null || leMaxVal <= 0) return 0
-    const band = leBand(leVal, leMaxVal)
+    const band = leBand(leVal, leMaxVal, customLeThreshold)
     return leAtPaMalusForBand(band)
   }
 
@@ -1475,9 +1537,9 @@ export function mountHeroExpandBlock(
       leThreshFill.style.height = '0%'
       delete leThreshCell.dataset.leBand
     }
-    if (maxV != null && maxV > 5) {
+    if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
       leThreshLine5.style.display = ''
-      leThreshLine5.style.bottom = ((5 / maxV) * 100).toFixed(3) + '%'
+      leThreshLine5.style.bottom = ((customLeThreshold / maxV) * 100).toFixed(3) + '%'
     } else {
       leThreshLine5.style.display = 'none'
     }
@@ -2035,19 +2097,19 @@ export function mountHeroExpandBlock(
       lePopLab25.textContent = '1/4 = —'
     }
 
-    if (maxV != null && maxV > 5) {
-      const pct = (5 / maxV) * 100
+    if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
+      const pct = (customLeThreshold / maxV) * 100
       lePopLineLe5.style.display = ''
       lePopLineLe5.style.bottom = pct.toFixed(3) + '%'
       lePopLabLe5.style.display = ''
       lePopConnLe5.style.display = ''
       setConnPath(lePopConnLe5, pct, SLOT_Y_LE5, KINK_LE5, END_X)
-      const malLe5 = leV != null && (dead || leV <= 5)
+      const malLe5 = leV != null && (dead || leV <= customLeThreshold)
       if (malLe5) {
         lePopLabLe5.innerHTML =
-          '<span class="init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal">5</span>'
+          `<span class="init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal">${customLeThreshold}</span>`
       } else {
-        lePopLabLe5.textContent = '5'
+        lePopLabLe5.textContent = String(customLeThreshold)
       }
     } else {
       lePopLineLe5.style.display = 'none'
@@ -2165,7 +2227,7 @@ export function mountHeroExpandBlock(
     pa.cell,
     ausw.cell,
     tpCell,
-    fk.cell,
+    ...(showFkField ? [fk.cell] : []),
     gs.cell,
     ae.cell,
     ibChain
@@ -3205,7 +3267,7 @@ export function mountHeroExpandBlock(
       if (negLe) extra = ' · aktuell LE<0'
       else if (dead) extra = ' · aktuell LE≤0'
       else if (leV != null && maxV != null && maxV > 0) {
-        const band = leBand(leV, maxV)
+        const band = leBand(leV, maxV, customLeThreshold)
         const frag = leBandLabelDe(band)
         if (frag) extra = ` · aktuell LE${frag}`
       }
@@ -3971,6 +4033,7 @@ export function mountHeroExpandBlock(
     le: le.inp.value,
     leMax: leMax.inp.value,
     ae: ae.inp.value,
+    energyMode: snap.energyMode,
     au: auSnap,
     ko: koAttr.inp.value,
     tp: tpInp.value,
@@ -3979,11 +4042,13 @@ export function mountHeroExpandBlock(
     frontal: frontalChk.checked,
     wappenDefs: snap.wappenDefs,
     fk: fk.inp.value,
+    showFk: showFkField,
     gs: gs.inp.value,
     ib: ib.inp.value,
     be: be.inp.value,
     w6: w6.inp.value,
     ws: ws.inp.value,
+    leThreshold: customLeThreshold,
     mu: mu.inp.value,
     kl: kl.inp.value,
     inn: inn.inp.value,
@@ -4381,7 +4446,7 @@ export function mountHeroExpandBlock(
     leMax.inp,
     ae.inp,
     tpInp,
-    fk.inp,
+    ...(showFkField ? [fk.inp] : []),
     gs.inp,
     ib.inp,
     be.inp,

@@ -44,6 +44,8 @@ const HERO_EX_LE = 'heroExLe'
 const HERO_EX_LE_MAX = 'heroExLeMax'
 const HERO_EX_KO = 'heroExKo'
 const HERO_EX_GS = 'heroExGs'
+const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
+const HERO_EX_SHOW_FK = 'heroExShowFk'
 
 export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
 const AUTO_ZONE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}zone-`
@@ -68,9 +70,12 @@ function parseNonNegInt(raw) {
  * @param {number} le
  * @param {number} leMax
  */
-export function leBand(le, leMax) {
+export function leBand(le, leMax, extraThreshold = null) {
   if (le <= 0) return 4
-  if (le <= 5) return 3
+  if (Number.isFinite(Number(extraThreshold))) {
+    const t = Math.max(0, Math.floor(Number(extraThreshold)))
+    if (t > 0 && le <= t) return 3
+  }
   if (le * 4 < leMax) return 2
   if (le * 3 < leMax) return 1
   if (le * 2 < leMax) return 0
@@ -126,10 +131,34 @@ export function leBandLabelDe(band) {
  *
  * @param {number} band
  */
-function leAutoChipLabelDe(band) {
+function leAutoChipLabelDe(band, extraThreshold = null) {
   if (band >= 4) return '<=0'
-  if (band === 3) return '<5'
+  if (band === 3) {
+    const t = Number(extraThreshold)
+    return Number.isFinite(t) && t > 0 ? `<${Math.floor(t)}` : '<S'
+  }
   return leBandLabelDe(band)
+}
+
+/**
+ * @param {Record<string, unknown>} snap
+ * @returns {number | null}
+ */
+function readLeThresholdFromSnapshot(snap) {
+  const t = String(snap?.leThreshold ?? '').trim().toLowerCase()
+  if (!t || t === 'off' || t === 'none' || t === 'false' || t === '0') return null
+  const n = Math.floor(Number(t.replace(',', '.')))
+  if (!Number.isFinite(n) || n <= 0) return null
+  return n
+}
+
+/**
+ * @param {Record<string, unknown>} snap
+ * @returns {boolean}
+ */
+function showFkFromSnapshot(snap) {
+  const t = String(snap?.showFk ?? '').trim().toLowerCase()
+  return !['0', 'false', 'off', 'no', 'nein'].includes(t)
 }
 
 /**
@@ -214,7 +243,7 @@ export function updateLastSafeLeIfSafe(m) {
   const leNum = parseSignedInt(snap.le)
   const leMaxNum = parseNonNegInt(snap.leMax)
   if (leNum === null || leMaxNum === null || leMaxNum <= 0) return
-  if (leBand(leNum, leMaxNum) !== -1) return
+  if (leBand(leNum, leMaxNum, readLeThresholdFromSnapshot(snap)) !== -1) return
   m[HERO_EX_LAST_SAFE_LE] = String(leNum)
 }
 
@@ -328,7 +357,7 @@ export function computeAutoTriggerSignature(snap, autoBundleId) {
     const leMaxNum = parseNonNegInt(snap.leMax)
     const koNum = parseSignedInt(snap.ko)
     if (leNum === null || leMaxNum === null || leMaxNum <= 0) return null
-    const band = leBand(leNum, leMaxNum)
+    const band = leBand(leNum, leMaxNum, readLeThresholdFromSnapshot(snap))
     if (leAtPaMalusForBand(band) <= 0) return null
     if (leNum <= 0) {
       const depth = -leNum
@@ -356,11 +385,21 @@ export function computeAutoTriggerSignature(snap, autoBundleId) {
 export function snapshotFromTrackerMeta(m) {
   const room = getRoomSettings()
   const wappenDefs = effectiveWappenForHero(m, room)
+  const templateRaw = String(m?.heroExWappenTemplate ?? '')
+    .trim()
+    .toLowerCase()
+  const showFkRaw = String(m?.[HERO_EX_SHOW_FK] ?? '').trim().toLowerCase()
+  const showFkEff =
+    showFkRaw === ''
+      ? templateRaw !== 'vierbeiner'
+      : !['0', 'false', 'off', 'no', 'nein'].includes(showFkRaw)
   return {
     le: String(m?.[HERO_EX_LE] ?? ''),
     leMax: String(m?.[HERO_EX_LE_MAX] ?? ''),
     ko: String(m?.[HERO_EX_KO] ?? ''),
     gs: String(m?.[HERO_EX_GS] ?? ''),
+    leThreshold: String(m?.[HERO_EX_LE_THRESHOLD] ?? ''),
+    showFk: showFkEff ? '1' : '0',
     hitZones: readHitZoneBundle(m, TRACKER_ITEM_META_KEY, wappenDefs),
     wappenDefs,
   }
@@ -400,13 +439,15 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
   const leNum = parseSignedInt(snap.le)
   const leMaxNum = parseNonNegInt(snap.leMax)
   if (leNum !== null && leMaxNum !== null && leMaxNum > 0) {
-    const m = leAtPaMalusForBand(leBand(leNum, leMaxNum))
+    const m = leAtPaMalusForBand(
+      leBand(leNum, leMaxNum, readLeThresholdFromSnapshot(snap))
+    )
     if (m > 0) {
       const d = -m
       add('at', d)
       add('pa', d)
       add('a', d)
-      add('fk', d)
+      if (showFkFromSnapshot(snap)) add('fk', d)
     }
   }
 
@@ -519,17 +560,24 @@ export function buildHeroAutoModRecords(snap, ctx) {
   const leMaxNum = parseNonNegInt(snap.leMax)
   const koNum = parseSignedInt(snap.ko)
   if (leNum !== null && leMaxNum !== null && leMaxNum > 0) {
-    const band = leBand(leNum, leMaxNum)
+    const leThreshold = readLeThresholdFromSnapshot(snap)
+    const band = leBand(leNum, leMaxNum, leThreshold)
     const m = leAtPaMalusForBand(band)
     if (m > 0) {
-      const labelBand = leNum <= 0 ? leKoCriticalLabel(leNum, koNum) : leAutoChipLabelDe(band)
+      const labelBand =
+        leNum <= 0
+          ? leKoCriticalLabel(leNum, koNum)
+          : leAutoChipLabelDe(band, leThreshold)
       const label =
         labelBand === '<-1,5KO' || labelBand === '<-1/2KO'
           ? labelBand
           : labelBand
             ? `LE${labelBand}`
             : 'LE'
-      const rows = ['at', 'pa', 'a', 'fk'].map((field) => ({
+      const leFields = showFkFromSnapshot(snap)
+        ? ['at', 'pa', 'a', 'fk']
+        : ['at', 'pa', 'a']
+      const rows = leFields.map((field) => ({
         field,
         delta: -m,
       }))
