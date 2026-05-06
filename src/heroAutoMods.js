@@ -23,12 +23,26 @@ import {
   cloneDefaultWappenDefs,
   effectiveWappenForHero,
 } from './wappenDefs.js'
+import {
+  aggregateLeBandModsByField,
+  defaultLeBandLabel,
+  effectiveLeBandsForHero,
+  legacyTriggerSignatureForLeBand,
+  matchLeBand,
+} from './leBandDefs.js'
 
 /** Liefert die Wappen-Liste aus dem Snapshot oder fällt auf die Defaults zurück. */
 function wappenDefsFromSnap(snap) {
   const list = snap?.wappenDefs
   if (Array.isArray(list) && list.length > 0) return list
   return cloneDefaultWappenDefs()
+}
+
+/** Liefert die LE-Band-Liste aus dem Snapshot oder leitet sie aus Meta+Room ab. */
+function leBandsFromSnap(snap) {
+  const list = snap?.leBands
+  if (Array.isArray(list) && list.length > 0) return list
+  return effectiveLeBandsForHero({}, getRoomSettings())
 }
 
 /** Tracker-Meta: unterdrückte Auto-Bündel bis sich die Quellsignatur ändert. */
@@ -126,55 +140,12 @@ export function leBandLabelDe(band) {
 }
 
 /**
- * Kompakte LE-Labels für Auto-Mod-Chips:
- * kritische Bereiche explizit statt nur Bruchteil-Band.
- *
- * @param {number} band
- */
-function leAutoChipLabelDe(band, extraThreshold = null) {
-  if (band >= 4) return '<=0'
-  if (band === 3) {
-    const t = Number(extraThreshold)
-    return Number.isFinite(t) && t > 0 ? `<${Math.floor(t)}` : '<S'
-  }
-  return leBandLabelDe(band)
-}
-
-/**
- * @param {Record<string, unknown>} snap
- * @returns {number | null}
- */
-function readLeThresholdFromSnapshot(snap) {
-  const t = String(snap?.leThreshold ?? '').trim().toLowerCase()
-  if (!t || t === 'off' || t === 'none' || t === 'false' || t === '0') return null
-  const n = Math.floor(Number(t.replace(',', '.')))
-  if (!Number.isFinite(n) || n <= 0) return null
-  return n
-}
-
-/**
  * @param {Record<string, unknown>} snap
  * @returns {boolean}
  */
 function showFkFromSnapshot(snap) {
   const t = String(snap?.showFk ?? '').trim().toLowerCase()
   return !['0', 'false', 'off', 'no', 'nein'].includes(t)
-}
-
-/**
- * Zusätzliche LE/KO-Stufen für Auto-Label im negativen Bereich.
- *
- * @param {number} leNum
- * @param {number | null} koNum
- */
-function leKoCriticalLabel(leNum, koNum) {
-  if (leNum > 0) return ''
-  if (!(koNum != null && koNum > 0)) return '<=0'
-  const depth = -leNum
-  if (depth > 1.5 * koNum) return '<-1,5KO'
-  if (depth > koNum) return '<-KO'
-  if (depth > 0.5 * koNum) return '<-1/2KO'
-  return '<=0'
 }
 
 /**
@@ -234,7 +205,7 @@ export function resolveOriginAutoId(meta, bundleId) {
 }
 
 /**
- * Speichert letztes LE im Band ohne AT/PA-Malus (leBand === -1).
+ * Speichert letztes LE im Band ohne AT/PA-Malus (kein Band trifft).
  *
  * @param {Record<string, unknown>} m — Tracker-Metadaten (mutiert)
  */
@@ -243,7 +214,11 @@ export function updateLastSafeLeIfSafe(m) {
   const leNum = parseSignedInt(snap.le)
   const leMaxNum = parseNonNegInt(snap.leMax)
   if (leNum === null || leMaxNum === null || leMaxNum <= 0) return
-  if (leBand(leNum, leMaxNum, readLeThresholdFromSnapshot(snap)) !== -1) return
+  const match = matchLeBand(
+    { le: snap.le, leMax: snap.leMax, ko: snap.ko },
+    leBandsFromSnap(snap)
+  )
+  if (match) return
   m[HERO_EX_LAST_SAFE_LE] = String(leNum)
 }
 
@@ -353,21 +328,16 @@ export async function removeBundleWithAutoCleanup(itemId, bundleId) {
 export function computeAutoTriggerSignature(snap, autoBundleId) {
   const bid = String(autoBundleId ?? '')
   if (bid === 'auto-le-band') {
-    const leNum = parseSignedInt(snap.le)
-    const leMaxNum = parseNonNegInt(snap.leMax)
-    const koNum = parseSignedInt(snap.ko)
-    if (leNum === null || leMaxNum === null || leMaxNum <= 0) return null
-    const band = leBand(leNum, leMaxNum, readLeThresholdFromSnapshot(snap))
-    if (leAtPaMalusForBand(band) <= 0) return null
-    if (leNum <= 0) {
-      const depth = -leNum
-      if (!(koNum != null && koNum > 0)) return 400
-      if (depth > 1.5 * koNum) return 403
-      if (depth > koNum) return 402
-      if (depth > 0.5 * koNum) return 401
-      return 400
-    }
-    return band
+    const bands = leBandsFromSnap(snap)
+    const match = matchLeBand(
+      { le: snap.le, leMax: snap.leMax, ko: snap.ko },
+      bands
+    )
+    if (!match) return null
+    const agg = aggregateLeBandModsByField(match.def)
+    const hasMod = Object.values(agg).some((v) => v !== 0)
+    if (!hasMod) return null
+    return legacyTriggerSignatureForLeBand(match.def)
   }
   if (bid.startsWith(AUTO_ZONE_PREFIX)) {
     const zoneId = bid.slice(AUTO_ZONE_PREFIX.length)
@@ -385,6 +355,7 @@ export function computeAutoTriggerSignature(snap, autoBundleId) {
 export function snapshotFromTrackerMeta(m) {
   const room = getRoomSettings()
   const wappenDefs = effectiveWappenForHero(m, room)
+  const leBands = effectiveLeBandsForHero(m, room)
   const templateRaw = String(m?.heroExWappenTemplate ?? '')
     .trim()
     .toLowerCase()
@@ -402,6 +373,7 @@ export function snapshotFromTrackerMeta(m) {
     showFk: showFkEff ? '1' : '0',
     hitZones: readHitZoneBundle(m, TRACKER_ITEM_META_KEY, wappenDefs),
     wappenDefs,
+    leBands,
   }
 }
 
@@ -436,18 +408,17 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
     sums[field] = (sums[field] ?? 0) + d
   }
 
-  const leNum = parseSignedInt(snap.le)
-  const leMaxNum = parseNonNegInt(snap.leMax)
-  if (leNum !== null && leMaxNum !== null && leMaxNum > 0) {
-    const m = leAtPaMalusForBand(
-      leBand(leNum, leMaxNum, readLeThresholdFromSnapshot(snap))
-    )
-    if (m > 0) {
-      const d = -m
-      add('at', d)
-      add('pa', d)
-      add('a', d)
-      if (showFkFromSnapshot(snap)) add('fk', d)
+  const leBands = leBandsFromSnap(snap)
+  const leMatch = matchLeBand(
+    { le: snap.le, leMax: snap.leMax, ko: snap.ko },
+    leBands
+  )
+  if (leMatch) {
+    const showFk = showFkFromSnapshot(snap)
+    for (const mod of leMatch.def.mods || []) {
+      if (!mod || !mod.field || !mod.delta) continue
+      if (mod.field === 'fk' && !showFk) continue
+      add(mod.field, mod.delta)
     }
   }
 
@@ -556,31 +527,29 @@ export function buildHeroAutoModRecords(snap, ctx) {
     }
   }
 
-  const leNum = parseSignedInt(snap.le)
-  const leMaxNum = parseNonNegInt(snap.leMax)
-  const koNum = parseSignedInt(snap.ko)
-  if (leNum !== null && leMaxNum !== null && leMaxNum > 0) {
-    const leThreshold = readLeThresholdFromSnapshot(snap)
-    const band = leBand(leNum, leMaxNum, leThreshold)
-    const m = leAtPaMalusForBand(band)
-    if (m > 0) {
-      const labelBand =
-        leNum <= 0
-          ? leKoCriticalLabel(leNum, koNum)
-          : leAutoChipLabelDe(band, leThreshold)
+  const leBands = leBandsFromSnap(snap)
+  const leMatch = matchLeBand(
+    { le: snap.le, leMax: snap.leMax, ko: snap.ko },
+    leBands
+  )
+  if (leMatch) {
+    const showFk = showFkFromSnapshot(snap)
+    /** @type {{ field: string, delta: number }[]} */
+    const rows = []
+    for (const mod of leMatch.def.mods || []) {
+      if (!mod || !mod.field || !mod.delta) continue
+      if (mod.field === 'fk' && !showFk) continue
+      rows.push({ field: mod.field, delta: mod.delta })
+    }
+    if (rows.length > 0) {
+      const baseLabel = defaultLeBandLabel(leMatch.def) || 'LE'
       const label =
-        labelBand === '<-1,5KO' || labelBand === '<-1/2KO'
-          ? labelBand
-          : labelBand
-            ? `LE${labelBand}`
-            : 'LE'
-      const leFields = showFkFromSnapshot(snap)
-        ? ['at', 'pa', 'a', 'fk']
-        : ['at', 'pa', 'a']
-      const rows = leFields.map((field) => ({
-        field,
-        delta: -m,
-      }))
+        baseLabel.startsWith('LE') ||
+        baseLabel.startsWith('<-1,5KO') ||
+        baseLabel.startsWith('<-KO') ||
+        baseLabel.startsWith('<-1/2KO')
+          ? baseLabel
+          : `LE${baseLabel}`
       pushRows('auto-le-band', label, rows)
     }
   }

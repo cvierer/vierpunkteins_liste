@@ -33,6 +33,7 @@ import {
   effectiveWappenForHero,
   HERO_EX_WAPPEN_TEMPLATE,
 } from './wappenDefs.js'
+import { effectiveLeBandsForHero } from './leBandDefs.js'
 import {
   AUTO_MOD_BUNDLE_PREFIX,
   computeKrAutoPenaltyWorseningMarks,
@@ -311,6 +312,7 @@ export function readHeroExpandSnapshot(meta) {
       : leThresholdNum
   const room = getRoomSettings()
   const wappenDefs = effectiveWappenForHero(meta, room)
+  const leBands = effectiveLeBandsForHero(meta, room)
   return {
     at: strOrEmpty(meta?.[HERO_EX_AT]),
     pa: strOrEmpty(meta?.[HERO_EX_PA]),
@@ -343,6 +345,7 @@ export function readHeroExpandSnapshot(meta) {
     kk: strOrEmpty(meta?.[HERO_EX_KK]),
     hitZones: readHitZoneBundle(meta, TRACKER_ITEM_META_KEY, wappenDefs),
     wappenDefs,
+    leBands,
   }
 }
 

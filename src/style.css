@@ -8675,6 +8675,198 @@ select.init-row-extra-select {
   padding: 0.25rem 0.6rem;
 }
 
+.kampf-le-bands-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+}
+
+.kampf-le-bands-editor__hint {
+  margin: 0 0 0.35rem;
+}
+
+.kampf-le-bands-editor__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.kampf-le-bands-editor__card {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem 0.55rem;
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.kampf-le-bands-editor__card--inactive {
+  opacity: 0.55;
+}
+
+.kampf-le-bands-editor__card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.kampf-le-bands-editor__card-title {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--color-ink);
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.kampf-le-bands-editor__card-ctrls {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.kampf-le-bands-editor__move,
+.kampf-le-bands-editor__remove {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.kampf-le-bands-editor__active-toggle {
+  margin: 0;
+  font-size: 0.78rem;
+  align-items: center;
+}
+
+.kampf-le-bands-editor__card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 0.55rem;
+}
+
+.kampf-le-bands-editor__field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.kampf-le-bands-editor__field--full {
+  grid-column: 1 / -1;
+}
+
+.kampf-le-bands-editor__threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.kampf-le-bands-editor__threshold-type {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+
+.kampf-le-bands-editor__threshold-params {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+}
+
+.kampf-le-bands-editor__threshold-num {
+  width: 4.2rem;
+  text-align: center;
+}
+
+.kampf-le-bands-editor__threshold-sep {
+  font-weight: 600;
+}
+
+.kampf-le-bands-editor__threshold-hint {
+  font-size: 0.74rem;
+  color: var(--color-ink-muted);
+  flex: 1 1 100%;
+}
+
+.kampf-le-bands-editor__mods {
+  margin-top: 0.45rem;
+  border-top: 1px dashed rgba(0, 0, 0, 0.15);
+  padding-top: 0.35rem;
+}
+
+.kampf-le-bands-editor__mods-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  margin-bottom: 0.3rem;
+}
+
+.kampf-le-bands-editor__mods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.kampf-le-bands-editor__mod-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3.6rem 1.6rem;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.kampf-le-bands-editor__mod-delta {
+  text-align: center;
+}
+
+.kampf-le-bands-editor__mod-rm {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.kampf-le-bands-editor__mod-add {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.55rem;
+}
+
+.kampf-le-bands-editor__validity {
+  font-size: 0.78rem;
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+}
+
+.kampf-le-bands-editor__validity--ok {
+  background: rgba(34, 139, 34, 0.1);
+  color: #1f6b1f;
+  border: 1px solid rgba(34, 139, 34, 0.3);
+}
+
+.kampf-le-bands-editor__validity--err {
+  background: rgba(180, 50, 50, 0.1);
+  color: #8a1f1f;
+  border: 1px solid rgba(180, 50, 50, 0.35);
+}
+
+.kampf-le-bands-editor__actions {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.kampf-le-bands-editor__add,
+.kampf-le-bands-editor__reset {
+  font-size: 0.78rem;
+  padding: 0.25rem 0.6rem;
+}
+
 /* Im engen Settings-Panel die Wappen-Sektion etwas mehr Platz geben. */
 .kampf-settings-panel--with-wappen {
   width: min(

@@ -295,6 +295,119 @@ describe('applyBundleRemovalCleanup', () => {
   })
 })
 
+describe('Custom LE-Bänder via snap.leBands', () => {
+  const ctx = { round: 1, navIni: Number.POSITIVE_INFINITY }
+
+  it('benutzerdefiniertes Band ersetzt Default und liefert eigene Mods', () => {
+    const customBands = [
+      {
+        id: 'mybad',
+        active: true,
+        label: 'Mein <1/2',
+        tooltip: '',
+        threshold: { type: 'fraction', num: 1, den: 2 },
+        mods: [
+          { field: 'at', delta: -7 },
+          { field: 'mu', delta: -2 },
+        ],
+      },
+    ]
+    const s = snap({ le: '15', leMax: '40', leBands: customBands })
+    const mods = buildHeroAutoModRecords(s, ctx)
+    const leb = mods.filter((m) => m.bundleId === 'auto-le-band')
+    const byField = Object.fromEntries(leb.map((m) => [m.field, m.delta]))
+    expect(byField.at).toBe(-7)
+    expect(byField.mu).toBe(-2)
+    // 'pa' ist nicht in den Custom-Mods → fehlt
+    expect(byField.pa).toBeUndefined()
+  })
+
+  it('aggregateHeroAutoPenaltyDeltasFromExpandSnapshot nutzt Custom-Bänder', () => {
+    const customBands = [
+      {
+        id: 'mybad',
+        active: true,
+        label: 'Mein <1/2',
+        tooltip: '',
+        threshold: { type: 'fraction', num: 1, den: 2 },
+        mods: [{ field: 'at', delta: -5 }],
+      },
+    ]
+    const s = snap({ le: '15', leMax: '40', leBands: customBands })
+    const agg = aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(s)
+    expect(agg.at).toBe(-5)
+    expect(agg.pa).toBeUndefined()
+  })
+
+  it('fk-Mod wird unterdrückt, wenn showFk aus ist', () => {
+    const customBands = [
+      {
+        id: 'mybad',
+        active: true,
+        label: '',
+        tooltip: '',
+        threshold: { type: 'fraction', num: 1, den: 2 },
+        mods: [
+          { field: 'at', delta: -1 },
+          { field: 'fk', delta: -3 },
+        ],
+      },
+    ]
+    const s = snap({
+      le: '15',
+      leMax: '40',
+      showFk: '0',
+      leBands: customBands,
+    })
+    const mods = buildHeroAutoModRecords(s, ctx)
+    const leb = mods.filter((m) => m.bundleId === 'auto-le-band')
+    const byField = Object.fromEntries(leb.map((m) => [m.field, m.delta]))
+    expect(byField.at).toBe(-1)
+    expect(byField.fk).toBeUndefined()
+  })
+
+  it('Negativ-KO-Tiefe-Band wird getroffen (LE=-6, KO=10)', () => {
+    const customBands = [
+      {
+        id: 'critko',
+        active: true,
+        label: 'Mein <-1/2KO',
+        tooltip: '',
+        threshold: { type: 'negKoDepth', factor: 0.5 },
+        mods: [{ field: 'at', delta: -10 }],
+      },
+    ]
+    const s = snap({
+      le: '-6',
+      leMax: '40',
+      ko: '10',
+      leBands: customBands,
+    })
+    const mods = buildHeroAutoModRecords(s, ctx)
+    const leb = mods.filter((m) => m.bundleId === 'auto-le-band')
+    expect(leb.length).toBe(1)
+    expect(leb[0].field).toBe('at')
+    expect(leb[0].delta).toBe(-10)
+  })
+
+  it('keine LE-Mods, wenn kein Band greift (LE im sicheren Bereich)', () => {
+    const customBands = [
+      {
+        id: 'mybad',
+        active: true,
+        label: '',
+        tooltip: '',
+        threshold: { type: 'fraction', num: 1, den: 2 },
+        mods: [{ field: 'at', delta: -7 }],
+      },
+    ]
+    const s = snap({ le: '40', leMax: '40', leBands: customBands })
+    const mods = buildHeroAutoModRecords(s, ctx)
+    const leb = mods.filter((m) => m.bundleId === 'auto-le-band')
+    expect(leb).toHaveLength(0)
+  })
+})
+
 describe('updateLastSafeLeIfSafe', () => {
   it('speichert LE bei Band -1', () => {
     const m = /** @type {Record<string, unknown>} */ ({

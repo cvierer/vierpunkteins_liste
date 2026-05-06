@@ -15,6 +15,8 @@ import {
 } from './roomSettings.js'
 import { mountWappenEditor } from './wappenEditor.js'
 import { cloneDefaultWappenDefs } from './wappenDefs.js'
+import { mountLeBandsEditor } from './leBandsEditor.js'
+import { cloneDefaultLeBandDefs } from './leBandDefs.js'
 
 export const KAMPF_GEAR_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`
 
@@ -78,6 +80,11 @@ export function setupSettingsPanel(gearHost) {
       <p class="kampf-settings-panel__microhint">Standard-Kästchen für Wunden und Trefferzonen für alle Helden. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen. Pro Kämpfer kann die Spielleitung in den Helden-Einstellungen eine eigene Liste setzen.</p>
       <div data-kampf-settings-wappen-host></div>
     </div>
+    <div class="kampf-settings-panel__section" data-kampf-settings-le-bands-section>
+      <h3 class="kampf-settings-panel__sub">LE-Schwellen und Effekte (Raum-Default)</h3>
+      <p class="kampf-settings-panel__microhint">Bänder gelten von oben (am schwersten) nach unten — das erste passende Band gewinnt. Pro Band lassen sich beliebige Werte (AT, PA, AW, FK …) verändern. Pro Kämpfer kann die Spielleitung in den Helden-Einstellungen eine eigene Bänder-Liste setzen.</p>
+      <div data-kampf-settings-le-bands-host></div>
+    </div>
     <div class="kampf-settings-panel__section kampf-settings-panel__future">
       <h3 class="kampf-settings-panel__sub">Weitere Ideen (noch nicht umgesetzt)</h3>
       <ul class="kampf-settings-panel__ideas">
@@ -110,10 +117,14 @@ export function setupSettingsPanel(gearHost) {
   const cancelBtn = panel.querySelector('button.kampf-settings-panel__cancel')
   const wappenSection = panel.querySelector('[data-kampf-settings-wappen-section]')
   const wappenHost = panel.querySelector('[data-kampf-settings-wappen-host]')
+  const leBandsSection = panel.querySelector('[data-kampf-settings-le-bands-section]')
+  const leBandsHost = panel.querySelector('[data-kampf-settings-le-bands-host]')
 
   /** @type {ReturnType<typeof mountWappenEditor> | null} */
   let wappenEditor = null
   let wappenValid = true
+  /** @type {ReturnType<typeof mountLeBandsEditor> | null} */
+  let leBandsEditor = null
 
   /**
    * Zwischenspeicher: wird beim Öffnen gefüllt und beim „Abbrechen“ verworfen.
@@ -124,6 +135,8 @@ export function setupSettingsPanel(gearHost) {
   let pendingForeignHero = null
   /** Aktuelle Wappen-Liste im Editor (nur GM); null wenn nicht eingelesen. */
   let pendingWappen = null
+  /** Aktuelle LE-Band-Liste im Editor (nur GM); null wenn nicht eingelesen. */
+  let pendingLeBands = null
 
   const refreshSaveDisabled = () => {
     if (!(saveBtn instanceof HTMLButtonElement)) return
@@ -162,6 +175,11 @@ export function setupSettingsPanel(gearHost) {
       wappenSection.hidden = !gm
       wappenSection.style.display = gm ? '' : 'none'
     }
+    if (leBandsSection instanceof HTMLElement) {
+      const gm = isGmSync()
+      leBandsSection.hidden = !gm
+      leBandsSection.style.display = gm ? '' : 'none'
+    }
     refreshSaveDisabled()
   }
 
@@ -173,9 +191,14 @@ export function setupSettingsPanel(gearHost) {
     pendingStamps = null
     pendingForeignHero = null
     pendingWappen = null
+    pendingLeBands = null
     if (wappenEditor) {
       wappenEditor.destroy()
       wappenEditor = null
+    }
+    if (leBandsEditor) {
+      leBandsEditor.destroy()
+      leBandsEditor = null
     }
     gear.focus()
   }
@@ -213,6 +236,26 @@ export function setupSettingsPanel(gearHost) {
       pendingWappen = null
       wappenValid = true
     }
+    if (isGmSync() && leBandsHost instanceof HTMLElement) {
+      if (leBandsEditor) {
+        leBandsEditor.destroy()
+        leBandsEditor = null
+      }
+      const initialLe =
+        Array.isArray(s.leBandDefs) && s.leBandDefs.length > 0
+          ? s.leBandDefs
+          : cloneDefaultLeBandDefs()
+      pendingLeBands = initialLe
+      leBandsEditor = mountLeBandsEditor(leBandsHost, {
+        initial: initialLe,
+        readOnly: false,
+        onChange: (next) => {
+          pendingLeBands = next
+        },
+      })
+    } else {
+      pendingLeBands = null
+    }
     syncUi()
     backdrop.hidden = false
     backdrop.style.display = 'flex'
@@ -224,10 +267,12 @@ export function setupSettingsPanel(gearHost) {
     if (isGmSync() && pendingRoom) {
       const target = pendingRoom
       const wappenSnap = pendingWappen
+      const leBandsSnap = pendingLeBands
       await patchRoomSettings((cur) => ({
         ...cur,
         ...target,
         ...(wappenSnap !== null ? { wappenDefs: wappenSnap } : {}),
+        ...(leBandsSnap !== null ? { leBandDefs: leBandsSnap } : {}),
       }))
     }
     if (pendingStamps !== null && pendingStamps !== getShowActionStamps()) {

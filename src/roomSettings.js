@@ -5,6 +5,10 @@ import {
   cloneDefaultWappenDefs,
   normalizeWappenDefs,
 } from './wappenDefs.js'
+import {
+  cloneDefaultLeBandDefs,
+  normalizeLeBandDefs,
+} from './leBandDefs.js'
 
 const ROOM_SETTINGS_KEY = `${TRACKER_ID}/roomSettings`
 
@@ -61,6 +65,14 @@ function defaultSettings() {
      * leer, gelten die heute hartkodierten 8 Default-Zonen 1:1.
      */
     wappenDefs: cloneDefaultWappenDefs(),
+    /**
+     * Globale LE-Band-Definition (Schwellen + Mod-Effekte). Liste max 16
+     * Einträge (siehe `leBandDefs.js`). Reihenfolge = Schwere (top zuerst);
+     * das erste passende Band gewinnt. Kann pro Held via
+     * `heroExLeBandsOverride` überschrieben werden. Default-Set entspricht
+     * 1:1 dem alten 1/2/-1/3/-1/4-Schema plus den ≤0/Negativ-KO-Bändern.
+     */
+    leBandDefs: cloneDefaultLeBandDefs(),
   }
 }
 
@@ -87,6 +99,7 @@ function normalize(raw) {
       ? raw.convertLockState
       : d.convertLockState,
     wappenDefs: normalizeWappenDefs(raw.wappenDefs),
+    leBandDefs: normalizeLeBandDefs(raw.leBandDefs),
   }
 }
 
@@ -120,13 +133,14 @@ export async function pullRoomSettingsFromRoom() {
     next.roundIntroFocusLowestIni === cache.roundIntroFocusLowestIni &&
     next.hideForeignHeroColors === cache.hideForeignHeroColors &&
     next.convertLockState === cache.convertLockState &&
-    sameWappenDefs(next.wappenDefs, cache.wappenDefs)
+    sameJsonish(next.wappenDefs, cache.wappenDefs) &&
+    sameJsonish(next.leBandDefs, cache.leBandDefs)
   if (same) return
   cache = next
   notify()
 }
 
-function sameWappenDefs(a, b) {
+function sameJsonish(a, b) {
   try {
     return JSON.stringify(a) === JSON.stringify(b)
   } catch {
