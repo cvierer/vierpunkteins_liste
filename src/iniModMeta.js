@@ -1054,6 +1054,12 @@ export function mountHeroExpandBlock(
     '',
     true
   )
+  if (!showFkField) {
+    fk.cell.style.visibility = 'hidden'
+    fk.cell.setAttribute('aria-hidden', 'true')
+    fk.inp.disabled = true
+    fk.inp.tabIndex = -1
+  }
   const gs = mkMicro(
     'GS',
     'Geschwindigkeit (GS)',
@@ -2227,7 +2233,7 @@ export function mountHeroExpandBlock(
     pa.cell,
     ausw.cell,
     tpCell,
-    ...(showFkField ? [fk.cell] : []),
+    fk.cell,
     gs.cell,
     ae.cell,
     ibChain
