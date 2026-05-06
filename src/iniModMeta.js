@@ -1131,7 +1131,8 @@ export function mountHeroExpandBlock(
 
     ae.inp.value = microDisplayForModField('ae', snap.ae)
     ae.inp.maxLength = 3
-    ae.inp.style.fontSize = '11px'
+    ae.inp.style.fontSize = '12px'
+    ae.inp.style.lineHeight = '1.05'
     ae.inp.style.height = '100%'
     ae.inp.title = 'Astralenergie (AE)'
     ae.inp.setAttribute('aria-label', 'Astralenergie (AE)')
@@ -1145,7 +1146,8 @@ export function mountHeroExpandBlock(
     keDualInp.disabled = !canEdit
     keDualInp.value = snap.ke
     keDualInp.maxLength = 3
-    keDualInp.style.fontSize = '11px'
+    keDualInp.style.fontSize = '12px'
+    keDualInp.style.lineHeight = '1.05'
     keDualInp.style.height = '100%'
     keDualInp.title = 'Karmaenergie (KE)'
     keDualInp.setAttribute('aria-label', 'Karmaenergie (KE)')
@@ -4285,23 +4287,7 @@ export function mountHeroExpandBlock(
     persistNextSnapshot = null
   }
 
-  /** TP: kein Sofort-Persist ab 2 Ziffern; stattdessen 4s nach letzter Eingabe (außer Blur/Enter). */
-  const TP_TYPING_DEBOUNCE_MS = 4000
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let tpTypingPersistTimer = null
-  const clearTpTypingPersistTimer = () => {
-    if (tpTypingPersistTimer != null) {
-      clearTimeout(tpTypingPersistTimer)
-      tpTypingPersistTimer = null
-    }
-  }
-  const scheduleTpTypingPersist = () => {
-    clearTpTypingPersistTimer()
-    tpTypingPersistTimer = setTimeout(() => {
-      tpTypingPersistTimer = null
-      schedulePersistHeroExpand(gather())
-    }, TP_TYPING_DEBOUNCE_MS)
-  }
+  const clearTpTypingPersistTimer = () => {}
 
   spTzBridgeBtn.addEventListener('click', async (e) => {
     e.preventDefault()
@@ -4561,6 +4547,14 @@ export function mountHeroExpandBlock(
     lePopLeInp,
     lePopLeMaxInp,
   ]
+  let lastPointerDownInsideAt = 0
+  root.addEventListener(
+    'pointerdown',
+    () => {
+      lastPointerDownInsideAt = Date.now()
+    },
+    { capture: true, passive: true }
+  )
   for (const inp of liveInputs) {
     inp.addEventListener('input', () => {
       // Sofort: Malus-Hervorhebung an aktuellen LE/Wunden-Werten (ohne auf
@@ -4577,7 +4571,6 @@ export function mountHeroExpandBlock(
         } else {
           scheduleLiveDerivedRefresh()
         }
-        scheduleTpTypingPersist()
         return
       }
       // Wie LE/MAX: bei mindestens zwei Zeichen sofort ableitende UI; bei
@@ -4591,10 +4584,8 @@ export function mountHeroExpandBlock(
       } else {
         scheduleLiveDerivedRefresh()
       }
-      // Persistenz erst ab zwei Zeichen (und ohne offenes S-Overlay): sonst
-      // würde nach der ersten Ziffer schnell applyHeroExpandFields → Remount
-      // die zweite Ziffer verhindern. Ein-/nullstellig: blur/Enter (commit).
-      if (!lePop.isConnected && len >= 2) schedulePersistHeroExpand(gather())
+      // Keine Persistenz mehr beim Tippen: nur blur/Enter/Explizit-Apply,
+      // damit Felder nicht durch Remount mitten in der Eingabe flackern.
     })
     inp.addEventListener('blur', (e) => {
       const relatedNext =
@@ -4604,11 +4595,12 @@ export function mountHeroExpandBlock(
       // Beim Wechsel zwischen Hero-Feldern nicht sofort committen:
       // ein unmittelbarer Remount kann den ersten Klick/Tastendruck "fressen".
       if (relatedNext && root.contains(relatedNext)) return
-      requestAnimationFrame(() => {
+      window.setTimeout(() => {
         const active = document.activeElement
         if (active instanceof HTMLElement && root.contains(active)) return
+        if (Date.now() - lastPointerDownInsideAt < 180) return
         commit()
-      })
+      }, 45)
     })
     inp.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return

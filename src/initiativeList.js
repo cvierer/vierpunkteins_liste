@@ -4129,6 +4129,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           : 'global'
     if (heroPending.wappenSource === 'vierbeiner') {
       heroPending.showFk = false
+      if (heroPending.energyMode === 'ae') {
+        heroPending.energyMode = 'none'
+      }
     }
     syncHeroWappenUi(getRoomSettings())
     syncHeroSettingsCheckboxes()
@@ -4140,6 +4143,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (t.name !== 'kampf-hero-mod-display' || !heroPending) return
     heroPending.modDisplayMode =
       t.value === 'integrated' ? 'integrated' : 'separate'
+  })
+
+  heroSettingsPanel.addEventListener('click', (e) => {
+    const t = e.target
+    if (!(t instanceof HTMLInputElement) || !heroPending) return
+    if (t.name !== 'kampf-hero-energy-mode') return
+    heroPending.energyMode =
+      t.value === 'ke' || t.value === 'both' || t.value === 'none'
+        ? t.value
+        : 'ae'
   })
 
   heroSettingsPanel.addEventListener('change', (e) => {
