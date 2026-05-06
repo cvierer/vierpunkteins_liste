@@ -219,9 +219,9 @@ describe('effectiveWappenForHero', () => {
     })
     expect(eff.length).toBe(DEFAULT_VIERBEINER_DEFS.length)
     expect(eff.map((d) => d.id)).toEqual([
+      'kopf',
       'rumpf',
       'beine',
-      'kopf',
       'schwanz',
     ])
     expect(eff.every((d) => d.active)).toBe(true)
@@ -246,14 +246,21 @@ describe('DEFAULT_VIERBEINER_DEFS', () => {
     expect(v.overlaps).toEqual([])
   })
 
-  it('hat genau vier aktive Slots Rumpf/Beine/Kopf/Schwanz', () => {
+  it('hat genau vier aktive Slots in Reihenfolge KF/RU/BE/SW auf 5–8', () => {
     expect(DEFAULT_VIERBEINER_DEFS.length).toBe(4)
     expect(DEFAULT_VIERBEINER_DEFS.map((d) => d.id)).toEqual([
+      'kopf',
       'rumpf',
       'beine',
-      'kopf',
       'schwanz',
     ])
+    expect(DEFAULT_VIERBEINER_DEFS.map((d) => d.abbr)).toEqual([
+      'KF',
+      'RU',
+      'BE',
+      'SW',
+    ])
+    expect(DEFAULT_VIERBEINER_DEFS.map((d) => d.slot)).toEqual([5, 6, 7, 8])
     expect(DEFAULT_VIERBEINER_DEFS.every((d) => d.active)).toBe(true)
   })
 

@@ -3209,7 +3209,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       <h3 class="kampf-settings-panel__sub">Wunden und Trefferzonen</h3>
       <p class="kampf-settings-panel__microhint">Standard-Vorlage Mensch oder Vierbeiner pro Kämpfer wählen, oder eine eigene Liste anlegen. Eigene startet wahlweise aus Mensch oder Vierbeiner und ist danach komplett bearbeitbar (W20-Zonen, Auto-Mods).</p>
       <fieldset class="kampf-settings-convert-announce">
-        <legend class="kampf-settings-convert-announce__legend">Quelle: Kästchen für Wunden und Trefferzonen</legend>
+        <legend class="kampf-settings-convert-announce__legend">Vorlage: Kästchen für Wunden und Trefferzonen</legend>
         <label class="kampf-settings-radio-label">
           <input type="radio" name="kampf-hero-wappen-source" value="global" />
           <span><strong>Mensch</strong> (Standard).</span>

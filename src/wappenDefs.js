@@ -244,8 +244,23 @@ export function cloneDefaultWappenDefs() {
  */
 const DEFAULT_VIERBEINER_DEFS_RAW = [
   {
+    id: 'kopf',
+    slot: 5,
+    abbr: 'KF',
+    label: 'Kopf',
+    tooltip: 'Kopf des Vierbeiners, Trefferzone',
+    woundTooltip:
+      'Kopf (W20: 17 bis 19): pro Wunde INI-Basis –2, AT/PA –2; INI –2W6 (narrativ).',
+    w20Range: { from: 17, to: 19, parity: 'all', frontalSplit: null },
+    autoMods: [
+      { field: 'at', delta: -2, perStufe: 'perStage' },
+      { field: 'pa', delta: -2, perStufe: 'perStage' },
+      { field: 'ib', delta: -2, perStufe: 'perStage' },
+    ],
+  },
+  {
     id: 'rumpf',
-    slot: 1,
+    slot: 6,
     abbr: 'RU',
     label: 'Rumpf',
     tooltip: 'Rumpf des Vierbeiners, Trefferzone',
@@ -261,7 +276,7 @@ const DEFAULT_VIERBEINER_DEFS_RAW = [
   },
   {
     id: 'beine',
-    slot: 2,
+    slot: 7,
     abbr: 'BE',
     label: 'Beine',
     tooltip: 'Beine des Vierbeiners, Trefferzone',
@@ -276,23 +291,8 @@ const DEFAULT_VIERBEINER_DEFS_RAW = [
     ],
   },
   {
-    id: 'kopf',
-    slot: 3,
-    abbr: 'KF',
-    label: 'Kopf',
-    tooltip: 'Kopf des Vierbeiners, Trefferzone',
-    woundTooltip:
-      'Kopf (W20: 17 bis 19): pro Wunde INI-Basis –2, AT/PA –2; INI –2W6 (narrativ).',
-    w20Range: { from: 17, to: 19, parity: 'all', frontalSplit: null },
-    autoMods: [
-      { field: 'at', delta: -2, perStufe: 'perStage' },
-      { field: 'pa', delta: -2, perStufe: 'perStage' },
-      { field: 'ib', delta: -2, perStufe: 'perStage' },
-    ],
-  },
-  {
     id: 'schwanz',
-    slot: 4,
+    slot: 8,
     abbr: 'SW',
     label: 'Schwanz',
     tooltip: 'Schwanz des Vierbeiners, Trefferzone',
