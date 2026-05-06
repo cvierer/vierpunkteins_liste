@@ -1,10 +1,10 @@
 {
-  "name": "vierpunkteins_kampf",
+  "name": "vierpunkteins_liste",
   "version": "1.0.2",
   "manifest_version": 1,
   "description": "[v1.0.2] Kampfliste und Initiative für Charakter-Tokens (CHARACTER).",
   "action": {
-    "title": "vierpunkteins_kampf",
+    "title": "vierpunkteins_liste",
     "icon": "/action-kampf-list-sword-down.svg",
     "popover": "/index.html",
     "height": 780,
