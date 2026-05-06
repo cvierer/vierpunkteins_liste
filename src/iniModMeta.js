@@ -33,7 +33,15 @@ import {
   effectiveWappenForHero,
   HERO_EX_WAPPEN_TEMPLATE,
 } from './wappenDefs.js'
-import { effectiveLeBandsForHero } from './leBandDefs.js'
+import {
+  bandGaugeY,
+  bandLabelTextForGauge,
+  bandViewMode,
+  defaultLeBandLabel,
+  effectiveLeBandsForHero,
+  matchesThreshold,
+  NEG_LE_KO_RANGE,
+} from './leBandDefs.js'
 import {
   AUTO_MOD_BUNDLE_PREFIX,
   computeKrAutoPenaltyWorseningMarks,
@@ -91,7 +99,7 @@ export const WS_RULES_TOOLTIP =
 
 /** Tooltip LE-Schwellen-Anzeige (Mouseover auf „S“). */
 export const LE_THRESHOLD_TOOLTIP =
-  'LE-Schwellenwerte. Weniger als 1/2 LE: alle Eigenschaftsproben, AT, PA und FK je um 1 erschwert, alle Zauber- und Talentproben 3 Punkte. Bei weniger 1/3: +2/+6. Weniger als 1/4: +3/+9. Bei LE 0 bis 5 kampfunfähig. LE 0 oder weniger: Tod in KO KR x 1W6.'
+  'LE-Schwellenwerte. Bänder und Effekte sind in den Raum- und Helden-Einstellungen konfigurierbar.'
 
 /** Regeltexte für die drei Wundmarken pro Trefferzone (Mouseover). */
 const WUNDEN_DOTS_TOOLTIP_BY_ZONE = {
@@ -1477,26 +1485,11 @@ export function mountHeroExpandBlock(
   leThreshBox.setAttribute('aria-label', 'LE-Schwellenanzeige')
   const leThreshFill = document.createElement('div')
   leThreshFill.className = 'init-hero-ex__le-threshold__fill'
-  const leThreshLine50 = document.createElement('div')
-  leThreshLine50.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--50'
-  leThreshLine50.style.bottom = '50%'
-  leThreshLine50.title = 'Schwelle 1/2 LE'
-  const leThreshLine33 = document.createElement('div')
-  leThreshLine33.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--33'
-  leThreshLine33.style.bottom = '33.333%'
-  leThreshLine33.title = 'Schwelle 1/3 LE'
-  const leThreshLine25 = document.createElement('div')
-  leThreshLine25.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--25'
-  leThreshLine25.style.bottom = '25%'
-  leThreshLine25.title = 'Schwelle 1/4 LE'
-  const leThreshLine5 = document.createElement('div')
-  leThreshLine5.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--le5'
-  leThreshLine5.title = 'Schwelle LE 5 (kampfunfähig bei 0–5)'
-  leThreshLine5.style.display = 'none'
+  /* Dynamische Schwellenlinien aus snap.leBands; werden in updateLeThreshold
+     pro Aufruf neu gerendert (Anzahl/Position abhängig von der aktuellen
+     Konfiguration). */
+  const leThreshLines = document.createElement('div')
+  leThreshLines.className = 'init-hero-ex__le-threshold__lines'
   const leThreshSkull = document.createElementNS(
     'http://www.w3.org/2000/svg',
     'svg'
@@ -1508,14 +1501,7 @@ export function mountHeroExpandBlock(
   leThreshSkull.style.display = 'none'
   leThreshSkull.innerHTML =
     '<path fill="currentColor" d="M12 2C7.58 2 4 5.58 4 10c0 2.49 1.14 4.7 2.92 6.16.36.3.58.74.58 1.2V19a2 2 0 0 0 2 2h1v-2h1v2h2v-2h1v2h1a2 2 0 0 0 2-2v-1.64c0-.46.22-.9.58-1.2C18.86 14.7 20 12.49 20 10c0-4.42-3.58-8-8-8Zm-3 9.5a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm6 0a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm-4.5 3.25h3l.5 1.25h-4l.5-1.25Z"/>'
-  leThreshBox.append(
-    leThreshFill,
-    leThreshLine5,
-    leThreshLine25,
-    leThreshLine33,
-    leThreshLine50,
-    leThreshSkull
-  )
+  leThreshBox.append(leThreshFill, leThreshLines, leThreshSkull)
   leThreshCell.append(leThreshAbbr, leThreshBox)
 
   const parseLeIntSafe = (raw) => {
@@ -1530,9 +1516,6 @@ export function mountHeroExpandBlock(
     const n = parseInt(t, 10)
     return Number.isFinite(n) ? n : null
   }
-  /** Minus-Skala 0 … −1,6·KO (ab LE≤0 mit gültigem KO). */
-  const NEG_LE_KO_RANGE = 1.6
-
   const resetLeThreshNegOff = () => {
     leThreshCell.classList.remove('init-hero-ex__le-threshold--neg-le')
     leThreshCell.classList.remove('init-hero-ex__le-threshold--neg-pulse')
@@ -1542,29 +1525,41 @@ export function mountHeroExpandBlock(
     leThreshFill.classList.remove('init-hero-ex__le-threshold__fill--from-top')
     leThreshSkull.style.removeProperty('bottom')
     leThreshSkull.style.removeProperty('transform')
+    leThreshSkull.style.removeProperty('top')
     leThreshFill.style.removeProperty('top')
     leThreshFill.style.removeProperty('bottom')
-    leThreshLine50.style.display = ''
-    leThreshLine50.style.bottom = '50%'
-    leThreshLine33.style.bottom = '33.333%'
-    leThreshLine25.style.bottom = '25%'
-    leThreshLine33.classList.remove('init-hero-ex__le-threshold__line--neg-ko')
-    leThreshLine25.classList.remove(
-      'init-hero-ex__le-threshold__line--neg-le-solid'
-    )
-    leThreshLine5.classList.remove(
-      'init-hero-ex__le-threshold__line--neg-le-solid'
-    )
+  }
+
+  /** Erzeugt eine einzelne Schwellenlinie für die S-Zelle. */
+  const mkThreshLine = (def, gauge) => {
+    const ln = document.createElement('div')
+    let cls = 'init-hero-ex__le-threshold__line'
+    if (gauge.mode === 'negKo') {
+      const factor = def?.threshold?.factor ?? 0
+      cls +=
+        factor >= 1
+          ? ' init-hero-ex__le-threshold__line--neg-le-solid'
+          : ' init-hero-ex__le-threshold__line--neg-ko'
+    }
+    ln.className = cls
+    ln.style.bottom = `${gauge.y.toFixed(3)}%`
+    const tip = def?.tooltip || defaultLeBandLabel(def) || ''
+    if (tip) ln.title = tip
+    return ln
   }
 
   const updateLeThreshold = () => {
     const leV = parseLeIntSafe(leInp.value)
     const maxV = parseLeIntSafe(leMaxInp.value)
     const koV = parseKoIntSafe(koAttr.inp.value)
-    /* KO/minus-Skala und Ansicht ab LE≤0 (inkl. LE=0), sobald KO gültig */
-    const negLe =
-      leV != null && leV <= 0 && koV != null && koV > 0
-    const dead = leV != null && leV <= 0 && !negLe
+    const mode = bandViewMode(leV, maxV, koV)
+    const negLe = mode === 'negLe'
+    const dead = mode === 'dead'
+
+    /* Linien immer komplett neu rendern, damit Konfigurationsänderungen
+       (Raum-Default oder Held-Override) sofort sichtbar werden. */
+    leThreshLines.replaceChildren()
+    const bands = Array.isArray(snap.leBands) ? snap.leBands : []
 
     if (negLe) {
       resetLeThreshNegOff()
@@ -1578,25 +1573,28 @@ export function mountHeroExpandBlock(
       leThreshFill.style.height = hp.toFixed(3) + '%'
       leThreshCell.dataset.leBand = 'neg-le'
       leThreshSkull.style.display = ''
-      leThreshLine50.style.display = 'none'
-      const pctBot = (koMult) =>
-        100 - (koMult / NEG_LE_KO_RANGE) * 100
-      leThreshLine33.style.display = ''
-      leThreshLine33.style.bottom = `${pctBot(0.5).toFixed(3)}%`
-      leThreshLine33.classList.add('init-hero-ex__le-threshold__line--neg-ko')
-      leThreshLine25.style.display = ''
-      leThreshLine25.style.bottom = `${pctBot(1).toFixed(3)}%`
-      leThreshLine25.classList.add(
-        'init-hero-ex__le-threshold__line--neg-le-solid'
-      )
-      leThreshLine5.style.display = ''
-      leThreshLine5.style.bottom = `${pctBot(1.5).toFixed(3)}%`
-      leThreshLine5.classList.add(
-        'init-hero-ex__le-threshold__line--neg-le-solid'
-      )
-      const b1 = pctBot(1)
-      const b15 = pctBot(1.5)
-      const skullBot = (b1 + b15) / 2
+
+      let bestBelow = null
+      let bestAbove = null
+      for (const def of bands) {
+        if (!def?.active) continue
+        const g = bandGaugeY(def, { leMax: maxV, ko: koV, mode: 'negLe' })
+        if (!g) continue
+        leThreshLines.appendChild(mkThreshLine(def, g))
+        const factor = def.threshold?.factor ?? 0
+        if (factor >= 1 && (!bestBelow || factor < bestBelow.factor)) {
+          bestBelow = { factor, y: g.y }
+        }
+        if (factor < 1 && (!bestAbove || factor > bestAbove.factor)) {
+          bestAbove = { factor, y: g.y }
+        }
+      }
+      /* Skull mittig zwischen −1·KO und stärkster konfigurierter Tiefe.
+         Fallback (bei fehlenden Bändern): wie bisher (−1·KO und −1,5·KO). */
+      const pctBot = (m) => 100 - (m / NEG_LE_KO_RANGE) * 100
+      const yLow = bestBelow ? bestBelow.y : pctBot(1)
+      const yHigh = bestAbove ? bestAbove.y : pctBot(1.5)
+      const skullBot = (yLow + yHigh) / 2
       leThreshSkull.style.bottom = `${skullBot.toFixed(3)}%`
       leThreshSkull.style.top = 'auto'
       leThreshSkull.style.transform = 'translate(-50%, 50%)'
@@ -1629,11 +1627,14 @@ export function mountHeroExpandBlock(
       leThreshFill.style.height = '0%'
       delete leThreshCell.dataset.leBand
     }
-    if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
-      leThreshLine5.style.display = ''
-      leThreshLine5.style.bottom = ((customLeThreshold / maxV) * 100).toFixed(3) + '%'
-    } else {
-      leThreshLine5.style.display = 'none'
+
+    if (!dead && maxV != null && maxV > 0) {
+      for (const def of bands) {
+        if (!def?.active) continue
+        const g = bandGaugeY(def, { leMax: maxV, ko: koV, mode: 'positive' })
+        if (!g) continue
+        leThreshLines.appendChild(mkThreshLine(def, g))
+      }
     }
   }
   updateLeThreshold()
@@ -1692,22 +1693,10 @@ export function mountHeroExpandBlock(
   lePopTrack.className = 'init-hero-ex__le-pop__gauge-track'
   const lePopFill = document.createElement('div')
   lePopFill.className = 'init-hero-ex__le-pop__gauge-fill'
-  const lePopLine50 = document.createElement('div')
-  lePopLine50.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--50'
-  lePopLine50.style.bottom = '50%'
-  const lePopLine33 = document.createElement('div')
-  lePopLine33.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--33'
-  lePopLine33.style.bottom = '33.333%'
-  const lePopLine25 = document.createElement('div')
-  lePopLine25.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--25'
-  lePopLine25.style.bottom = '25%'
-  const lePopLineLe5 = document.createElement('div')
-  lePopLineLe5.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--le5'
-  lePopLineLe5.style.display = 'none'
+  /* Dynamische Schwellenlinien: werden in renderPopoverBands() pro Aufruf
+     komplett neu erzeugt (Anzahl/Position abhängig von snap.leBands). */
+  const lePopLinesHost = document.createElement('div')
+  lePopLinesHost.className = 'init-hero-ex__le-pop__gauge-lines'
   const lePopSkull = document.createElementNS(
     'http://www.w3.org/2000/svg',
     'svg'
@@ -1722,15 +1711,7 @@ export function mountHeroExpandBlock(
   const lePopPct = document.createElement('div')
   lePopPct.className = 'init-hero-ex__le-pop__gauge-pct'
   lePopPct.setAttribute('aria-hidden', 'true')
-  lePopTrack.append(
-    lePopFill,
-    lePopLineLe5,
-    lePopLine25,
-    lePopLine33,
-    lePopLine50,
-    lePopSkull,
-    lePopPct
-  )
+  lePopTrack.append(lePopFill, lePopLinesHost, lePopSkull, lePopPct)
 
   /* LE/MAX im Popover: gleicher Aufbau wie .init-hero-ex__le-chain im
      ausklappbaren Bereich (Beschriftung + Raster-Kästchen). */
@@ -1806,54 +1787,35 @@ export function mountHeroExpandBlock(
   lePopConnSvg.setAttribute('viewBox', '0 0 100 100')
   lePopConnSvg.setAttribute('preserveAspectRatio', 'none')
   lePopConnSvg.setAttribute('aria-hidden', 'true')
-  const mkConnPath = (cls) => {
+  /** Erzeugt eine Polyline für die Knick-Verbindung Linie ↔ Label. */
+  const mkConnPath = () => {
     const p = document.createElementNS(LE_POP_SVG_NS, 'polyline')
     p.setAttribute('fill', 'none')
     p.setAttribute('stroke', 'currentColor')
-    /* ~50 % der vorigen Strichbreite (0,55) */
     p.setAttribute('stroke-width', '0.275')
     p.setAttribute('stroke-linecap', 'round')
     p.setAttribute('stroke-linejoin', 'round')
     p.setAttribute('vector-effect', 'non-scaling-stroke')
     p.classList.add('init-hero-ex__le-pop__conn-line')
-    if (cls) p.classList.add(`init-hero-ex__le-pop__conn-line--${cls}`)
     return p
   }
-  const lePopConn50 = mkConnPath('50')
-  const lePopConn33 = mkConnPath('33')
-  const lePopConn25 = mkConnPath('25')
-  const lePopConnLe5 = mkConnPath('le5')
-  lePopConnLe5.style.display = 'none'
-  lePopConnSvg.append(lePopConn50, lePopConn33, lePopConn25, lePopConnLe5)
 
-  /* Feste vertikale Slots für die Beschriftungen (y in %-von-unten). Zwischen
-     Mathematik-Position der Schwelle im Balken und Slot liegt die Knick-Linie.
-     Obere ~40% sind für das LE/MAX-Editfeld reserviert. */
-  const SLOT_Y_HALF = 58
-  const SLOT_Y_THIRD = 40
-  const SLOT_Y_QUARTER = 22
-  const SLOT_Y_LE5 = 4
-  const mkGaugeLabel = (slotPct, extra) => {
+  /* Vertikaler Bereich für Label-Slots (y in %-von-unten). Obere ~40% sind
+     für das LE/MAX-Editfeld reserviert; im negKO-Modus ist dieser Bereich
+     ebenfalls belegt (KO-Eingabe), daher gleiche Bandbreite. */
+  const LABEL_SLOT_TOP_Y = 58
+  const LABEL_SLOT_BOTTOM_Y = 4
+  const mkGaugeLabel = (slotPct) => {
     const l = document.createElement('span')
-    l.className =
-      'init-hero-ex__le-pop__gauge-label' +
-      (extra ? ` init-hero-ex__le-pop__gauge-label--${extra}` : '')
+    l.className = 'init-hero-ex__le-pop__gauge-label'
     l.style.bottom = `${slotPct}%`
     return l
   }
-  const lePopLab50 = mkGaugeLabel(SLOT_Y_HALF, '50')
-  const lePopLab33 = mkGaugeLabel(SLOT_Y_THIRD, '33')
-  const lePopLab25 = mkGaugeLabel(SLOT_Y_QUARTER, '25')
-  const lePopLabLe5 = mkGaugeLabel(SLOT_Y_LE5, 'le5')
-  lePopLabLe5.style.display = 'none'
-  lePopLabels.append(
-    lePopLeMaxBlock,
-    lePopConnSvg,
-    lePopLab50,
-    lePopLab33,
-    lePopLab25,
-    lePopLabLe5
-  )
+  /* Hosts für dynamische Labels: lePopLabelsHost enthält die Beschriftungen
+     der konfigurierten Bänder; das LE/MAX-Editfeld bleibt ein Geschwister. */
+  const lePopLabelsHost = document.createElement('div')
+  lePopLabelsHost.className = 'init-hero-ex__le-pop__gauge-labels-host'
+  lePopLabels.append(lePopLeMaxBlock, lePopConnSvg, lePopLabelsHost)
   lePopGauge.append(lePopTrack, lePopLabels)
   lePopBody.append(lePopGauge)
   lePop.append(lePopHeader, lePopBody)
@@ -2000,9 +1962,9 @@ export function mountHeroExpandBlock(
     const leV = parseLeIntSafe(leInp.value)
     const maxV = parseLeIntSafe(leMaxInp.value)
     const koV = parseKoIntSafe(koAttr.inp.value)
-    const negLe =
-      leV != null && leV <= 0 && koV != null && koV > 0
-    const dead = leV != null && leV <= 0 && !negLe
+    const viewMode = bandViewMode(leV, maxV, koV)
+    const negLe = viewMode === 'negLe'
+    const dead = viewMode === 'dead'
 
     lePop.classList.toggle('init-hero-ex__le-pop--neg-le', negLe)
     lePopAbbrMax.style.display = negLe ? 'none' : ''
@@ -2012,12 +1974,95 @@ export function mountHeroExpandBlock(
 
     lePop.dataset.leDead = dead ? 'true' : 'false'
 
-    /* Knick-Positionen (%-SVG): ~50 % der vorigen horizontalen Ausdehnung (END 34→17). */
-    const KINK_50 = 11
-    const KINK_33 = 8
-    const KINK_25 = 4
-    const KINK_LE5 = 14
     const END_X = LE_POP_CONN_END_X
+    const bands = Array.isArray(snap.leBands) ? snap.leBands : []
+
+    /** Dynamisch: Linien, Connector-Polylines und Beschriftungen aus snap.leBands. */
+    const renderPopoverBands = () => {
+      lePopLinesHost.replaceChildren()
+      lePopLabelsHost.replaceChildren()
+      lePopConnSvg.replaceChildren()
+
+      const uiMode = negLe ? 'negLe' : 'positive'
+      /** @type {{ def: Record<string, unknown>, gauge: { y: number, mode: string } }[]} */
+      const visible = []
+      for (const def of bands) {
+        if (!def?.active) continue
+        const g = bandGaugeY(def, {
+          leMax: maxV,
+          ko: koV,
+          mode: uiMode,
+        })
+        if (!g) continue
+        visible.push({ def, gauge: g })
+      }
+      visible.sort((a, b) => b.gauge.y - a.gauge.y)
+
+      const slotTop = LABEL_SLOT_TOP_Y
+      const slotBot = LABEL_SLOT_BOTTOM_Y
+      const slotSpan = slotTop - slotBot
+      const nVis = visible.length
+      const slotYAt = (i) =>
+        nVis <= 1
+          ? (slotTop + slotBot) / 2
+          : slotTop - (slotSpan * i) / (nVis - 1)
+
+      const gaugeLabelHtml = (lblCtx, mal, thresholdType) => {
+        const clsMal =
+          'init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal'
+        const clsOk = 'init-hero-ex__le-pop__gauge-label__val'
+        const cls = mal ? clsMal : clsOk
+        const text = lblCtx.text
+        const v = lblCtx.value
+        if (v != null && thresholdType === 'negKoDepth') {
+          const m = text.match(/^(.*)\((\d+)\)$/)
+          if (m && m[2] === String(v)) {
+            return `${m[1]}(<span class="${cls}">${m[2]}</span>)`
+          }
+        }
+        if (v != null) {
+          const tail = String(v)
+          if (text.endsWith(tail)) {
+            return `${text.slice(0, -tail.length)}<span class="${cls}">${tail}</span>`
+          }
+        }
+        return text
+      }
+
+      visible.forEach(({ def, gauge }, i) => {
+        const line = document.createElement('div')
+        let cls = 'init-hero-ex__le-pop__gauge-line'
+        if (gauge.mode === 'negKo') {
+          const factor = def.threshold?.factor ?? 0
+          cls +=
+            factor >= 1
+              ? ' init-hero-ex__le-pop__gauge-line--neg-le-solid'
+              : ' init-hero-ex__le-pop__gauge-line--neg-ko'
+        }
+        line.className = cls
+        line.style.bottom = `${gauge.y.toFixed(3)}%`
+        const tip = def.tooltip || defaultLeBandLabel(def) || ''
+        if (tip) line.title = tip
+        lePopLinesHost.appendChild(line)
+
+        const slotY = slotYAt(i)
+        const lab = mkGaugeLabel(slotY)
+        const lblCtx = bandLabelTextForGauge(def, { leMax: maxV, ko: koV })
+        const mal =
+          leV != null &&
+          maxV != null &&
+          matchesThreshold(def.threshold, leV, maxV, koV)
+        const thType = def.threshold?.type
+        lab.innerHTML = gaugeLabelHtml(lblCtx, mal, thType)
+        if (tip) lab.title = tip
+        lePopLabelsHost.appendChild(lab)
+
+        const poly = mkConnPath()
+        const kinkX = 8 + (i % 3) * 4
+        setConnPath(poly, gauge.y, slotY, kinkX, END_X)
+        lePopConnSvg.appendChild(poly)
+      })
+    }
 
     if (negLe) {
       lePopSkull.style.display = ''
@@ -2037,52 +2082,29 @@ export function mountHeroExpandBlock(
         negPulseIrregularPop
       )
 
+      let bestBelow = null
+      let bestAbove = null
+      for (const def of bands) {
+        if (!def?.active) continue
+        const g = bandGaugeY(def, { leMax: maxV, ko: koV, mode: 'negLe' })
+        if (!g) continue
+        const factor = def.threshold?.factor ?? 0
+        if (factor >= 1 && (!bestBelow || factor < bestBelow.factor)) {
+          bestBelow = { factor, y: g.y }
+        }
+        if (factor < 1 && (!bestAbove || factor > bestAbove.factor)) {
+          bestAbove = { factor, y: g.y }
+        }
+      }
       const pctBot = (m) => 100 - (m / NEG_LE_KO_RANGE) * 100
-      const b05 = pctBot(0.5)
-      const b1 = pctBot(1)
-      const b15 = pctBot(1.5)
-      const skullBot = (b1 + b15) / 2
+      const yLow = bestBelow ? bestBelow.y : pctBot(1)
+      const yHigh = bestAbove ? bestAbove.y : pctBot(1.5)
+      const skullBot = (yLow + yHigh) / 2
       lePopSkull.style.bottom = `${skullBot.toFixed(3)}%`
       lePopSkull.style.top = 'auto'
       lePopSkull.style.transform = 'translate(-50%, 50%)'
 
-      lePopLine50.style.display = 'none'
-      lePopConn50.style.display = 'none'
-      lePopLab50.style.display = 'none'
-
-      lePopLine33.style.display = ''
-      lePopLine33.style.bottom = `${b05.toFixed(3)}%`
-      lePopLine33.classList.add('init-hero-ex__le-pop__gauge-line--neg-ko')
-      lePopLine25.style.display = ''
-      lePopLine25.style.bottom = `${b1.toFixed(3)}%`
-      lePopLine25.classList.add(
-        'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-      )
-      lePopLineLe5.style.display = ''
-      lePopLineLe5.style.bottom = `${b15.toFixed(3)}%`
-      lePopLineLe5.classList.add(
-        'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-      )
-
-      lePopLab33.style.display = ''
-      lePopLab33.style.bottom = `${b05.toFixed(3)}%`
-      lePopLab25.style.display = ''
-      lePopLab25.style.bottom = `${b1.toFixed(3)}%`
-      lePopLabLe5.style.display = ''
-      lePopLabLe5.style.bottom = `${b15.toFixed(3)}%`
-
-      const n05 = Math.round(0.5 * koV)
-      const n15 = Math.round(1.5 * koV)
-      lePopLab33.textContent = `−½·KO (${n05})`
-      lePopLab25.textContent = `−1·KO (${koV})`
-      lePopLabLe5.textContent = `−1,5·KO (${n15})`
-
-      setConnPath(lePopConn33, b05, b05, KINK_33, END_X)
-      setConnPath(lePopConn25, b1, b1, KINK_25, END_X)
-      setConnPath(lePopConnLe5, b15, b15, KINK_LE5, END_X)
-      lePopConn33.style.display = ''
-      lePopConn25.style.display = ''
-      lePopConnLe5.style.display = ''
+      renderPopoverBands()
 
       lePopPct.style.display = 'none'
       lePopPct.textContent = ''
@@ -2102,19 +2124,12 @@ export function mountHeroExpandBlock(
     lePopFill.classList.remove('init-hero-ex__le-pop__gauge-fill--from-top')
     lePopFill.style.removeProperty('top')
     lePopFill.style.removeProperty('bottom')
-    lePopLine33.classList.remove('init-hero-ex__le-pop__gauge-line--neg-ko')
-    lePopLine25.classList.remove(
-      'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-    )
-    lePopLineLe5.classList.remove(
-      'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-    )
-    lePopLine50.style.display = ''
-    lePopConn50.style.display = ''
-    lePopLab50.style.display = ''
-    lePopLab33.style.bottom = `${SLOT_Y_THIRD}%`
-    lePopLab25.style.bottom = `${SLOT_Y_QUARTER}%`
-    lePopLabLe5.style.bottom = `${SLOT_Y_LE5}%`
+
+    if (dead || maxV == null || maxV <= 0) {
+      lePopLinesHost.replaceChildren()
+      lePopLabelsHost.replaceChildren()
+      lePopConnSvg.replaceChildren()
+    }
 
     lePopSkull.style.display = dead ? '' : 'none'
 
@@ -2151,62 +2166,8 @@ export function mountHeroExpandBlock(
       lePopPct.title = 'LE und LE max erforderlich für Prozentangabe'
     }
 
-    setConnPath(lePopConn50, 50, SLOT_Y_HALF, KINK_50, END_X)
-    setConnPath(lePopConn33, 33.333, SLOT_Y_THIRD, KINK_33, END_X)
-    setConnPath(lePopConn25, 25, SLOT_Y_QUARTER, KINK_25, END_X)
-
-    const maxOk = maxV != null && maxV > 0
-    const valSpan = (n, mal) => {
-      const cls = mal
-        ? 'init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal'
-        : 'init-hero-ex__le-pop__gauge-label__val'
-      return `<span class="${cls}">${n}</span>`
-    }
-    if (maxOk && leV != null) {
-      const f = dead ? 0 : Math.max(0, Math.min(1, leV / maxV))
-      lePopLab50.innerHTML = `1/2 = ${valSpan(
-        Math.round(maxV / 2),
-        dead || leV * 2 < maxV
-      )}`
-      lePopLab33.innerHTML = `1/3 = ${valSpan(
-        Math.round(maxV / 3),
-        dead || f < 1 / 3
-      )}`
-      lePopLab25.innerHTML = `1/4 = ${valSpan(
-        Math.round(maxV / 4),
-        dead || f < 0.25
-      )}`
-    } else if (maxOk) {
-      const n2 = Math.round(maxV / 2)
-      const n3 = Math.round(maxV / 3)
-      const n4 = Math.round(maxV / 4)
-      lePopLab50.textContent = `1/2 = ${n2}`
-      lePopLab33.textContent = `1/3 = ${n3}`
-      lePopLab25.textContent = `1/4 = ${n4}`
-    } else {
-      lePopLab50.textContent = '1/2 = —'
-      lePopLab33.textContent = '1/3 = —'
-      lePopLab25.textContent = '1/4 = —'
-    }
-
-    if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
-      const pct = (customLeThreshold / maxV) * 100
-      lePopLineLe5.style.display = ''
-      lePopLineLe5.style.bottom = pct.toFixed(3) + '%'
-      lePopLabLe5.style.display = ''
-      lePopConnLe5.style.display = ''
-      setConnPath(lePopConnLe5, pct, SLOT_Y_LE5, KINK_LE5, END_X)
-      const malLe5 = leV != null && (dead || leV <= customLeThreshold)
-      if (malLe5) {
-        lePopLabLe5.innerHTML =
-          `<span class="init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal">${customLeThreshold}</span>`
-      } else {
-        lePopLabLe5.textContent = String(customLeThreshold)
-      }
-    } else {
-      lePopLineLe5.style.display = 'none'
-      lePopLabLe5.style.display = 'none'
-      lePopConnLe5.style.display = 'none'
+    if (!dead && maxV != null && maxV > 0) {
+      renderPopoverBands()
     }
   }
 

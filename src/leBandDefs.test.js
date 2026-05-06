@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   aggregateLeBandModsByField,
+  bandGaugeY,
+  bandLabelTextForGauge,
+  bandViewMode,
   cloneDefaultLeBandDefs,
   DEFAULT_LE_BAND_DEFS,
   defaultLeBandLabel,
@@ -8,7 +11,9 @@ import {
   HERO_EX_LE_BANDS_OVERRIDE,
   LE_BAND_MOD_FIELDS,
   legacyTriggerSignatureForLeBand,
+  matchesThreshold,
   matchLeBand,
+  NEG_LE_KO_RANGE,
   normalizeLeBandDefs,
 } from './leBandDefs.js'
 
@@ -446,5 +451,207 @@ describe('defaultLeBandLabel', () => {
         threshold: { type: 'negKoDepth', factor: 1.5 },
       })
     ).toBe('<-1,5KO')
+  })
+})
+
+describe('bandViewMode', () => {
+  it('LE > 0 → positive', () => {
+    expect(bandViewMode(10, 30, 12)).toBe('positive')
+    expect(bandViewMode(1, 30, null)).toBe('positive')
+  })
+
+  it('LE <= 0 mit gültiger KO → negLe', () => {
+    expect(bandViewMode(0, 30, 12)).toBe('negLe')
+    expect(bandViewMode(-5, 30, 12)).toBe('negLe')
+  })
+
+  it('LE <= 0 ohne KO → dead', () => {
+    expect(bandViewMode(0, 30, null)).toBe('dead')
+    expect(bandViewMode(-3, 30, 0)).toBe('dead')
+  })
+
+  it('LE unbekannt → idle', () => {
+    expect(bandViewMode(null, 30, 12)).toBe('idle')
+    expect(bandViewMode(undefined, 30, 12)).toBe('idle')
+  })
+})
+
+describe('bandGaugeY', () => {
+  it('Bruch im positiven Modus → num/den * 100', () => {
+    const half = bandGaugeY(
+      { threshold: { type: 'fraction', num: 1, den: 2 } },
+      { leMax: 30, ko: 12, mode: 'positive' }
+    )
+    expect(half).toEqual({ y: 50, mode: 'positive' })
+    const quarter = bandGaugeY(
+      { threshold: { type: 'fraction', num: 1, den: 4 } },
+      { leMax: 30, ko: 12, mode: 'positive' }
+    )
+    expect(quarter).toEqual({ y: 25, mode: 'positive' })
+  })
+
+  it('absolute im positiven Modus → value/leMax * 100', () => {
+    const r = bandGaugeY(
+      { threshold: { type: 'absolute', value: 5 } },
+      { leMax: 30, ko: 12, mode: 'positive' }
+    )
+    expect(r?.mode).toBe('positive')
+    expect(r?.y).toBeCloseTo(16.666_67, 4)
+  })
+
+  it('absolute ≥ leMax oder ≤ 0 → null (positiv)', () => {
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'absolute', value: 30 } },
+        { leMax: 30, mode: 'positive' }
+      )
+    ).toBe(null)
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'absolute', value: 99 } },
+        { leMax: 30, mode: 'positive' }
+      )
+    ).toBe(null)
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'absolute', value: 0 } },
+        { leMax: 30, mode: 'positive' }
+      )
+    ).toBe(null)
+  })
+
+  it('negKoDepth im negLe-Modus → 100 - factor/range*100', () => {
+    const r = bandGaugeY(
+      { threshold: { type: 'negKoDepth', factor: 1.0 } },
+      { leMax: 30, ko: 12, mode: 'negLe' }
+    )
+    expect(r?.mode).toBe('negKo')
+    expect(r?.y).toBeCloseTo(100 - (1 / NEG_LE_KO_RANGE) * 100, 4)
+    expect(r?.y).toBeCloseTo(37.5, 3)
+  })
+
+  it('negKoDepth Faktor außerhalb Skala → null', () => {
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'negKoDepth', factor: NEG_LE_KO_RANGE } },
+        { ko: 12, mode: 'negLe' }
+      )
+    ).toBe(null)
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'negKoDepth', factor: 0 } },
+        { ko: 12, mode: 'negLe' }
+      )
+    ).toBe(null)
+  })
+
+  it('falscher Modus → null', () => {
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'fraction', num: 1, den: 2 } },
+        { leMax: 30, mode: 'negLe' }
+      )
+    ).toBe(null)
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'negKoDepth', factor: 1 } },
+        { ko: 12, mode: 'positive' }
+      )
+    ).toBe(null)
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'absolute', value: 5 } },
+        { leMax: 30, mode: 'negLe' }
+      )
+    ).toBe(null)
+  })
+
+  it('absolute ohne leMax → null', () => {
+    expect(
+      bandGaugeY(
+        { threshold: { type: 'absolute', value: 5 } },
+        { mode: 'positive' }
+      )
+    ).toBe(null)
+  })
+})
+
+describe('bandLabelTextForGauge', () => {
+  it('Bruch mit leMax → "n/d = round(leMax*n/d)"', () => {
+    const r = bandLabelTextForGauge(
+      { threshold: { type: 'fraction', num: 1, den: 2 } },
+      { leMax: 30 }
+    )
+    expect(r).toEqual({ text: '1/2 = 15', value: 15 })
+  })
+
+  it('Bruch ohne leMax → "n/d = —"', () => {
+    const r = bandLabelTextForGauge(
+      { threshold: { type: 'fraction', num: 1, den: 4 } },
+      {}
+    )
+    expect(r).toEqual({ text: '1/4 = —', value: null })
+  })
+
+  it('absolute → "<=value"', () => {
+    expect(
+      bandLabelTextForGauge({ threshold: { type: 'absolute', value: 5 } }, {})
+    ).toEqual({ text: '<=5', value: 5 })
+    expect(
+      bandLabelTextForGauge({ threshold: { type: 'absolute', value: 0 } }, {})
+    ).toEqual({ text: '<=0', value: 0 })
+  })
+
+  it('negKoDepth mit ko → "<-KO (n)"', () => {
+    const r = bandLabelTextForGauge(
+      { label: '', threshold: { type: 'negKoDepth', factor: 1.0 } },
+      { ko: 12 }
+    )
+    expect(r).toEqual({ text: '<-KO (12)', value: 12 })
+  })
+
+  it('negKoDepth ohne ko → reines Label', () => {
+    const r = bandLabelTextForGauge(
+      { label: '', threshold: { type: 'negKoDepth', factor: 0.5 } },
+      {}
+    )
+    expect(r).toEqual({ text: '<-1/2KO', value: null })
+  })
+
+  it('benutzerdefiniertes def.label gewinnt bei negKoDepth', () => {
+    const r = bandLabelTextForGauge(
+      { label: 'Halb-KO', threshold: { type: 'negKoDepth', factor: 0.5 } },
+      { ko: 14 }
+    )
+    expect(r).toEqual({ text: 'Halb-KO (7)', value: 7 })
+  })
+})
+
+describe('matchesThreshold (export)', () => {
+  it('Fraktion vergleicht le*den < leMax*num', () => {
+    expect(
+      matchesThreshold({ type: 'fraction', num: 1, den: 2 }, 14, 30, null)
+    ).toBe(true)
+    expect(
+      matchesThreshold({ type: 'fraction', num: 1, den: 2 }, 16, 30, null)
+    ).toBe(false)
+  })
+
+  it('absolute prüft le <= value', () => {
+    expect(matchesThreshold({ type: 'absolute', value: 5 }, 5, 30, null)).toBe(
+      true
+    )
+    expect(matchesThreshold({ type: 'absolute', value: 5 }, 6, 30, null)).toBe(
+      false
+    )
+  })
+
+  it('negKoDepth prüft -le > factor*ko', () => {
+    expect(
+      matchesThreshold({ type: 'negKoDepth', factor: 1 }, -13, 30, 12)
+    ).toBe(true)
+    expect(
+      matchesThreshold({ type: 'negKoDepth', factor: 1 }, -10, 30, 12)
+    ).toBe(false)
   })
 })

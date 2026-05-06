@@ -37,6 +37,12 @@ const MAX_LE_BANDS = 16
 
 const VALID_THRESHOLD_TYPES = new Set(['fraction', 'absolute', 'negKoDepth'])
 
+/**
+ * Vertikale Skala der Negativ-LE-Anzeige in der S-Zelle und im S-Popover:
+ * 0 ... -NEG_LE_KO_RANGE * KO entspricht 100..0 % von unten.
+ */
+export const NEG_LE_KO_RANGE = 1.6
+
 /** Felder, die in der Editor-UI per Dropdown wählbar sind. */
 export const LE_BAND_MOD_FIELDS = Object.freeze([
   'at',
@@ -364,7 +370,7 @@ export function effectiveLeBandsForHero(meta, room) {
  * @param {number} leMax
  * @param {number | null} ko
  */
-function matchesThreshold(t, le, leMax, ko) {
+export function matchesThreshold(t, le, leMax, ko) {
   if (!t || typeof t !== 'object') return false
   if (t.type === 'fraction') {
     if (le <= 0) return false
@@ -496,4 +502,106 @@ export function defaultLeBandLabel(def) {
     return `<-${f}KO`
   }
   return ''
+}
+
+/**
+ * Bestimmt den aktuellen Anzeigemodus der S-Zelle / des S-Popovers.
+ * - `idle`: keine LE bekannt.
+ * - `dead`: LE <= 0 ohne gültige KO.
+ * - `negLe`: LE <= 0 mit gültiger KO > 0.
+ * - `positive`: LE > 0.
+ *
+ * @param {number | null | undefined} le
+ * @param {number | null | undefined} leMax
+ * @param {number | null | undefined} ko
+ * @returns {'idle' | 'dead' | 'negLe' | 'positive'}
+ */
+export function bandViewMode(le, leMax, ko) {
+  const leV = Number.isFinite(le) ? Number(le) : null
+  if (leV === null) return 'idle'
+  if (leV <= 0) {
+    const koV = Number.isFinite(ko) ? Number(ko) : null
+    if (koV !== null && koV > 0) return 'negLe'
+    return 'dead'
+  }
+  return 'positive'
+}
+
+/**
+ * Liefert die Y-Position (in % von unten, 0..100) der Schwellenlinie eines
+ * Bandes auf der Gauge — abhängig vom aktuellen Modus.
+ *
+ * @param {LeBandDef} def
+ * @param {{ leMax?: number | null, ko?: number | null, mode?: 'positive' | 'negLe' | 'dead' | 'idle' }} ctx
+ * @returns {{ y: number, mode: 'positive' | 'negKo' } | null}
+ */
+export function bandGaugeY(def, ctx) {
+  const t = def?.threshold
+  if (!t) return null
+  const mode = ctx?.mode ?? 'positive'
+  if (t.type === 'fraction') {
+    if (mode !== 'positive') return null
+    if (!(t.den > 0) || !(t.num > 0) || t.num >= t.den) return null
+    const y = (t.num / t.den) * 100
+    if (!(y > 0) || !(y < 100)) return null
+    return { y, mode: 'positive' }
+  }
+  if (t.type === 'absolute') {
+    if (mode !== 'positive') return null
+    const leMax = Number.isFinite(ctx?.leMax) ? Number(ctx.leMax) : null
+    if (leMax === null || leMax <= 0) return null
+    if (!Number.isFinite(t.value)) return null
+    if (t.value <= 0) return null
+    if (t.value >= leMax) return null
+    const y = (t.value / leMax) * 100
+    return { y, mode: 'positive' }
+  }
+  if (t.type === 'negKoDepth') {
+    if (mode !== 'negLe') return null
+    if (!Number.isFinite(t.factor)) return null
+    if (t.factor <= 0) return null
+    if (t.factor >= NEG_LE_KO_RANGE) return null
+    const y = 100 - (t.factor / NEG_LE_KO_RANGE) * 100
+    return { y, mode: 'negKo' }
+  }
+  return null
+}
+
+/**
+ * Erzeugt das Beschriftungs-Tupel für ein Band auf der Gauge.
+ * - `text`: kompletter Label-Text inkl. Wert, falls berechenbar.
+ * - `value`: rechts vom `=` stehender Zahlenwert (oder null).
+ *
+ * @param {LeBandDef} def
+ * @param {{ leMax?: number | null, ko?: number | null }} ctx
+ * @returns {{ text: string, value: number | null }}
+ */
+export function bandLabelTextForGauge(def, ctx) {
+  const t = def?.threshold
+  const fallbackLabel = defaultLeBandLabel(def)
+  if (!t) return { text: fallbackLabel, value: null }
+  const leMax = Number.isFinite(ctx?.leMax) ? Number(ctx.leMax) : null
+  const ko = Number.isFinite(ctx?.ko) ? Number(ctx.ko) : null
+  if (t.type === 'fraction') {
+    if (leMax === null || leMax <= 0) {
+      return { text: `${t.num}/${t.den} = —`, value: null }
+    }
+    const v = Math.round((leMax * t.num) / t.den)
+    return { text: `${t.num}/${t.den} = ${v}`, value: v }
+  }
+  if (t.type === 'absolute') {
+    if (t.value <= 0) {
+      return { text: '<=0', value: 0 }
+    }
+    return { text: `<=${t.value}`, value: t.value }
+  }
+  if (t.type === 'negKoDepth') {
+    const baseLabel = def?.label || defaultLeBandLabel(def)
+    if (ko === null || ko <= 0) {
+      return { text: baseLabel, value: null }
+    }
+    const v = Math.round(t.factor * ko)
+    return { text: `${baseLabel} (${v})`, value: v }
+  }
+  return { text: fallbackLabel, value: null }
 }

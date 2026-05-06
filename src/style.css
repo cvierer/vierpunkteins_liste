@@ -1629,35 +1629,27 @@ body {
   }
 }
 
+.init-hero-ex__le-threshold__lines {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .init-hero-ex__le-threshold__line {
   position: absolute;
   left: 0;
   right: 0;
   height: 0;
-  border-top: 1px dashed rgba(26, 23, 20, 0.55);
+  border-top: 1px dashed rgba(26, 23, 20, 0.62);
   pointer-events: none;
-}
-
-.init-hero-ex__le-threshold__line--50 {
-  border-top-color: rgba(26, 23, 20, 0.68);
-}
-
-.init-hero-ex__le-threshold__line--33 {
-  border-top-color: rgba(26, 23, 20, 0.55);
-}
-
-.init-hero-ex__le-threshold__line--25 {
-  border-top-color: rgba(26, 23, 20, 0.45);
-}
-
-.init-hero-ex__le-threshold__line--le5 {
-  border-top: 1px solid rgba(163, 32, 32, 0.78);
 }
 
 .init-hero-ex__le-threshold__skull {
   position: absolute;
   left: 50%;
   top: 50%;
+  z-index: 2;
   width: 100%;
   height: auto;
   max-height: 100%;
@@ -1977,6 +1969,13 @@ body {
   color: rgba(92, 14, 10, 0.98);
 }
 
+.init-hero-ex__le-pop__gauge-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .init-hero-ex__le-pop__gauge-fill {
   position: absolute;
   left: 0;
@@ -2072,30 +2071,15 @@ body {
   left: 0;
   right: 0;
   height: 0;
-  border-top: 1px dashed rgba(26, 23, 20, 0.55);
+  border-top: 1px dashed rgba(26, 23, 20, 0.65);
   pointer-events: none;
-}
-
-.init-hero-ex__le-pop__gauge-line--50 {
-  border-top-color: rgba(26, 23, 20, 0.72);
-}
-
-.init-hero-ex__le-pop__gauge-line--33 {
-  border-top-color: rgba(26, 23, 20, 0.58);
-}
-
-.init-hero-ex__le-pop__gauge-line--25 {
-  border-top-color: rgba(26, 23, 20, 0.48);
-}
-
-.init-hero-ex__le-pop__gauge-line--le5 {
-  border-top: 1px solid rgba(163, 32, 32, 0.78);
 }
 
 .init-hero-ex__le-pop__gauge-skull {
   position: absolute;
   left: 50%;
   top: 50%;
+  z-index: 2;
   width: 100%;
   height: auto;
   max-height: 100%;
@@ -2174,6 +2158,13 @@ body {
   --le-pop-conn-end: 17;
 }
 
+.init-hero-ex__le-pop__gauge-labels-host {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 /* V359: Feste Y-Slots für die Schwellen-Labels, Leader-Line per SVG-Polyline. */
 .init-hero-ex__le-pop__conn-svg {
   position: absolute;
@@ -2187,10 +2178,6 @@ body {
 
 .init-hero-ex__le-pop__conn-line {
   opacity: 0.78;
-}
-
-.init-hero-ex__le-pop__conn-line--le5 {
-  color: rgba(163, 32, 32, 0.85);
 }
 
 .init-hero-ex__le-pop__gauge-label {
@@ -2211,15 +2198,6 @@ body {
   color: rgba(26, 23, 20, 0.82);
   white-space: nowrap;
   pointer-events: none;
-}
-
-.init-hero-ex__le-pop__gauge-label--le5 {
-  color: rgba(120, 20, 14, 0.95);
-}
-
-/* Negativ-Skala: −1·KO gleiche Signalfarbe wie −1,5·KO */
-.init-hero-ex__le-pop--neg-le .init-hero-ex__le-pop__gauge-label--25 {
-  color: rgba(120, 20, 14, 0.95);
 }
 
 .init-hero-ex__le-pop__gauge-label__val {
