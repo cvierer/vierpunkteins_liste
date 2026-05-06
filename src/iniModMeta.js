@@ -4413,7 +4413,20 @@ export function mountHeroExpandBlock(
       // die zweite Ziffer verhindern. Ein-/nullstellig: blur/Enter (commit).
       if (!lePop.isConnected && len >= 2) schedulePersistHeroExpand(gather())
     })
-    inp.addEventListener('blur', commit)
+    inp.addEventListener('blur', (e) => {
+      const relatedNext =
+        e instanceof FocusEvent && e.relatedTarget instanceof HTMLElement
+          ? e.relatedTarget
+          : null
+      // Beim Wechsel zwischen Hero-Feldern nicht sofort committen:
+      // ein unmittelbarer Remount kann den ersten Klick/Tastendruck "fressen".
+      if (relatedNext && root.contains(relatedNext)) return
+      requestAnimationFrame(() => {
+        const active = document.activeElement
+        if (active instanceof HTMLElement && root.contains(active)) return
+        commit()
+      })
+    })
     inp.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return
       e.preventDefault()
