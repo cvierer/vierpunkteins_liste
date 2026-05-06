@@ -527,6 +527,8 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
   let wundenCount = Math.min(3, Math.max(0, Math.floor(Number(zSnap.w)) || 0))
   const w20Text = formatWappenW20(def?.w20Range)
   const w20Hint = w20Text ? `W20: ${w20Text} (Fußkampf)` : 'Fußkampf'
+  const rsHint =
+    'In den Rüstungskästchen (früher Wappenkästchen) den Rüstungsschutz eintragen'
   const titleBase =
     String(def?.tooltip || def?.label || def?.id || '').trim() ||
     String(def?.id || '')
@@ -538,7 +540,7 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
   const ab = document.createElement('span')
   ab.className = 'init-hero-ex__abbr'
   ab.textContent = abbrText
-  ab.title = `${titleBase} · ${w20Hint}`
+  ab.title = `${titleBase} · ${w20Hint} — ${rsHint}`
   const wappen = document.createElement('div')
   wappen.className = 'init-hero-ex__wappen'
   wappen.setAttribute('role', 'group')
@@ -560,7 +562,7 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
     dot.className = 'init-hero-ex__wappen-dot'
     dot.title = woundRule
       ? `${woundRule} — ${tapHint(i)}`
-      : `${titleBase} · ${w20Hint} — ${tapHint(i)}`
+      : `${titleBase} · ${w20Hint} — ${rsHint}. ${tapHint(i)}`
     dot.setAttribute('aria-label', `Wundmarke ${i + 1} (${titleBase})`)
     dots.push(dot)
   }
@@ -575,7 +577,7 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
   rsInp.disabled = !canEdit
   rsInp.value = strOrEmpty(zSnap.rs)
   rsInp.maxLength = 2
-  rsInp.title = `${titleBase} · ${w20Hint} — RS (bis 2 Ziffern)`
+  rsInp.title = `${titleBase} · ${w20Hint} — RS (bis 2 Ziffern). ${rsHint}.`
   rsInp.setAttribute('aria-label', `${titleBase}, Rüstungsschutz`)
   wappen.append(chief, rsInp)
   cell.append(ab, wappen)

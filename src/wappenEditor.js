@@ -117,7 +117,7 @@ export function mountWappenEditor(host, opts) {
   summary.className =
     'kampf-settings-panel__microhint kampf-wappen-editor__hint'
   summary.textContent =
-    'Bis zu 8 Kästchen-Slots für Wunden und Trefferzonen. Jedes aktive Feld braucht eine W20-Spanne (1–20); zusammen decken alle aktiven Slots 1–20 lückenlos ab. Auto-Mods wirken bei Wunden je Trefferzone.'
+    'Bis zu 8 Kästchen-Slots für Wunden und Trefferzonen. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen. Jedes aktive Feld braucht eine W20-Spanne (1–20); zusammen decken alle aktiven Slots 1–20 lückenlos ab. Auto-Mods wirken bei Wunden je Trefferzone.'
   root.appendChild(summary)
 
   const templates = Array.isArray(opts?.templates) ? opts.templates : []

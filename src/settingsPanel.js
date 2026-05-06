@@ -75,7 +75,7 @@ export function setupSettingsPanel(gearHost) {
     </div>
     <div class="kampf-settings-panel__section" data-kampf-settings-wappen-section>
       <h3 class="kampf-settings-panel__sub">Wunden und Trefferzonen (Raum-Default)</h3>
-      <p class="kampf-settings-panel__microhint">Standard-Kästchen für Wunden und Trefferzonen für alle Helden. Pro Kämpfer kann die Spielleitung in den Helden-Einstellungen eine eigene Liste setzen.</p>
+      <p class="kampf-settings-panel__microhint">Standard-Kästchen für Wunden und Trefferzonen für alle Helden. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen. Pro Kämpfer kann die Spielleitung in den Helden-Einstellungen eine eigene Liste setzen.</p>
       <div data-kampf-settings-wappen-host></div>
     </div>
     <div class="kampf-settings-panel__section kampf-settings-panel__future">

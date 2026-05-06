@@ -3207,7 +3207,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     </div>
     <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-wappen-section>
       <h3 class="kampf-settings-panel__sub">Wunden und Trefferzonen</h3>
-      <p class="kampf-settings-panel__microhint">Standard-Vorlage Mensch oder Vierbeiner pro Kämpfer wählen, oder eine eigene Liste anlegen. Eigene startet wahlweise aus Mensch oder Vierbeiner und ist danach komplett bearbeitbar (W20-Zonen, Auto-Mods).</p>
+      <p class="kampf-settings-panel__microhint">Standard-Vorlage Mensch oder Vierbeiner pro Kämpfer wählen, oder eine eigene Liste anlegen. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen. Eigene startet wahlweise aus Mensch oder Vierbeiner und ist danach komplett bearbeitbar (W20-Zonen, Auto-Mods).</p>
       <fieldset class="kampf-settings-convert-announce">
         <legend class="kampf-settings-convert-announce__legend">Vorlage: Kästchen für Wunden und Trefferzonen</legend>
         <label class="kampf-settings-radio-label">
@@ -3220,7 +3220,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         </label>
         <label class="kampf-settings-radio-label">
           <input type="radio" name="kampf-hero-wappen-source" value="own" />
-          <span><strong>Eigene Kästchen für Wunden und Trefferzonen für diesen Kämpfer.</strong> Im Editor wählst du Mensch oder Vierbeiner als Startpunkt; danach individuell anpassbar.</span>
+          <span><strong>Eigene Kästchen für Wunden und Trefferzonen für diesen Kämpfer.</strong> Im Editor wählst du Mensch oder Vierbeiner als Startpunkt; danach individuell anpassbar. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen.</span>
         </label>
       </fieldset>
       <div data-kampf-hero-wappen-host hidden></div>
