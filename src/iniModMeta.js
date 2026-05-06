@@ -3671,11 +3671,23 @@ export function mountHeroExpandBlock(
     })
   }
 
-  const refreshModStripFromScene = async () => {
+  const waitMs = (ms) =>
+    new Promise((resolve) => {
+      window.setTimeout(resolve, ms)
+    })
+
+  const refreshModStripFromScene = async (opts = {}) => {
+    const settle = opts?.settle === true
     try {
       const items = await OBR.scene.items.getItems([itemId])
       const freshMeta = items?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
       if (freshMeta) renderModBadgesAndStrip(freshMeta)
+      if (settle) {
+        await waitMs(80)
+        const items2 = await OBR.scene.items.getItems([itemId])
+        const freshMeta2 = items2?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+        if (freshMeta2) renderModBadgesAndStrip(freshMeta2)
+      }
     } catch (_) {}
   }
 
@@ -4196,7 +4208,7 @@ export function mountHeroExpandBlock(
     spTzCheckpoint = { sp: next.sp ?? '', tz: String(next.tz ?? '') }
     syncSpTzHistoryButtons()
     await applyHeroExpandFields(itemId, persistBasisFromGathered(next))
-    await refreshModStripFromScene()
+    await refreshModStripFromScene({ settle: true })
     if (liveRefreshTimer != null) {
       clearTimeout(liveRefreshTimer)
       liveRefreshTimer = null
