@@ -1,0 +1,79 @@
+import { describe, expect, it } from 'vitest'
+import { lhDisplayStepFromNav } from './lhMeta.js'
+
+describe('lhDisplayStepFromNav', () => {
+  const mechanics2Ap = {
+    actionsPerKr: 2,
+    triggerIniStep: -8,
+  }
+
+  it('at second trigger INI (hero−8): priorSpend 0 → step 2 / priorSpend 1 → step 1 (LH max 3)', () => {
+    const heroIni = 17
+    const navSecondTrigger = 9
+    const commitIni = 17
+    const commitRound = 1
+    const currentRound = 1
+    const lhMax = 3
+
+    const stepNoPrior = lhDisplayStepFromNav(
+      heroIni,
+      mechanics2Ap,
+      commitRound,
+      currentRound,
+      navSecondTrigger,
+      lhMax,
+      commitIni,
+      0
+    )
+    const stepWithPrior = lhDisplayStepFromNav(
+      heroIni,
+      mechanics2Ap,
+      commitRound,
+      currentRound,
+      navSecondTrigger,
+      lhMax,
+      commitIni,
+      1
+    )
+
+    expect(stepNoPrior).toBe(2)
+    expect(stepWithPrior).toBe(1)
+  })
+
+  it('KR2 am Mutterobjekt: nach Prior 1 in KR1 → 2/3 (Fortschritt über KR wie gewohnt)', () => {
+    const heroIni = 17
+    const commitIni = 17
+    const commitRound = 1
+    const currentRound = 2
+    const navMother = 17
+    const lhMax = 3
+    const priorFrozen = 1
+
+    const stepMotherKr2 = lhDisplayStepFromNav(
+      heroIni,
+      mechanics2Ap,
+      commitRound,
+      currentRound,
+      navMother,
+      lhMax,
+      commitIni,
+      priorFrozen
+    )
+
+    expect(stepMotherKr2).toBe(2)
+  })
+
+  it('KR3 am Mutterobjekt mit Prior 1: 3/3 vor Ende an −8', () => {
+    const stepMotherKr3 = lhDisplayStepFromNav(
+      17,
+      mechanics2Ap,
+      1,
+      3,
+      17,
+      3,
+      17,
+      1
+    )
+    expect(stepMotherKr3).toBe(3)
+  })
+})
