@@ -3242,6 +3242,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           <input type="radio" name="kampf-hero-energy-mode" value="ke" />
           <span><strong>KE</strong> anzeigen.</span>
         </label>
+        <label class="kampf-settings-radio-label">
+          <input type="radio" name="kampf-hero-energy-mode" value="both" />
+          <span><strong>AE + KE</strong> (geteiltes Kästchen).</span>
+        </label>
+        <label class="kampf-settings-radio-label">
+          <input type="radio" name="kampf-hero-energy-mode" value="none" />
+          <span><strong>Weder noch</strong> (Platzhalter bleibt unsichtbar).</span>
+        </label>
       </fieldset>
       <label class="kampf-settings-checkbox-label">
         <input type="checkbox" data-kampf-hero-show-fk />
@@ -3366,8 +3374,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    */
   let heroPending = null
 
-  const readHeroEnergyMode = (m) =>
-    String(m?.[HERO_EX_ENERGY_MODE] ?? '').trim().toLowerCase() === 'ke' ? 'ke' : 'ae'
+  const readHeroEnergyMode = (m) => {
+    const v = String(m?.[HERO_EX_ENERGY_MODE] ?? '').trim().toLowerCase()
+    return v === 'ke' || v === 'both' || v === 'none' ? v : 'ae'
+  }
 
   const readHeroShowFk = (m, fallbackIsVierbeiner) => {
     const raw = String(m?.[HERO_EX_SHOW_FK] ?? '').trim().toLowerCase()
@@ -3914,7 +3924,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         m[HERO_ACTION_POOL_ABW] = pend.heroActionPoolAbw
         m[HERO_INI_NEG_ACTIONS_LOST] = pend.heroIniNegActionsLost
         m[HERO_INI_NEG_ANG_MODE] = pend.heroIniNegAngMode
-        if (pend.energyMode === 'ke') m[HERO_EX_ENERGY_MODE] = 'ke'
+        if (pend.energyMode === 'ke' || pend.energyMode === 'both' || pend.energyMode === 'none')
+          m[HERO_EX_ENERGY_MODE] = pend.energyMode
         else delete m[HERO_EX_ENERGY_MODE]
         m[HERO_EX_SHOW_FK] = pend.showFk === false ? '0' : '1'
         if (pend.leThreshold != null && Number.isFinite(Number(pend.leThreshold))) {
@@ -4134,7 +4145,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const t = e.target
     if (!(t instanceof HTMLInputElement) || !heroPending) return
     if (t.name === 'kampf-hero-energy-mode') {
-      heroPending.energyMode = t.value === 'ke' ? 'ke' : 'ae'
+      heroPending.energyMode =
+        t.value === 'ke' || t.value === 'both' || t.value === 'none'
+          ? t.value
+          : 'ae'
       return
     }
     if (t === heroShowFkCb) {
