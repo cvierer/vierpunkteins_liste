@@ -7392,6 +7392,8 @@ select.init-row-extra-select {
   margin-left: 0;
   padding-bottom: 0;
   pointer-events: none;
+  border-radius: 50%;
+  overflow: hidden;
 }
 
 .init-hero-ex__mod-chip-le-ring__track {
@@ -7402,6 +7404,7 @@ select.init-row-extra-select {
   border: 1px solid var(--init-action-cell-border);
   background: var(--init-action-cell-fill);
   overflow: hidden;
+  clip-path: circle(50% at 50% 50%);
 }
 
 .init-hero-ex__mod-chip-le-ring__slice {
@@ -7415,6 +7418,7 @@ select.init-row-extra-select {
     opacity 0.18s ease,
     filter 0.18s ease;
   pointer-events: none;
+  clip-path: circle(50% at 50% 50%);
 }
 
 .init-hero-ex__mod-chip-le-ring--neg .init-hero-ex__mod-chip-le-ring__slice {
