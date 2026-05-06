@@ -4586,6 +4586,26 @@ export function mountHeroExpandBlock(
       }
       // Keine Persistenz mehr beim Tippen: nur blur/Enter/Explizit-Apply,
       // damit Felder nicht durch Remount mitten in der Eingabe flackern.
+      if (
+        inp === le.inp ||
+        inp === leMax.inp ||
+        inp === koAttr.inp ||
+        inp === lePopLeInp ||
+        inp === lePopLeMaxInp
+      ) {
+        const cNow = getCombat()
+        const roundNow =
+          cNow?.started && Number.isFinite(Number(cNow.round))
+            ? Number(cNow.round)
+            : null
+        const previewMeta = { ...(meta ?? {}) }
+        const snapPreview = persistBasisFromGathered(gather())
+        patchHeroExModsWithAutoBundles(previewMeta, snapPreview, {
+          round: roundNow,
+          navIni: readCurrentNavIniGlobal(),
+        })
+        renderModBadgesAndStrip(previewMeta)
+      }
     })
     inp.addEventListener('blur', (e) => {
       const relatedNext =
