@@ -7323,6 +7323,9 @@ select.init-row-extra-select {
 
 .init-hero-ex__mod-chip-card__marks-slot--le {
   gap: 0;
+  width: calc(0.72rem * var(--init-ui-scale));
+  height: calc(0.72rem * var(--init-ui-scale));
+  justify-content: center;
 }
 
 .init-hero-ex__mod-chip-card__wound-dot {
@@ -7383,7 +7386,7 @@ select.init-row-extra-select {
   position: relative;
   box-sizing: border-box;
   width: calc(0.72rem * var(--init-ui-scale));
-  height: calc(0.36rem * var(--init-ui-scale));
+  height: calc(0.72rem * var(--init-ui-scale));
   flex-shrink: 0;
   align-self: center;
   margin-left: 0;
@@ -7394,7 +7397,7 @@ select.init-row-extra-select {
 .init-hero-ex__mod-chip-le-ring__track {
   position: absolute;
   inset: 0;
-  border-radius: 3px;
+  border-radius: 50%;
   box-sizing: border-box;
   border: 1px solid var(--init-action-cell-border);
   background: var(--init-action-cell-fill);
@@ -7516,7 +7519,12 @@ select.init-row-extra-select {
 
 .init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-le-ring {
   width: calc(0.64rem * var(--init-ui-scale));
-  height: calc(0.32rem * var(--init-ui-scale));
+  height: calc(0.64rem * var(--init-ui-scale));
+}
+
+.init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card__marks-slot--le {
+  width: calc(0.64rem * var(--init-ui-scale));
+  height: calc(0.64rem * var(--init-ui-scale));
 }
 
 .init-hero-ex__mod-chip-card__x {

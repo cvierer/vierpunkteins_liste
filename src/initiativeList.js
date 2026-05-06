@@ -3374,9 +3374,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    */
   let heroPending = null
 
-  const readHeroEnergyMode = (m) => {
+  const readHeroEnergyMode = (m, fallbackIsVierbeiner = false) => {
     const v = String(m?.[HERO_EX_ENERGY_MODE] ?? '').trim().toLowerCase()
-    return v === 'ke' || v === 'both' || v === 'none' ? v : 'ae'
+    if (v === 'ke' || v === 'both' || v === 'none') return v
+    return fallbackIsVierbeiner ? 'none' : 'ae'
   }
 
   const readHeroShowFk = (m, fallbackIsVierbeiner) => {
@@ -3675,7 +3676,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroIniNegActionsLost: readHeroIniNegActionsLost(m),
       heroIniNegAngMode: readHeroIniNegAngMode(m),
       modDisplayMode: readModDisplayMode(m),
-      energyMode: readHeroEnergyMode(m),
+      energyMode: readHeroEnergyMode(m, isVierbeinerDefault),
       showFk: readHeroShowFk(m, isVierbeinerDefault),
       leThreshold: readHeroLeThreshold(m),
       wappenSource: initialWappenSource,
