@@ -1013,12 +1013,15 @@ body {
 /* RS bei Trefferauswertung ignorieren (Toggle neben < > in TP/TZ-Beschriftung) */
 .init-hero-ex__rs-bypass-btn-svg {
   display: block;
-  width: calc(0.52rem * var(--init-ui-scale));
-  height: calc(0.52rem * var(--init-ui-scale));
+  width: auto;
+  height: calc(0.58rem * var(--init-ui-scale));
+  aspect-ratio: 24 / 34;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
-.init-hero-ex__rs-bypass-btn--active {
-  color: #b71c1c;
+.init-hero-ex__rs-bypass-btn--active .init-hero-ex__rs-bypass-btn-svg {
+  filter: drop-shadow(0 0 2px rgba(183, 28, 28, 0.85)) brightness(0.94);
 }
 
 .init-hero-ex__micro.init-hero-ex__micro--rs-bypassed {
@@ -1111,15 +1114,14 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+  transform: rotate(45deg);
+  transform-origin: center;
   pointer-events: none;
 }
 
 .init-hero-ex__micro--sp-tz-bridge:hover:not(:disabled) {
   background: transparent !important;
-}
-
-.init-hero-ex__micro--sp-tz-bridge:hover:not(:disabled) .init-hero-ex__sp-tz-bridge-icon {
-  filter: brightness(1.08);
+  color: rgba(26, 23, 20, 0.95);
 }
 
 .init-hero-ex__micro--sp-tz-bridge:focus-visible {
