@@ -4519,8 +4519,13 @@ function bindStampContextRemove(el, stamp, items) {
     const combat = getCombat()
     const introActive = Boolean(combat.started && combat.roundIntroPending)
     if (roundIntroBoard && roundIntroLabel) {
+      const wasHidden = roundIntroBoard.hidden
       roundIntroBoard.hidden = !introActive
       if (introActive) {
+        if (wasHidden) {
+          /* Rundenübergang: alle offenen Hero-Overlays (S-Popover, Mod-Pop) schließen */
+          document.dispatchEvent(new CustomEvent('vierpunkteins:closeHeroOverlays'))
+        }
         const nr =
           typeof combat.roundIntroPrevRound === 'number' &&
           combat.roundIntroPrevRound >= 1

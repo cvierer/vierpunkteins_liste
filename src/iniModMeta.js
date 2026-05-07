@@ -1581,6 +1581,8 @@ export function mountHeroExpandBlock(
     )
     strike.setAttribute('viewBox', '0 0 100 100')
     strike.setAttribute('preserveAspectRatio', 'none')
+    strike.setAttribute('width', '100%')
+    strike.setAttribute('height', '100%')
     strike.setAttribute('aria-hidden', 'true')
     strike.classList.add('init-hero-ex__cell-strike')
     strike.style.display = 'none'
@@ -1623,7 +1625,7 @@ export function mountHeroExpandBlock(
       if (!t || !t.cell) continue
       const overlays = ensureLeBandOverlays(t.cell)
       if (!overlays) continue
-      overlays.strike.style.display = ''
+      overlays.strike.style.display = 'block'
       t.cell.classList.add('init-hero-ex__micro-cell--le-strike')
     }
     for (const [f, val] of Object.entries(ov.setValues)) {
@@ -3125,6 +3127,22 @@ export function mountHeroExpandBlock(
     document.removeEventListener('keydown', modPickEscHandler, true)
   }
 
+  /* Rundenübergang: S-Popover und Mod-Popover beim Beenden der Kampfrunde schließen. */
+  const closeOverlaysHandler = () => {
+    closeLePopover()
+    closeModPopover()
+  }
+  document.addEventListener('vierpunkteins:closeHeroOverlays', closeOverlaysHandler)
+  if (typeof contAny.__v4CloseOverlaysClear === 'function') {
+    contAny.__v4CloseOverlaysClear()
+  }
+  contAny.__v4CloseOverlaysClear = () => {
+    document.removeEventListener(
+      'vierpunkteins:closeHeroOverlays',
+      closeOverlaysHandler
+    )
+  }
+
   modPopCancel.addEventListener('click', (e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -3559,12 +3577,14 @@ export function mountHeroExpandBlock(
      *   chipColor?: string | null,
      * }} o
      */
+    const AUTO_LE_STRIKE_BUNDLE_PREFIX = 'auto-le-strike-'
     const mountModListChip = (stripEl, o) => {
       const chip = document.createElement('div')
       const bidStr = o.bundleId ? String(o.bundleId) : ''
       const autoCompactLabel =
         bidStr === AUTO_LE_BAND_BUNDLE_ID ||
-        bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX)
+        bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX) ||
+        bidStr.startsWith(AUTO_LE_STRIKE_BUNDLE_PREFIX)
       const chipEditable = canEdit && !o.isAutoBundle
 
       chip.className = `init-hero-ex__mod-chip-card ${o.isBundle ? 'init-hero-ex__mod-chip-card--bundle' : ''} ${
@@ -3593,7 +3613,9 @@ export function mountHeroExpandBlock(
       const useAutoZoneDots =
         o.isAutoBundle && bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX)
       const useAutoLeRing =
-        o.isAutoBundle && bidStr === AUTO_LE_BAND_BUNDLE_ID
+        o.isAutoBundle &&
+        (bidStr === AUTO_LE_BAND_BUNDLE_ID ||
+          bidStr.startsWith(AUTO_LE_STRIKE_BUNDLE_PREFIX))
 
       /** @type {HTMLElement} */
       let arrowWrap

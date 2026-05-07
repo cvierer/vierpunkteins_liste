@@ -1816,6 +1816,9 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
   padding: 0.06rem 0.34rem;
   border: 1px solid rgba(163, 32, 32, 0.55);
   border-radius: 999px;
@@ -1841,6 +1844,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.1rem;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
   padding: 0.06rem 0.34rem;
   border: 1px solid rgba(163, 32, 32, 0.55);
   border-radius: 999px;
@@ -1883,6 +1889,7 @@ body {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  flex-shrink: 0;
   width: calc(1.05rem * var(--init-ui-scale));
   min-width: calc(1.05rem * var(--init-ui-scale));
   height: calc(0.7rem * var(--init-ui-scale));
@@ -3072,6 +3079,7 @@ body {
 }
 
 .init-hero-ex__cell-strike {
+  display: block;
   position: absolute;
   left: 0;
   right: 0;
