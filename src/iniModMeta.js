@@ -1246,7 +1246,9 @@ export function mountHeroExpandBlock(
     'Ini-Basis + Modifikation (IB)'
   )
   const ibBeLbl = mkChainAbbr('BE', 'Behinderung (BE)', true)
+  ibBeLbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
   const ibW6Lbl = mkChainAbbr('W6', 'Würfelwurf (W6)', true)
+  ibW6Lbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
   const ibIniLblHold = document.createElement('span')
   ibIniLblHold.className = 'init-hero-ex__ib-chain__label-placeholder'
   ibIniLblHold.setAttribute('aria-hidden', 'true')

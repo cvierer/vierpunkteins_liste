@@ -332,8 +332,10 @@ body {
   --init-col-btn: calc(5.48 * var(--init-obj-cell) + 3 * var(--init-strip-h-gap));
   /* Kein zusätzlicher Gutter: Name beginnt direkt hinter der F.A.-Spalte */
   --init-col-gutter: 0px;
+  /* Listenrand rechts etwas kleiner: nutzbare Breite nach rechts ohne INI-Spaltenlogik zu brechen */
+  --init-list-edge-nudge: calc(0.12rem * var(--init-ui-scale));
   /* INI etwas breiter für 2-stellige Werte */
-  --init-col-ini: calc(var(--init-obj-cell) * 1.4);
+  --init-col-ini: calc(var(--init-obj-cell) * 1.58);
   /* Nutzbreite der INI-Elemente: rechts bündig, links nur leicht gekürzt */
   --init-col-ini-field: calc(var(--init-col-ini) - 0.06rem * var(--init-ui-scale));
   /* Stempel: breit genug um Gap + Swap-Bereich zu füllen, überlagert INI-Rand rechts */
@@ -356,7 +358,9 @@ body {
     var(--init-col-swap);
   gap: var(--init-grid-gap);
   align-items: flex-end;
-  padding: 0 calc(0.4rem * var(--init-ui-scale)) calc(0.12rem * var(--init-ui-scale));
+  padding:
+    0 calc(0.4rem * var(--init-ui-scale) - var(--init-list-edge-nudge))
+    calc(0.12rem * var(--init-ui-scale)) calc(0.4rem * var(--init-ui-scale));
   margin-bottom: 0.06rem;
   flex-shrink: 0;
   border-bottom: 1px solid rgba(127, 127, 127, 0.22);
@@ -626,7 +630,9 @@ body {
 
 .init-row {
   margin-bottom: 0;
-  padding: 0 calc(0.45rem * var(--init-ui-scale));
+  padding:
+    0 calc(0.45rem * var(--init-ui-scale) - var(--init-list-edge-nudge)) 0
+    calc(0.45rem * var(--init-ui-scale));
   border-radius: var(--radius);
   border: 1px solid transparent;
   transition:
@@ -1380,7 +1386,7 @@ body {
     calc(0.5 * var(--init-hero-cell))
     calc(0.5 * var(--init-hero-cell))
     var(--init-hero-ib-mod-gap)
-    var(--init-hero-cell);
+    calc(1.52 * var(--init-hero-cell));
 }
 
 .init-hero-ex__ib-chain__label-placeholder {
@@ -2398,12 +2404,12 @@ body {
   max-width: calc(0.5 * var(--init-hero-cell));
 }
 
-/* MOD-Feld: zwei schmale INI-Spalten ≈ eine Mikrozelle */
+/* MOD-Feld: breiter als eine Mikrozelle (Tempo-Mods + Platz für +) */
 .init-hero-ex__ib-chain__col--mod-pick {
   align-items: stretch;
-  width: var(--init-hero-cell);
-  min-width: var(--init-hero-cell);
-  max-width: var(--init-hero-cell);
+  width: calc(1.52 * var(--init-hero-cell));
+  min-width: calc(1.52 * var(--init-hero-cell));
+  max-width: calc(1.52 * var(--init-hero-cell));
 }
 
 .init-hero-ex__ib-chain__inp-cell {
@@ -3129,6 +3135,12 @@ body {
 .init-hero-ex__ib-chain__stack > .init-hero-ex__abbr,
 .init-hero-ex__le-chain__stack > .init-hero-ex__abbr {
   font-size: calc(0.48rem * var(--init-box-scale));
+}
+
+/* BE/W6-Kürzel in der IB-Kette etwas kleiner */
+.init-hero-ex__ib-chain__stack > .init-hero-ex__abbr--ib-chain-compact {
+  font-size: calc(0.39rem * var(--init-box-scale));
+  letter-spacing: 0.03em;
 }
 
 .init-hero-ex__abbr.init-hero-ex__abbr--malus-active {
@@ -6197,14 +6209,18 @@ select.init-row-extra-select {
 .init-row--round-start {
   position: relative;
   margin: 0;
-  padding: 0.22rem calc(0.45rem * var(--init-ui-scale)) 0.14rem;
+  padding:
+    0.22rem calc(0.45rem * var(--init-ui-scale) - var(--init-list-edge-nudge)) 0.14rem
+    calc(0.45rem * var(--init-ui-scale));
   list-style: none;
 }
 
 .init-row--round-end {
   position: relative;
   margin: 0;
-  padding: 0.2rem calc(0.45rem * var(--init-ui-scale)) 0.28rem;
+  padding:
+    0.2rem calc(0.45rem * var(--init-ui-scale) - var(--init-list-edge-nudge)) 0.28rem
+    calc(0.45rem * var(--init-ui-scale));
   list-style: none;
 }
 
@@ -6328,7 +6344,9 @@ select.init-row-extra-select {
   align-items: center;
   gap: 0.28rem;
   margin: 0;
-  padding: 0.08rem 0.45rem 0.1rem;
+  padding:
+    0.08rem calc(0.45rem * var(--init-ui-scale) - var(--init-list-edge-nudge)) 0.1rem
+    calc(0.45rem * var(--init-ui-scale));
   list-style: none;
 }
 
