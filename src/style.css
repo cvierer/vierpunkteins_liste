@@ -7368,10 +7368,19 @@ select.init-row-extra-select {
   color: #121212;
 }
 
+.init-hero-ex__mod-chip-card__sum-arrow--unfaehig {
+  color: #b71c1c;
+}
+
 .init-hero-ex__mod-chip-card__sum-svg {
   display: block;
   width: calc(0.42rem * var(--init-ui-scale));
   height: calc(0.47rem * var(--init-ui-scale));
+}
+
+.init-hero-ex__mod-chip-card__sum-svg--unfaehig {
+  width: calc(0.5rem * var(--init-ui-scale));
+  height: calc(0.5rem * var(--init-ui-scale));
 }
 
 /* Auto-Wunde / Auto-LE: gleiche Kopfzelle wie Mini-Wappen-Chief (von links nach rechts). */
@@ -7646,6 +7655,10 @@ select.init-row-extra-select {
   overflow: visible;
   text-overflow: clip;
   max-width: none;
+}
+
+.init-hero-ex__mod-chip-card--auto-unfaehig .init-hero-ex__mod-chip-card__label-line {
+  font-size: calc(0.592rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 .init-hero-ex__mod-chip-card--long-label .init-hero-ex__mod-chip-card__label-line {

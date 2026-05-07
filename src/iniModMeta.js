@@ -774,6 +774,8 @@ const SVG_MOD_CHIP_SUM_UP =
   '<svg class="init-hero-ex__mod-chip-card__sum-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.75" stroke-dasharray="4.5 4" stroke-linecap="round" d="M12 24V9"/><path fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" d="M5.5 11L12 4l6.5 7"/></svg>'
 const SVG_MOD_CHIP_SUM_DOWN =
   '<svg class="init-hero-ex__mod-chip-card__sum-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.75" stroke-dasharray="4.5 4" stroke-linecap="round" d="M12 4v15"/><path fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" d="M5.5 17L12 24l6.5-7"/></svg>'
+const SVG_MOD_CHIP_UNFAEHIG_MARK =
+  '<svg class="init-hero-ex__mod-chip-card__sum-svg init-hero-ex__mod-chip-card__sum-svg--unfaehig" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M7 17L17 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'
 
 /**
  * @param {HTMLElement} container
@@ -2236,7 +2238,7 @@ export function mountHeroExpandBlock(
 
       const n05 = Math.round(0.5 * koV)
       const n15 = Math.round(1.5 * koV)
-      lePopLab33.textContent = `−½·KO (${n05})`
+      lePopLab33.textContent = `-0,5*KO (${n05})`
       lePopLab25.textContent = `−1·KO (${koV})`
       lePopLabLe5.textContent = `−1,5·KO (${n15})`
 
@@ -3635,6 +3637,9 @@ export function mountHeroExpandBlock(
           ? 'init-hero-ex__mod-chip-card--editable'
           : 'init-hero-ex__mod-chip-card--readonly'
       }`
+      if (bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID) {
+        chip.classList.add('init-hero-ex__mod-chip-card--auto-unfaehig')
+      }
       const palRaw = normalizeModChipColor(o.chipColor)
       const palId = o.isAutoBundle ? 'neutral' : palRaw
       if (palId) chip.classList.add(`init-hero-ex__mod-chip-card--pal-${palId}`)
@@ -3686,7 +3691,12 @@ export function mountHeroExpandBlock(
       } else {
         arrowWrap = document.createElement('span')
         const ns = o.netSum
-        if (ns > 0) {
+        if (bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID) {
+          arrowWrap.className =
+            'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--unfaehig'
+          arrowWrap.innerHTML = SVG_MOD_CHIP_UNFAEHIG_MARK
+          arrowWrap.title = 'unfähig (rein optisch)'
+        } else if (ns > 0) {
           arrowWrap.className =
             'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--up'
           arrowWrap.innerHTML = SVG_MOD_CHIP_SUM_UP

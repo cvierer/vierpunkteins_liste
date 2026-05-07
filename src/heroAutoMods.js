@@ -187,7 +187,7 @@ function leKoCriticalLabel(leNum, koNum) {
   const depth = -leNum
   if (depth > 1.5 * koNum) return '<-1,5KO'
   if (depth > koNum) return '<-KO'
-  if (depth > 0.5 * koNum) return '<-1/2KO'
+  if (depth > 0.5 * koNum) return '<-KO/2'
   return '<=0'
 }
 
@@ -606,7 +606,7 @@ export function buildHeroAutoModRecords(snap, ctx) {
           ? leKoCriticalLabel(leNum, koNum)
           : leAutoChipLabelDe(band, leThreshold)
       const label =
-        labelBand === '<-1,5KO' || labelBand === '<-1/2KO'
+        labelBand === '<-1,5KO' || labelBand === '<-KO/2'
           ? labelBand
           : labelBand
             ? `LE${labelBand}`
