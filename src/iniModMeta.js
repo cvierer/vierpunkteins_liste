@@ -293,6 +293,10 @@ function normalizeUnfaehigFixedFields(raw) {
 const TP_TZ_BRIDGE_SVG =
   '<svg class="init-hero-ex__sp-tz-bridge-icon" xmlns="http://www.w3.org/2000/svg" viewBox="-5 0 34 34" preserveAspectRatio="xMidYMid meet" fill="none" aria-hidden="true" focusable="false"><g><ellipse cx="12" cy="30.6" rx="2.5" ry="2.3" fill="#5d4037"/><circle cx="12" cy="30.6" r="1.85" fill="#b8860b"/><circle cx="12" cy="30.6" r="0.85" fill="#7e1010"/><path fill="#3e2723" d="M10.4 22.4 H13.6 V29.8 H10.4 Z"/><path fill="#5d4037" d="M10.55 22.6 H13.45 V23.5 H10.55 Z M10.55 24.4 H13.45 V25.3 H10.55 Z M10.55 26.2 H13.45 V27.1 H10.55 Z M10.55 28.0 H13.45 V28.9 H10.55 Z"/><path fill="#4f4643" d="M3.4 18.9 H20.6 L18.6 22.4 H5.4 Z"/><path fill="#6d615d" d="M4.2 19.3 H19.8 L18.0 22.0 H6.0 Z"/><ellipse cx="12" cy="20.7" rx="1.7" ry="1.0" fill="#584e4a"/><path fill="#5d4037" d="M9.6 18.9 L11.4 1.4 L12.6 1.4 L14.4 18.9 Z"/><path fill="#7e1010" d="M10.2 18.5 L11.6 2.5 L12.4 2.5 L13.8 18.5 Z"/><path fill="#c62828" d="M10.65 18.3 L11.7 3.4 L12.3 3.4 L13.35 18.3 Z"/><path fill="#ef9a9a" opacity="0.85" d="M11.85 4 L12.15 4 L12.0 17.6 Z"/><path fill="none" stroke="#3e2723" stroke-width="0.45" stroke-linejoin="round" d="M9.6 18.9 L11.4 1.4 L12.6 1.4 L14.4 18.9 H20.6 L18.6 22.4 H13.6 V29.8 A1.6 1.6 0 1 1 10.4 29.8 V22.4 H5.4 L3.4 18.9 Z"/></g></svg>'
 
+/** TP/TZ-Beschriftungszeile: RS bei Trefferauswertung ignorieren (Toggle). */
+const RS_BYPASS_TOGGLE_SVG =
+  '<svg class="init-hero-ex__rs-bypass-btn-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><line x1="11" y1="2" x2="11" y2="14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="3" y1="5" x2="7" y2="11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="7" y1="5" x2="3" y2="11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+
 /**
  * @param {string} itemId
  * @param {string} iniStr
@@ -1000,6 +1004,8 @@ export function mountHeroExpandBlock(
   const bottomStrip = document.createElement('div')
   bottomStrip.className = 'init-hero-ex__bottom-strip'
 
+  let rsBypassActive = false
+
   const spTzUndo = document.createElement('button')
   spTzUndo.type = 'button'
   spTzUndo.className = 'init-hero-ex__sp-tz-label-btn'
@@ -1014,9 +1020,21 @@ export function mountHeroExpandBlock(
   spTzRedo.title =
     'Vor: zuerst rückgängig gemachte Trefferberechnung, sonst TP/TZ-Wiederholen'
   spTzRedo.setAttribute('aria-label', 'Vor: Trefferberechnung oder TP/TZ')
+  const rsBypassBtn = document.createElement('button')
+  rsBypassBtn.type = 'button'
+  rsBypassBtn.className =
+    'init-hero-ex__sp-tz-label-btn init-hero-ex__rs-bypass-btn'
+  rsBypassBtn.innerHTML = RS_BYPASS_TOGGLE_SVG
+  rsBypassBtn.title = 'Rüstungsschutz bei Treffer auswerten ignorieren'
+  rsBypassBtn.setAttribute(
+    'aria-label',
+    'Rüstungsschutz bei Trefferauswertung ignorieren'
+  )
+  rsBypassBtn.setAttribute('aria-pressed', 'false')
+
   const spTzLabelTools = document.createElement('div')
   spTzLabelTools.className = 'init-hero-ex__sp-tz-pair__label-tools'
-  spTzLabelTools.append(spTzUndo, spTzRedo)
+  spTzLabelTools.append(spTzUndo, rsBypassBtn, spTzRedo)
 
   const spTzPair = document.createElement('div')
   spTzPair.className = 'init-hero-ex__sp-tz-pair'
@@ -1471,6 +1489,31 @@ export function mountHeroExpandBlock(
     zoneUiMid.push(ui)
     zoneMidRow.appendChild(ui.cell)
   }
+
+  const applyRsBypassUi = (active) => {
+    rsBypassActive = active
+    rsBypassBtn.classList.toggle('init-hero-ex__rs-bypass-btn--active', active)
+    rsBypassBtn.setAttribute('aria-pressed', active ? 'true' : 'false')
+    rsBypassBtn.title = active
+      ? 'Rüstungsschutz wieder berücksichtigen'
+      : 'Rüstungsschutz bei Treffer auswerten ignorieren'
+    rsBypassBtn.setAttribute(
+      'aria-label',
+      active
+        ? 'Rüstungsschutz wieder berücksichtigen'
+        : 'Rüstungsschutz bei Trefferauswertung ignorieren'
+    )
+    for (const ui of zoneUiMid) {
+      ui.rsInp.classList.toggle('init-hero-ex__micro--rs-bypassed', active)
+      ui.rsInp.disabled = active || !canEdit
+    }
+  }
+  rsBypassBtn.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    applyRsBypassUi(!rsBypassActive)
+  })
+  applyRsBypassUi(false)
 
   const leChain = document.createElement('div')
   leChain.className = 'init-hero-ex__le-chain'
@@ -4343,6 +4386,7 @@ export function mountHeroExpandBlock(
   if (!canEdit) {
     spTzUndo.disabled = true
     spTzRedo.disabled = true
+    rsBypassBtn.disabled = true
     spTzBridgeBtn.disabled = true
     iniUpBtn.disabled = true
     /** Nur Anzeige: Wunden/LE-Schwelle periodisch neu bewerten (kein AT/PA-Sync). */
@@ -4638,7 +4682,9 @@ export function mountHeroExpandBlock(
     cancelPendingPersistHeroExpand()
     clearTpTypingPersistTimer()
     const g0 = structuredClone(gather())
-    const res = applyHitZoneStrikeFromSpTz(g0)
+    const res = applyHitZoneStrikeFromSpTz(g0, {
+      ignoreRs: rsBypassActive,
+    })
     if (!res) {
       logCombat(
         'Treffer: SP (nicht-negative ganze Zahl) und gültige TZ (z. B. KF, BR, LA) nötig.'

@@ -69,6 +69,17 @@ describe('applyHitZoneStrikeFromSpTz', () => {
     expect(r.logLines.some((l) => l.includes('SP2'))).toBe(true)
   })
 
+  it('ignoreRs: voller TP ohne RS-Abzug, persistierter RS bleibt', () => {
+    const r = applyHitZoneStrikeFromSpTz(
+      minimalBase({ sp: '4', ws: '99', le: '20', leMax: '40' }),
+      { ignoreRs: true }
+    )
+    expect(r).not.toBeNull()
+    expect(r.next.le).toBe('16')
+    expect(r.next.hitZones.zones.brust.rs).toBe('2')
+    expect(r.logLines.some((l) => l.includes('RS umgangen'))).toBe(true)
+  })
+
   it('applies FK −2 per new wound mark and zone stage on brust', () => {
     const r = applyHitZoneStrikeFromSpTz(
       minimalBase({

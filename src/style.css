@@ -1004,6 +1004,23 @@ body {
   cursor: not-allowed;
 }
 
+/* RS bei Trefferauswertung ignorieren (Toggle neben < > in TP/TZ-Beschriftung) */
+.init-hero-ex__rs-bypass-btn-svg {
+  display: block;
+  width: calc(0.52rem * var(--init-ui-scale));
+  height: calc(0.52rem * var(--init-ui-scale));
+}
+
+.init-hero-ex__rs-bypass-btn--active {
+  color: #b71c1c;
+}
+
+.init-hero-ex__micro.init-hero-ex__micro--rs-bypassed {
+  opacity: 0.42;
+  color: #777777 !important;
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+
 .init-hero-ex__sp-tz-pair__grid-row--inputs {
   align-items: stretch;
   height: var(--init-hero-cell);
@@ -2672,6 +2689,10 @@ body {
 }
 
 .init-hero-ex__zone-mid .init-hero-ex__sp-tz-label-btn {
+  transform: none;
+}
+
+.init-hero-ex__zone-mid .init-hero-ex__rs-bypass-btn {
   transform: none;
 }
 

@@ -225,9 +225,11 @@ export function resolveTrefferZoneId(tzRaw, opts = {}) {
 
 /**
  * @param {Record<string, unknown>} base — wie `gather()` Rückgabe
+ * @param {{ ignoreRs?: boolean }} [opts]
  * @returns {{ next: Record<string, unknown>, logLines: string[], flashKeys: string[] } | null}
  */
-export function applyHitZoneStrikeFromSpTz(base) {
+export function applyHitZoneStrikeFromSpTz(base, opts = {}) {
+  const ignoreRs = Boolean(opts.ignoreRs)
   const tp = parseNonNegInt(base.sp)
   if (tp === null) return null
 
@@ -256,13 +258,18 @@ export function applyHitZoneStrikeFromSpTz(base) {
   }
 
   const zSnap = zones[zoneId]
-  const rs = parseNonNegInt(zSnap.rs) ?? 0
+  const rsRaw = parseNonNegInt(zSnap.rs) ?? 0
+  const rsEffective = ignoreRs ? 0 : rsRaw
   const wOld = clampWound(zSnap.w ?? 0)
 
-  const rest = Math.max(0, tp - rs)
+  const rest = Math.max(0, tp - rsEffective)
 
   const logLines = []
-  logLines.push(`Treffer ${zoneLabel}: TP${tp} RS${rs}→SP${rest}`)
+  logLines.push(
+    ignoreRs
+      ? `Treffer ${zoneLabel}: TP${tp} RS umgangen → SP${rest}`
+      : `Treffer ${zoneLabel}: TP${tp} RS${rsRaw}→SP${rest}`
+  )
 
   /** @type {Record<string, unknown>} */
   const next = { ...base, hitZones: { ...base.hitZones, zones: { ...zones } } }
