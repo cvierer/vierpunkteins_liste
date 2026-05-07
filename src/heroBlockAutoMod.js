@@ -20,14 +20,14 @@ export function leFractionToThresholdBand(frac) {
 }
 
 /**
- * Balkenfarbe inkl. LE≤5 (lebend): signalroter Puls wie Kampfunfähig-Regel, statt Anteilsfarbe.
+ * Balkenfarbe inkl. LE unter 6 (lebend): signalroter Puls statt Anteilsfarbe.
  * @param {number} leV
  * @param {number} maxV
  * @returns {'std' | 'gly' | 'yel' | 'yor' | 'alert' | 'peril' | 'crit' | 'sig'}
  */
 export function leBarColorBand(leV, maxV) {
   const frac = Math.max(0, Math.min(1, leV / maxV))
-  if (leV > 0 && leV <= 5) return 'sig'
+  if (leV > 0 && leV < 6) return 'sig'
   return leFractionToThresholdBand(frac)
 }
 

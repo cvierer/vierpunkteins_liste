@@ -353,7 +353,7 @@ export function applyHitZoneStrikeFromSpTz(base) {
   const koNow = parseLeadingInt(next.ko)
   if (leNow !== null) {
     if (leNow <= 5 && leNow >= 1) {
-      logLines.push('LE≤5: kampfunfähig')
+      logLines.push('LE 1–5: kampfunfähig')
     } else if (leNow <= 0) {
       logLines.push(`LE ≤0: Tod in 1W6×KO KR (${koNow ?? 'KO?'})`)
       if (koNow !== null && leNow < -koNow) {

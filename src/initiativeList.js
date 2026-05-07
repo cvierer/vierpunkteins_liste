@@ -197,12 +197,6 @@ import {
   HERO_EX_WAPPEN_TEMPLATE,
   normalizeWappenDefs,
 } from './wappenDefs.js'
-import { mountLeBandsEditor } from './leBandsEditor.js'
-import {
-  cloneDefaultLeBandDefs,
-  HERO_EX_LE_BANDS_OVERRIDE,
-  normalizeLeBandDefs,
-} from './leBandDefs.js'
 
 /** Letzter L.H.-Stand pro Token (für kurzes „fertig“ nach rem→0). */
 const lhRenderPrev = new Map()
@@ -3268,22 +3262,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       <label class="init-row-extra-label" for="kampf-hero-le-threshold-value">LE-Schwelle (Zahl)</label>
       <input type="text" id="kampf-hero-le-threshold-value" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Positive Zahl, z. B. 5. Leer oder deaktiviert = keine zusätzliche Schwelle." />
     </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-le-bands-section>
-      <h3 class="kampf-settings-panel__sub">LE-Schwellen und Effekte</h3>
-      <p class="kampf-settings-panel__microhint">Quelle der LE-Bänder: Raum-Default oder eigene Liste pro Kämpfer. „Eigene" startet vom aktuellen Raum-Default und ist danach komplett bearbeitbar (Schwellen-Typ, Mod-Effekte). Die Reihenfolge bestimmt die Schwere — oben = am schwersten, das erste passende Band gewinnt.</p>
-      <fieldset class="kampf-settings-convert-announce">
-        <legend class="kampf-settings-convert-announce__legend">Vorlage: LE-Bänder</legend>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-le-bands-source" value="global" />
-          <span><strong>Raum-Default</strong> (gilt, wenn keine eigene Liste gesetzt ist).</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-le-bands-source" value="own" />
-          <span><strong>Eigene LE-Bänder für diesen Kämpfer.</strong> Vom aktuellen Raum-Default kopiert; danach individuell anpassbar (Schwellen + Mod-Effekte).</span>
-        </label>
-      </fieldset>
-      <div data-kampf-hero-le-bands-host hidden></div>
-    </div>
     <div class="kampf-settings-panel__actions">
       <button type="button" class="btn kampf-settings-panel__cancel" data-kampf-hero-settings-cancel>Abbrechen</button>
       <button type="button" class="btn btn--primary kampf-settings-panel__save" data-kampf-hero-settings-save>Speichern und schließen</button>
@@ -3361,18 +3339,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const heroLeThresholdInp = heroSettingsPanel.querySelector(
     '#kampf-hero-le-threshold-value'
   )
-  const heroLeBandsSection = heroSettingsPanel.querySelector(
-    '[data-kampf-hero-le-bands-section]'
-  )
-  const heroLeBandsHost = heroSettingsPanel.querySelector(
-    '[data-kampf-hero-le-bands-host]'
-  )
 
   /** @type {ReturnType<typeof mountWappenEditor> | null} */
   let heroWappenEditor = null
   let heroWappenValid = true
-  /** @type {ReturnType<typeof mountLeBandsEditor> | null} */
-  let heroLeBandsEditor = null
 
   const applyHeroSettingsUiMode = () => {
     const gm = heroSettingsGmMode
@@ -3528,10 +3498,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     heroSettingsItemId = null
     heroPending = null
     heroSettingsGmMode = true
-    if (heroLeBandsEditor) {
-      heroLeBandsEditor.destroy()
-      heroLeBandsEditor = null
-    }
     if (heroWappenEditor) {
       heroWappenEditor.destroy()
       heroWappenEditor = null
@@ -3691,10 +3657,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         ? 'vierbeiner'
         : 'global'
     const isVierbeinerDefault = initialWappenSource === 'vierbeiner'
-    const leBandsOverrideRaw = m?.[HERO_EX_LE_BANDS_OVERRIDE]
-    const hasLeBandsOverride =
-      Array.isArray(leBandsOverrideRaw) && leBandsOverrideRaw.length > 0
-    const initialLeBandsSource = hasLeBandsOverride ? 'own' : 'global'
     heroPending = {
       heroFaMax:
         m?.heroFaMax == null
@@ -3721,10 +3683,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       wappenOverride: hasWappenOverride
         ? normalizeWappenDefs(wappenOverrideRaw)
         : null,
-      leBandsSource: initialLeBandsSource,
-      leBandsOverride: hasLeBandsOverride
-        ? normalizeLeBandDefs(leBandsOverrideRaw)
-        : null,
     }
     if (titleHeroEl) {
       titleHeroEl.textContent = gm
@@ -3735,7 +3693,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     syncHeroSettingsFields(lastItems)
     syncHeroSettingsCheckboxes()
     syncHeroWappenUi(room)
-    syncHeroLeBandsUi(room)
     heroSettingsBackdrop.hidden = false
     heroSettingsBackdrop.style.display = 'flex'
     heroSettingsBackdrop.setAttribute('aria-hidden', 'false')
@@ -3814,47 +3771,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     saveHeroBtn.title = blocking
       ? 'Kästchen für Wunden/Trefferzonen unvollständig (W20 1–20 müssen abgedeckt sein)'
       : ''
-  }
-
-  /**
-   * Synchronisiert die LE-Band-Section: Radio-Status, sichtbarer Editor.
-   * @param {{ leBandDefs?: unknown }} room
-   */
-  function syncHeroLeBandsUi(room) {
-    if (!heroPending) return
-    const radios = heroSettingsPanel.querySelectorAll(
-      'input[name="kampf-hero-le-bands-source"]'
-    )
-    for (const r of radios) {
-      if (r instanceof HTMLInputElement) {
-        r.checked = r.value === heroPending.leBandsSource
-        r.disabled = !heroSettingsGmMode
-      }
-    }
-    const showEditor =
-      heroSettingsGmMode && heroPending.leBandsSource === 'own'
-    if (heroLeBandsHost instanceof HTMLElement) {
-      heroLeBandsHost.hidden = !showEditor
-    }
-    if (heroLeBandsEditor) {
-      heroLeBandsEditor.destroy()
-      heroLeBandsEditor = null
-    }
-    if (showEditor && heroLeBandsHost instanceof HTMLElement) {
-      const initial =
-        heroPending.leBandsOverride ??
-        (Array.isArray(room?.leBandDefs) && room.leBandDefs.length > 0
-          ? room.leBandDefs
-          : cloneDefaultLeBandDefs())
-      heroPending.leBandsOverride = normalizeLeBandDefs(initial)
-      heroLeBandsEditor = mountLeBandsEditor(heroLeBandsHost, {
-        initial: heroPending.leBandsOverride,
-        readOnly: false,
-        onChange: (next) => {
-          if (heroPending) heroPending.leBandsOverride = next
-        },
-      })
-    }
   }
 
   /**
@@ -4029,16 +3945,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         } else {
           delete m[HERO_EX_WAPPEN_OVERRIDE]
           delete m[HERO_EX_WAPPEN_TEMPLATE]
-        }
-        if (
-          pend.leBandsSource === 'own' &&
-          Array.isArray(pend.leBandsOverride)
-        ) {
-          m[HERO_EX_LE_BANDS_OVERRIDE] = normalizeLeBandDefs(
-            pend.leBandsOverride
-          )
-        } else {
-          delete m[HERO_EX_LE_BANDS_OVERRIDE]
         }
         cleanupOrphanHitZoneKeys(m, room)
         initKrActionPoolsFromHeroDefaults(m)
@@ -4229,19 +4135,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
     syncHeroWappenUi(getRoomSettings())
     syncHeroSettingsCheckboxes()
-  })
-
-  heroSettingsPanel.addEventListener('change', (e) => {
-    if (!isGmSync() || !heroPending) return
-    const t = e.target
-    if (
-      !(t instanceof HTMLInputElement) ||
-      t.name !== 'kampf-hero-le-bands-source'
-    ) {
-      return
-    }
-    heroPending.leBandsSource = t.value === 'own' ? 'own' : 'global'
-    syncHeroLeBandsUi(getRoomSettings())
   })
 
   heroSettingsPanel.addEventListener('change', (e) => {
@@ -4519,13 +4412,8 @@ function bindStampContextRemove(el, stamp, items) {
     const combat = getCombat()
     const introActive = Boolean(combat.started && combat.roundIntroPending)
     if (roundIntroBoard && roundIntroLabel) {
-      const wasHidden = roundIntroBoard.hidden
       roundIntroBoard.hidden = !introActive
       if (introActive) {
-        if (wasHidden) {
-          /* Rundenübergang: alle offenen Hero-Overlays (S-Popover, Mod-Pop) schließen */
-          document.dispatchEvent(new CustomEvent('vierpunkteins:closeHeroOverlays'))
-        }
         const nr =
           typeof combat.roundIntroPrevRound === 'number' &&
           combat.roundIntroPrevRound >= 1
