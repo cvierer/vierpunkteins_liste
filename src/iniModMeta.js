@@ -1298,18 +1298,7 @@ export function mountHeroExpandBlock(
     'Ini-Basis + Modifikation (IB)'
   )
   const ibBeLbl = mkChainAbbr('-BE', 'Behinderung (BE)', true)
-  const ibW6Lbl = mkChainAbbr('+W6', 'Würfelwurf (W6)', true)
-  const ibBeW6AbbrWrap = document.createElement('span')
-  ibBeW6AbbrWrap.className = 'init-hero-ex__abbr'
-  ibBeW6AbbrWrap.style.display = 'grid'
-  ibBeW6AbbrWrap.style.gridTemplateRows = '1fr 1fr'
-  ibBeW6AbbrWrap.style.justifyItems = 'center'
-  ibBeW6AbbrWrap.style.alignItems = 'center'
-  ibBeW6AbbrWrap.style.fontSize = '10px'
-  ibBeW6AbbrWrap.style.lineHeight = '1.1'
-  ibBeLbl.style.fontSize = '10px'
-  ibW6Lbl.style.fontSize = '10px'
-  ibBeW6AbbrWrap.append(ibBeLbl, ibW6Lbl)
+  const ibW6LblMini = mkChainAbbr('+W6', 'Würfelwurf (W6)', true)
   const ibIniLblHold = document.createElement('span')
   ibIniLblHold.className = 'init-hero-ex__ib-chain__label-placeholder'
   ibIniLblHold.setAttribute('aria-hidden', 'true')
@@ -1350,12 +1339,8 @@ export function mountHeroExpandBlock(
     'Behinderung (BE)'
   )
   const w6Inp = mkChainInp('w6', snap.w6, 14, false, 'Würfelwurf (W6)')
-  beInp.style.fontSize = '12px'
-  beInp.style.lineHeight = '1.05'
-  beInp.style.height = '100%'
-  w6Inp.style.fontSize = '12px'
+  w6Inp.style.fontSize = '11px'
   w6Inp.style.lineHeight = '1.05'
-  w6Inp.style.height = '100%'
 
   /**
    * Spalte: nur Eingabe im oberen Kasten (Rahmen), Mod-Band darunter — wie Mikrozelle.
@@ -1387,26 +1372,13 @@ export function mountHeroExpandBlock(
     stack.appendChild(colEl)
     return stack
   }
-  const dualBeW6Wrap = document.createElement('div')
-  dualBeW6Wrap.style.display = 'grid'
-  dualBeW6Wrap.style.gridTemplateRows = '1fr 1fr'
-  dualBeW6Wrap.style.gap = '1px'
-  dualBeW6Wrap.style.width = '100%'
-  dualBeW6Wrap.style.height = '100%'
-  dualBeW6Wrap.append(beInp, w6Inp)
-
-  const beW6Col = document.createElement('div')
-  beW6Col.className = 'init-hero-ex__ib-chain__col'
-  const beW6Shell = document.createElement('div')
-  beW6Shell.className = 'init-hero-ex__ib-chain__inp-cell'
-  beW6Shell.appendChild(dualBeW6Wrap)
-  beW6Col.appendChild(beW6Shell)
-
   const mrCol = mkIbChainCol(mrInp)
   const ibCol = mkIbChainCol(ibInp)
+  const beCol = mkIbChainCol(beInp)
   const stackMr = mkIbChainStack(mrAbbrLabel, mrCol)
+  stackMr.classList.add('init-hero-ex__ib-chain__stack--mr-r-gap')
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
-  const stackBeW6 = mkIbChainStack(ibBeW6AbbrWrap, beW6Col)
+  const stackBe = mkIbChainStack(ibBeLbl, beCol)
   const iniUpBtn = document.createElement('button')
   iniUpBtn.type = 'button'
   iniUpBtn.className = 'init-hero-ex__ini-up-btn'
@@ -1434,8 +1406,16 @@ export function mountHeroExpandBlock(
   iniIbCol.className =
     'init-hero-ex__ib-chain__col init-hero-ex__ib-chain__col--ini'
   const iniShell = document.createElement('div')
-  iniShell.className = 'init-hero-ex__ib-chain__inp-cell'
-  iniShell.appendChild(iniUpBtn)
+  iniShell.className =
+    'init-hero-ex__ib-chain__inp-cell init-hero-ex__ib-chain__inp-cell--ini-w6-stack'
+  const iniBtnRow = document.createElement('div')
+  iniBtnRow.className = 'init-hero-ex__ib-chain__ini-w6-stack__btn-row'
+  iniBtnRow.appendChild(iniUpBtn)
+  const iniW6Row = document.createElement('div')
+  iniW6Row.className = 'init-hero-ex__ib-chain__ini-w6-stack__w6-row'
+  ibW6LblMini.classList.add('init-hero-ex__ib-chain__ini-w6-stack__w6-abbr')
+  iniW6Row.append(ibW6LblMini, w6Inp)
+  iniShell.append(iniBtnRow, iniW6Row)
   iniIbCol.appendChild(iniShell)
 
   if (canEdit) {
@@ -1494,7 +1474,7 @@ export function mountHeroExpandBlock(
   const stackIni = mkIbChainStack(ibIniLblHold, iniIbCol)
   const ibChainCols = document.createElement('div')
   ibChainCols.className = 'init-hero-ex__ib-chain__cols'
-  ibChainCols.append(stackMr, stackIb, stackBeW6, stackIni)
+  ibChainCols.append(stackMr, stackIb, stackBe, stackIni)
   if (stackMod) ibChainCols.appendChild(stackMod)
   ibChain.appendChild(ibChainCols)
   const mr = { inp: mrInp }
@@ -2817,7 +2797,7 @@ export function mountHeroExpandBlock(
     ws: { cell: ws.cell, inp: ws.inp, ab: ws.ab },
     mr: { cell: stackMr, inp: mrInp, ab: mrAbbrLabel },
     ib: { cell: stackIb, inp: ibInp, ab: ibAbbrLabel },
-    be: { cell: stackBeW6, inp: beInp, ab: ibBeLbl },
+    be: { cell: stackBe, inp: beInp, ab: ibBeLbl },
   }
   for (const ui of zoneUiMid) {
     const abEl = ui.cell.querySelector(':scope > .init-hero-ex__abbr')
