@@ -3793,13 +3793,13 @@ export function mountHeroExpandBlock(
       } else if (sum < 0) {
         badge.classList.add('init-hero-ex__mod-badge--neg')
       }
-      const sign = sum > 0 ? '+' : ''
+      const absSum = Math.abs(sum)
       const fieldMods = activeModsFull.filter((m) => m.field === field)
       const tightest =
         fieldMods.length > 0
           ? fieldMods.reduce((acc, m) => (m.remaining < acc.remaining ? m : acc))
           : null
-      const tightFrac = tightest
+      const tightFracRaw = tightest
         ? modNavCountdownLabelFromNav(
             tightest,
             ownerIniNum,
@@ -3808,10 +3808,16 @@ export function mountHeroExpandBlock(
             navIni
           )
         : ''
+      const tightFrac = tightest?.permanent ? '' : tightFracRaw
       /* Hauptwert größer als Restlaufzeit; schmale Abstände um den Mittelpunkt. */
+      const arrowSpan = document.createElement('span')
+      arrowSpan.className = 'init-hero-ex__mod-badge__arrow'
+      arrowSpan.setAttribute('aria-hidden', 'true')
+      arrowSpan.innerHTML = sum > 0 ? SVG_HERO_MOD_TOGGLE_UP : SVG_HERO_MOD_TOGGLE_DOWN
+      badge.appendChild(arrowSpan)
       const valSpan = document.createElement('span')
       valSpan.className = 'init-hero-ex__mod-badge__val'
-      valSpan.textContent = `${sign}${sum}`
+      valSpan.textContent = String(absSum)
       badge.appendChild(valSpan)
       if (tightFrac) {
         const tailSpan = document.createElement('span')
@@ -3834,7 +3840,7 @@ export function mountHeroExpandBlock(
           return `${eff > 0 ? '+' : ''}${eff} (${frac})`
         })
         .join(' \u00B7 ')
-      badge.title = `${namePrefix}Modifikator ${sign}${sum} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
+      badge.title = `${namePrefix}Modifikator ${sum > 0 ? '+' : ''}${sum} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
       const fieldModsAutoOnly =
         fieldMods.length > 0 &&
         fieldMods.every((m) =>
