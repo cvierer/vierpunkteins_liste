@@ -7667,15 +7667,13 @@ select.init-row-extra-select {
   font-size: calc(0.534rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
-/* Aufklappbereich: LE/MAX sind readOnly und sollen nur als Rahmen sichtbar sein.
-   Gilt nur fuer die Hauptzeile (nicht fuer das LE-Popover). */
+/* Aufklappbereich: LE/MAX-Kaestchen mit Listenhintergrund (Rahmen bleibt sichtbar),
+   nur in der Hauptzeile, nicht im LE-Popover. */
 .init-hero-ex__bottom-strip
   .init-hero-ex__le-chain
   > .init-hero-ex__le-chain__cols
-  .init-hero-ex__micro--ib-chain-inp[readonly] {
-  color: transparent !important;
-  caret-color: transparent;
-  text-shadow: none !important;
+  .init-hero-ex__le-chain__inp-cell {
+  background: var(--color-bg);
 }
 
 .init-hero-ex__mod-chip-card--long-label .init-hero-ex__mod-chip-card__label-line {

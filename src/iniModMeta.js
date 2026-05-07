@@ -2511,7 +2511,8 @@ export function mountHeroExpandBlock(
   koAttr.inp.addEventListener('input', updateLePopover)
 
   zoneMidRow.append(spTzPair)
-  attrKoTpWrap.append(ws.cell, leChain, leThreshCell)
+  /* Reihenfolge im Aufklappbereich: WS, S, LE/MAX */
+  attrKoTpWrap.append(ws.cell, leThreshCell, leChain)
 
   stripInner.append(
     at.cell,
