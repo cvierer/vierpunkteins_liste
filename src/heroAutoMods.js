@@ -628,7 +628,7 @@ export function buildHeroAutoModRecords(snap, ctx) {
       pushRows(
         'auto-le-unfaehig',
         'unfähig',
-        [{ field: 'ui', delta: 1 }],
+        [{ field: 'le', delta: 0 }],
         { includeZero: true }
       )
     }
