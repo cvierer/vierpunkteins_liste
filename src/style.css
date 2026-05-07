@@ -334,9 +334,9 @@ body {
   --init-col-gutter: 0px;
   /* Listenrand rechts etwas kleiner: nutzbare Breite nach rechts (INI + Rundenzeilen gleich verschoben) */
   --init-list-edge-nudge: calc(0.2rem * var(--init-ui-scale));
-  /* INI etwas breiter für 2-stellige Werte */
-  --init-col-ini: calc(var(--init-obj-cell) * 1.72);
-  /* Nutzbreite der INI-Elemente: rechts bündig, links nur leicht gekürzt */
+  /* INI-Spaltenschiene im Raster (Felder rechts am Gitter wie zuvor, etwas schmaler) */
+  --init-col-ini: calc(var(--init-obj-cell) * 1.46);
+  /* Nutzbreite der INI-Elemente (= schmaler Buttons „Kampfrunde“); Eingaben zentrieren wir im Kästchen */
   --init-col-ini-field: calc(var(--init-col-ini) - 0.06rem * var(--init-ui-scale));
   /* Stempel: breit genug um Gap + Swap-Bereich zu füllen, überlagert INI-Rand rechts */
   --init-stamp-panel-w: calc(var(--init-col-swap) + var(--init-grid-gap) + var(--init-obj-cell) * 0.38);
@@ -6293,7 +6293,15 @@ select.init-row-extra-select {
   position: absolute;
   top: 50%;
   right: calc(var(--init-col-swap) + var(--init-grid-gap));
-  transform: translate(calc(-0.14rem * var(--init-ui-scale)), -50%);
+  transform: translateY(-50%);
+  left: auto;
+  width: var(--init-col-ini-field);
+  max-width: var(--init-col-ini-field);
+  min-width: 0;
+  padding-left: calc(0.22rem * var(--init-ui-scale));
+  padding-right: calc(0.22rem * var(--init-ui-scale));
+  margin: 0;
+  box-sizing: border-box;
   z-index: 4;
   background: var(--color-surface);
   box-shadow:
@@ -6603,10 +6611,12 @@ select.init-row-extra-select {
   box-sizing: border-box;
   width: var(--init-col-ini-field);
   max-width: var(--init-col-ini-field);
+  min-width: 0;
   height: calc(0.72 * var(--init-obj-cell));
   min-height: calc(0.72 * var(--init-obj-cell));
   margin: 0 0 0 auto;
-  padding: 0 calc(0.3rem * var(--init-ui-scale));
+  padding-left: calc(0.22rem * var(--init-ui-scale));
+  padding-right: calc(0.22rem * var(--init-ui-scale));
   border-radius: 4px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: var(--color-surface);
@@ -6676,7 +6686,11 @@ select.init-row-extra-select {
   height: var(--init-obj-cell);
   min-height: var(--init-obj-cell);
   margin-left: auto;
-  padding: 0 calc(0.3rem * var(--init-ui-scale));
+  margin-right: 0;
+  padding-left: calc(0.22rem * var(--init-ui-scale));
+  padding-right: calc(0.22rem * var(--init-ui-scale));
+  padding-top: 0;
+  padding-bottom: 0;
   border-radius: 4px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: #fff;
@@ -6686,6 +6700,8 @@ select.init-row-extra-select {
   font-weight: 800;
   line-height: var(--init-micro-inp-line-height);
   text-align: center;
+  text-align-last: center;
+  font-variant-numeric: tabular-nums;
   transform: none;
 }
 
