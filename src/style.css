@@ -3278,7 +3278,7 @@ body {
   background: var(--init-action-cell-fill-focus);
 }
 
-/* WS-Kachel in WS|LE|MAX-Kette (Gold wie LE/max), nicht Attribut-8-Grünton */
+/* WS-Kachel: gleiche Variablen wie KO; im Aufklappstreifen sonst Listen-Hintergrund wie LE/max (s.u.). */
 .init-hero-ex__attr-ko-tp-wrap
   .init-hero-ex__micro-cell--ws-le-match
   .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(
@@ -7904,6 +7904,23 @@ select.init-row-extra-select {
   > .init-hero-ex__le-chain__cols:focus-within
   .init-hero-ex__le-chain__inp-cell {
   background: var(--color-bg) !important;
+}
+
+/* WS wie KO: gleiche goldene Standard-Kachel, nicht Listen-Hintergrund wie LE/max. */
+.init-hero-ex__bottom-strip
+  .init-hero-ex__le-chain
+  > .init-hero-ex__le-chain__cols
+  > .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__le-chain__inp-cell {
+  background: var(--init-action-cell-fill) !important;
+}
+
+.init-hero-ex__bottom-strip
+  .init-hero-ex__le-chain
+  > .init-hero-ex__le-chain__cols
+  > .init-hero-ex__micro-cell--ws-le-match:focus-within
+  .init-hero-ex__le-chain__inp-cell {
+  background: var(--init-action-cell-fill-focus) !important;
 }
 
 .init-hero-ex__mod-chip-card--long-label .init-hero-ex__mod-chip-card__label-line {
