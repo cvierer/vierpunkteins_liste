@@ -1323,7 +1323,8 @@ body {
 
 /* MR / IB / BE / W6 / INI / MOD: sechs Stacks in der IB-Kette */
 .init-hero-ex__ib-chain {
-  --init-hero-ib-mod-gap: calc(0.06rem * var(--init-ui-scale));
+  /* Luft zwischen INI-Berechnen und MOD+: etwas mehr als Rasterlücke zwischen IB/BE-Spalten */
+  --init-hero-ib-mod-gap: calc(0.12rem * var(--init-ui-scale));
   /* MOD-Spalte + MOD+-Button nutzen dieselbe Bezugsbreite */
   --init-hero-ex-mod-chain-w: calc(1.82 * var(--init-hero-cell));
   display: flex;
