@@ -1215,18 +1215,6 @@ export function mountHeroExpandBlock(
     ae.inp.disabled = true
     ae.inp.tabIndex = -1
   }
-  const ws = mkMicro(
-    'WS',
-    'Wundschwelle + Modifikation (WS)',
-    'ws',
-    microDisplayForModField('ws', snap.ws),
-    12,
-    '',
-    false
-  )
-  ws.cell.classList.add('init-hero-ex__micro-cell--ws-le-match')
-  ws.ab.title = WS_RULES_TOOLTIP
-  ws.inp.title = WS_RULES_TOOLTIP
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
   /* Sechs Spalten: MR IB BE W6 INI MOD (Lesemodus: MOD wie Bearbeitung). */
@@ -1552,9 +1540,22 @@ export function mountHeroExpandBlock(
   const leMaxCol = mkLeChainCol(leMaxInp)
   const stackLe = mkLeChainStack(leAbbrLE, leCol)
   const stackLeMax = mkLeChainStack(leAbbrMax, leMaxCol)
+  const wsAbbrLbl = mkChainAbbr('WS', WS_RULES_TOOLTIP)
+  const wsInp = mkChainInp(
+    'ws',
+    microDisplayForModField('ws', snap.ws),
+    12,
+    false,
+    'Wundschwelle + Modifikation (WS)'
+  )
+  wsInp.title = WS_RULES_TOOLTIP
+  const wsCol = mkLeChainCol(wsInp)
+  const stackWs = mkLeChainStack(wsAbbrLbl, wsCol)
+  stackWs.classList.add('init-hero-ex__micro-cell--ws-le-match')
+  const ws = { inp: wsInp, ab: wsAbbrLbl }
   const leChainCols = document.createElement('div')
   leChainCols.className = 'init-hero-ex__le-chain__cols'
-  leChainCols.append(stackLe, stackLeMax)
+  leChainCols.append(stackWs, stackLe, stackLeMax)
   leChain.appendChild(leChainCols)
   const le = { inp: leInp }
   const leMax = { inp: leMaxInp }
@@ -2564,7 +2565,7 @@ export function mountHeroExpandBlock(
   koAttr.inp.addEventListener('input', updateLePopover)
 
   zoneMidRow.append(spTzPair)
-  attrKoTpWrap.append(ws.cell, leChain, leThreshCell)
+  attrKoTpWrap.append(leChain, leThreshCell)
 
   stripInner.append(
     at.cell,
@@ -2764,7 +2765,7 @@ export function mountHeroExpandBlock(
     le: { cell: stackLe, inp: leInp, ab: leAbbrLE },
     leMax: { cell: stackLeMax, inp: leMaxInp, ab: leAbbrMax },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
-    ws: { cell: ws.cell, inp: ws.inp, ab: ws.ab },
+    ws: { cell: stackWs, inp: ws.inp, ab: ws.ab },
     mr: { cell: mrCell, inp: mrInp, ab: mrAbbrLabel },
     ib: { cell: stackIb, inp: ibInp, ab: ibAbbrLabel },
     be: { cell: stackBe, inp: beInp, ab: ibBeLbl },

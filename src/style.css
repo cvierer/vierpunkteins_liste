@@ -1428,7 +1428,7 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* LE + /max verkettet (ehem. LEM rechts von LE) */
+/* WS + LE + /max verkettet (gemeinsamer Rahmen, goldene Zwischentrenner) */
 .init-hero-ex__le-chain {
   display: flex;
   flex-direction: column;
@@ -1492,7 +1492,7 @@ body {
   background: var(--init-action-cell-fill-focus) !important;
 }
 
-/* LE-Kette (Hauptblock): Spalten wie Mikrozelle — Rahmen nur um LE/MAX-Eingabezeile. */
+/* WS|LE|MAX-Kette (Hauptblock): Spalten wie Mikrozelle — Rahmen nur um die verkettete Eingabezeile. */
 .init-hero-ex__le-chain > .init-hero-ex__le-chain__cols {
   display: flex;
   flex-direction: row;
@@ -1534,7 +1534,17 @@ body {
 }
 
 .init-hero-ex__le-chain > .init-hero-ex__le-chain__cols > .init-hero-ex__le-chain__stack:nth-child(2) .init-hero-ex__le-chain__inp-cell {
-  border: 1px solid var(--init-action-cell-border);
+  border-top: 1px solid var(--init-action-cell-border);
+  border-right: 1px solid var(--init-action-cell-border);
+  border-bottom: 1px solid var(--init-action-cell-border);
+  border-left: 1px solid rgba(var(--rgb-gold), 0.48);
+  border-radius: 0;
+}
+
+.init-hero-ex__le-chain > .init-hero-ex__le-chain__cols > .init-hero-ex__le-chain__stack:nth-child(3) .init-hero-ex__le-chain__inp-cell {
+  border-top: 1px solid var(--init-action-cell-border);
+  border-right: 1px solid var(--init-action-cell-border);
+  border-bottom: 1px solid var(--init-action-cell-border);
   border-left: 1px solid rgba(var(--rgb-gold), 0.48);
   border-radius: 0 4px 4px 0;
 }
@@ -3268,10 +3278,10 @@ body {
   background: var(--init-action-cell-fill-focus);
 }
 
-/* WS: gleiche Kachel wie LE/max (Gold), nicht Attribut-8-Grünton */
+/* WS-Kachel in WS|LE|MAX-Kette (Gold wie LE/max), nicht Attribut-8-Grünton */
 .init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--ws-le-match
-  > .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(
+  .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(
     .init-hero-ex__micro--flash-neg
   ) {
   border-color: var(--init-action-cell-border);
@@ -3280,8 +3290,8 @@ body {
 }
 
 .init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--ws-le-match
-  > .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(
+  .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(
     .init-hero-ex__micro--flash-neg
   ):focus {
   border-color: var(--color-accent);
@@ -3289,32 +3299,32 @@ body {
 }
 
 .init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--ws-le-match
-  > .init-hero-ex__micro.init-hero-ex__micro--mod-val-separate:not(
+  .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__micro.init-hero-ex__micro--mod-val-separate:not(
     .init-hero-ex__micro--malus-active
   ):not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg) {
   color: #121212;
 }
 
 .init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--ws-le-match
-  > .init-hero-ex__micro.init-hero-ex__micro--mod-val-pos:not(
+  .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__micro.init-hero-ex__micro--mod-val-pos:not(
     .init-hero-ex__micro--malus-active
   ):not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg) {
   color: #1b5e20;
 }
 
 .init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--ws-le-match
-  > .init-hero-ex__micro.init-hero-ex__micro--mod-val-neg:not(
+  .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__micro.init-hero-ex__micro--mod-val-neg:not(
     .init-hero-ex__micro--malus-active
   ):not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg) {
   color: #b71c1c;
 }
 
 .init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--ws-le-match
-  > .init-hero-ex__micro.init-hero-ex__micro--mod-val-zero:not(
+  .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__micro.init-hero-ex__micro--mod-val-zero:not(
     .init-hero-ex__micro--malus-active
   ):not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg) {
   color: #121212;
@@ -8665,8 +8675,8 @@ select.init-row-extra-select {
 }
 
 .init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--ws-le-match.init-hero-ex__micro-cell--calc-penalty
-  > .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg) {
+  .init-hero-ex__micro-cell--ws-le-match.init-hero-ex__micro-cell--calc-penalty
+  .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg) {
   border-color: var(--init-action-cell-border);
   background: var(--init-action-cell-fill);
 }
@@ -8687,17 +8697,19 @@ select.init-row-extra-select {
   > .init-hero-ex__micro-cell.init-hero-ex__micro-cell--calc-penalty
   > .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(
     .init-hero-ex__micro--flash-neg
+  ):focus,
+.init-hero-ex__strip-inner
+  > .init-hero-ex__micro-cell.init-hero-ex__micro-cell--calc-penalty
+  > .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(
+    .init-hero-ex__micro--flash-neg
   ):focus {
   border-color: var(--color-accent);
   background: var(--init-action-cell-fill-focus);
 }
 
 .init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--ws-le-match.init-hero-ex__micro-cell--calc-penalty
-  > .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg):focus,
-.init-hero-ex__strip-inner
-  > .init-hero-ex__micro-cell.init-hero-ex__micro-cell--calc-penalty
-  > .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg):focus {
+  .init-hero-ex__micro-cell--ws-le-match.init-hero-ex__micro-cell--calc-penalty
+  .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(.init-hero-ex__micro--flash-neg):focus {
   border-color: var(--color-accent);
   background: var(--init-action-cell-fill-focus);
 }
