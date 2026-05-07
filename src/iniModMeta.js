@@ -4446,10 +4446,10 @@ export function mountHeroExpandBlock(
     }
   })
 
-  const refreshDerivedUiFromInputs = () => {
+  const refreshDerivedUiFromInputs = (metaForVisuals) => {
     updateLeThreshold()
     updateLePopover()
-    applyUnfaehigVisualOverlay()
+    applyUnfaehigVisualOverlay(metaForVisuals)
   }
 
   /** @type {ReturnType<typeof setTimeout> | null} */
@@ -4790,6 +4790,20 @@ export function mountHeroExpandBlock(
         inp === lePopLeInp ||
         inp === lePopLeMaxInp ||
         inp === lePopKoInp
+      let previewMeta = null
+      if (immediateDerivedForLe) {
+        const cNow = getCombat()
+        const roundNow =
+          cNow?.started && Number.isFinite(Number(cNow.round))
+            ? Number(cNow.round)
+            : null
+        previewMeta = { ...(meta ?? {}) }
+        const snapPreview = persistBasisFromGathered(gather())
+        patchHeroExModsWithAutoBundles(previewMeta, snapPreview, {
+          round: roundNow,
+          navIni: readCurrentNavIniGlobal(),
+        })
+      }
       if (inp === tpInp) {
         if (len >= 2) {
           if (liveRefreshTimer != null) {
@@ -4809,30 +4823,13 @@ export function mountHeroExpandBlock(
           clearTimeout(liveRefreshTimer)
           liveRefreshTimer = null
         }
-        refreshDerivedUiFromInputs()
+        refreshDerivedUiFromInputs(previewMeta ?? undefined)
       } else {
         scheduleLiveDerivedRefresh()
       }
       // Keine Persistenz mehr beim Tippen: nur blur/Enter/Explizit-Apply,
       // damit Felder nicht durch Remount mitten in der Eingabe flackern.
-      if (
-        inp === le.inp ||
-        inp === leMax.inp ||
-        inp === koAttr.inp ||
-        inp === lePopLeInp ||
-        inp === lePopLeMaxInp
-      ) {
-        const cNow = getCombat()
-        const roundNow =
-          cNow?.started && Number.isFinite(Number(cNow.round))
-            ? Number(cNow.round)
-            : null
-        const previewMeta = { ...(meta ?? {}) }
-        const snapPreview = persistBasisFromGathered(gather())
-        patchHeroExModsWithAutoBundles(previewMeta, snapPreview, {
-          round: roundNow,
-          navIni: readCurrentNavIniGlobal(),
-        })
+      if (previewMeta) {
         renderModBadgesAndStrip(previewMeta)
       }
     })
