@@ -193,7 +193,7 @@ export const HERO_EX_FK = 'heroExFk'
 export const HERO_EX_GS = 'heroExGs'
 /** Geschosse (Legacy-Metaschlüssel; nicht mehr in der UI) */
 export const HERO_EX_G = 'heroExG'
-/** Magieresistenz (Legacy-Metaschlüssel; nicht mehr in der UI) */
+/** Magieresistenz (MR) */
 export const HERO_EX_MR = 'heroExMr'
 /** Ini-Basis + Modifikation (IB) */
 export const HERO_EX_IB = 'heroExIb'
@@ -396,6 +396,7 @@ export function readHeroExpandSnapshot(meta) {
     unfaehigMarkFields,
     unfaehigFixedFields,
     gs: strOrEmpty(meta?.[HERO_EX_GS]),
+    mr: strOrEmpty(meta?.[HERO_EX_MR]),
     ib: strOrEmpty(meta?.[HERO_EX_IB]),
     be: strOrEmpty(meta?.[HERO_EX_BE]),
     w6: strOrEmpty(meta?.[HERO_EX_W6]),
@@ -550,6 +551,7 @@ export async function applyHeroExpandFields(itemId, next) {
         m[HERO_EX_UNFAEHIG_FIXED_FIELDS] = `gs=${fixed.gs}`
       }
       setStr(HERO_EX_GS, next.gs)
+      setStr(HERO_EX_MR, next.mr)
       setStr(HERO_EX_IB, next.ib)
       setStr(HERO_EX_BE, next.be)
       setStr(HERO_EX_W6, next.w6)
@@ -1290,12 +1292,24 @@ export function mountHeroExpandBlock(
     s.title = title
     return s
   }
+  const mrAbbrLabel = mkChainAbbr('MR', 'Magieresistenz (MR)')
   const ibAbbrLabel = mkChainAbbr(
     'IB',
     'Ini-Basis + Modifikation (IB)'
   )
-  const ibBeLbl = mkChainAbbr('-BE', 'Behinderung (BE)')
-  const ibW6Lbl = mkChainAbbr('+W6', 'Würfelwurf (W6)')
+  const ibBeLbl = mkChainAbbr('-BE', 'Behinderung (BE)', true)
+  const ibW6Lbl = mkChainAbbr('+W6', 'Würfelwurf (W6)', true)
+  const ibBeW6AbbrWrap = document.createElement('span')
+  ibBeW6AbbrWrap.className = 'init-hero-ex__abbr'
+  ibBeW6AbbrWrap.style.display = 'grid'
+  ibBeW6AbbrWrap.style.gridTemplateRows = '1fr 1fr'
+  ibBeW6AbbrWrap.style.justifyItems = 'center'
+  ibBeW6AbbrWrap.style.alignItems = 'center'
+  ibBeW6AbbrWrap.style.fontSize = '10px'
+  ibBeW6AbbrWrap.style.lineHeight = '1.1'
+  ibBeLbl.style.fontSize = '10px'
+  ibW6Lbl.style.fontSize = '10px'
+  ibBeW6AbbrWrap.append(ibBeLbl, ibW6Lbl)
   const ibIniLblHold = document.createElement('span')
   ibIniLblHold.className = 'init-hero-ex__ib-chain__label-placeholder'
   ibIniLblHold.setAttribute('aria-hidden', 'true')
@@ -1314,6 +1328,13 @@ export function mountHeroExpandBlock(
     inp.setAttribute('aria-label', aria)
     return inp
   }
+  const mrInp = mkChainInp(
+    'mr',
+    microDisplayForModField('mr', snap.mr),
+    3,
+    true,
+    'Magieresistenz (MR)'
+  )
   const ibInp = mkChainInp(
     'ib',
     microDisplayForModField('ib', snap.ib),
@@ -1329,6 +1350,13 @@ export function mountHeroExpandBlock(
     'Behinderung (BE)'
   )
   const w6Inp = mkChainInp('w6', snap.w6, 14, false, 'Würfelwurf (W6)')
+  beInp.style.fontSize = '12px'
+  beInp.style.lineHeight = '1.05'
+  beInp.style.height = '100%'
+  w6Inp.style.fontSize = '12px'
+  w6Inp.style.lineHeight = '1.05'
+  w6Inp.style.height = '100%'
+
   /**
    * Spalte: nur Eingabe im oberen Kasten (Rahmen), Mod-Band darunter — wie Mikrozelle.
    * @param {string} [extraColClass]
@@ -1359,12 +1387,26 @@ export function mountHeroExpandBlock(
     stack.appendChild(colEl)
     return stack
   }
+  const dualBeW6Wrap = document.createElement('div')
+  dualBeW6Wrap.style.display = 'grid'
+  dualBeW6Wrap.style.gridTemplateRows = '1fr 1fr'
+  dualBeW6Wrap.style.gap = '1px'
+  dualBeW6Wrap.style.width = '100%'
+  dualBeW6Wrap.style.height = '100%'
+  dualBeW6Wrap.append(beInp, w6Inp)
+
+  const beW6Col = document.createElement('div')
+  beW6Col.className = 'init-hero-ex__ib-chain__col'
+  const beW6Shell = document.createElement('div')
+  beW6Shell.className = 'init-hero-ex__ib-chain__inp-cell'
+  beW6Shell.appendChild(dualBeW6Wrap)
+  beW6Col.appendChild(beW6Shell)
+
+  const mrCol = mkIbChainCol(mrInp)
   const ibCol = mkIbChainCol(ibInp)
-  const beCol = mkIbChainCol(beInp)
-  const w6Col = mkIbChainCol(w6Inp)
+  const stackMr = mkIbChainStack(mrAbbrLabel, mrCol)
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
-  const stackBe = mkIbChainStack(ibBeLbl, beCol)
-  const stackW6 = mkIbChainStack(ibW6Lbl, w6Col)
+  const stackBeW6 = mkIbChainStack(ibBeW6AbbrWrap, beW6Col)
   const iniUpBtn = document.createElement('button')
   iniUpBtn.type = 'button'
   iniUpBtn.className = 'init-hero-ex__ini-up-btn'
@@ -1452,9 +1494,10 @@ export function mountHeroExpandBlock(
   const stackIni = mkIbChainStack(ibIniLblHold, iniIbCol)
   const ibChainCols = document.createElement('div')
   ibChainCols.className = 'init-hero-ex__ib-chain__cols'
-  ibChainCols.append(stackIb, stackBe, stackW6, stackIni)
+  ibChainCols.append(stackMr, stackIb, stackBeW6, stackIni)
   if (stackMod) ibChainCols.appendChild(stackMod)
   ibChain.appendChild(ibChainCols)
+  const mr = { inp: mrInp }
   const ib = { inp: ibInp }
   const be = { inp: beInp }
   const w6 = { inp: w6Inp }
@@ -2772,8 +2815,9 @@ export function mountHeroExpandBlock(
     leMax: { cell: stackLeMax, inp: leMaxInp, ab: leAbbrMax },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
     ws: { cell: ws.cell, inp: ws.inp, ab: ws.ab },
+    mr: { cell: stackMr, inp: mrInp, ab: mrAbbrLabel },
     ib: { cell: stackIb, inp: ibInp, ab: ibAbbrLabel },
-    be: { cell: stackBe, inp: beInp, ab: ibBeLbl },
+    be: { cell: stackBeW6, inp: beInp, ab: ibBeLbl },
   }
   for (const ui of zoneUiMid) {
     const abEl = ui.cell.querySelector(':scope > .init-hero-ex__abbr')
@@ -2801,12 +2845,6 @@ export function mountHeroExpandBlock(
     sub.className = 'init-hero-ex__mod-sub-slot'
     sub.setAttribute('aria-hidden', 'true')
     c.appendChild(sub)
-  }
-  if (!w6Col.querySelector(':scope > .init-hero-ex__mod-sub-slot')) {
-    const w6sub = document.createElement('span')
-    w6sub.className = 'init-hero-ex__mod-sub-slot'
-    w6sub.setAttribute('aria-hidden', 'true')
-    w6Col.appendChild(w6sub)
   }
   if (!iniIbCol.querySelector(':scope > .init-hero-ex__mod-sub-slot')) {
     const iniSub = document.createElement('span')
@@ -4471,6 +4509,7 @@ export function mountHeroExpandBlock(
     fk: fk.inp.value,
     showFk: showFkField,
     gs: gs.inp.value,
+    mr: mr.inp.value,
     ib: ib.inp.value,
     be: be.inp.value,
     w6: w6.inp.value,
@@ -4915,6 +4954,7 @@ export function mountHeroExpandBlock(
     tpInp,
     ...(showFkField ? [fk.inp] : []),
     gs.inp,
+    mr.inp,
     ib.inp,
     be.inp,
     w6.inp,

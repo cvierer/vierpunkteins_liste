@@ -1315,7 +1315,7 @@ body {
   overflow-x: auto;
 }
 
-/* IB / -BE / +W6: wie TP/TZ ein gemeinsamer Rahmen */
+/* MR / IB / −BE+W6: IB-Kette gleiche Geometrie wie zuvor (fünf Spalten) */
 .init-hero-ex__ib-chain {
   --init-hero-ib-mod-gap: calc(0.06rem * var(--init-ui-scale));
   display: flex;
@@ -2539,16 +2539,17 @@ body {
   color: #121212;
 }
 
+/* IB liegt in Spalte 2 (links zuerst MR); Malus-Anzeige nur für IB, nicht MR */
 .init-hero-ex__ib-chain--calc-penalty
   .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:first-of-type
+  > .init-hero-ex__ib-chain__stack:nth-child(2)
   > .init-hero-ex__abbr:first-of-type:not(.init-hero-ex__abbr--kr-reduced) {
   color: #121212;
 }
 
 .init-hero-ex__ib-chain--calc-penalty
   .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:first-of-type
+  > .init-hero-ex__ib-chain__stack:nth-child(2)
   .init-hero-ex__micro--ib-chain-inp:not(.init-hero-ex__micro--kr-reduced):not(
     .init-hero-ex__micro--flash-neg
   ) {
@@ -2558,7 +2559,7 @@ body {
 
 .init-hero-ex__ib-chain--calc-penalty
   .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:first-of-type
+  > .init-hero-ex__ib-chain__stack:nth-child(2)
   .init-hero-ex__micro--ib-chain-inp:not(.init-hero-ex__micro--kr-reduced):not(
     .init-hero-ex__micro--flash-neg
   ):focus {
@@ -8462,7 +8463,7 @@ select.init-row-extra-select {
 
 .init-hero-ex__ib-chain--calc-penalty
   .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:first-of-type
+  > .init-hero-ex__ib-chain__stack:nth-child(2)
   .init-hero-ex__micro--ib-chain-inp:not(.init-hero-ex__micro--kr-reduced):not(
     .init-hero-ex__micro--flash-neg
   ) {

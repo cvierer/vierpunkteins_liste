@@ -95,6 +95,7 @@ export const MOD_FIELDS = Object.freeze([
   'tp',
   'ib',
   'be',
+  'mr',
 ])
 
 /** Anzeigekuerzel (UI-Text). */
@@ -127,6 +128,7 @@ export const MOD_FIELD_LABEL = Object.freeze({
   tp: 'TP',
   ib: 'IB',
   be: 'BE',
+  mr: 'MR',
 })
 
 const MIN_DELTA = -99

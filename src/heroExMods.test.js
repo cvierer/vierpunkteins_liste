@@ -264,6 +264,7 @@ describe('readHeroExMods', () => {
     expect(MOD_FIELDS).toContain('pa')
     expect(MOD_FIELDS).toContain('ib')
     expect(MOD_FIELDS).toContain('be')
+    expect(MOD_FIELDS).toContain('mr')
     expect(MOD_FIELDS).toContain('ws')
     expect(MOD_FIELDS).toContain('mu')
     expect(MOD_FIELDS).toContain('inn')
