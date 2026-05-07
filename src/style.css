@@ -1376,11 +1376,11 @@ body {
   grid-template-columns:
     var(--init-hero-cell)
     var(--init-hero-cell)
-    var(--init-hero-cell)
     calc(0.5 * var(--init-hero-cell))
-    var(--init-hero-ib-ini-col-w, var(--init-hero-cell))
+    calc(0.5 * var(--init-hero-cell))
+    calc(0.5 * var(--init-hero-cell))
     var(--init-hero-ib-mod-gap)
-    calc(2 * var(--init-hero-ib-ini-col-w, var(--init-hero-cell)));
+    var(--init-hero-cell);
 }
 
 .init-hero-ex__ib-chain__label-placeholder {
@@ -2391,25 +2391,19 @@ body {
   box-sizing: border-box;
 }
 
-.init-hero-ex__ib-chain__col--ini {
-  width: var(--init-hero-ib-ini-col-w, var(--init-hero-cell));
-  min-width: var(--init-hero-ib-ini-col-w, var(--init-hero-cell));
-  max-width: var(--init-hero-ib-ini-col-w, var(--init-hero-cell));
-}
-
-/* Würfelfeld schmaler Mikrozelle */
-.init-hero-ex__ib-chain__col--w6 {
+/* BE / W6 / INI: halbe Standard-Mikrozellenbreite (.col--ini nur als Ziel fuer Ini-Button) */
+.init-hero-ex__ib-chain__col--half-cell {
   width: calc(0.5 * var(--init-hero-cell));
   min-width: calc(0.5 * var(--init-hero-cell));
   max-width: calc(0.5 * var(--init-hero-cell));
 }
 
-/* MOD-Feld: doppelte INI-Breite (Abstand zur INI-Spalte am Stack .init-hero-ex__ib-chain__stack--mod-pick) */
+/* MOD-Feld: zwei schmale INI-Spalten ≈ eine Mikrozelle */
 .init-hero-ex__ib-chain__col--mod-pick {
   align-items: stretch;
-  width: calc(2 * var(--init-hero-ib-ini-col-w, var(--init-hero-cell)));
-  min-width: calc(2 * var(--init-hero-ib-ini-col-w, var(--init-hero-cell)));
-  max-width: calc(2 * var(--init-hero-ib-ini-col-w, var(--init-hero-cell)));
+  width: var(--init-hero-cell);
+  min-width: var(--init-hero-cell);
+  max-width: var(--init-hero-cell);
 }
 
 .init-hero-ex__ib-chain__inp-cell {
@@ -2501,17 +2495,50 @@ body {
   box-sizing: border-box;
 }
 
-/* INI-Spalte: Pfeil-Button deutlich schmaler (ca. halbe vorherige Breite zur Kachel) */
-.init-hero-ex__ib-chain__col--ini .init-hero-ex__ib-chain__inp-cell .init-hero-ex__ini-up-btn {
-  width: 27%;
+/* INI: nur der Pfeil-Button gerahmt, keine volle Ketten-Kachel */
+.init-hero-ex__ib-chain__inp-cell--ini-solo-btn {
+  align-items: center;
+  justify-content: center;
+}
+
+.init-hero-ex__ib-chain--cols-6
+  > .init-hero-ex__ib-chain__cols
+  > .init-hero-ex__ib-chain__stack:nth-child(5)
+  .init-hero-ex__ib-chain__inp-cell--ini-solo-btn {
+  border: none !important;
+  background: transparent !important;
+}
+
+.init-hero-ex__ib-chain__inp-cell--ini-solo-btn .init-hero-ex__ini-up-btn {
+  width: 100%;
+  height: 100%;
   min-width: 0;
-  max-width: calc(0.21 * var(--init-hero-ib-ini-col-w, var(--init-hero-cell)));
-  align-self: center;
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px solid var(--init-action-cell-border);
+  border-radius: 4px;
+  background: var(--init-action-cell-fill);
+  box-sizing: border-box;
+}
+
+.init-hero-ex__ib-chain
+  > .init-hero-ex__ib-chain__cols:focus-within
+  .init-hero-ex__ib-chain__inp-cell--ini-solo-btn
+  .init-hero-ex__ini-up-btn {
+  border-color: var(--color-accent);
+  background: var(--init-action-cell-fill-focus);
 }
 
 .init-hero-ex__ib-chain > .init-hero-ex__ib-chain__cols:focus-within .init-hero-ex__ib-chain__inp-cell {
   border-color: var(--color-accent);
   background: var(--init-action-cell-fill-focus);
+}
+
+.init-hero-ex__ib-chain
+  > .init-hero-ex__ib-chain__cols:focus-within
+  .init-hero-ex__ib-chain__inp-cell--ini-solo-btn {
+  border: none !important;
+  background: transparent !important;
 }
 
 .init-hero-ex__micro--ib-chain-inp {

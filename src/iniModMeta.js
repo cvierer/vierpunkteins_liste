@@ -1320,14 +1320,17 @@ export function mountHeroExpandBlock(
   }
   const mrCol = mkIbChainCol(mrInp)
   const ibCol = mkIbChainCol(ibInp)
-  const beCol = mkIbChainCol(beInp)
+  const beCol = mkIbChainCol(
+    beInp,
+    'init-hero-ex__ib-chain__col--half-cell'
+  )
   const stackMr = mkIbChainStack(mrAbbrLabel, mrCol)
   stackMr.classList.add('init-hero-ex__ib-chain__stack--mr-r-gap')
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
   const w6Col = mkIbChainCol(
     w6Inp,
-    'init-hero-ex__ib-chain__col--w6'
+    'init-hero-ex__ib-chain__col--half-cell'
   )
   const stackW6 = mkIbChainStack(ibW6Lbl, w6Col)
   const iniUpBtn = document.createElement('button')
@@ -1355,9 +1358,10 @@ export function mountHeroExpandBlock(
 
   const iniIbCol = document.createElement('div')
   iniIbCol.className =
-    'init-hero-ex__ib-chain__col init-hero-ex__ib-chain__col--ini'
+    'init-hero-ex__ib-chain__col init-hero-ex__ib-chain__col--half-cell init-hero-ex__ib-chain__col--ini'
   const iniShell = document.createElement('div')
-  iniShell.className = 'init-hero-ex__ib-chain__inp-cell'
+  iniShell.className =
+    'init-hero-ex__ib-chain__inp-cell init-hero-ex__ib-chain__inp-cell--ini-solo-btn'
   iniShell.appendChild(iniUpBtn)
   iniIbCol.appendChild(iniShell)
 
@@ -4170,7 +4174,6 @@ export function mountHeroExpandBlock(
     leThreshBox.style.minWidth = ''
     iniUpBtn.style.width = ''
     iniUpBtn.style.minWidth = ''
-    ibChain.style.removeProperty('--init-hero-ib-ini-col-w')
     const leRight = leMaxInp.getBoundingClientRect().right
     const gLeft = spTzGrid.getBoundingClientRect().left
     const w = leRight - gLeft
@@ -4188,15 +4191,6 @@ export function mountHeroExpandBlock(
       const rsW = Math.round(sW * 1000) / 1000
       leThreshBox.style.width = `${rsW}px`
       leThreshBox.style.minWidth = `${rsW}px`
-    }
-
-    /* INI-Spalte: rechte Kante = S-Kaestchen; Breite als CSS-Variable (MOD: 2x + Abstand in CSS). */
-    const sRight = leThreshBox.getBoundingClientRect().right
-    const iniColL = iniIbCol.getBoundingClientRect().left
-    const wIniCol = sRight - iniColL
-    if (Number.isFinite(wIniCol) && wIniCol >= 12) {
-      const rw = Math.round(wIniCol * 1000) / 1000
-      ibChain.style.setProperty('--init-hero-ib-ini-col-w', `${rw}px`)
     }
 
     /* Scroll-Ausgleich: nach S-Kästchen-Breite messen, damit beide Zeilen gleich breit sind. */
