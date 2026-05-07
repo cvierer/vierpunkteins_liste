@@ -1767,13 +1767,15 @@ body {
   outline-offset: 1px;
 }
 
-/* S-Popover: Details zu LE, Schwellen und Wunden über dem Heldenblock */
+/* S-Popover: Details zu LE, Schwellen und Wunden — per JS position:fixed an body, z-index sehr hoch */
 .init-hero-ex__le-pop {
   /* Gleiche Schriftgröße wie Schwellen-Beschriftung (1/2=X …) für LE/MAX-Kästchen */
   --le-pop-threshold-font: calc(0.48rem * var(--init-ui-scale));
-  position: absolute;
-  /* Über Mod-Pop (45) und Mod-Strip — sonst fangen Geschwister-Klicks das S-Overlay ab */
-  z-index: 55;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100050;
+  pointer-events: auto;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -3091,6 +3093,12 @@ body {
 
 .init-hero-ex__cell-strike line {
   stroke: #d32f2f;
+}
+
+/* Wert-Kästchen unter der diagonalen Linie stacken, damit die rote Linie sichtbar bleibt */
+.init-hero-ex__micro-cell--le-band-host > .init-hero-ex__micro {
+  position: relative;
+  z-index: 0;
 }
 
 .init-hero-ex__cell-set {
