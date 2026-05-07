@@ -12,10 +12,12 @@ import {
 import { zoneStageFromWounds } from './heroBlockAutoMod.js'
 import { getCombat } from './combatRoom.js'
 import {
+  effectiveDeltaForField,
   generateModBundleId,
   HERO_EX_MODS,
   readHeroExMods,
 } from './heroExMods.js'
+import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
 import { getRoomSettings } from './roomSettings.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
 import {
@@ -294,6 +296,35 @@ function defaultHeroAutoModCtx() {
 }
 
 /**
+ * LE fuer LE-Schwellen inkl. aktiver LE-Mods (falls Owner-INI vorliegt).
+ *
+ * @param {Record<string, unknown>} snap
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {HeroAutoModCtx | undefined} ctx
+ * @returns {number | null}
+ */
+function effectiveLeForThresholds(snap, meta, ctx) {
+  const leBase = parseSignedInt(snap.le)
+  if (leBase === null) return null
+  if (!meta) return leBase
+  const ownerIni = readOwnerIniReferenceForMods(meta)
+  if (!(ownerIni != null && Number.isFinite(ownerIni))) return leBase
+  const round =
+    ctx?.round != null && Number.isFinite(Number(ctx.round))
+      ? Number(ctx.round)
+      : null
+  const navIni =
+    ctx?.navIni === Number.POSITIVE_INFINITY || ctx?.navIni === Number.NEGATIVE_INFINITY
+      ? ctx.navIni
+      : Number.isFinite(Number(ctx?.navIni))
+        ? Number(ctx.navIni)
+        : null
+  const dLe = effectiveDeltaForField(meta, 'le', ownerIni, round, navIni)
+  if (!Number.isFinite(dLe) || dLe === 0) return leBase
+  return leBase + dLe
+}
+
+/**
  * Bündel aus Mods entfernen; bei auto-zone-* Wundenmarker löschen; bei LE-Auto-Bundles LE heilen.
  *
  * @param {Record<string, unknown>} m — Tracker-Metadaten (mutiert)
@@ -377,10 +408,10 @@ export async function removeBundleWithAutoCleanup(itemId, bundleId) {
  * @param {string} autoBundleId z. B. auto-zone-brust, auto-le-band
  * @returns {number | null} null = Quelle inaktiv / unbekannt
  */
-export function computeAutoTriggerSignature(snap, autoBundleId) {
+export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxForLe) {
   const bid = String(autoBundleId ?? '')
   if (bid === 'auto-le-band') {
-    const leNum = parseSignedInt(snap.le)
+    const leNum = effectiveLeForThresholds(snap, metaForLe, ctxForLe)
     const leMaxNum = parseNonNegInt(snap.leMax)
     const koNum = parseSignedInt(snap.ko)
     if (leNum === null || leMaxNum === null || leMaxNum <= 0) return null
@@ -404,7 +435,7 @@ export function computeAutoTriggerSignature(snap, autoBundleId) {
     return w
   }
   if (bid === 'auto-le-unfaehig') {
-    const leNum = parseSignedInt(snap.le)
+    const leNum = effectiveLeForThresholds(snap, metaForLe, ctxForLe)
     if (leNum === null) return null
     const threshold = readUnfaehigThresholdFromSnapshot(snap)
     if (leNum > threshold) return null
@@ -560,7 +591,7 @@ export function computeKrAutoPenaltyWorseningMarks(
  * @param {HeroAutoModCtx} ctx
  * @returns {Record<string, unknown>[]}
  */
-export function buildHeroAutoModRecords(snap, ctx) {
+export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
   const round = Math.max(1, Math.floor(Number(ctx.round)) || 1)
   const navN = Number(ctx.navIni)
   const addedNavIni = Number.isFinite(navN)
@@ -593,7 +624,7 @@ export function buildHeroAutoModRecords(snap, ctx) {
     }
   }
 
-  const leNum = parseSignedInt(snap.le)
+  const leNum = effectiveLeForThresholds(snap, metaForLe, ctx)
   const leMaxNum = parseNonNegInt(snap.leMax)
   const koNum = parseSignedInt(snap.ko)
   if (leNum !== null && leMaxNum !== null && leMaxNum > 0) {
@@ -679,11 +710,11 @@ export function patchHeroExModsWithAutoBundles(m, snap, ctx) {
     (x) => x && !String(x.bundleId ?? '').startsWith(AUTO_MOD_BUNDLE_PREFIX)
   )
   const suppressedIn = readAutoSuppressed(m)
-  const autoAll = buildHeroAutoModRecords(snap, ctx)
+  const autoAll = buildHeroAutoModRecords(snap, ctx, m)
 
   const autoFiltered = autoAll.filter((mod) => {
     const bid = String(mod.bundleId ?? '')
-    const curSig = computeAutoTriggerSignature(snap, bid)
+    const curSig = computeAutoTriggerSignature(snap, bid, m, ctx)
     if (curSig === null) return false
     const stored = suppressedIn[bid]
     if (stored !== undefined && stored === curSig) return false
@@ -693,7 +724,7 @@ export function patchHeroExModsWithAutoBundles(m, snap, ctx) {
   /** @type {Record<string, number>} */
   const suppressedOut = {}
   for (const [k, v] of Object.entries(suppressedIn)) {
-    const curSig = computeAutoTriggerSignature(snap, k)
+    const curSig = computeAutoTriggerSignature(snap, k, m, ctx)
     if (curSig !== null && curSig === v) suppressedOut[k] = v
   }
 
@@ -717,6 +748,7 @@ export async function convertAutoBundleToManual(itemId, autoBundleId) {
   if (!bid.startsWith(AUTO_MOD_BUNDLE_PREFIX)) return null
   /** @type {string | null} */
   let outBundleId = null
+  const ctx = defaultHeroAutoModCtx()
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
@@ -730,7 +762,7 @@ export async function convertAutoBundleToManual(itemId, autoBundleId) {
         if (x && String(x.bundleId ?? '') === bid) x.bundleId = newBid
       }
       const sup = readAutoSuppressed(m)
-      const sig = computeAutoTriggerSignature(snap, bid)
+      const sig = computeAutoTriggerSignature(snap, bid, m, ctx)
       if (sig !== null) sup[bid] = sig
       if (Object.keys(sup).length === 0) delete m[HERO_EX_AUTO_SUPPRESSED]
       else m[HERO_EX_AUTO_SUPPRESSED] = sup
