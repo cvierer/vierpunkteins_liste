@@ -1111,14 +1111,15 @@ body {
   display: block;
   width: 100%;
   height: 100%;
-  transform: rotate(45deg);
-  transform-origin: center;
   pointer-events: none;
 }
 
 .init-hero-ex__micro--sp-tz-bridge:hover:not(:disabled) {
   background: transparent !important;
-  color: rgba(26, 23, 20, 0.95);
+}
+
+.init-hero-ex__micro--sp-tz-bridge:hover:not(:disabled) .init-hero-ex__sp-tz-bridge-icon {
+  filter: brightness(1.08);
 }
 
 .init-hero-ex__micro--sp-tz-bridge:focus-visible {
