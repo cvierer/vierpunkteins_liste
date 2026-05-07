@@ -324,6 +324,84 @@ function effectiveLeForThresholds(snap, meta, ctx) {
   return leBase + dLe
 }
 
+/** Nicht-Arm-Zonen für „3. Wunde“ → kampfunfähig (Bits 3–8 der Signatur). */
+const UNFAEHIG_NON_ARM_ZONE_IDS = Object.freeze([
+  'kopf',
+  'brust',
+  'ruecken',
+  'bauch',
+  'lbein',
+  'rbein',
+])
+
+/** Stabile Reihenfolge für LA/RA in `armSet`. */
+const UNFAEHIG_ARM_ZONE_ORDER = Object.freeze(['schildarm', 'schwertarm'])
+
+/**
+ * Quellen für `auto-le-unfaehig`: LE-Schwelle, dritte Wunde am Arm, dritte Wunde woanders.
+ *
+ * @param {Record<string, unknown>} snap — wie snapshotFromTrackerMeta / readHeroExpandSnapshot
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {HeroAutoModCtx | undefined} ctx
+ */
+export function computeUnfaehigSources(snap, meta, ctx) {
+  const leNum = effectiveLeForThresholds(snap, meta, ctx)
+  const threshold = readUnfaehigThresholdFromSnapshot(snap)
+  const leTriggered = leNum !== null && leNum <= threshold
+
+  /** @type {string[]} */
+  const armSet = []
+  let nonArm3w = false
+
+  const defs = wappenDefsFromSnap(snap)
+  const nonArm = new Set(UNFAEHIG_NON_ARM_ZONE_IDS)
+
+  for (const def of defs) {
+    if (!def.active) continue
+    const zid = def.id
+    const w = clampWound(snap.hitZones?.zones?.[zid]?.w ?? 0)
+    if (w < 3) continue
+    if (zid === 'schildarm' || zid === 'schwertarm') {
+      if (!armSet.includes(zid)) armSet.push(zid)
+    } else if (nonArm.has(zid)) {
+      nonArm3w = true
+    }
+  }
+
+  armSet.sort(
+    (a, b) =>
+      UNFAEHIG_ARM_ZONE_ORDER.indexOf(a) - UNFAEHIG_ARM_ZONE_ORDER.indexOf(b)
+  )
+
+  return { leTriggered, armSet, nonArm3w }
+}
+
+/**
+ * Bitmaske für Suppression / Signatur von `auto-le-unfaehig`.
+ * Bit 0 = LE-Schwelle, 1 = Schildarm, 2 = Schwertarm, 3–8 = kopf…rbein (je Zone).
+ *
+ * @param {Record<string, unknown>} snap
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {HeroAutoModCtx | undefined} ctx
+ * @returns {number | null}
+ */
+export function computeUnfaehigTriggerMask(snap, meta, ctx) {
+  const sources = computeUnfaehigSources(snap, meta, ctx)
+  if (!sources.leTriggered && !sources.nonArm3w && sources.armSet.length === 0) {
+    return null
+  }
+  let mask = 0
+  if (sources.leTriggered) mask |= 1
+  if (sources.armSet.includes('schildarm')) mask |= 2
+  if (sources.armSet.includes('schwertarm')) mask |= 4
+  for (let i = 0; i < UNFAEHIG_NON_ARM_ZONE_IDS.length; i++) {
+    const zid = UNFAEHIG_NON_ARM_ZONE_IDS[i]
+    const w = clampWound(snap.hitZones?.zones?.[zid]?.w ?? 0)
+    if (w >= 3) mask |= 1 << (3 + i)
+  }
+  return mask
+}
+
 /**
  * Bündel aus Mods entfernen; bei auto-zone-* Wundenmarker löschen; bei LE-Auto-Bundles LE heilen.
  *
@@ -371,16 +449,24 @@ export function applyBundleRemovalCleanup(m, bundleId, ctx) {
   }
 
   if (hadBundle && autoId === 'auto-le-unfaehig') {
-    let safe = parseSignedInt(m[HERO_EX_LAST_SAFE_LE])
-    if (safe === null) safe = parseNonNegInt(m[HERO_EX_LE_MAX])
-    if (safe !== null) {
-      m[HERO_EX_LE] = String(safe)
+    const snapPre = snapshotFromTrackerMeta(m)
+    const sources = computeUnfaehigSources(snapPre, m, ctx)
+    if (sources.leTriggered) {
+      let safe = parseSignedInt(m[HERO_EX_LAST_SAFE_LE])
+      if (safe === null) safe = parseNonNegInt(m[HERO_EX_LE_MAX])
+      if (safe !== null) {
+        m[HERO_EX_LE] = String(safe)
+      }
     }
-    const sr = m[HERO_EX_AUTO_SUPPRESSED]
-    if (sr && typeof sr === 'object') {
+    const sr = { ...readAutoSuppressed(m) }
+    if (!sources.leTriggered) {
+      const sig = computeUnfaehigTriggerMask(snapPre, m, ctx)
+      if (sig !== null) sr['auto-le-unfaehig'] = sig
+    } else {
       delete sr['auto-le-unfaehig']
-      if (Object.keys(sr).length === 0) delete m[HERO_EX_AUTO_SUPPRESSED]
     }
+    if (Object.keys(sr).length === 0) delete m[HERO_EX_AUTO_SUPPRESSED]
+    else m[HERO_EX_AUTO_SUPPRESSED] = sr
   }
 
   patchHeroExModsWithAutoBundles(m, snapshotFromTrackerMeta(m), ctx)
@@ -453,11 +539,7 @@ export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxFo
     return w
   }
   if (bid === 'auto-le-unfaehig') {
-    const leNum = effectiveLeForThresholds(snap, metaForLe, ctxForLe)
-    if (leNum === null) return null
-    const threshold = readUnfaehigThresholdFromSnapshot(snap)
-    if (leNum > threshold) return null
-    return leNum
+    return computeUnfaehigTriggerMask(snap, metaForLe, ctxForLe)
   }
   return null
 }
@@ -671,16 +753,18 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     }
   }
 
-  if (leNum !== null) {
-    const unfaehigThreshold = readUnfaehigThresholdFromSnapshot(snap)
-    if (leNum <= unfaehigThreshold) {
-      pushRows(
-        'auto-le-unfaehig',
-        'unfähig',
-        [{ field: 'le', delta: 0 }],
-        { includeZero: true }
-      )
-    }
+  const ufSources = computeUnfaehigSources(snap, metaForLe, ctx)
+  if (
+    ufSources.leTriggered ||
+    ufSources.nonArm3w ||
+    ufSources.armSet.length > 0
+  ) {
+    pushRows(
+      'auto-le-unfaehig',
+      'unfähig',
+      [{ field: 'le', delta: 0 }],
+      { includeZero: true }
+    )
   }
 
   const baseGs = parseSignedInt(snap.gs)

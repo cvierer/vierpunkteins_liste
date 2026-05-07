@@ -7383,6 +7383,17 @@ select.init-row-extra-select {
   transform: translateX(calc(-0.06rem * var(--init-ui-scale)));
 }
 
+/* Unfähig nur wegen 3. Wunde am Arm: LA / RA / Arme statt Kreis-SVG */
+.init-hero-ex__mod-chip-card__sum-arrow--unfaehig-arm {
+  color: #b71c1c;
+  font-weight: 600;
+  font-size: calc(0.28rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  letter-spacing: -0.04em;
+  line-height: 1;
+  min-width: calc(0.5rem * var(--init-ui-scale));
+  transform: translateX(calc(-0.06rem * var(--init-ui-scale)));
+}
+
 .init-hero-ex__mod-chip-card__sum-svg {
   display: block;
   width: calc(0.42rem * var(--init-ui-scale));

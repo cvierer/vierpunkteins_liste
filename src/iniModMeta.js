@@ -36,6 +36,7 @@ import {
 import {
   AUTO_MOD_BUNDLE_PREFIX,
   computeKrAutoPenaltyWorseningMarks,
+  computeUnfaehigSources,
   leAtPaMalusForBand,
   leBand,
   leBandLabelDe,
@@ -2055,11 +2056,36 @@ export function mountHeroExpandBlock(
     gsUnfaehigOverlay.classList.remove('init-hero-ex__unfaehig-fixed-overlay--on')
 
     if (!active) return
+
+    const combUf = getCombat()
+    const roundUf =
+      combUf?.started && Number.isFinite(Number(combUf.round))
+        ? Number(combUf.round)
+        : null
+    const navIniUf = readCurrentNavIniGlobal()
+    const ufSrc = computeUnfaehigSources(s, metaForMods, {
+      round: roundUf,
+      navIni: navIniUf,
+    })
+    const armOnly =
+      !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
+
+    if (armOnly) {
+      for (const key of ['at', 'pa', 'tp', 'fk']) {
+        const cell = unfaehigVisualTargets[key]
+        if (cell instanceof HTMLElement) {
+          cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
+        }
+      }
+      return
+    }
+
     const marked = new Set(
       Array.isArray(s.unfaehigMarkFields)
         ? s.unfaehigMarkFields.map((x) => String(x).toLowerCase())
         : []
     )
+    if (ufSrc.armSet.length > 0) marked.add('fk')
     for (const key of marked) {
       const cell = unfaehigVisualTargets[key]
       if (cell instanceof HTMLElement) {
@@ -3704,10 +3730,34 @@ export function mountHeroExpandBlock(
         arrowWrap = document.createElement('span')
         const ns = o.netSum
         if (bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID) {
-          arrowWrap.className =
-            'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--unfaehig'
-          arrowWrap.innerHTML = SVG_MOD_CHIP_UNFAEHIG_MARK
-          arrowWrap.title = 'kampfunfähig'
+          const snapChip = readHeroExpandSnapshot(modMeta)
+          const ufSrc = computeUnfaehigSources(snapChip, modMeta, {
+            round,
+            navIni,
+          })
+          const armOnly =
+            !ufSrc.leTriggered &&
+            !ufSrc.nonArm3w &&
+            ufSrc.armSet.length > 0
+          if (armOnly) {
+            arrowWrap.className =
+              'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--unfaehig-arm'
+            if (ufSrc.armSet.length >= 2) {
+              arrowWrap.textContent = 'Arme'
+              arrowWrap.title = 'Arme handlungsunfähig'
+            } else if (ufSrc.armSet[0] === 'schildarm') {
+              arrowWrap.textContent = 'LA'
+              arrowWrap.title = 'Arm handlungsunfähig'
+            } else {
+              arrowWrap.textContent = 'RA'
+              arrowWrap.title = 'Arm handlungsunfähig'
+            }
+          } else {
+            arrowWrap.className =
+              'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--unfaehig'
+            arrowWrap.innerHTML = SVG_MOD_CHIP_UNFAEHIG_MARK
+            arrowWrap.title = 'kampfunfähig'
+          }
         } else if (ns > 0) {
           arrowWrap.className =
             'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--up'

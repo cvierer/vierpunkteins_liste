@@ -89,6 +89,36 @@ describe('buildHeroAutoModRecords', () => {
     expect(u[0].delta).toBe(0)
   })
 
+  it('unfähig-UI-Bundle bei dritter Wunde (ohne LE-Schwelle)', () => {
+    const zones = { ...emptyZones(), brust: { rs: '0', w: 3 } }
+    const mods = buildHeroAutoModRecords(
+      snap({
+        le: '30',
+        leMax: '40',
+        unfaehigThreshold: '5',
+        hitZones: { notiz: '', zones: zones },
+      }),
+      ctx
+    )
+    const u = mods.filter((m) => m.bundleId === 'auto-le-unfaehig')
+    expect(u.length).toBe(1)
+  })
+
+  it('genau ein unfähig-Bündel wenn LE-Schwelle und 3. Wunde zusammen', () => {
+    const zones = { ...emptyZones(), brust: { rs: '0', w: 3 } }
+    const mods = buildHeroAutoModRecords(
+      snap({
+        le: '4',
+        leMax: '40',
+        unfaehigThreshold: '5',
+        hitZones: { notiz: '', zones: zones },
+      }),
+      ctx
+    )
+    const u = mods.filter((m) => m.bundleId === 'auto-le-unfaehig')
+    expect(u.length).toBe(1)
+  })
+
   it('GS-Clamp: heroExGs-Basis 1 und Bauch W1 → gs-Delta 0', () => {
     const zones = { ...emptyZones(), bauch: { rs: '0', w: 1 } }
     const mods = buildHeroAutoModRecords(
@@ -211,11 +241,22 @@ describe('patchHeroExModsWithAutoBundles + heroExAutoSuppressed', () => {
     expect(m[HERO_EX_AUTO_SUPPRESSED]?.['auto-le-band']).toBeUndefined()
   })
 
-  it('auto-le-unfaehig Signatur aktiv nur unter/gleich Schwelle', () => {
+  it('auto-le-unfaehig Signatur: Bitmaske (Bit 0 = LE-Schwelle)', () => {
     const sOn = snap({ le: '0', unfaehigThreshold: '0' })
     const sOff = snap({ le: '6', unfaehigThreshold: '5' })
-    expect(computeAutoTriggerSignature(sOn, 'auto-le-unfaehig')).toBe(0)
+    expect(computeAutoTriggerSignature(sOn, 'auto-le-unfaehig')).toBe(1)
     expect(computeAutoTriggerSignature(sOff, 'auto-le-unfaehig')).toBeNull()
+  })
+
+  it('auto-le-unfaehig Signatur bei dritter Wunde Brust (nicht LE)', () => {
+    const zones = { ...emptyZones(), brust: { rs: '0', w: 3 } }
+    const s = snap({
+      le: '30',
+      leMax: '40',
+      unfaehigThreshold: '5',
+      hitZones: { notiz: '', zones: zones },
+    })
+    expect(computeAutoTriggerSignature(s, 'auto-le-unfaehig')).toBe(16)
   })
 })
 
@@ -322,6 +363,28 @@ describe('applyBundleRemovalCleanup', () => {
     })
     applyBundleRemovalCleanup(m, 'auto-le-unfaehig', ctx)
     expect(m.heroExLe).toBe('40')
+  })
+
+  it('bei Entfernen von auto-le-unfaehig nur wegen Wunde: LE unverändert, Suppression gesetzt', () => {
+    const zones = { ...emptyZones(), brust: { rs: '0', w: 3 } }
+    const s = snap({
+      le: '30',
+      leMax: '40',
+      unfaehigThreshold: '5',
+      hitZones: { notiz: '', zones: zones },
+    })
+    const mods = buildHeroAutoModRecords(s, ctx)
+    const m = /** @type {Record<string, unknown>} */ ({
+      heroExLe: '30',
+      heroExLeMax: '40',
+      [kBrustW]: 3,
+      [HERO_EX_MODS]: mods,
+    })
+    applyBundleRemovalCleanup(m, 'auto-le-unfaehig', ctx)
+    expect(m.heroExLe).toBe('30')
+    expect(m[HERO_EX_AUTO_SUPPRESSED]?.['auto-le-unfaehig']).toBe(16)
+    const out = /** @type {any[]} */ (m[HERO_EX_MODS] ?? [])
+    expect(out.some((x) => x.bundleId === 'auto-le-unfaehig')).toBe(false)
   })
 
   it('reines manuelles Bündel: nur Mods, keine Nebenwirkungen', () => {
