@@ -4783,6 +4783,13 @@ export function mountHeroExpandBlock(
       // die 4s-Debounce von syncLeThreshold / Popover zu warten).
       refreshComputedPenaltyHighlights()
       const len = inp.value.trim().length
+      const immediateDerivedForLe =
+        inp === le.inp ||
+        inp === leMax.inp ||
+        inp === koAttr.inp ||
+        inp === lePopLeInp ||
+        inp === lePopLeMaxInp ||
+        inp === lePopKoInp
       if (inp === tpInp) {
         if (len >= 2) {
           if (liveRefreshTimer != null) {
@@ -4797,7 +4804,7 @@ export function mountHeroExpandBlock(
       }
       // Wie LE/MAX: bei mindestens zwei Zeichen sofort ableitende UI; bei
       // einstelliger Eingabe 4 s warten, damit weitere Ziffern folgen können.
-      if (len >= 2) {
+      if (immediateDerivedForLe || len >= 2) {
         if (liveRefreshTimer != null) {
           clearTimeout(liveRefreshTimer)
           liveRefreshTimer = null
