@@ -40,6 +40,7 @@ import {
   leBand,
   leBandLabelDe,
   patchHeroExModsWithAutoBundles,
+  refreshAutoBundlesForItem,
   removeBundleWithAutoCleanup,
   updateLastSafeLeIfSafe,
 } from './heroAutoMods.js'
@@ -3354,6 +3355,8 @@ export function mountHeroExpandBlock(
         ...(submitChipColor ? { chipColor: submitChipColor } : {}),
       })
     }
+    await refreshAutoBundlesForItem(itemId)
+    await refreshModStripFromScene()
   }
 
   modPopOk.addEventListener('click', (e) => {
@@ -4017,7 +4020,11 @@ export function mountHeroExpandBlock(
         removeTitle: 'Modifikator entfernen',
         removeAria: `${modRec.label ? `${modRec.label} \u00B7 ` : ''}${MOD_FIELD_LABEL[modRec.field]} ${sign}${eff} entfernen`,
         onRemove: () => {
-          void removeHeroExMod(itemId, modRec.id)
+          void (async () => {
+            await removeHeroExMod(itemId, modRec.id)
+            await refreshAutoBundlesForItem(itemId)
+            await refreshModStripFromScene()
+          })()
         },
         onEditClick: () => {
           openModPopoverForEdit([modRec], { kind: 'single', modId: modRec.id })

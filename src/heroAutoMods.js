@@ -402,6 +402,24 @@ export async function removeBundleWithAutoCleanup(itemId, bundleId) {
 }
 
 /**
+ * Nach manuellem Mod hinzufügen/entfernen: Auto-Bündel neu ableiten
+ * (effektiver LE inkl. LE-Mods u.a.).
+ *
+ * @param {string} itemId
+ */
+export async function refreshAutoBundlesForItem(itemId) {
+  const ctx = defaultHeroAutoModCtx()
+  await OBR.scene.items.updateItems([itemId], (drafts) => {
+    for (const d of drafts) {
+      const m = d.metadata[TRACKER_ITEM_META_KEY]
+      if (!m) continue
+      patchHeroExModsWithAutoBundles(m, snapshotFromTrackerMeta(m), ctx)
+      updateLastSafeLeIfSafe(m)
+    }
+  })
+}
+
+/**
  * Aktuelle Trigger-Signatur für ein Auto-Bündel (zum Abgleich mit heroExAutoSuppressed).
  *
  * @param {Record<string, unknown>} snap — wie readHeroExpandSnapshot / gather()
