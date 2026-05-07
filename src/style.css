@@ -2745,6 +2745,7 @@ body {
 }
 
 .init-hero-ex__unfaehig-fixed-overlay {
+  display: none;
   position: absolute;
   right: -2px;
   top: calc(var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) + var(--init-hero-cell) - 14px);
@@ -2816,6 +2817,10 @@ body {
 .init-hero-ex__micro-cell--wappen.init-hero-ex__micro-cell--empty {
   visibility: hidden;
   pointer-events: none;
+}
+
+.init-hero-ex__unfaehig-fixed-overlay--on {
+  display: inline-flex;
 }
 
 .init-hero-ex__wappen-abbr-slot {
@@ -7658,7 +7663,7 @@ select.init-row-extra-select {
 }
 
 .init-hero-ex__mod-chip-card--auto-unfaehig .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.592rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  font-size: calc(0.576rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 .init-hero-ex__mod-chip-card--long-label .init-hero-ex__mod-chip-card__label-line {

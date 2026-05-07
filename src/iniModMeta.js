@@ -2044,6 +2044,7 @@ export function mountHeroExpandBlock(
       cell.classList.remove('init-hero-ex__micro-cell--unfaehig-mark')
     }
     gsUnfaehigOverlay.textContent = ''
+    gsUnfaehigOverlay.classList.remove('init-hero-ex__unfaehig-fixed-overlay--on')
 
     if (!active) return
     const marked = new Set(
@@ -2061,6 +2062,7 @@ export function mountHeroExpandBlock(
     if (Number.isFinite(gsFixed)) {
       gs.cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
       gsUnfaehigOverlay.textContent = String(gsFixed)
+      gsUnfaehigOverlay.classList.add('init-hero-ex__unfaehig-fixed-overlay--on')
     }
   }
 
@@ -2238,7 +2240,7 @@ export function mountHeroExpandBlock(
 
       const n05 = Math.round(0.5 * koV)
       const n15 = Math.round(1.5 * koV)
-      lePopLab33.textContent = `-0,5*KO (${n05})`
+      lePopLab33.textContent = `−½·KO (${n05})`
       lePopLab25.textContent = `−1·KO (${koV})`
       lePopLabLe5.textContent = `−1,5·KO (${n15})`
 
