@@ -131,7 +131,7 @@ const DEFAULT_LE_BAND_DEFS_RAW = [
   {
     id: 'le-ko',
     active: true,
-    label: 'Kampfunfähig',
+    label: 'unfähig',
     tooltip:
       'Bei LE≤5 kampfunfähig (Regel, Grenzwert 5 inklusive). Optisch: AT/PA/FK durchgestrichen, GS = 1.',
     threshold: { type: 'absolute', value: 5 },

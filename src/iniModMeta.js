@@ -1583,7 +1583,7 @@ export function mountHeroExpandBlock(
     strike.classList.add('init-hero-ex__cell-strike')
     strike.style.display = 'none'
     strike.innerHTML =
-      '<line x1="6" y1="92" x2="94" y2="8" stroke="currentColor" stroke-width="6" stroke-linecap="round" vector-effect="non-scaling-stroke" />'
+      '<line x1="5" y1="95" x2="95" y2="5" stroke="#d32f2f" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke" />'
     const set = document.createElement('div')
     set.className = 'init-hero-ex__cell-set'
     set.setAttribute('aria-hidden', 'true')
@@ -1750,7 +1750,9 @@ export function mountHeroExpandBlock(
   lePop.className = 'init-hero-ex__le-pop'
   lePop.setAttribute('role', 'dialog')
   lePop.setAttribute('aria-label', 'LE-Schwellen und Wunden')
-  lePop.addEventListener('mousedown', (e) => {
+  /* Kein mousedown/stopPropagation auf dem ganzen Popover: sonst können Schließen
+     und Bedienelemente in Owlbear/manifest-Host unterbrochen wirken. */
+  lePop.addEventListener('click', (e) => {
     e.stopPropagation()
   })
 
@@ -2276,10 +2278,13 @@ export function mountHeroExpandBlock(
   let lePopOutsideHandler = null
   /** @type {((e: KeyboardEvent) => void) | null} */
   let lePopKeyHandler = null
+  /** @type {(() => void) | null} */
+  let lePopScrollFix = null
 
   const positionLePopover = () => {
     if (!lePop.isConnected) return
-    const rootR = root.getBoundingClientRect()
+    const c = /** @type {HTMLElement} */ (container)
+    const cRect = c.getBoundingClientRect()
     const ibR = ibChain.getBoundingClientRect()
     /* V359: rechte Kante = rechte Kante des gold umrahmten TP/TZ-Inputs-Blocks
        (untere Heldenblock-Zeile mit Trefferzonen), nicht mehr bis F/Frontal. */
@@ -2287,8 +2292,8 @@ export function mountHeroExpandBlock(
     const frR = frontalLbl.getBoundingClientRect()
     const right = spR.right
     const bottom = Math.max(spR.bottom, frR.bottom)
-    const baseLeft = Math.max(0, ibR.left - rootR.left)
-    const top = Math.max(0, ibR.top - rootR.top)
+    const baseLeft = Math.max(0, ibR.left - cRect.left + c.scrollLeft)
+    const top = Math.max(0, ibR.top - cRect.top + c.scrollTop)
     const popWScale = (() => {
       const v = parseFloat(
         getComputedStyle(document.documentElement)
@@ -2317,6 +2322,10 @@ export function mountHeroExpandBlock(
     commit()
     lePop.remove()
     leThreshCell.classList.remove('init-hero-ex__le-threshold--open')
+    if (lePopScrollFix) {
+      container.removeEventListener('scroll', lePopScrollFix)
+      lePopScrollFix = null
+    }
     if (lePopOutsideHandler) {
       document.removeEventListener('mousedown', lePopOutsideHandler, true)
       lePopOutsideHandler = null
@@ -2332,7 +2341,9 @@ export function mountHeroExpandBlock(
       closeLePopover()
       return
     }
-    root.appendChild(lePop)
+    /* Wie modPop: unter panel-body (nicht unter .init-hero-ex), damit z-index über
+       Mod-Strip und Geschwister liegt und Schließen/Klicks zuverlässig sind. */
+    container.appendChild(lePop)
     leThreshCell.classList.add('init-hero-ex__le-threshold--open')
     positionLePopover()
     updateLePopover()
@@ -2344,6 +2355,8 @@ export function mountHeroExpandBlock(
       closeLePopover()
     }
     document.addEventListener('mousedown', lePopOutsideHandler, true)
+    lePopScrollFix = () => positionLePopover()
+    container.addEventListener('scroll', lePopScrollFix, { passive: true })
     lePopKeyHandler = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation()

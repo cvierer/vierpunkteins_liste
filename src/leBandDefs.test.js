@@ -37,9 +37,10 @@ describe('DEFAULT_LE_BAND_DEFS', () => {
     expect(DEFAULT_LE_BAND_DEFS.every((d) => d.active)).toBe(true)
   })
 
-  it('Kampfunfähig-Band (LE≤5): strike at/pa/fk + set gs=1', () => {
+  it('unfähig-Band (LE≤5): strike at/pa/fk + set gs=1', () => {
     const koDef = DEFAULT_LE_BAND_DEFS.find((d) => d.id === 'le-ko')
     expect(koDef).toBeDefined()
+    expect(koDef.label).toBe('unfähig')
     expect(koDef.threshold).toEqual({ type: 'absolute', value: 5 })
     const strikeFields = koDef.mods
       .filter((m) => m.op === 'strike')

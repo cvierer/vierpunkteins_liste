@@ -563,11 +563,14 @@ export function buildHeroAutoModRecords(snap, ctx) {
     }
     if (rows.length > 0) {
       const baseLabel = defaultLeBandLabel(leMatch.def) || 'LE'
-      const label =
-        baseLabel.startsWith('LE') ||
-        baseLabel.startsWith('<-1,5KO') ||
-        baseLabel.startsWith('<-KO') ||
-        baseLabel.startsWith('<-1/2KO')
+      const explicit =
+        leMatch.def?.label != null && String(leMatch.def.label).trim() !== ''
+      const label = explicit
+        ? baseLabel
+        : baseLabel.startsWith('LE') ||
+            baseLabel.startsWith('<-1,5KO') ||
+            baseLabel.startsWith('<-KO') ||
+            baseLabel.startsWith('<-1/2KO')
           ? baseLabel
           : `LE${baseLabel}`
       pushRows('auto-le-band', label, rows, true)

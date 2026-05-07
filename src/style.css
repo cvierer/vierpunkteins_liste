@@ -1772,7 +1772,8 @@ body {
   /* Gleiche Schriftgröße wie Schwellen-Beschriftung (1/2=X …) für LE/MAX-Kästchen */
   --le-pop-threshold-font: calc(0.48rem * var(--init-ui-scale));
   position: absolute;
-  z-index: 25;
+  /* Über Mod-Pop (45) und Mod-Strip — sonst fangen Geschwister-Klicks das S-Overlay ab */
+  z-index: 55;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -3077,9 +3078,19 @@ body {
   width: auto;
   height: auto;
   pointer-events: none;
-  color: rgba(168, 18, 14, 0.92);
-  z-index: 3;
+  color: rgba(211, 47, 47, 0.98);
+  /* Über Kästchen / Fokus-Rand; darf keine Klicks abfangen */
+  z-index: 12;
   overflow: visible;
+}
+
+.init-hero-ex__cell-strike,
+.init-hero-ex__cell-strike * {
+  pointer-events: none !important;
+}
+
+.init-hero-ex__cell-strike line {
+  stroke: #d32f2f;
 }
 
 .init-hero-ex__cell-set {
@@ -3099,7 +3110,8 @@ body {
   background: rgba(255, 244, 230, 0.92);
   border-radius: 4px;
   pointer-events: none;
-  z-index: 3;
+  /* Unter der roten Diagonal (.init-hero-ex__cell-strike z-index 12) */
+  z-index: 11;
   text-shadow: 0 0 2px rgba(255, 253, 248, 0.85);
 }
 
