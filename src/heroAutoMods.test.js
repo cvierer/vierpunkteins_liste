@@ -74,6 +74,19 @@ describe('buildHeroAutoModRecords', () => {
       const row = leb.find((m) => m.field === f)
       expect(row?.delta).toBe(-1)
     }
+    expect(mods.some((m) => m.bundleId === 'auto-le-unfaehig')).toBe(false)
+  })
+
+  it('unfähig-UI-Bundle wird bei LE<=Schwelle erzeugt (ohne Zahlenänderung)', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '4', leMax: '40', unfaehigThreshold: '5' }),
+      ctx
+    )
+    const u = mods.filter((m) => m.bundleId === 'auto-le-unfaehig')
+    expect(u.length).toBe(1)
+    expect(u[0].label).toBe('unfähig')
+    expect(u[0].field).toBe('ui')
+    expect(u[0].delta).toBe(0)
   })
 
   it('GS-Clamp: heroExGs-Basis 1 und Bauch W1 → gs-Delta 0', () => {
@@ -196,6 +209,13 @@ describe('patchHeroExModsWithAutoBundles + heroExAutoSuppressed', () => {
     const mods = /** @type {any[]} */ (m[HERO_EX_MODS])
     expect(mods.some((x) => x.bundleId === 'auto-le-band')).toBe(true)
     expect(m[HERO_EX_AUTO_SUPPRESSED]?.['auto-le-band']).toBeUndefined()
+  })
+
+  it('auto-le-unfaehig Signatur aktiv nur unter/gleich Schwelle', () => {
+    const sOn = snap({ le: '0', unfaehigThreshold: '0' })
+    const sOff = snap({ le: '6', unfaehigThreshold: '5' })
+    expect(computeAutoTriggerSignature(sOn, 'auto-le-unfaehig')).toBe(0)
+    expect(computeAutoTriggerSignature(sOff, 'auto-le-unfaehig')).toBeNull()
   })
 })
 

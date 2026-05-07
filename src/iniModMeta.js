@@ -225,6 +225,9 @@ export const HERO_EX_KE = 'heroExKe'
 export const HERO_EX_ENERGY_MODE = 'heroExEnergyMode'
 export const HERO_EX_SHOW_FK = 'heroExShowFk'
 export const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
+export const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
+export const HERO_EX_UNFAEHIG_MARK_FIELDS = 'heroExUnfaehigMarkFields'
+export const HERO_EX_UNFAEHIG_FIXED_FIELDS = 'heroExUnfaehigFixedFields'
 /** @deprecated Nur Lesen/Migration */
 export const HERO_EX_AEKE_LEGACY = 'heroExAeKe'
 /** @deprecated Nur Lesen/Migration */
@@ -239,6 +242,46 @@ export const HERO_EX_ZUSATZ = 'heroExZusatz'
 function strOrEmpty(v) {
   if (v === undefined || v === null) return ''
   return String(v)
+}
+
+const UNFAEHIG_MARK_DEFAULT_FIELDS = ['at', 'pa', 'a', 'tp', 'fk']
+const UNFAEHIG_FIXED_DEFAULT_FIELDS = { gs: 1 }
+
+function isVierbeinerTemplateMeta(meta) {
+  return String(meta?.[HERO_EX_WAPPEN_TEMPLATE] ?? '').trim().toLowerCase() === 'vierbeiner'
+}
+
+export function defaultUnfaehigThresholdForTemplate(isVierbeiner) {
+  return isVierbeiner ? 0 : 5
+}
+
+function parseUnfaehigThreshold(raw, isVierbeiner) {
+  const t = String(raw ?? '').trim().toLowerCase()
+  const n = Math.floor(Number(t.replace(',', '.')))
+  if (t && Number.isFinite(n) && n >= 0) return n
+  return defaultUnfaehigThresholdForTemplate(isVierbeiner)
+}
+
+function normalizeUnfaehigMarkFields(raw) {
+  const txt = String(raw ?? '')
+  const fields = txt
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter((x) => ['at', 'pa', 'a', 'tp', 'fk', 'gs'].includes(x))
+  return fields.length > 0 ? [...new Set(fields)] : [...UNFAEHIG_MARK_DEFAULT_FIELDS]
+}
+
+function normalizeUnfaehigFixedFields(raw) {
+  const txt = String(raw ?? '')
+  const out = {}
+  for (const part of txt.split(',')) {
+    const [kRaw, vRaw] = part.split('=')
+    const k = String(kRaw ?? '').trim().toLowerCase()
+    const n = Math.floor(Number(String(vRaw ?? '').trim().replace(',', '.')))
+    if (k === 'gs' && Number.isFinite(n)) out.gs = n
+  }
+  if (!Object.prototype.hasOwnProperty.call(out, 'gs')) out.gs = UNFAEHIG_FIXED_DEFAULT_FIELDS.gs
+  return out
 }
 
 /** Zwischen TP und TZ: Tool-Schwert-Icon, Rotation/Skalierung via CSS. */
@@ -309,6 +352,17 @@ export function readHeroExpandSnapshot(meta) {
     leThresholdNum <= 0
       ? null
       : leThresholdNum
+  const isVierbeiner = isVierbeinerTemplateMeta(meta)
+  const unfaehigThreshold = parseUnfaehigThreshold(
+    meta?.[HERO_EX_UNFAEHIG_THRESHOLD],
+    isVierbeiner
+  )
+  const unfaehigMarkFields = normalizeUnfaehigMarkFields(
+    meta?.[HERO_EX_UNFAEHIG_MARK_FIELDS]
+  )
+  const unfaehigFixedFields = normalizeUnfaehigFixedFields(
+    meta?.[HERO_EX_UNFAEHIG_FIXED_FIELDS]
+  )
   const room = getRoomSettings()
   const wappenDefs = effectiveWappenForHero(meta, room)
   return {
@@ -329,6 +383,9 @@ export function readHeroExpandSnapshot(meta) {
     fk: strOrEmpty(meta?.[HERO_EX_FK]),
     showFk,
     leThreshold,
+    unfaehigThreshold,
+    unfaehigMarkFields,
+    unfaehigFixedFields,
     gs: strOrEmpty(meta?.[HERO_EX_GS]),
     ib: strOrEmpty(meta?.[HERO_EX_IB]),
     be: strOrEmpty(meta?.[HERO_EX_BE]),
@@ -464,6 +521,24 @@ export async function applyHeroExpandFields(itemId, next) {
         m[HERO_EX_LE_THRESHOLD] = String(Math.floor(Number(next.leThreshold)))
       } else {
         delete m[HERO_EX_LE_THRESHOLD]
+      }
+      if (
+        Number.isFinite(Number(next.unfaehigThreshold)) &&
+        Number(next.unfaehigThreshold) >= 0
+      ) {
+        m[HERO_EX_UNFAEHIG_THRESHOLD] = String(
+          Math.floor(Number(next.unfaehigThreshold))
+        )
+      } else {
+        delete m[HERO_EX_UNFAEHIG_THRESHOLD]
+      }
+      {
+        const markFields = normalizeUnfaehigMarkFields(next.unfaehigMarkFields)
+        m[HERO_EX_UNFAEHIG_MARK_FIELDS] = markFields.join(',')
+      }
+      {
+        const fixed = normalizeUnfaehigFixedFields(next.unfaehigFixedFields)
+        m[HERO_EX_UNFAEHIG_FIXED_FIELDS] = `gs=${fixed.gs}`
       }
       setStr(HERO_EX_GS, next.gs)
       setStr(HERO_EX_IB, next.ib)
@@ -1898,6 +1973,54 @@ export function mountHeroExpandBlock(
     ge: { cell: ge.cell, inp: ge.inp, ab: ge.ab },
   }
 
+  const unfaehigVisualTargets = {
+    at: at.cell,
+    pa: pa.cell,
+    a: ausw.cell,
+    tp: tpCell,
+    fk: fk.cell,
+    gs: gs.cell,
+  }
+  const gsUnfaehigOverlay = document.createElement('span')
+  gsUnfaehigOverlay.className = 'init-hero-ex__unfaehig-fixed-overlay'
+  gsUnfaehigOverlay.setAttribute('aria-hidden', 'true')
+  gs.cell.appendChild(gsUnfaehigOverlay)
+
+  const applyUnfaehigVisualOverlay = (metaForMods = meta) => {
+    const s = readHeroExpandSnapshot(metaForMods)
+    const leNum = Number.parseInt(String(s.le ?? '').trim(), 10)
+    const threshold = Number(s.unfaehigThreshold)
+    const active =
+      Number.isFinite(leNum) &&
+      Number.isFinite(threshold) &&
+      leNum <= Math.floor(threshold)
+
+    for (const cell of Object.values(unfaehigVisualTargets)) {
+      if (!(cell instanceof HTMLElement)) continue
+      cell.classList.remove('init-hero-ex__micro-cell--unfaehig-mark')
+      cell.classList.remove('init-hero-ex__micro-cell--unfaehig-fixed')
+    }
+    gsUnfaehigOverlay.textContent = ''
+
+    if (!active) return
+    const marked = new Set(
+      Array.isArray(s.unfaehigMarkFields)
+        ? s.unfaehigMarkFields.map((x) => String(x).toLowerCase())
+        : []
+    )
+    for (const key of marked) {
+      const cell = unfaehigVisualTargets[key]
+      if (cell instanceof HTMLElement) {
+        cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
+      }
+    }
+    const gsFixed = Number(s.unfaehigFixedFields?.gs)
+    if (Number.isFinite(gsFixed)) {
+      gs.cell.classList.add('init-hero-ex__micro-cell--unfaehig-fixed')
+      gsUnfaehigOverlay.textContent = String(gsFixed)
+    }
+  }
+
   const stripPenaltyHighlightTarget = (t) => {
     t.inp.classList.remove('init-hero-ex__micro--malus-active')
     if (t.ab) t.ab.classList.remove('init-hero-ex__abbr--malus-active')
@@ -3320,6 +3443,7 @@ export function mountHeroExpandBlock(
     }
 
     const AUTO_LE_BAND_BUNDLE_ID = 'auto-le-band'
+    const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
     const AUTO_ZONE_BUNDLE_PREFIX = 'auto-zone-'
     const CHIP_NEG_LE_KO_RANGE = 1.6
 
@@ -3659,6 +3783,7 @@ export function mountHeroExpandBlock(
       })
       refreshComputedPenaltyHighlights(modMeta)
       syncHeroMicroModDisplayTones()
+      applyUnfaehigVisualOverlay(modMeta)
       return
     }
     const active = activeModsFull
@@ -3669,6 +3794,7 @@ export function mountHeroExpandBlock(
       })
       refreshComputedPenaltyHighlights(modMeta)
       syncHeroMicroModDisplayTones()
+      applyUnfaehigVisualOverlay(modMeta)
       return
     }
     modStrip.classList.add('init-hero-ex__mods-strip--has')
@@ -3695,18 +3821,24 @@ export function mountHeroExpandBlock(
           const abbr = MOD_FIELD_LABEL[bm.field] || bm.field.toUpperCase()
           return `${abbr}${sign}${eff}`
         })
-        const shortSummary = shortParts.join(', ')
-        const detailLines = bundleMods.map((bm) => {
-          const eff = modEffectiveContribution(
-            bm,
-            ownerIniNum,
-            round,
-            navIni,
-            lhMech
-          )
-          const sign = eff > 0 ? '+' : ''
-          return `${MOD_FIELD_LABEL[bm.field]} ${sign}${eff} (${modNavFractionLabelFromNav(bm, ownerIniNum, lhMech, round, navIni)})`
-        })
+        const shortSummary =
+          String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
+            ? 'rein optische Überlagerung'
+            : shortParts.join(', ')
+        const detailLines =
+          String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
+            ? ['rein optische Überlagerung (keine Zahlenänderung)']
+            : bundleMods.map((bm) => {
+                const eff = modEffectiveContribution(
+                  bm,
+                  ownerIniNum,
+                  round,
+                  navIni,
+                  lhMech
+                )
+                const sign = eff > 0 ? '+' : ''
+                return `${MOD_FIELD_LABEL[bm.field]} ${sign}${eff} (${modNavFractionLabelFromNav(bm, ownerIniNum, lhMech, round, navIni)})`
+              })
         const longSummary = detailLines.join(' \u00B7 ')
         const bundleTitlePfx = packLabel ? `"${packLabel}" — ` : ''
         const isAutoBundle = String(modRec.bundleId ?? '').startsWith(
@@ -3817,6 +3949,7 @@ export function mountHeroExpandBlock(
     syncHeroModStripExpansion(chipCount)
     refreshComputedPenaltyHighlights(modMeta)
     syncHeroMicroModDisplayTones()
+    applyUnfaehigVisualOverlay(modMeta)
     requestAnimationFrame(() => {
       syncModStripDockAndPad()
     })
@@ -4053,6 +4186,7 @@ export function mountHeroExpandBlock(
   applyFlashFromStorage()
   applyKrFieldRed()
   syncHeroMicroModDisplayTones()
+  applyUnfaehigVisualOverlay()
 
   if (!canEdit) {
     spTzUndo.disabled = true
@@ -4066,6 +4200,7 @@ export function mountHeroExpandBlock(
       refreshComputedPenaltyHighlights()
       updateLeThreshold()
       updateLePopover()
+      applyUnfaehigVisualOverlay()
     }
     document.addEventListener('visibilitychange', onVisView)
     const clearMalusPollView = () => {
@@ -4084,6 +4219,7 @@ export function mountHeroExpandBlock(
       refreshComputedPenaltyHighlights()
       updateLeThreshold()
       updateLePopover()
+      applyUnfaehigVisualOverlay()
     }, MALUS_VIEW_POLL_MS)
     return
   }
@@ -4144,6 +4280,9 @@ export function mountHeroExpandBlock(
     w6: w6.inp.value,
     ws: ws.inp.value,
     leThreshold: customLeThreshold,
+    unfaehigThreshold: snap.unfaehigThreshold,
+    unfaehigMarkFields: snap.unfaehigMarkFields,
+    unfaehigFixedFields: snap.unfaehigFixedFields,
     mu: mu.inp.value,
     kl: kl.inp.value,
     inn: inn.inp.value,
@@ -4228,6 +4367,7 @@ export function mountHeroExpandBlock(
   const refreshDerivedUiFromInputs = () => {
     updateLeThreshold()
     updateLePopover()
+    applyUnfaehigVisualOverlay()
   }
 
   /** @type {ReturnType<typeof setTimeout> | null} */

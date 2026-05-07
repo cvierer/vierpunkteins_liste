@@ -177,6 +177,10 @@ import {
   HERO_EX_ENERGY_MODE,
   HERO_EX_LE_THRESHOLD,
   HERO_EX_SHOW_FK,
+  HERO_EX_UNFAEHIG_FIXED_FIELDS,
+  HERO_EX_UNFAEHIG_MARK_FIELDS,
+  HERO_EX_UNFAEHIG_THRESHOLD,
+  defaultUnfaehigThresholdForTemplate,
   mountHeroExpandBlock,
 } from './iniModMeta.js'
 import { purgeKrMarksBeforeRound } from './krCombatMarks.js'
@@ -3261,6 +3265,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       </label>
       <label class="init-row-extra-label" for="kampf-hero-le-threshold-value">LE-Schwelle (Zahl)</label>
       <input type="text" id="kampf-hero-le-threshold-value" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Positive Zahl, z. B. 5. Leer oder deaktiviert = keine zusätzliche Schwelle." />
+      <label class="kampf-settings-checkbox-label">
+        <input type="checkbox" data-kampf-hero-unfaehig-enabled />
+        <span><strong>Auto-Mod „unfähig“ aktivieren:</strong> rein optische Überlagerung bei LE-Schwelle.</span>
+      </label>
+      <label class="init-row-extra-label" for="kampf-hero-unfaehig-threshold-value">Schwelle „unfähig“ (LE ≤)</label>
+      <input type="text" id="kampf-hero-unfaehig-threshold-value" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="0 oder größer. Standard Mensch: 5, Vierbeiner: 0." />
+      <label class="init-row-extra-label" for="kampf-hero-unfaehig-mark-fields">Markierung (rote Diagonale)</label>
+      <input type="text" id="kampf-hero-unfaehig-mark-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, z. B. at,pa,a,tp,fk" />
+      <label class="init-row-extra-label" for="kampf-hero-unfaehig-fixed-fields">Optische Fixwerte</label>
+      <input type="text" id="kampf-hero-unfaehig-fixed-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, aktuell unterstützt: gs=1" />
     </div>
     <div class="kampf-settings-panel__actions">
       <button type="button" class="btn kampf-settings-panel__cancel" data-kampf-hero-settings-cancel>Abbrechen</button>
@@ -3339,6 +3353,18 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const heroLeThresholdInp = heroSettingsPanel.querySelector(
     '#kampf-hero-le-threshold-value'
   )
+  const heroUnfaehigEnabledCb = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-unfaehig-enabled]'
+  )
+  const heroUnfaehigThresholdInp = heroSettingsPanel.querySelector(
+    '#kampf-hero-unfaehig-threshold-value'
+  )
+  const heroUnfaehigMarkFieldsInp = heroSettingsPanel.querySelector(
+    '#kampf-hero-unfaehig-mark-fields'
+  )
+  const heroUnfaehigFixedFieldsInp = heroSettingsPanel.querySelector(
+    '#kampf-hero-unfaehig-fixed-fields'
+  )
 
   /** @type {ReturnType<typeof mountWappenEditor> | null} */
   let heroWappenEditor = null
@@ -3391,6 +3417,32 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!raw || ['off', 'none', 'false', '0'].includes(raw)) return null
     const n = Math.floor(Number(raw.replace(',', '.')))
     return Number.isFinite(n) && n > 0 ? n : null
+  }
+
+  const normalizeUnfaehigThreshold = (raw, fallbackIsVierbeiner) => {
+    const t = String(raw ?? '').trim().toLowerCase()
+    const n = Math.floor(Number(t.replace(',', '.')))
+    if (t && Number.isFinite(n) && n >= 0) return n
+    return defaultUnfaehigThresholdForTemplate(Boolean(fallbackIsVierbeiner))
+  }
+
+  const normalizeUnfaehigMarkFieldsText = (raw) => {
+    const fields = String(raw ?? '')
+      .split(',')
+      .map((x) => x.trim().toLowerCase())
+      .filter((x) => ['at', 'pa', 'a', 'tp', 'fk', 'gs'].includes(x))
+    return (fields.length > 0 ? [...new Set(fields)] : ['at', 'pa', 'a', 'tp', 'fk']).join(',')
+  }
+
+  const normalizeUnfaehigFixedFieldsText = (raw) => {
+    const txt = String(raw ?? '')
+    for (const part of txt.split(',')) {
+      const [kRaw, vRaw] = part.split('=')
+      const k = String(kRaw ?? '').trim().toLowerCase()
+      const n = Math.floor(Number(String(vRaw ?? '').trim().replace(',', '.')))
+      if (k === 'gs' && Number.isFinite(n)) return `gs=${n}`
+    }
+    return 'gs=1'
   }
 
   if (heroColorGrid instanceof HTMLElement) {
@@ -3542,6 +3594,31 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroLeThresholdInp.disabled = !heroSettingsGmMode || threshold == null
       heroLeThresholdInp.value = threshold == null ? '' : String(threshold)
     }
+    if (
+      heroUnfaehigEnabledCb instanceof HTMLInputElement &&
+      heroUnfaehigThresholdInp instanceof HTMLInputElement &&
+      heroUnfaehigMarkFieldsInp instanceof HTMLInputElement &&
+      heroUnfaehigFixedFieldsInp instanceof HTMLInputElement &&
+      heroPending
+    ) {
+      const enabled = heroPending.unfaehigEnabled !== false
+      heroUnfaehigEnabledCb.checked = enabled
+      heroUnfaehigEnabledCb.disabled = !heroSettingsGmMode
+      heroUnfaehigThresholdInp.disabled = !heroSettingsGmMode || !enabled
+      heroUnfaehigMarkFieldsInp.disabled = !heroSettingsGmMode
+      heroUnfaehigFixedFieldsInp.disabled = !heroSettingsGmMode
+      heroUnfaehigThresholdInp.value = String(
+        Number.isFinite(Number(heroPending.unfaehigThreshold))
+          ? Math.max(0, Math.floor(Number(heroPending.unfaehigThreshold)))
+          : Number(heroPending.unfaehigThresholdDefault) || 5
+      )
+      heroUnfaehigMarkFieldsInp.value = normalizeUnfaehigMarkFieldsText(
+        heroPending.unfaehigMarkFields
+      )
+      heroUnfaehigFixedFieldsInp.value = normalizeUnfaehigFixedFieldsText(
+        heroPending.unfaehigFixedFields
+      )
+    }
     if (heroSettingsItemId) {
       const it = lastItems.find((i) => i.id === heroSettingsItemId)
       const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
@@ -3657,6 +3734,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         ? 'vierbeiner'
         : 'global'
     const isVierbeinerDefault = initialWappenSource === 'vierbeiner'
+    const unfaehigThresholdDefault = defaultUnfaehigThresholdForTemplate(
+      isVierbeinerDefault
+    )
     heroPending = {
       heroFaMax:
         m?.heroFaMax == null
@@ -3679,6 +3759,18 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       energyMode: readHeroEnergyMode(m, isVierbeinerDefault),
       showFk: readHeroShowFk(m, isVierbeinerDefault),
       leThreshold: readHeroLeThreshold(m),
+      unfaehigThreshold: normalizeUnfaehigThreshold(
+        m?.[HERO_EX_UNFAEHIG_THRESHOLD],
+        isVierbeinerDefault
+      ),
+      unfaehigEnabled: String(m?.[HERO_EX_UNFAEHIG_THRESHOLD] ?? '').trim() !== '',
+      unfaehigMarkFields: normalizeUnfaehigMarkFieldsText(
+        m?.[HERO_EX_UNFAEHIG_MARK_FIELDS]
+      ),
+      unfaehigFixedFields: normalizeUnfaehigFixedFieldsText(
+        m?.[HERO_EX_UNFAEHIG_FIXED_FIELDS]
+      ),
+      unfaehigThresholdDefault,
       wappenSource: initialWappenSource,
       wappenOverride: hasWappenOverride
         ? normalizeWappenDefs(wappenOverrideRaw)
@@ -3936,6 +4028,22 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         } else {
           delete m[HERO_EX_LE_THRESHOLD]
         }
+        if (
+          pend.unfaehigEnabled &&
+          Number.isFinite(Number(pend.unfaehigThreshold))
+        ) {
+          m[HERO_EX_UNFAEHIG_THRESHOLD] = String(
+            Math.max(0, Math.floor(Number(pend.unfaehigThreshold)))
+          )
+        } else {
+          delete m[HERO_EX_UNFAEHIG_THRESHOLD]
+        }
+        m[HERO_EX_UNFAEHIG_MARK_FIELDS] = normalizeUnfaehigMarkFieldsText(
+          pend.unfaehigMarkFields
+        )
+        m[HERO_EX_UNFAEHIG_FIXED_FIELDS] = normalizeUnfaehigFixedFieldsText(
+          pend.unfaehigFixedFields
+        )
         if (pend.wappenSource === 'own' && Array.isArray(pend.wappenOverride)) {
           m[HERO_EX_WAPPEN_OVERRIDE] = normalizeWappenDefs(pend.wappenOverride)
           delete m[HERO_EX_WAPPEN_TEMPLATE]
@@ -4133,6 +4241,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         heroPending.energyMode = 'none'
       }
     }
+    const nextIsVierbeiner = heroPending.wappenSource === 'vierbeiner'
+    const nextUnfaehigDefault = defaultUnfaehigThresholdForTemplate(nextIsVierbeiner)
+    const prevDefault = Number(heroPending.unfaehigThresholdDefault)
+    const curThreshold = Number(heroPending.unfaehigThreshold)
+    if (Number.isFinite(curThreshold) && Number.isFinite(prevDefault) && curThreshold === prevDefault) {
+      heroPending.unfaehigThreshold = nextUnfaehigDefault
+    }
+    heroPending.unfaehigThresholdDefault = nextUnfaehigDefault
     syncHeroWappenUi(getRoomSettings())
     syncHeroSettingsCheckboxes()
   })
@@ -4176,6 +4292,18 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         heroPending.leThreshold = 5
       }
       syncHeroSettingsCheckboxes()
+      return
+    }
+    if (t === heroUnfaehigEnabledCb) {
+      heroPending.unfaehigEnabled = t.checked
+      if (
+        t.checked &&
+        (!Number.isFinite(Number(heroPending.unfaehigThreshold)) ||
+          Number(heroPending.unfaehigThreshold) < 0)
+      ) {
+        heroPending.unfaehigThreshold = heroPending.unfaehigThresholdDefault ?? 5
+      }
+      syncHeroSettingsCheckboxes()
     }
   })
 
@@ -4191,6 +4319,39 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       }
       heroPending.leThreshold = Math.max(1, Math.min(999, n))
       heroLeThresholdInp.value = String(heroPending.leThreshold)
+    })
+  }
+
+  if (heroUnfaehigThresholdInp instanceof HTMLInputElement) {
+    heroUnfaehigThresholdInp.addEventListener('change', () => {
+      if (!isGmSync() || !heroPending) return
+      const n = Math.floor(
+        Number(heroUnfaehigThresholdInp.value.trim().replace(',', '.'))
+      )
+      if (!Number.isFinite(n) || n < 0) {
+        syncHeroSettingsCheckboxes()
+        return
+      }
+      heroPending.unfaehigThreshold = Math.max(0, Math.min(999, n))
+      heroUnfaehigThresholdInp.value = String(heroPending.unfaehigThreshold)
+    })
+  }
+  if (heroUnfaehigMarkFieldsInp instanceof HTMLInputElement) {
+    heroUnfaehigMarkFieldsInp.addEventListener('change', () => {
+      if (!isGmSync() || !heroPending) return
+      heroPending.unfaehigMarkFields = normalizeUnfaehigMarkFieldsText(
+        heroUnfaehigMarkFieldsInp.value
+      )
+      heroUnfaehigMarkFieldsInp.value = heroPending.unfaehigMarkFields
+    })
+  }
+  if (heroUnfaehigFixedFieldsInp instanceof HTMLInputElement) {
+    heroUnfaehigFixedFieldsInp.addEventListener('change', () => {
+      if (!isGmSync() || !heroPending) return
+      heroPending.unfaehigFixedFields = normalizeUnfaehigFixedFieldsText(
+        heroUnfaehigFixedFieldsInp.value
+      )
+      heroUnfaehigFixedFieldsInp.value = heroPending.unfaehigFixedFields
     })
   }
 

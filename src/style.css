@@ -2710,6 +2710,44 @@ body {
   align-items: center;
   gap: var(--init-hero-label-input-gap);
   flex-shrink: 0;
+  position: relative;
+}
+
+.init-hero-ex__micro-cell--unfaehig-mark::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: calc(var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap));
+  width: calc(var(--init-hero-cell) * 1.25);
+  height: 2px;
+  transform: translate(-50%, calc(var(--init-hero-cell) * 0.5)) rotate(-28deg);
+  transform-origin: center;
+  background: #c62828;
+  box-shadow: 0 0 0.5px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.init-hero-ex__micro-cell--unfaehig-fixed .init-hero-ex__micro {
+  color: transparent !important;
+  text-shadow: none !important;
+}
+
+.init-hero-ex__unfaehig-fixed-overlay {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap));
+  width: var(--init-hero-cell);
+  height: var(--init-hero-cell);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+  pointer-events: none;
+  z-index: 7;
 }
 
 /* Kürzelband wie IB/LE-Zeile — Zahl-Kästchen in allen Zeilen auf gleicher Höhe */

@@ -46,6 +46,8 @@ const HERO_EX_KO = 'heroExKo'
 const HERO_EX_GS = 'heroExGs'
 const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
 const HERO_EX_SHOW_FK = 'heroExShowFk'
+const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
+const HERO_EX_WAPPEN_TEMPLATE = 'heroExWappenTemplate'
 
 export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
 const AUTO_ZONE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}zone-`
@@ -159,6 +161,18 @@ function readLeThresholdFromSnapshot(snap) {
 function showFkFromSnapshot(snap) {
   const t = String(snap?.showFk ?? '').trim().toLowerCase()
   return !['0', 'false', 'off', 'no', 'nein'].includes(t)
+}
+
+/**
+ * @param {Record<string, unknown>} snap
+ * @returns {number}
+ */
+function readUnfaehigThresholdFromSnapshot(snap) {
+  const t = String(snap?.unfaehigThreshold ?? '').trim().toLowerCase()
+  const n = Math.floor(Number(t.replace(',', '.')))
+  if (t && Number.isFinite(n) && n >= 0) return n
+  const tpl = String(snap?.wappenTemplate ?? '').trim().toLowerCase()
+  return tpl === 'vierbeiner' ? 0 : 5
 }
 
 /**
@@ -376,6 +390,13 @@ export function computeAutoTriggerSignature(snap, autoBundleId) {
     if (w <= 0) return null
     return w
   }
+  if (bid === 'auto-le-unfaehig') {
+    const leNum = parseSignedInt(snap.le)
+    if (leNum === null) return null
+    const threshold = readUnfaehigThresholdFromSnapshot(snap)
+    if (leNum > threshold) return null
+    return leNum
+  }
   return null
 }
 
@@ -400,6 +421,8 @@ export function snapshotFromTrackerMeta(m) {
     gs: String(m?.[HERO_EX_GS] ?? ''),
     leThreshold: String(m?.[HERO_EX_LE_THRESHOLD] ?? ''),
     showFk: showFkEff ? '1' : '0',
+    unfaehigThreshold: String(m?.[HERO_EX_UNFAEHIG_THRESHOLD] ?? ''),
+    wappenTemplate: String(m?.[HERO_EX_WAPPEN_TEMPLATE] ?? ''),
     hitZones: readHitZoneBundle(m, TRACKER_ITEM_META_KEY, wappenDefs),
     wappenDefs,
   }
@@ -538,9 +561,10 @@ export function buildHeroAutoModRecords(snap, ctx) {
   /** @type {Record<string, unknown>[]} */
   const out = []
 
-  const pushRows = (bundleId, bundleLabel, rows) => {
+  const pushRows = (bundleId, bundleLabel, rows, opts = {}) => {
+    const includeZero = Boolean(opts.includeZero)
     for (const { field, delta } of rows) {
-      if (!delta) continue
+      if (!includeZero && !delta) continue
       out.push({
         id: genModId(),
         field,
@@ -582,6 +606,18 @@ export function buildHeroAutoModRecords(snap, ctx) {
         delta: -m,
       }))
       pushRows('auto-le-band', label, rows)
+    }
+  }
+
+  if (leNum !== null) {
+    const unfaehigThreshold = readUnfaehigThresholdFromSnapshot(snap)
+    if (leNum <= unfaehigThreshold) {
+      pushRows(
+        'auto-le-unfaehig',
+        'unfähig',
+        [{ field: 'ui', delta: 0 }],
+        { includeZero: true }
+      )
     }
   }
 
