@@ -1659,30 +1659,30 @@ export function mountHeroExpandBlock(
        selbst Strike/Set mitbringt. Quelle 2: alle reinen Strike/Set-Bänder
        (z. B. `le-ko` „unfähig“). Beide werden vereinigt. */
     resetLeBandFieldOverlays()
-    if (!dead) {
-      /** @type {Set<string>} */
-      const strikeUnion = new Set()
-      /** @type {Record<string, number>} */
-      const setMerged = {}
-      const ctx = { le: leV, leMax: maxV, ko: koV }
-      const deltaMatch = matchLeDeltaBand(ctx, bands)
-      if (deltaMatch) {
-        const ov = leBandFieldOverridesFromDef(deltaMatch.def)
-        ov.strikeFields.forEach((f) => strikeUnion.add(f))
-        for (const [f, v] of Object.entries(ov.setValues)) setMerged[f] = v
-      }
-      const strikeMatches = matchAllStrikeSetBands(ctx, bands)
-      for (const sm of strikeMatches) {
-        const ov = leBandFieldOverridesFromDef(sm.def)
-        ov.strikeFields.forEach((f) => strikeUnion.add(f))
-        for (const [f, v] of Object.entries(ov.setValues)) setMerged[f] = v
-      }
-      if (strikeUnion.size > 0 || Object.keys(setMerged).length > 0) {
-        applyLeBandFieldOverlays({
-          strikeFields: Array.from(strikeUnion),
-          setValues: setMerged,
-        })
-      }
+    /** Auch im `dead`-View (z. B. LE<=0 ohne KO) sollen absolute LE-Bänder
+       wie `unfähig` weiterhin optisch wirken (Strike/Set). */
+    /** @type {Set<string>} */
+    const strikeUnion = new Set()
+    /** @type {Record<string, number>} */
+    const setMerged = {}
+    const ctx = { le: leV, leMax: maxV, ko: koV }
+    const deltaMatch = matchLeDeltaBand(ctx, bands)
+    if (deltaMatch) {
+      const ov = leBandFieldOverridesFromDef(deltaMatch.def)
+      ov.strikeFields.forEach((f) => strikeUnion.add(f))
+      for (const [f, v] of Object.entries(ov.setValues)) setMerged[f] = v
+    }
+    const strikeMatches = matchAllStrikeSetBands(ctx, bands)
+    for (const sm of strikeMatches) {
+      const ov = leBandFieldOverridesFromDef(sm.def)
+      ov.strikeFields.forEach((f) => strikeUnion.add(f))
+      for (const [f, v] of Object.entries(ov.setValues)) setMerged[f] = v
+    }
+    if (strikeUnion.size > 0 || Object.keys(setMerged).length > 0) {
+      applyLeBandFieldOverlays({
+        strikeFields: Array.from(strikeUnion),
+        setValues: setMerged,
+      })
     }
 
     if (negLe) {
@@ -2367,7 +2367,7 @@ export function mountHeroExpandBlock(
       lePopWinResizeFix = null
     }
     if (lePopOutsideHandler) {
-      document.removeEventListener('mousedown', lePopOutsideHandler, true)
+      document.removeEventListener('pointerdown', lePopOutsideHandler, true)
       lePopOutsideHandler = null
     }
     if (lePopKeyHandler) {
@@ -2394,7 +2394,7 @@ export function mountHeroExpandBlock(
       if (leThreshCell.contains(tgt)) return
       closeLePopover()
     }
-    document.addEventListener('mousedown', lePopOutsideHandler, true)
+    document.addEventListener('pointerdown', lePopOutsideHandler, true)
     lePopScrollFix = () => positionLePopover()
     container.addEventListener('scroll', lePopScrollFix, { passive: true })
     lePopListScrollFix = () => positionLePopover()
@@ -2415,8 +2415,8 @@ export function mountHeroExpandBlock(
     document.addEventListener('keydown', lePopKeyHandler, true)
   }
 
-  /* mousedown: schnell vor fremden Layern; click: Touch, ohne Doppel-commit */
-  lePopClose.addEventListener('mousedown', (e) => {
+  /* pointerdown: schnell vor fremden Layern; click: Touch-Fallback. */
+  lePopClose.addEventListener('pointerdown', (e) => {
     e.preventDefault()
     e.stopPropagation()
     closeLePopover()

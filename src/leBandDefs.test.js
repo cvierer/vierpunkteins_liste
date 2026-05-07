@@ -117,6 +117,12 @@ describe('matchLeBand', () => {
     expect(matchLeBand({ le: '20', leMax: '0' }, defs)).toBeNull()
   })
 
+  it('absolute Bänder matchen auch ohne gültiges LE max', () => {
+    const m = matchLeBand({ le: '5', leMax: '' }, defs)
+    expect(m).not.toBeNull()
+    expect(m.def.id).toBe('le-ko')
+  })
+
   it('liefert null im sicheren Band (LE ≥ 1/2 LEmax)', () => {
     expect(matchLeBand({ le: '20', leMax: '40' }, defs)).toBeNull()
     expect(matchLeBand({ le: '40', leMax: '40' }, defs)).toBeNull()
@@ -239,6 +245,10 @@ describe('matchLeDeltaBand', () => {
     expect(matchLeDeltaBand({ le: '40', leMax: '40' }, defs)).toBeNull()
   })
 
+  it('liefert bei fehlendem LE max kein Fraction-Delta-Band', () => {
+    expect(matchLeDeltaBand({ le: '5', leMax: '' }, defs)).toBeNull()
+  })
+
   it('LE 15/40 → <1/2', () => {
     const m = matchLeDeltaBand({ le: '15', leMax: '40' }, defs)
     expect(m).not.toBeNull()
@@ -285,6 +295,12 @@ describe('matchAllStrikeSetBands', () => {
     expect(ids).toContain('le-ko')
   })
 
+  it('LE 5 ohne LE max → liefert weiterhin le-ko', () => {
+    const matches = matchAllStrikeSetBands({ le: '5', leMax: '' }, defs)
+    const ids = matches.map((m) => m.def.id)
+    expect(ids).toContain('le-ko')
+  })
+
   it('LE 15/40 → keine Strike/Set-Bänder', () => {
     const matches = matchAllStrikeSetBands({ le: '15', leMax: '40' }, defs)
     expect(matches).toEqual([])
@@ -296,9 +312,10 @@ describe('matchAllStrikeSetBands', () => {
     expect(ids).not.toContain('le-zero')
   })
 
-  it('liefert leeres Array ohne LE/leMax', () => {
+  it('liefert leeres Array ohne LE; absolute Bänder dürfen ohne LE max matchen', () => {
     expect(matchAllStrikeSetBands({ le: '', leMax: '40' }, defs)).toEqual([])
-    expect(matchAllStrikeSetBands({ le: '5', leMax: '0' }, defs)).toEqual([])
+    const withMissingLeMax = matchAllStrikeSetBands({ le: '5', leMax: '0' }, defs)
+    expect(withMissingLeMax.map((m) => m.def.id)).toContain('le-ko')
   })
 
   it('inaktive Bänder werden übersprungen', () => {

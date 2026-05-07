@@ -471,9 +471,10 @@ function toNonNegIntOrNull(raw) {
 export function matchLeBand(ctx, defs) {
   if (!Array.isArray(defs) || defs.length === 0) return null
   const le = toIntOrNull(ctx?.le)
-  const leMax = toNonNegIntOrNull(ctx?.leMax)
+  const leMaxRaw = toNonNegIntOrNull(ctx?.leMax)
   const ko = toIntOrNull(ctx?.ko)
-  if (le === null || leMax === null || leMax <= 0) return null
+  if (le === null) return null
+  const leMax = leMaxRaw !== null && leMaxRaw > 0 ? leMaxRaw : Number.NaN
   for (let i = 0; i < defs.length; i++) {
     const def = defs[i]
     if (!def || !def.active) continue
@@ -520,9 +521,10 @@ function hasStrikeOrSetMod(def) {
 export function matchLeDeltaBand(ctx, defs) {
   if (!Array.isArray(defs) || defs.length === 0) return null
   const le = toIntOrNull(ctx?.le)
-  const leMax = toNonNegIntOrNull(ctx?.leMax)
+  const leMaxRaw = toNonNegIntOrNull(ctx?.leMax)
   const ko = toIntOrNull(ctx?.ko)
-  if (le === null || leMax === null || leMax <= 0) return null
+  if (le === null) return null
+  const leMax = leMaxRaw !== null && leMaxRaw > 0 ? leMaxRaw : Number.NaN
   for (let i = 0; i < defs.length; i++) {
     const def = defs[i]
     if (!def || !def.active) continue
@@ -547,9 +549,10 @@ export function matchAllStrikeSetBands(ctx, defs) {
   const out = []
   if (!Array.isArray(defs) || defs.length === 0) return out
   const le = toIntOrNull(ctx?.le)
-  const leMax = toNonNegIntOrNull(ctx?.leMax)
+  const leMaxRaw = toNonNegIntOrNull(ctx?.leMax)
   const ko = toIntOrNull(ctx?.ko)
-  if (le === null || leMax === null || leMax <= 0) return out
+  if (le === null) return out
+  const leMax = leMaxRaw !== null && leMaxRaw > 0 ? leMaxRaw : Number.NaN
   for (let i = 0; i < defs.length; i++) {
     const def = defs[i]
     if (!def || !def.active) continue
