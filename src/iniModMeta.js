@@ -2444,7 +2444,7 @@ export function mountHeroExpandBlock(
     /* Wie Blur auf dem Haupt-LE: ausstehende Werte in die Szene schreiben.
        Solange das Overlay offen ist, blockiert liveInputs die 2-Zeichen-Persistenz
        (Remount-Risiko) — beim Schließen explizit committen. */
-    commit()
+    runSilentLeOverlaySync({ usePreview: true, commitAfter: true })
     lePop.remove()
     leThreshCell.classList.remove('init-hero-ex__le-threshold--open')
     if (lePopOutsideHandler) {
@@ -4475,16 +4475,42 @@ export function mountHeroExpandBlock(
     return previewMeta
   }
 
+  /**
+   * Führt denselben LE-Visual-Sync wie der Overlay-Zyklus aus, optional mit
+   * Preview-Meta und optionalem Commit (wie beim Overlay-Schließen), ohne
+   * sichtbares Öffnen/Schließen des Overlays.
+   *
+   * @param {{ usePreview?: boolean, commitAfter?: boolean }} [opts]
+   */
+  function runSilentLeOverlaySync(opts = {}) {
+    const previewMeta = opts.usePreview ? buildLiveLePreviewMeta() : undefined
+    if (previewMeta) {
+      refreshComputedPenaltyHighlights(previewMeta)
+      refreshDerivedUiFromInputs(previewMeta)
+      renderModBadgesAndStrip(previewMeta)
+    } else {
+      refreshComputedPenaltyHighlights()
+      refreshDerivedUiFromInputs()
+    }
+    if (opts.commitAfter) {
+      commit()
+    }
+  }
+
   /** @type {ReturnType<typeof setTimeout> | null} */
   let liveRefreshTimer = null
   /** Debounce für abgeleitete UI (LE-Schwelle, S-Popover, …) bei kurzer Eingabe. */
   const LIVE_INPUT_DEBOUNCE_MS = 4000
 
-  const scheduleLiveDerivedRefresh = (metaForVisuals) => {
+  const scheduleLiveDerivedRefresh = (inp, metaForVisuals) => {
     if (liveRefreshTimer != null) clearTimeout(liveRefreshTimer)
     liveRefreshTimer = setTimeout(() => {
       liveRefreshTimer = null
-      refreshDerivedUiFromInputs(metaForVisuals)
+      if (isLeRelatedLiveInput(inp)) {
+        runSilentLeOverlaySync({ usePreview: true })
+      } else {
+        refreshDerivedUiFromInputs(metaForVisuals)
+      }
     }, LIVE_INPUT_DEBOUNCE_MS)
   }
 
@@ -4817,7 +4843,7 @@ export function mountHeroExpandBlock(
           }
           refreshDerivedUiFromInputs()
         } else {
-          scheduleLiveDerivedRefresh()
+          scheduleLiveDerivedRefresh(inp)
         }
         return
       }
@@ -4828,14 +4854,13 @@ export function mountHeroExpandBlock(
           clearTimeout(liveRefreshTimer)
           liveRefreshTimer = null
         }
-        refreshDerivedUiFromInputs(previewMeta ?? undefined)
+        if (immediateDerivedForLe) {
+          runSilentLeOverlaySync({ usePreview: true })
+        } else {
+          refreshDerivedUiFromInputs(previewMeta ?? undefined)
+        }
       } else {
-        scheduleLiveDerivedRefresh(previewMeta ?? undefined)
-      }
-      // Keine Persistenz mehr beim Tippen: nur blur/Enter/Explizit-Apply,
-      // damit Felder nicht durch Remount mitten in der Eingabe flackern.
-      if (previewMeta) {
-        renderModBadgesAndStrip(previewMeta)
+        scheduleLiveDerivedRefresh(inp, previewMeta ?? undefined)
       }
     })
     inp.addEventListener('blur', (e) => {
