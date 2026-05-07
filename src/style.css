@@ -2511,7 +2511,9 @@ body {
   max-width: none;
   height: auto;
   min-height: calc(0.68 * var(--init-hero-cell));
-  min-width: calc(0.52 * var(--init-hero-cell));
+  min-width: calc(0.88 * var(--init-hero-cell));
+  padding-left: calc(0.22rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  padding-right: calc(0.22rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
   border: 1px solid var(--init-action-cell-border);
   border-radius: 4px;
   background: var(--init-action-cell-fill);
