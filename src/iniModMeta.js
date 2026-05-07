@@ -266,7 +266,10 @@ function normalizeUnfaehigMarkFields(raw) {
   const txt = String(raw ?? '')
   const fields = txt
     .split(',')
-    .map((x) => x.trim().toLowerCase())
+    .map((x) => {
+      const t = x.trim().toLowerCase()
+      return t === 'aw' ? 'a' : t
+    })
     .filter((x) => ['at', 'pa', 'a', 'tp', 'fk', 'gs'].includes(x))
   return fields.length > 0 ? [...new Set(fields)] : [...UNFAEHIG_MARK_DEFAULT_FIELDS]
 }
@@ -1998,7 +2001,6 @@ export function mountHeroExpandBlock(
     for (const cell of Object.values(unfaehigVisualTargets)) {
       if (!(cell instanceof HTMLElement)) continue
       cell.classList.remove('init-hero-ex__micro-cell--unfaehig-mark')
-      cell.classList.remove('init-hero-ex__micro-cell--unfaehig-fixed')
     }
     gsUnfaehigOverlay.textContent = ''
 
@@ -2016,7 +2018,7 @@ export function mountHeroExpandBlock(
     }
     const gsFixed = Number(s.unfaehigFixedFields?.gs)
     if (Number.isFinite(gsFixed)) {
-      gs.cell.classList.add('init-hero-ex__micro-cell--unfaehig-fixed')
+      gs.cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
       gsUnfaehigOverlay.textContent = String(gsFixed)
     }
   }

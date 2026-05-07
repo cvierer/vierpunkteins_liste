@@ -3429,9 +3429,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const normalizeUnfaehigMarkFieldsText = (raw) => {
     const fields = String(raw ?? '')
       .split(',')
-      .map((x) => x.trim().toLowerCase())
+      .map((x) => {
+        const t = x.trim().toLowerCase()
+        return t === 'aw' ? 'a' : t
+      })
       .filter((x) => ['at', 'pa', 'a', 'tp', 'fk', 'gs'].includes(x))
-    return (fields.length > 0 ? [...new Set(fields)] : ['at', 'pa', 'a', 'tp', 'fk']).join(',')
+    const canonical = fields.length > 0 ? [...new Set(fields)] : ['at', 'pa', 'a', 'tp', 'fk']
+    const toLabel = (x) => (x === 'a' ? 'AW' : x.toUpperCase())
+    return canonical.map(toLabel).join(',')
   }
 
   const normalizeUnfaehigFixedFieldsText = (raw) => {
