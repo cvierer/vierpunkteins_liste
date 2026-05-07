@@ -133,7 +133,7 @@ const DEFAULT_LE_BAND_DEFS_RAW = [
     active: true,
     label: 'Kampfunfähig',
     tooltip:
-      'LE 1–5: kampfunfähig (Regel). Optisch: AT/PA/FK durchgestrichen, GS = 1.',
+      'Bei LE≤5 kampfunfähig (Regel, Grenzwert 5 inklusive). Optisch: AT/PA/FK durchgestrichen, GS = 1.',
     threshold: { type: 'absolute', value: 5 },
     mods: [
       { field: 'at', op: 'strike' },
@@ -407,6 +407,7 @@ export function matchesThreshold(t, le, leMax, ko) {
   }
   if (t.type === 'absolute') {
     if (!Number.isFinite(le)) return false
+    /* Grenzwert inklusive: LE === value zählt (z. B. Kampfunfähig bei LE≤5). */
     return le <= t.value
   }
   if (t.type === 'negKoDepth') {

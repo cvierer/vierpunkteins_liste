@@ -28,12 +28,14 @@ describe('leFractionToThresholdBand', () => {
 })
 
 describe('leBarColorBand', () => {
-  it('uses signalred pulse for 1..5 LE (lebend) regardless of share', () => {
+  it('uses signalred pulse for LE≤5 (lebend) regardless of share', () => {
     expect(leBarColorBand(3, 100)).toBe('sig')
     expect(leBarColorBand(1, 40)).toBe('sig')
+    expect(leBarColorBand(5, 40)).toBe('sig')
   })
 
   it('uses share bands when LE >= 6', () => {
+    expect(leBarColorBand(6, 40)).toBe('crit')
     expect(leBarColorBand(20, 40)).toBe('alert')
   })
 })
