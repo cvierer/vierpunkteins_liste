@@ -2746,11 +2746,11 @@ body {
 
 .init-hero-ex__unfaehig-fixed-overlay {
   position: absolute;
-  right: -1px;
-  top: calc(var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) + var(--init-hero-cell) - 12px);
+  right: -2px;
+  top: calc(var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) + var(--init-hero-cell) - 14px);
   min-width: 0;
   line-height: 1;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #c62828;
   background: radial-gradient(
@@ -2761,7 +2761,7 @@ body {
   );
   border: 1px solid rgba(117, 81, 24, 0.6);
   border-radius: 999px;
-  padding: 0 2px;
+  padding: 1px 3px;
   box-shadow:
     0 0 0.5px rgba(0, 0, 0, 0.55),
     0 0 3px rgba(255, 233, 176, 0.72),
@@ -7228,7 +7228,7 @@ select.init-row-extra-select {
 .init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card > .init-hero-ex__mod-chip-card__head {
   min-height: 0;
   flex: 0 0 33%;
-  padding-top: calc(0.045rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  padding-top: calc(0.08rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 .init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card__sum-svg {
@@ -7243,7 +7243,7 @@ select.init-row-extra-select {
   min-height: 0;
   flex: 1 1 67%;
   margin-top: auto;
-  padding-bottom: calc(0.015rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  padding-bottom: calc(0.055rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 .init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card__x {
@@ -7334,7 +7334,7 @@ select.init-row-extra-select {
   align-items: center;
   width: 100%;
   min-height: calc(0.5644rem * var(--init-ui-scale));
-  padding-top: calc(0.04rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  padding-top: calc(0.075rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 .init-hero-ex__mod-chip-card__head-actions {
@@ -7343,6 +7343,7 @@ select.init-row-extra-select {
   align-items: flex-end;
   gap: calc(0.035rem * var(--init-ui-scale));
   flex-shrink: 0;
+  transform: translateY(1px);
 }
 
 .init-hero-ex__mod-chip-card__sum-arrow {
@@ -7609,7 +7610,7 @@ select.init-row-extra-select {
   cursor: pointer;
   border-radius: 50%;
   flex-shrink: 0;
-  transform: translateY(1px);
+  transform: translateY(2px);
 }
 
 .init-hero-ex__mod-chip-card__x:hover {
@@ -7633,7 +7634,7 @@ select.init-row-extra-select {
   color: #121212;
   font-feature-settings: 'tnum' 1;
   margin-top: auto;
-  padding-bottom: calc(0.02rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  padding-bottom: calc(0.06rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 /* Kurztexte LE<1/x und n*W KZ: kein „…“, voller Bruch lesbar */
