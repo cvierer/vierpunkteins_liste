@@ -296,6 +296,34 @@ describe('applyBundleRemovalCleanup', () => {
     expect(m.heroExLe).toBe('40')
   })
 
+  it('setzt LE aus lastSafe beim Entfernen von auto-le-unfaehig', () => {
+    const zones = emptyZones()
+    const s = snap({ le: '4', leMax: '40', hitZones: { notiz: '', zones: zones } })
+    const mods = buildHeroAutoModRecords(s, ctx)
+    const m = /** @type {Record<string, unknown>} */ ({
+      heroExLe: '4',
+      heroExLeMax: '40',
+      [HERO_EX_LAST_SAFE_LE]: '21',
+      [HERO_EX_MODS]: mods,
+    })
+    applyBundleRemovalCleanup(m, 'auto-le-unfaehig', ctx)
+    expect(m.heroExLe).toBe('21')
+    expect(m[HERO_EX_AUTO_SUPPRESSED]?.['auto-le-unfaehig']).toBeUndefined()
+  })
+
+  it('setzt LE auf leMax ohne lastSafe beim Entfernen von auto-le-unfaehig', () => {
+    const zones = emptyZones()
+    const s = snap({ le: '5', leMax: '40', hitZones: { notiz: '', zones: zones } })
+    const mods = buildHeroAutoModRecords(s, ctx)
+    const m = /** @type {Record<string, unknown>} */ ({
+      heroExLe: '5',
+      heroExLeMax: '40',
+      [HERO_EX_MODS]: mods,
+    })
+    applyBundleRemovalCleanup(m, 'auto-le-unfaehig', ctx)
+    expect(m.heroExLe).toBe('40')
+  })
+
   it('reines manuelles Bündel: nur Mods, keine Nebenwirkungen', () => {
     const m = /** @type {Record<string, unknown>} */ ({
       [HERO_EX_MODS]: [

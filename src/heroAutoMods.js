@@ -294,7 +294,7 @@ function defaultHeroAutoModCtx() {
 }
 
 /**
- * Bündel aus Mods entfernen; bei auto-zone-* Wundenmarker löschen; bei auto-le-band LE heilen.
+ * Bündel aus Mods entfernen; bei auto-zone-* Wundenmarker löschen; bei LE-Auto-Bundles LE heilen.
  *
  * @param {Record<string, unknown>} m — Tracker-Metadaten (mutiert)
  * @param {string} bundleId
@@ -335,6 +335,19 @@ export function applyBundleRemovalCleanup(m, bundleId, ctx) {
     const sr = m[HERO_EX_AUTO_SUPPRESSED]
     if (sr && typeof sr === 'object') {
       delete sr['auto-le-band']
+      if (Object.keys(sr).length === 0) delete m[HERO_EX_AUTO_SUPPRESSED]
+    }
+  }
+
+  if (hadBundle && autoId === 'auto-le-unfaehig') {
+    let safe = parseSignedInt(m[HERO_EX_LAST_SAFE_LE])
+    if (safe === null) safe = parseNonNegInt(m[HERO_EX_LE_MAX])
+    if (safe !== null) {
+      m[HERO_EX_LE] = String(safe)
+    }
+    const sr = m[HERO_EX_AUTO_SUPPRESSED]
+    if (sr && typeof sr === 'object') {
+      delete sr['auto-le-unfaehig']
       if (Object.keys(sr).length === 0) delete m[HERO_EX_AUTO_SUPPRESSED]
     }
   }

@@ -2026,9 +2026,13 @@ export function mountHeroExpandBlock(
 
   const applyUnfaehigVisualOverlay = (metaForMods = meta) => {
     const s = readHeroExpandSnapshot(metaForMods)
+    const unfaehigBundleActive = readHeroExMods(metaForMods).some(
+      (m) => String(m?.bundleId ?? '') === 'auto-le-unfaehig'
+    )
     const leNum = Number.parseInt(String(s.le ?? '').trim(), 10)
     const threshold = Number(s.unfaehigThreshold)
     const active =
+      unfaehigBundleActive &&
       Number.isFinite(leNum) &&
       Number.isFinite(threshold) &&
       leNum <= Math.floor(threshold)
