@@ -1034,7 +1034,7 @@ export function mountHeroExpandBlock(
 
   const spTzLabelTools = document.createElement('div')
   spTzLabelTools.className = 'init-hero-ex__sp-tz-pair__label-tools'
-  spTzLabelTools.append(spTzUndo, spTzRedo)
+  spTzLabelTools.append(spTzUndo, rsBypassBtn, spTzRedo)
 
   const spTzPair = document.createElement('div')
   spTzPair.className = 'init-hero-ex__sp-tz-pair'
@@ -1047,14 +1047,11 @@ export function mountHeroExpandBlock(
   spAbbr.className = 'init-hero-ex__abbr'
   spAbbr.textContent = 'TP'
   spAbbr.title = 'Trefferpunkte (TP)'
-  const spTpLabelWrap = document.createElement('div')
-  spTpLabelWrap.className = 'init-hero-ex__sp-tz-pair__tp-wrap'
-  spTpLabelWrap.append(rsBypassBtn, spAbbr)
   const tzAbbr = document.createElement('span')
   tzAbbr.className = 'init-hero-ex__abbr'
   tzAbbr.textContent = 'TZ'
   tzAbbr.title = TZ_TOOLTIP
-  spTzLabelRow.append(spTpLabelWrap, spTzLabelTools, tzAbbr)
+  spTzLabelRow.append(spAbbr, spTzLabelTools, tzAbbr)
 
   const spInp = document.createElement('input')
   spInp.type = 'text'

@@ -953,17 +953,6 @@ body {
   min-height: 0;
 }
 
-.init-hero-ex__sp-tz-pair__tp-wrap {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0.08rem;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
 /* Rückgängig / Wiederholen nur in der Beschriftungszeile zwischen SP und TZ */
 .init-hero-ex__sp-tz-pair__label-tools {
   display: flex;
