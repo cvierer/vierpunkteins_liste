@@ -7670,6 +7670,7 @@ select.init-row-extra-select {
 
 .init-hero-ex__mod-chip-card--auto-unfaehig .init-hero-ex__mod-chip-card__label-line {
   font-size: calc(0.534rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  letter-spacing: -0.012em;
 }
 
 /* Aufklappbereich: LE/MAX-Kaestchen mit Listenhintergrund (Rahmen bleibt sichtbar),
