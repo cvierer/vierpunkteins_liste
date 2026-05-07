@@ -86,7 +86,7 @@ describe('buildHeroAutoModRecords', () => {
     expect(u.length).toBe(1)
     expect(u[0].label).toBe('unfähig')
     expect(u[0].field).toBe('ui')
-    expect(u[0].delta).toBe(0)
+    expect(u[0].delta).toBe(1)
   })
 
   it('GS-Clamp: heroExGs-Basis 1 und Bauch W1 → gs-Delta 0', () => {

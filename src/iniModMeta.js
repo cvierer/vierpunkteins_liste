@@ -3920,14 +3920,16 @@ export function mountHeroExpandBlock(
             : ''
         }`
         let netSum = 0
-        for (const bm of bundleMods) {
-          netSum += modEffectiveContribution(
-            bm,
-            ownerIniNum,
-            round,
-            navIni,
-            lhMech
-          )
+        if (String(modRec.bundleId ?? '') !== AUTO_LE_UNFAEHIG_BUNDLE_ID) {
+          for (const bm of bundleMods) {
+            netSum += modEffectiveContribution(
+              bm,
+              ownerIniNum,
+              round,
+              navIni,
+              lhMech
+            )
+          }
         }
         mountModListChip(primaryStack, {
           isBundle: true,
