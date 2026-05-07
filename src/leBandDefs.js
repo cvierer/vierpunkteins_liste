@@ -50,6 +50,7 @@ export const LE_BAND_MOD_FIELDS = Object.freeze([
   'pa',
   'a',
   'fk',
+  'tp',
   'mu',
   'kl',
   'inn',
@@ -118,10 +119,6 @@ const DEFAULT_LE_BAND_DEFS_RAW = [
     tooltip: 'LE ist 0 oder negativ — kampfunfähig.',
     threshold: { type: 'absolute', value: 0 },
     mods: [
-      { field: 'at', op: 'strike' },
-      { field: 'pa', op: 'strike' },
-      { field: 'fk', op: 'strike' },
-      { field: 'gs', op: 'set', setValue: 1 },
       { field: 'at', delta: -3 },
       { field: 'pa', delta: -3 },
       { field: 'a', delta: -3 },
@@ -133,12 +130,14 @@ const DEFAULT_LE_BAND_DEFS_RAW = [
     active: true,
     label: 'unfähig',
     tooltip:
-      'Bei LE≤5 kampfunfähig (Regel, Grenzwert 5 inklusive). Optisch: AT/PA/FK durchgestrichen, GS = 1.',
+      'Bei LE≤5 unfähig (Regel, Grenzwert 5 inklusive). Optisch: AT/PA/AW/TP/FK durchgestrichen, GS = 1.',
     threshold: { type: 'absolute', value: 5 },
     mods: [
       { field: 'at', op: 'strike' },
       { field: 'pa', op: 'strike' },
+      { field: 'a', op: 'strike' },
       { field: 'fk', op: 'strike' },
+      { field: 'tp', op: 'strike' },
       { field: 'gs', op: 'set', setValue: 1 },
     ],
   },
@@ -301,7 +300,33 @@ export function normalizeLeBandDefs(raw) {
     out.push({ id, active, label, tooltip, threshold, mods })
   })
   if (out.length === 0) return cloneDefaultLeBandDefs()
+  ensureDefaultLeKoBand(out)
   return out
+}
+
+/**
+ * Migration: Bestandsräume/Helden ohne `le-ko`-Band bekommen die Default-Regel
+ * (LE≤5 = „unfähig“) eingespielt — eingefügt **vor** dem ersten `fraction`-Band
+ * (analog `injectLegacyBand`), damit Strike/Set zuerst greifen.
+ *
+ * @param {LeBandDef[]} bands
+ */
+function ensureDefaultLeKoBand(bands) {
+  const hasKoId = bands.some((b) => b && b.id === 'le-ko')
+  const hasAbs5 = bands.some(
+    (b) =>
+      b &&
+      b.threshold &&
+      b.threshold.type === 'absolute' &&
+      Number(b.threshold.value) === 5,
+  )
+  if (hasKoId || hasAbs5) return
+  const defaults = cloneDefaultLeBandDefs()
+  const koDef = defaults.find((d) => d && d.id === 'le-ko')
+  if (!koDef) return
+  const idx = bands.findIndex((b) => b.threshold && b.threshold.type === 'fraction')
+  if (idx < 0) bands.push(koDef)
+  else bands.splice(idx, 0, koDef)
 }
 
 /**
@@ -457,6 +482,83 @@ export function matchLeBand(ctx, defs) {
     }
   }
   return null
+}
+
+/** Liefert true, wenn das Band mindestens einen `delta`-Mod-Eintrag enthält. */
+function hasDeltaMod(def) {
+  if (!def || !Array.isArray(def.mods)) return false
+  for (const m of def.mods) {
+    if (!m || !m.field) continue
+    const op = m.op ?? 'delta'
+    if (op === 'delta' && Number.isFinite(Number(m.delta)) && Number(m.delta) !== 0) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Liefert true, wenn das Band mindestens einen `strike`/`set`-Mod-Eintrag enthält. */
+function hasStrikeOrSetMod(def) {
+  if (!def || !Array.isArray(def.mods)) return false
+  for (const m of def.mods) {
+    if (!m || !m.field) continue
+    if (m.op === 'strike') return true
+    if (m.op === 'set' && Number.isFinite(Number(m.setValue))) return true
+  }
+  return false
+}
+
+/**
+ * Findet das erste passende LE-Band, das mindestens einen Delta-Mod enthält.
+ * Reine Strike/Set-Bänder (z. B. `le-ko` „unfähig“) werden übersprungen, damit
+ * die alte Delta-Mechanik der LE-Bänder unverändert bleibt.
+ *
+ * @param {{ le: unknown, leMax: unknown, ko?: unknown }} ctx
+ * @param {LeBandDef[]} defs
+ * @returns {{ def: LeBandDef, index: number } | null}
+ */
+export function matchLeDeltaBand(ctx, defs) {
+  if (!Array.isArray(defs) || defs.length === 0) return null
+  const le = toIntOrNull(ctx?.le)
+  const leMax = toNonNegIntOrNull(ctx?.leMax)
+  const ko = toIntOrNull(ctx?.ko)
+  if (le === null || leMax === null || leMax <= 0) return null
+  for (let i = 0; i < defs.length; i++) {
+    const def = defs[i]
+    if (!def || !def.active) continue
+    if (!hasDeltaMod(def)) continue
+    if (matchesThreshold(def.threshold, le, leMax, ko)) {
+      return { def, index: i }
+    }
+  }
+  return null
+}
+
+/**
+ * Liefert alle aktiven Treffer mit mindestens einem Strike/Set-Mod (z. B.
+ * `le-ko`). Reihenfolge der Defs bleibt erhalten.
+ *
+ * @param {{ le: unknown, leMax: unknown, ko?: unknown }} ctx
+ * @param {LeBandDef[]} defs
+ * @returns {{ def: LeBandDef, index: number }[]}
+ */
+export function matchAllStrikeSetBands(ctx, defs) {
+  /** @type {{ def: LeBandDef, index: number }[]} */
+  const out = []
+  if (!Array.isArray(defs) || defs.length === 0) return out
+  const le = toIntOrNull(ctx?.le)
+  const leMax = toNonNegIntOrNull(ctx?.leMax)
+  const ko = toIntOrNull(ctx?.ko)
+  if (le === null || leMax === null || leMax <= 0) return out
+  for (let i = 0; i < defs.length; i++) {
+    const def = defs[i]
+    if (!def || !def.active) continue
+    if (!hasStrikeOrSetMod(def)) continue
+    if (matchesThreshold(def.threshold, le, leMax, ko)) {
+      out.push({ def, index: i })
+    }
+  }
+  return out
 }
 
 /**

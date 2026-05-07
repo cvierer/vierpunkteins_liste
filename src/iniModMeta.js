@@ -40,8 +40,9 @@ import {
   defaultLeBandLabel,
   effectiveLeBandsForHero,
   leBandFieldOverridesFromDef,
+  matchAllStrikeSetBands,
+  matchLeDeltaBand,
   matchesThreshold,
-  matchLeBand,
   NEG_LE_KO_RANGE,
 } from './leBandDefs.js'
 import {
@@ -1557,6 +1558,7 @@ export function mountHeroExpandBlock(
     pa: { cell: pa.cell, inp: pa.inp },
     a: { cell: ausw.cell, inp: ausw.inp },
     fk: { cell: fk.cell, inp: fk.inp },
+    tp: { cell: tpCell, inp: tpInp },
     mu: { cell: mu.cell, inp: mu.inp },
     kl: { cell: kl.cell, inp: kl.inp },
     inn: { cell: inn.cell, inp: inn.inp },
@@ -1650,15 +1652,34 @@ export function mountHeroExpandBlock(
 
     /* Optische Strike-/Set-Overrides aus dem getroffenen Band anwenden.
        Eingabewerte bleiben unangetastet, damit beim Verlassen des Bands die
-       Originalwerte sofort wieder sichtbar werden. */
+       Originalwerte sofort wieder sichtbar werden.
+       Quelle 1: das delta-führende Band (alte Mechanik) — falls dessen Band
+       selbst Strike/Set mitbringt. Quelle 2: alle reinen Strike/Set-Bänder
+       (z. B. `le-ko` „unfähig“). Beide werden vereinigt. */
     resetLeBandFieldOverlays()
     if (!dead) {
-      const match = matchLeBand(
-        { le: leV, leMax: maxV, ko: koV },
-        bands
-      )
-      if (match) {
-        applyLeBandFieldOverlays(leBandFieldOverridesFromDef(match.def))
+      /** @type {Set<string>} */
+      const strikeUnion = new Set()
+      /** @type {Record<string, number>} */
+      const setMerged = {}
+      const ctx = { le: leV, leMax: maxV, ko: koV }
+      const deltaMatch = matchLeDeltaBand(ctx, bands)
+      if (deltaMatch) {
+        const ov = leBandFieldOverridesFromDef(deltaMatch.def)
+        ov.strikeFields.forEach((f) => strikeUnion.add(f))
+        for (const [f, v] of Object.entries(ov.setValues)) setMerged[f] = v
+      }
+      const strikeMatches = matchAllStrikeSetBands(ctx, bands)
+      for (const sm of strikeMatches) {
+        const ov = leBandFieldOverridesFromDef(sm.def)
+        ov.strikeFields.forEach((f) => strikeUnion.add(f))
+        for (const [f, v] of Object.entries(ov.setValues)) setMerged[f] = v
+      }
+      if (strikeUnion.size > 0 || Object.keys(setMerged).length > 0) {
+        applyLeBandFieldOverlays({
+          strikeFields: Array.from(strikeUnion),
+          setValues: setMerged,
+        })
       }
     }
 

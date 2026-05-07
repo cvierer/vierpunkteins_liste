@@ -12,8 +12,10 @@ import {
   LE_BAND_MOD_FIELDS,
   leBandFieldOverridesFromDef,
   legacyTriggerSignatureForLeBand,
+  matchAllStrikeSetBands,
   matchesThreshold,
   matchLeBand,
+  matchLeDeltaBand,
   NEG_LE_KO_RANGE,
   normalizeLeBandDefs,
 } from './leBandDefs.js'
@@ -37,7 +39,7 @@ describe('DEFAULT_LE_BAND_DEFS', () => {
     expect(DEFAULT_LE_BAND_DEFS.every((d) => d.active)).toBe(true)
   })
 
-  it('unfähig-Band (LE≤5): strike at/pa/fk + set gs=1', () => {
+  it('unfähig-Band (LE≤5): strike at/pa/a/fk/tp + set gs=1', () => {
     const koDef = DEFAULT_LE_BAND_DEFS.find((d) => d.id === 'le-ko')
     expect(koDef).toBeDefined()
     expect(koDef.label).toBe('unfähig')
@@ -46,18 +48,20 @@ describe('DEFAULT_LE_BAND_DEFS', () => {
       .filter((m) => m.op === 'strike')
       .map((m) => m.field)
       .sort()
-    expect(strikeFields).toEqual(['at', 'fk', 'pa'])
+    expect(strikeFields).toEqual(['a', 'at', 'fk', 'pa', 'tp'])
     const setMod = koDef.mods.find((m) => m.op === 'set' && m.field === 'gs')
     expect(setMod).toBeDefined()
     expect(setMod.setValue).toBe(1)
+    expect(koDef.mods.some((m) => (m.op ?? 'delta') === 'delta')).toBe(false)
   })
 
-  it('<=0-Band enthält dieselben optischen Strike/Set wie Kampfunfähig', () => {
+  it('<=0-Band ist wieder rein delta-basiert (wie vor V780)', () => {
     const z = DEFAULT_LE_BAND_DEFS.find((d) => d.id === 'le-zero')
     expect(z).toBeDefined()
-    expect(z.mods.some((m) => m.op === 'strike' && m.field === 'at')).toBe(true)
-    expect(z.mods.some((m) => m.op === 'set' && m.field === 'gs')).toBe(true)
-    expect(aggregateLeBandModsByField(z).at).toBe(-3)
+    expect(z.mods.some((m) => m.op === 'strike')).toBe(false)
+    expect(z.mods.some((m) => m.op === 'set')).toBe(false)
+    const agg = aggregateLeBandModsByField(z)
+    expect(agg).toEqual({ at: -3, pa: -3, a: -3, fk: -3 })
   })
 
   it('Bruch-Bänder reproduzieren das alte Schema (-1, -2, -3)', () => {
@@ -95,11 +99,12 @@ describe('DEFAULT_LE_BAND_DEFS', () => {
 })
 
 describe('LE_BAND_MOD_FIELDS', () => {
-  it('enthält die Standard-Mod-Felder', () => {
+  it('enthält die Standard-Mod-Felder inklusive tp', () => {
     expect(LE_BAND_MOD_FIELDS).toContain('at')
     expect(LE_BAND_MOD_FIELDS).toContain('pa')
     expect(LE_BAND_MOD_FIELDS).toContain('a')
     expect(LE_BAND_MOD_FIELDS).toContain('fk')
+    expect(LE_BAND_MOD_FIELDS).toContain('tp')
     expect(LE_BAND_MOD_FIELDS).toContain('mu')
   })
 })
@@ -221,6 +226,96 @@ describe('matchLeBand', () => {
   })
 })
 
+describe('matchLeDeltaBand', () => {
+  const defs = cloneDefaultLeBandDefs()
+
+  it('überspringt rein optisches le-ko und liefert <1/4 bei LE 5/40', () => {
+    const m = matchLeDeltaBand({ le: '5', leMax: '40' }, defs)
+    expect(m).not.toBeNull()
+    expect(m.def.threshold).toMatchObject({ type: 'fraction', num: 1, den: 4 })
+  })
+
+  it('liefert null im sicheren Band', () => {
+    expect(matchLeDeltaBand({ le: '40', leMax: '40' }, defs)).toBeNull()
+  })
+
+  it('LE 15/40 → <1/2', () => {
+    const m = matchLeDeltaBand({ le: '15', leMax: '40' }, defs)
+    expect(m).not.toBeNull()
+    expect(m.def.threshold).toMatchObject({ type: 'fraction', num: 1, den: 2 })
+  })
+
+  it('LE 0/40 → le-zero (Delta-Band ≤0)', () => {
+    const m = matchLeDeltaBand({ le: '0', leMax: '40' }, defs)
+    expect(m).not.toBeNull()
+    expect(m.def.id).toBe('le-zero')
+  })
+
+  it('Bänder ohne Delta werden übersprungen', () => {
+    const list = [
+      {
+        id: 'optical',
+        active: true,
+        label: '',
+        tooltip: '',
+        threshold: { type: 'absolute', value: 5 },
+        mods: [{ field: 'at', op: 'strike' }],
+      },
+      {
+        id: 'delta',
+        active: true,
+        label: '',
+        tooltip: '',
+        threshold: { type: 'fraction', num: 1, den: 4 },
+        mods: [{ field: 'at', delta: -3 }],
+      },
+    ]
+    const m = matchLeDeltaBand({ le: '5', leMax: '40' }, list)
+    expect(m).not.toBeNull()
+    expect(m.def.id).toBe('delta')
+  })
+})
+
+describe('matchAllStrikeSetBands', () => {
+  const defs = cloneDefaultLeBandDefs()
+
+  it('LE 5/40 → liefert le-ko', () => {
+    const matches = matchAllStrikeSetBands({ le: '5', leMax: '40' }, defs)
+    const ids = matches.map((m) => m.def.id)
+    expect(ids).toContain('le-ko')
+  })
+
+  it('LE 15/40 → keine Strike/Set-Bänder', () => {
+    const matches = matchAllStrikeSetBands({ le: '15', leMax: '40' }, defs)
+    expect(matches).toEqual([])
+  })
+
+  it('LE 0/40 → kein Strike/Set-Band (le-zero ist delta-only)', () => {
+    const matches = matchAllStrikeSetBands({ le: '0', leMax: '40' }, defs)
+    const ids = matches.map((m) => m.def.id)
+    expect(ids).not.toContain('le-zero')
+  })
+
+  it('liefert leeres Array ohne LE/leMax', () => {
+    expect(matchAllStrikeSetBands({ le: '', leMax: '40' }, defs)).toEqual([])
+    expect(matchAllStrikeSetBands({ le: '5', leMax: '0' }, defs)).toEqual([])
+  })
+
+  it('inaktive Bänder werden übersprungen', () => {
+    const list = [
+      {
+        id: 'inactive-strike',
+        active: false,
+        label: '',
+        tooltip: '',
+        threshold: { type: 'absolute', value: 5 },
+        mods: [{ field: 'at', op: 'strike' }],
+      },
+    ]
+    expect(matchAllStrikeSetBands({ le: '5', leMax: '40' }, list)).toEqual([])
+  })
+})
+
 describe('normalizeLeBandDefs', () => {
   it('leere/ungültige Eingaben liefern Defaults', () => {
     expect(normalizeLeBandDefs(null)).toEqual(cloneDefaultLeBandDefs())
@@ -228,14 +323,17 @@ describe('normalizeLeBandDefs', () => {
     expect(normalizeLeBandDefs('foo')).toEqual(cloneDefaultLeBandDefs())
   })
 
-  it('reicht max 16 Einträge durch', () => {
+  it('reicht max 16 Einträge durch (zzgl. evtl. injiziertes le-ko)', () => {
     const big = Array.from({ length: 24 }, (_, i) => ({
       id: `b${i}`,
       threshold: { type: 'fraction', num: 1, den: 2 + (i % 5) },
       mods: [{ field: 'at', delta: -1 }],
     }))
     const res = normalizeLeBandDefs(big)
-    expect(res.length).toBe(16)
+    /* slice(0,16) → 16 Einträge, plus 1 injiziertes le-ko (kein Doppel,
+       weil keiner der `b*`-Einträge id le-ko oder absolute=5 trägt). */
+    expect(res.length).toBe(17)
+    expect(res.filter((b) => /^b\d+$/.test(b.id))).toHaveLength(16)
   })
 
   it('macht doppelte IDs eindeutig', () => {
@@ -251,10 +349,11 @@ describe('normalizeLeBandDefs', () => {
         mods: [{ field: 'at', delta: -2 }],
       },
     ])
-    expect(new Set(res.map((d) => d.id)).size).toBe(2)
+    const sameLike = res.filter((b) => b.id.startsWith('same'))
+    expect(new Set(sameLike.map((d) => d.id)).size).toBe(2)
   })
 
-  it('Reihenfolge bleibt erhalten', () => {
+  it('Reihenfolge der Eingabe bleibt erhalten (relativ; le-ko wird vor erstem fraction injiziert)', () => {
     const res = normalizeLeBandDefs([
       {
         id: 'mild',
@@ -267,8 +366,14 @@ describe('normalizeLeBandDefs', () => {
         mods: [{ field: 'at', delta: -3 }],
       },
     ])
-    expect(res[0].id).toBe('mild')
-    expect(res[1].id).toBe('hard')
+    const idxMild = res.findIndex((b) => b.id === 'mild')
+    const idxHard = res.findIndex((b) => b.id === 'hard')
+    const idxKo = res.findIndex((b) => b.id === 'le-ko')
+    expect(idxMild).toBeGreaterThanOrEqual(0)
+    expect(idxHard).toBeGreaterThanOrEqual(0)
+    expect(idxKo).toBeGreaterThanOrEqual(0)
+    expect(idxKo).toBeLessThan(idxMild)
+    expect(idxMild).toBeLessThan(idxHard)
   })
 
   it('filtert ungültige Mods raus (delta=0, ohne Feld)', () => {
@@ -283,8 +388,75 @@ describe('normalizeLeBandDefs', () => {
         ],
       },
     ])
-    expect(res[0].mods).toHaveLength(1)
-    expect(res[0].mods[0]).toMatchObject({ field: 'at', delta: -1 })
+    const b = res.find((x) => x.id === 'b')
+    expect(b).toBeDefined()
+    expect(b.mods).toHaveLength(1)
+    expect(b.mods[0]).toMatchObject({ field: 'at', delta: -1 })
+  })
+
+  it('Migration: persistierte Liste ohne le-ko bekommt Default le-ko vor erstem fraction-Band injiziert', () => {
+    const persisted = [
+      {
+        id: 'le-zero',
+        threshold: { type: 'absolute', value: 0 },
+        mods: [{ field: 'at', delta: -3 }],
+      },
+      {
+        id: 'le-half',
+        threshold: { type: 'fraction', num: 1, den: 2 },
+        mods: [{ field: 'at', delta: -1 }],
+      },
+    ]
+    const res = normalizeLeBandDefs(persisted)
+    const idxKo = res.findIndex((b) => b.id === 'le-ko')
+    expect(idxKo).toBeGreaterThanOrEqual(0)
+    const idxFraction = res.findIndex((b) => b.threshold.type === 'fraction')
+    expect(idxKo).toBeLessThan(idxFraction)
+    const koDef = res[idxKo]
+    expect(koDef.threshold).toEqual({ type: 'absolute', value: 5 })
+    expect(koDef.label).toBe('unfähig')
+  })
+
+  it('Migration: bestehendes le-ko bleibt unverändert (kein Doppel-Inject)', () => {
+    const persisted = [
+      {
+        id: 'le-ko',
+        threshold: { type: 'absolute', value: 5 },
+        mods: [{ field: 'at', op: 'strike' }],
+        label: 'mein-unfähig',
+      },
+      {
+        id: 'le-half',
+        threshold: { type: 'fraction', num: 1, den: 2 },
+        mods: [{ field: 'at', delta: -1 }],
+      },
+    ]
+    const res = normalizeLeBandDefs(persisted)
+    const koEntries = res.filter((b) => b.id === 'le-ko')
+    expect(koEntries).toHaveLength(1)
+    expect(koEntries[0].label).toBe('mein-unfähig')
+  })
+
+  it('Migration: bestehendes absolute-Band mit value=5 verhindert Doppel-Inject', () => {
+    const persisted = [
+      {
+        id: 'eigenes-band',
+        threshold: { type: 'absolute', value: 5 },
+        mods: [{ field: 'at', delta: -2 }],
+      },
+      {
+        id: 'le-half',
+        threshold: { type: 'fraction', num: 1, den: 2 },
+        mods: [{ field: 'at', delta: -1 }],
+      },
+    ]
+    const res = normalizeLeBandDefs(persisted)
+    expect(res.find((b) => b.id === 'le-ko')).toBeUndefined()
+    expect(
+      res.filter(
+        (b) => b.threshold.type === 'absolute' && b.threshold.value === 5,
+      ),
+    ).toHaveLength(1)
   })
 
   it('filtert Bänder mit ungültiger Schwelle (z. B. fraction num >= den)', () => {
@@ -300,13 +472,13 @@ describe('normalizeLeBandDefs', () => {
         mods: [{ field: 'at', delta: -1 }],
       },
     ])
-    expect(res.length).toBe(1)
-    expect(res[0].id).toBe('good')
+    expect(res.find((b) => b.id === 'bad')).toBeUndefined()
+    expect(res.find((b) => b.id === 'good')).toBeDefined()
   })
 })
 
 describe('effectiveLeBandsForHero', () => {
-  it('ohne Override: Raum-Default', () => {
+  it('ohne Override: Raum-Default (Migration injiziert le-ko)', () => {
     const customRoom = {
       leBandDefs: [
         {
@@ -317,8 +489,11 @@ describe('effectiveLeBandsForHero', () => {
       ],
     }
     const eff = effectiveLeBandsForHero({}, customRoom)
-    expect(eff.length).toBe(1)
-    expect(eff[0].id).toBe('r')
+    expect(eff.find((b) => b.id === 'r')).toBeDefined()
+    expect(eff.find((b) => b.id === 'le-ko')).toBeDefined()
+    const idxKo = eff.findIndex((b) => b.id === 'le-ko')
+    const idxR = eff.findIndex((b) => b.id === 'r')
+    expect(idxKo).toBeLessThan(idxR)
   })
 
   it('ohne Override und ohne Raum: Default-Set', () => {
@@ -326,7 +501,7 @@ describe('effectiveLeBandsForHero', () => {
     expect(eff.length).toBe(DEFAULT_LE_BAND_DEFS.length)
   })
 
-  it('Override schlägt Raum-Default', () => {
+  it('Override schlägt Raum-Default (Migration injiziert le-ko in Override)', () => {
     const meta = {
       [HERO_EX_LE_BANDS_OVERRIDE]: [
         {
@@ -339,8 +514,8 @@ describe('effectiveLeBandsForHero', () => {
     const eff = effectiveLeBandsForHero(meta, {
       leBandDefs: cloneDefaultLeBandDefs(),
     })
-    expect(eff.length).toBe(1)
-    expect(eff[0].id).toBe('mine')
+    expect(eff.find((b) => b.id === 'mine')).toBeDefined()
+    expect(eff.find((b) => b.id === 'le-ko')).toBeDefined()
   })
 
   it('legacy heroExLeThreshold injiziert ein zusätzliches absolute-Band', () => {
@@ -364,7 +539,7 @@ describe('effectiveLeBandsForHero', () => {
     expect(e3.find((b) => b.id === 'legacy-le-threshold')).toBeUndefined()
   })
 
-  it('Override + legacy: Override gewinnt, kein synthetisches Band wenn Override gesetzt', () => {
+  it('Override + legacy: Override gewinnt, plus le-ko-Migration und legacy-Band', () => {
     const meta = {
       heroExLeThreshold: '5',
       [HERO_EX_LE_BANDS_OVERRIDE]: [
@@ -376,8 +551,8 @@ describe('effectiveLeBandsForHero', () => {
       ],
     }
     const eff = effectiveLeBandsForHero(meta, undefined)
-    // Override hat 1 Eintrag, plus injiziertes Legacy-Band (vor fraction; aber es gibt kein fraction → wird angefügt)
-    expect(eff.length).toBe(2)
+    expect(eff.find((b) => b.id === 'only')).toBeDefined()
+    expect(eff.find((b) => b.id === 'le-ko')).toBeDefined()
     expect(eff.find((b) => b.id === 'legacy-le-threshold')).toBeDefined()
   })
 })
@@ -697,37 +872,44 @@ describe('LeBandMod op (delta/set/strike)', () => {
         mods: [{ field: 'at', delta: -1 }],
       },
     ])
-    expect(res[0].mods[0]).toEqual({ field: 'at', op: 'delta', delta: -1 })
+    const b = res.find((x) => x.id === 'b')
+    expect(b).toBeDefined()
+    expect(b.mods[0]).toEqual({ field: 'at', op: 'delta', delta: -1 })
   })
 
   it('normalizeLeBandDefs: op=set übernimmt setValue', () => {
     const res = normalizeLeBandDefs([
       {
-        id: 'b',
+        id: 'absx',
         threshold: { type: 'absolute', value: 5 },
         mods: [{ field: 'gs', op: 'set', setValue: 1 }],
       },
     ])
-    expect(res[0].mods).toHaveLength(1)
-    expect(res[0].mods[0]).toEqual({ field: 'gs', op: 'set', setValue: 1 })
+    /* `absolute=5` verhindert die le-ko-Migration. */
+    const b = res.find((x) => x.id === 'absx')
+    expect(b).toBeDefined()
+    expect(b.mods).toHaveLength(1)
+    expect(b.mods[0]).toEqual({ field: 'gs', op: 'set', setValue: 1 })
   })
 
   it('normalizeLeBandDefs: op=strike braucht keinen Wert', () => {
     const res = normalizeLeBandDefs([
       {
-        id: 'b',
+        id: 'absx',
         threshold: { type: 'absolute', value: 5 },
         mods: [{ field: 'at', op: 'strike' }],
       },
     ])
-    expect(res[0].mods).toHaveLength(1)
-    expect(res[0].mods[0]).toEqual({ field: 'at', op: 'strike' })
+    const b = res.find((x) => x.id === 'absx')
+    expect(b).toBeDefined()
+    expect(b.mods).toHaveLength(1)
+    expect(b.mods[0]).toEqual({ field: 'at', op: 'strike' })
   })
 
   it('normalizeLeBandDefs: op=set clamped auf 0..9999', () => {
     const res = normalizeLeBandDefs([
       {
-        id: 'b',
+        id: 'absx',
         threshold: { type: 'absolute', value: 5 },
         mods: [
           { field: 'gs', op: 'set', setValue: -10 },
@@ -735,8 +917,10 @@ describe('LeBandMod op (delta/set/strike)', () => {
         ],
       },
     ])
-    expect(res[0].mods[0].setValue).toBe(0)
-    expect(res[0].mods[1].setValue).toBe(9999)
+    const b = res.find((x) => x.id === 'absx')
+    expect(b).toBeDefined()
+    expect(b.mods[0].setValue).toBe(0)
+    expect(b.mods[1].setValue).toBe(9999)
   })
 })
 

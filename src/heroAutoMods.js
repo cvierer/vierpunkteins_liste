@@ -26,8 +26,9 @@ import {
 import {
   aggregateLeBandModsByField,
   defaultLeBandLabel,
+  matchAllStrikeSetBands,
+  matchLeDeltaBand,
   effectiveLeBandsForHero,
-  leBandFieldOverridesFromDef,
   legacyTriggerSignatureForLeBand,
   matchLeBand,
 } from './leBandDefs.js'
@@ -64,6 +65,10 @@ const HERO_EX_SHOW_FK = 'heroExShowFk'
 
 export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
 const AUTO_ZONE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}zone-`
+/** Prefix für rein optische LE-Strike/Set-Bündel (z. B. „unfähig“). */
+const AUTO_LE_STRIKE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}le-strike-`
+/** Stempel-Offset, damit Strike/Set-Signaturen nicht mit Delta-Signaturen kollidieren. */
+const AUTO_LE_STRIKE_SIG_OFFSET = 5000
 
 /** @param {string} raw */
 function parseSignedInt(raw) {
@@ -301,6 +306,16 @@ export function applyBundleRemovalCleanup(m, bundleId, ctx) {
     }
   }
 
+  /* Reine Strike/Set-Bündel (z. B. `auto-le-strike-le-ko` „unfähig“) ändern
+     niemals die LE; sie räumen lediglich ihren Suppression-Eintrag weg. */
+  if (hadBundle && autoId && autoId.startsWith(AUTO_LE_STRIKE_PREFIX)) {
+    const sr = m[HERO_EX_AUTO_SUPPRESSED]
+    if (sr && typeof sr === 'object') {
+      delete sr[autoId]
+      if (Object.keys(sr).length === 0) delete m[HERO_EX_AUTO_SUPPRESSED]
+    }
+  }
+
   patchHeroExModsWithAutoBundles(m, snapshotFromTrackerMeta(m), ctx)
 }
 
@@ -330,18 +345,26 @@ export function computeAutoTriggerSignature(snap, autoBundleId) {
   const bid = String(autoBundleId ?? '')
   if (bid === 'auto-le-band') {
     const bands = leBandsFromSnap(snap)
-    const match = matchLeBand(
+    const match = matchLeDeltaBand(
       { le: snap.le, leMax: snap.leMax, ko: snap.ko },
       bands
     )
     if (!match) return null
     const agg = aggregateLeBandModsByField(match.def)
-    const vis = leBandFieldOverridesFromDef(match.def)
-    const hasDelta = Object.values(agg).some((v) => v !== 0)
-    const hasVisual =
-      vis.strikeFields.length > 0 || Object.keys(vis.setValues).length > 0
-    if (!hasDelta && !hasVisual) return null
+    if (!Object.values(agg).some((v) => v !== 0)) return null
     return legacyTriggerSignatureForLeBand(match.def)
+  }
+  if (bid.startsWith(AUTO_LE_STRIKE_PREFIX)) {
+    const defId = bid.slice(AUTO_LE_STRIKE_PREFIX.length)
+    if (!defId) return null
+    const bands = leBandsFromSnap(snap)
+    const matches = matchAllStrikeSetBands(
+      { le: snap.le, leMax: snap.leMax, ko: snap.ko },
+      bands
+    )
+    const m = matches.find((x) => x.def && x.def.id === defId)
+    if (!m) return null
+    return legacyTriggerSignatureForLeBand(m.def) + AUTO_LE_STRIKE_SIG_OFFSET
   }
   if (bid.startsWith(AUTO_ZONE_PREFIX)) {
     const zoneId = bid.slice(AUTO_ZONE_PREFIX.length)
@@ -413,7 +436,7 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
   }
 
   const leBands = leBandsFromSnap(snap)
-  const leMatch = matchLeBand(
+  const leMatch = matchLeDeltaBand(
     { le: snap.le, leMax: snap.leMax, ko: snap.ko },
     leBands
   )
@@ -421,6 +444,7 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
     const showFk = showFkFromSnapshot(snap)
     for (const mod of leMatch.def.mods || []) {
       if (!mod || !mod.field || !mod.delta) continue
+      if ((mod.op ?? 'delta') !== 'delta') continue
       if (mod.field === 'fk' && !showFk) continue
       add(mod.field, mod.delta)
     }
@@ -517,7 +541,7 @@ export function buildHeroAutoModRecords(snap, ctx) {
    * @param {string} bundleId
    * @param {string} bundleLabel
    * @param {{ field: string, delta: number }[]} rows
-   * @param {boolean} [allowZeroDelta] — nur auto-le-band: Ankerzeile delta 0 bei rein visuellem Band
+   * @param {boolean} [allowZeroDelta] — Ankerzeile delta 0 für reine Strike/Set-Bundles
    */
   const pushRows = (bundleId, bundleLabel, rows, allowZeroDelta = false) => {
     for (const { field, delta } of rows) {
@@ -538,43 +562,60 @@ export function buildHeroAutoModRecords(snap, ctx) {
     }
   }
 
+  /** Label für ein LE-Band, mit optionaler `LE`-Vorsilbe für Default-Labels. */
+  const labelForLeBand = (def) => {
+    const baseLabel = defaultLeBandLabel(def) || 'LE'
+    const explicit = def?.label != null && String(def.label).trim() !== ''
+    if (explicit) return baseLabel
+    if (
+      baseLabel.startsWith('LE') ||
+      baseLabel.startsWith('<-1,5KO') ||
+      baseLabel.startsWith('<-KO') ||
+      baseLabel.startsWith('<-1/2KO')
+    ) {
+      return baseLabel
+    }
+    return `LE${baseLabel}`
+  }
+
   const leBands = leBandsFromSnap(snap)
-  const leMatch = matchLeBand(
+
+  /* (1) Klassische Delta-LE-Bänder (Mechanik wie vor V780). */
+  const leDeltaMatch = matchLeDeltaBand(
     { le: snap.le, leMax: snap.leMax, ko: snap.ko },
     leBands
   )
-  if (leMatch) {
+  if (leDeltaMatch) {
     const showFk = showFkFromSnapshot(snap)
     /** @type {{ field: string, delta: number }[]} */
     const rows = []
-    for (const mod of leMatch.def.mods || []) {
+    for (const mod of leDeltaMatch.def.mods || []) {
       if (!mod || !mod.field || !mod.delta) continue
+      if ((mod.op ?? 'delta') !== 'delta') continue
       if (mod.field === 'fk' && !showFk) continue
       rows.push({ field: mod.field, delta: mod.delta })
     }
-    if (rows.length === 0) {
-      const ov = leBandFieldOverridesFromDef(leMatch.def)
-      if (
-        ov.strikeFields.length > 0 ||
-        Object.keys(ov.setValues).length > 0
-      ) {
-        rows.push({ field: 'at', delta: 0 })
-      }
-    }
     if (rows.length > 0) {
-      const baseLabel = defaultLeBandLabel(leMatch.def) || 'LE'
-      const explicit =
-        leMatch.def?.label != null && String(leMatch.def.label).trim() !== ''
-      const label = explicit
-        ? baseLabel
-        : baseLabel.startsWith('LE') ||
-            baseLabel.startsWith('<-1,5KO') ||
-            baseLabel.startsWith('<-KO') ||
-            baseLabel.startsWith('<-1/2KO')
-          ? baseLabel
-          : `LE${baseLabel}`
-      pushRows('auto-le-band', label, rows, true)
+      pushRows('auto-le-band', labelForLeBand(leDeltaMatch.def), rows)
     }
+  }
+
+  /* (2) Eigenständige Strike/Set-LE-Bündel (z. B. „unfähig“ für `le-ko`).
+     Pro getroffenem Band ein eigenes Bundle `auto-le-strike-${id}` mit
+     Anker-Eintrag, damit der Chip im Mod-Strip erscheint. */
+  const strikeMatches = matchAllStrikeSetBands(
+    { le: snap.le, leMax: snap.leMax, ko: snap.ko },
+    leBands
+  )
+  for (const sm of strikeMatches) {
+    const def = sm.def
+    if (!def || !def.id) continue
+    pushRows(
+      `${AUTO_LE_STRIKE_PREFIX}${def.id}`,
+      labelForLeBand(def),
+      [{ field: 'at', delta: 0 }],
+      true,
+    )
   }
 
   const baseGs = parseSignedInt(snap.gs)

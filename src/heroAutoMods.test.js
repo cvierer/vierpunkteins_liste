@@ -66,7 +66,7 @@ describe('buildHeroAutoModRecords', () => {
     expect(byField.fk).toBe(-4)
   })
 
-  it('LE-Band <1/2 → auto-le-band AT/PA/AW/FK je −1', () => {
+  it('LE-Band <1/2 → auto-le-band AT/PA/AW/FK je −1, kein Strike-Bundle', () => {
     const mods = buildHeroAutoModRecords(snap({ le: '15', leMax: '40' }), ctx)
     const leb = mods.filter((m) => m.bundleId === 'auto-le-band')
     expect(leb.length).toBe(4)
@@ -74,6 +74,37 @@ describe('buildHeroAutoModRecords', () => {
       const row = leb.find((m) => m.field === f)
       expect(row?.delta).toBe(-1)
     }
+    expect(
+      mods.some((m) =>
+        String(m.bundleId ?? '').startsWith('auto-le-strike-'),
+      ),
+    ).toBe(false)
+  })
+
+  it('LE 5/40: auto-le-band hat <1/4-Deltas (alte Mechanik) UND zusätzlich auto-le-strike-le-ko (unfähig)', () => {
+    const mods = buildHeroAutoModRecords(snap({ le: '5', leMax: '40' }), ctx)
+    const leb = mods.filter((m) => m.bundleId === 'auto-le-band')
+    /* Alte Mechanik unverändert: <1/4 → AT/PA/AW/FK je −3 */
+    expect(leb.length).toBe(4)
+    for (const f of ['at', 'pa', 'a', 'fk']) {
+      const row = leb.find((m) => m.field === f)
+      expect(row?.delta).toBe(-3)
+    }
+    /* Eigenständiges Strike/Set-Bundle für `le-ko` */
+    const strike = mods.filter((m) => m.bundleId === 'auto-le-strike-le-ko')
+    expect(strike).toHaveLength(1)
+    expect(strike[0].label).toBe('unfähig')
+    expect(strike[0].field).toBe('at')
+    expect(strike[0].delta).toBe(0)
+  })
+
+  it('LE 15/40: kein auto-le-strike-* Bundle', () => {
+    const mods = buildHeroAutoModRecords(snap({ le: '15', leMax: '40' }), ctx)
+    expect(
+      mods.some((m) =>
+        String(m.bundleId ?? '').startsWith('auto-le-strike-'),
+      ),
+    ).toBe(false)
   })
 
   it('GS-Clamp: heroExGs-Basis 1 und Bauch W1 → gs-Delta 0', () => {
@@ -274,6 +305,27 @@ describe('applyBundleRemovalCleanup', () => {
     })
     applyBundleRemovalCleanup(m, 'auto-le-band', ctx)
     expect(m.heroExLe).toBe('40')
+  })
+
+  it('Strike-Bundle `auto-le-strike-le-ko`: ändert LE NICHT, räumt nur Suppression auf', () => {
+    const zones = emptyZones()
+    const s = snap({
+      le: '5',
+      leMax: '40',
+      hitZones: { notiz: '', zones: zones },
+    })
+    const mods = buildHeroAutoModRecords(s, ctx)
+    const m = /** @type {Record<string, unknown>} */ ({
+      heroExLe: '5',
+      heroExLeMax: '40',
+      [HERO_EX_LAST_SAFE_LE]: '20',
+      [HERO_EX_AUTO_SUPPRESSED]: { 'auto-le-strike-le-ko': 999 },
+      [HERO_EX_MODS]: mods,
+    })
+    applyBundleRemovalCleanup(m, 'auto-le-strike-le-ko', ctx)
+    /* LE bleibt unverändert (kein Heilen wie bei auto-le-band). */
+    expect(m.heroExLe).toBe('5')
+    expect(m[HERO_EX_AUTO_SUPPRESSED]?.['auto-le-strike-le-ko']).toBeUndefined()
   })
 
   it('reines manuelles Bündel: nur Mods, keine Nebenwirkungen', () => {
