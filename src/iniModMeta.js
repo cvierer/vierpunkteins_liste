@@ -3704,7 +3704,7 @@ export function mountHeroExpandBlock(
           arrowWrap.className =
             'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--unfaehig'
           arrowWrap.innerHTML = SVG_MOD_CHIP_UNFAEHIG_MARK
-          arrowWrap.title = 'unfähig (rein optisch)'
+          arrowWrap.title = 'kampfunfähig'
         } else if (ns > 0) {
           arrowWrap.className =
             'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--up'
