@@ -7650,7 +7650,7 @@ select.init-row-extra-select {
   white-space: nowrap;
   font-family: var(--font-body);
   font-weight: 600;
-  font-size: calc(0.622rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  font-size: calc(0.664rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
   line-height: 1;
   letter-spacing: 0.01em;
   color: #121212;
@@ -7669,7 +7669,7 @@ select.init-row-extra-select {
 }
 
 .init-hero-ex__mod-chip-card--auto-unfaehig .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.534rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  font-size: calc(0.57rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
   letter-spacing: -0.012em;
 }
 
@@ -7690,14 +7690,14 @@ select.init-row-extra-select {
 }
 
 .init-hero-ex__mod-chip-card--long-label .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.4914rem * var(--init-ui-scale));
+  font-size: calc(0.524rem * var(--init-ui-scale));
   letter-spacing: 0;
 }
 
 .init-hero-ex__mods-strip--under-mod-btn
   .init-hero-ex__mod-chip-card--long-label
   .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.3978rem * var(--init-ui-scale));
+  font-size: calc(0.424rem * var(--init-ui-scale));
 }
 
 /* Lesemodus: Mod-Leiste horizontal, Karten nebeneinander mit begrenzter Breite */
