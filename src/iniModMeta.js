@@ -798,6 +798,10 @@ export function mountHeroExpandBlock(
     Number.isFinite(Number(snap.leThreshold)) && Number(snap.leThreshold) > 0
       ? Math.floor(Number(snap.leThreshold))
       : null
+  const unfaehigThreshold =
+    Number.isFinite(Number(snap.unfaehigThreshold)) && Number(snap.unfaehigThreshold) >= 0
+      ? Math.floor(Number(snap.unfaehigThreshold))
+      : 5
   const auSnap = snap.au
   const hitZoneNotizFrozen = snap.hitZones.notiz
   const __combatRound = getCombat()
@@ -1572,6 +1576,10 @@ export function mountHeroExpandBlock(
     'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--le5'
   leThreshLine5.title = 'Schwelle LE 5 (kampfunfähig bei 0–5)'
   leThreshLine5.style.display = 'none'
+  const leThreshLineUnf = document.createElement('div')
+  leThreshLineUnf.className =
+    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--unfaehig'
+  leThreshLineUnf.style.display = 'none'
   const leThreshSkull = document.createElementNS(
     'http://www.w3.org/2000/svg',
     'svg'
@@ -1585,6 +1593,7 @@ export function mountHeroExpandBlock(
     '<path fill="currentColor" d="M12 2C7.58 2 4 5.58 4 10c0 2.49 1.14 4.7 2.92 6.16.36.3.58.74.58 1.2V19a2 2 0 0 0 2 2h1v-2h1v2h2v-2h1v2h1a2 2 0 0 0 2-2v-1.64c0-.46.22-.9.58-1.2C18.86 14.7 20 12.49 20 10c0-4.42-3.58-8-8-8Zm-3 9.5a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm6 0a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm-4.5 3.25h3l.5 1.25h-4l.5-1.25Z"/>'
   leThreshBox.append(
     leThreshFill,
+    leThreshLineUnf,
     leThreshLine5,
     leThreshLine25,
     leThreshLine33,
@@ -1630,6 +1639,7 @@ export function mountHeroExpandBlock(
     leThreshLine5.classList.remove(
       'init-hero-ex__le-threshold__line--neg-le-solid'
     )
+    leThreshLineUnf.style.display = 'none'
   }
 
   const updateLeThreshold = () => {
@@ -1669,6 +1679,7 @@ export function mountHeroExpandBlock(
       leThreshLine5.classList.add(
         'init-hero-ex__le-threshold__line--neg-le-solid'
       )
+      leThreshLineUnf.style.display = 'none'
       const b1 = pctBot(1)
       const b15 = pctBot(1.5)
       const skullBot = (b1 + b15) / 2
@@ -1709,6 +1720,13 @@ export function mountHeroExpandBlock(
       leThreshLine5.style.bottom = ((customLeThreshold / maxV) * 100).toFixed(3) + '%'
     } else {
       leThreshLine5.style.display = 'none'
+    }
+    if (maxV != null && maxV > 0 && maxV > unfaehigThreshold) {
+      leThreshLineUnf.style.display = ''
+      leThreshLineUnf.style.bottom = ((unfaehigThreshold / maxV) * 100).toFixed(3) + '%'
+      leThreshLineUnf.title = `Schwelle unfähig (LE ≤ ${unfaehigThreshold})`
+    } else {
+      leThreshLineUnf.style.display = 'none'
     }
   }
   updateLeThreshold()
@@ -1783,6 +1801,10 @@ export function mountHeroExpandBlock(
   lePopLineLe5.className =
     'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--le5'
   lePopLineLe5.style.display = 'none'
+  const lePopLineUnf = document.createElement('div')
+  lePopLineUnf.className =
+    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--unfaehig'
+  lePopLineUnf.style.display = 'none'
   const lePopSkull = document.createElementNS(
     'http://www.w3.org/2000/svg',
     'svg'
@@ -1799,6 +1821,7 @@ export function mountHeroExpandBlock(
   lePopPct.setAttribute('aria-hidden', 'true')
   lePopTrack.append(
     lePopFill,
+    lePopLineUnf,
     lePopLineLe5,
     lePopLine25,
     lePopLine33,
@@ -1898,8 +1921,16 @@ export function mountHeroExpandBlock(
   const lePopConn33 = mkConnPath('33')
   const lePopConn25 = mkConnPath('25')
   const lePopConnLe5 = mkConnPath('le5')
+  const lePopConnUnf = mkConnPath('unfaehig')
   lePopConnLe5.style.display = 'none'
-  lePopConnSvg.append(lePopConn50, lePopConn33, lePopConn25, lePopConnLe5)
+  lePopConnUnf.style.display = 'none'
+  lePopConnSvg.append(
+    lePopConn50,
+    lePopConn33,
+    lePopConn25,
+    lePopConnLe5,
+    lePopConnUnf
+  )
 
   /* Feste vertikale Slots für die Beschriftungen (y in %-von-unten). Zwischen
      Mathematik-Position der Schwelle im Balken und Slot liegt die Knick-Linie.
@@ -1907,6 +1938,7 @@ export function mountHeroExpandBlock(
   const SLOT_Y_HALF = 58
   const SLOT_Y_THIRD = 40
   const SLOT_Y_QUARTER = 22
+  const SLOT_Y_UNFAEHIG = 12
   const SLOT_Y_LE5 = 4
   const mkGaugeLabel = (slotPct, extra) => {
     const l = document.createElement('span')
@@ -1919,7 +1951,9 @@ export function mountHeroExpandBlock(
   const lePopLab50 = mkGaugeLabel(SLOT_Y_HALF, '50')
   const lePopLab33 = mkGaugeLabel(SLOT_Y_THIRD, '33')
   const lePopLab25 = mkGaugeLabel(SLOT_Y_QUARTER, '25')
+  const lePopLabUnf = mkGaugeLabel(SLOT_Y_UNFAEHIG, 'unfaehig')
   const lePopLabLe5 = mkGaugeLabel(SLOT_Y_LE5, 'le5')
+  lePopLabUnf.style.display = 'none'
   lePopLabLe5.style.display = 'none'
   lePopLabels.append(
     lePopLeMaxBlock,
@@ -1927,6 +1961,7 @@ export function mountHeroExpandBlock(
     lePopLab50,
     lePopLab33,
     lePopLab25,
+    lePopLabUnf,
     lePopLabLe5
   )
   lePopGauge.append(lePopTrack, lePopLabels)
@@ -2138,6 +2173,7 @@ export function mountHeroExpandBlock(
     const KINK_50 = 11
     const KINK_33 = 8
     const KINK_25 = 4
+    const KINK_UNFAEHIG = 14
     const KINK_LE5 = 14
     const END_X = LE_POP_CONN_END_X
 
@@ -2190,6 +2226,7 @@ export function mountHeroExpandBlock(
       lePopLab33.style.bottom = `${b05.toFixed(3)}%`
       lePopLab25.style.display = ''
       lePopLab25.style.bottom = `${b1.toFixed(3)}%`
+      lePopLabUnf.style.display = 'none'
       lePopLabLe5.style.display = ''
       lePopLabLe5.style.bottom = `${b15.toFixed(3)}%`
 
@@ -2205,6 +2242,8 @@ export function mountHeroExpandBlock(
       lePopConn33.style.display = ''
       lePopConn25.style.display = ''
       lePopConnLe5.style.display = ''
+      lePopConnUnf.style.display = 'none'
+      lePopLineUnf.style.display = 'none'
 
       lePopPct.style.display = 'none'
       lePopPct.textContent = ''
@@ -2231,11 +2270,15 @@ export function mountHeroExpandBlock(
     lePopLineLe5.classList.remove(
       'init-hero-ex__le-pop__gauge-line--neg-le-solid'
     )
+    lePopLineUnf.classList.remove(
+      'init-hero-ex__le-pop__gauge-line--neg-le-solid'
+    )
     lePopLine50.style.display = ''
     lePopConn50.style.display = ''
     lePopLab50.style.display = ''
     lePopLab33.style.bottom = `${SLOT_Y_THIRD}%`
     lePopLab25.style.bottom = `${SLOT_Y_QUARTER}%`
+    lePopLabUnf.style.bottom = `${SLOT_Y_UNFAEHIG}%`
     lePopLabLe5.style.bottom = `${SLOT_Y_LE5}%`
 
     lePopSkull.style.display = dead ? '' : 'none'
@@ -2329,6 +2372,25 @@ export function mountHeroExpandBlock(
       lePopLineLe5.style.display = 'none'
       lePopLabLe5.style.display = 'none'
       lePopConnLe5.style.display = 'none'
+    }
+    if (maxV != null && maxV > 0 && maxV > unfaehigThreshold) {
+      const pctUnf = (unfaehigThreshold / maxV) * 100
+      lePopLineUnf.style.display = ''
+      lePopLineUnf.style.bottom = pctUnf.toFixed(3) + '%'
+      lePopLabUnf.style.display = ''
+      lePopConnUnf.style.display = ''
+      setConnPath(lePopConnUnf, pctUnf, SLOT_Y_UNFAEHIG, KINK_UNFAEHIG, END_X)
+      const malUnf = leV != null && (dead || leV <= unfaehigThreshold)
+      if (malUnf) {
+        lePopLabUnf.innerHTML =
+          `unfähig ≤ <span class="init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal">${unfaehigThreshold}</span>`
+      } else {
+        lePopLabUnf.textContent = `unfähig ≤ ${unfaehigThreshold}`
+      }
+    } else {
+      lePopLineUnf.style.display = 'none'
+      lePopLabUnf.style.display = 'none'
+      lePopConnUnf.style.display = 'none'
     }
   }
 
