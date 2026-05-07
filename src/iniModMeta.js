@@ -1229,7 +1229,7 @@ export function mountHeroExpandBlock(
   ws.inp.title = WS_RULES_TOOLTIP
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
-  /* Sechs Spalten: MR IB −BE +W6 INI MOD (Lesemodus: MOD wie Bearbeitung). */
+  /* Sechs Spalten: MR IB BE W6 INI MOD (Lesemodus: MOD wie Bearbeitung). */
   ibChain.classList.add('init-hero-ex__ib-chain--cols-6')
   const mkChainAbbr = (text, title, noUppercase) => {
     const s = document.createElement('span')
@@ -1245,8 +1245,8 @@ export function mountHeroExpandBlock(
     'IB',
     'Ini-Basis + Modifikation (IB)'
   )
-  const ibBeLbl = mkChainAbbr('-BE', 'Behinderung (BE)', true)
-  const ibW6Lbl = mkChainAbbr('+W6', 'Würfelwurf (W6)', true)
+  const ibBeLbl = mkChainAbbr('BE', 'Behinderung (BE)', true)
+  const ibW6Lbl = mkChainAbbr('W6', 'Würfelwurf (W6)', true)
   const ibIniLblHold = document.createElement('span')
   ibIniLblHold.className = 'init-hero-ex__ib-chain__label-placeholder'
   ibIniLblHold.setAttribute('aria-hidden', 'true')
@@ -1325,7 +1325,10 @@ export function mountHeroExpandBlock(
   stackMr.classList.add('init-hero-ex__ib-chain__stack--mr-r-gap')
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
-  const w6Col = mkIbChainCol(w6Inp)
+  const w6Col = mkIbChainCol(
+    w6Inp,
+    'init-hero-ex__ib-chain__col--w6'
+  )
   const stackW6 = mkIbChainStack(ibW6Lbl, w6Col)
   const iniUpBtn = document.createElement('button')
   iniUpBtn.type = 'button'
@@ -2775,6 +2778,12 @@ export function mountHeroExpandBlock(
     sub.className = 'init-hero-ex__mod-sub-slot'
     sub.setAttribute('aria-hidden', 'true')
     c.appendChild(sub)
+  }
+  if (!stackW6.querySelector(':scope > .init-hero-ex__mod-sub-slot')) {
+    const w6Sub = document.createElement('span')
+    w6Sub.className = 'init-hero-ex__mod-sub-slot'
+    w6Sub.setAttribute('aria-hidden', 'true')
+    stackW6.appendChild(w6Sub)
   }
   if (!iniIbCol.querySelector(':scope > .init-hero-ex__mod-sub-slot')) {
     const iniSub = document.createElement('span')
