@@ -2731,10 +2731,10 @@ body {
 .init-hero-ex__unfaehig-fixed-overlay {
   position: absolute;
   right: 3px;
-  top: calc(var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) + var(--init-hero-cell) - 13px);
+  top: calc(var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) + var(--init-hero-cell) - 23px);
   min-width: 0;
   line-height: 1;
-  font-size: 10px;
+  font-size: 20px;
   font-weight: 700;
   color: #c62828;
   text-shadow: 0 0 1px rgba(255, 255, 255, 0.9);
@@ -7198,7 +7198,7 @@ select.init-row-extra-select {
 
 .init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card > .init-hero-ex__mod-chip-card__head {
   min-height: 0;
-  flex: 0 0 auto;
+  flex: 0 0 33%;
 }
 
 .init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card__sum-svg {
@@ -7207,11 +7207,11 @@ select.init-row-extra-select {
 }
 
 .init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.42rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  font-size: calc(0.4914rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
   font-weight: 600;
   line-height: 1.1;
   min-height: 0;
-  flex: 0 1 auto;
+  flex: 1 1 67%;
   margin-top: calc(-0.015rem * var(--init-ui-scale));
 }
 
@@ -7302,7 +7302,7 @@ select.init-row-extra-select {
   justify-content: flex-end;
   align-items: center;
   width: 100%;
-  min-height: calc(0.68rem * var(--init-ui-scale));
+  min-height: calc(0.5644rem * var(--init-ui-scale));
 }
 
 .init-hero-ex__mod-chip-card__head-actions {
@@ -7594,7 +7594,7 @@ select.init-row-extra-select {
   white-space: nowrap;
   font-family: var(--font-body);
   font-weight: 600;
-  font-size: calc(0.56rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  font-size: calc(0.6552rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
   line-height: 1.12;
   letter-spacing: 0.01em;
   color: #121212;
@@ -7609,14 +7609,14 @@ select.init-row-extra-select {
 }
 
 .init-hero-ex__mod-chip-card--long-label .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.42rem * var(--init-ui-scale));
+  font-size: calc(0.4914rem * var(--init-ui-scale));
   letter-spacing: 0;
 }
 
 .init-hero-ex__mods-strip--under-mod-btn
   .init-hero-ex__mod-chip-card--long-label
   .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.34rem * var(--init-ui-scale));
+  font-size: calc(0.3978rem * var(--init-ui-scale));
 }
 
 /* Lesemodus: Mod-Leiste horizontal, Karten nebeneinander mit begrenzter Breite */
@@ -8419,11 +8419,11 @@ select.init-row-extra-select {
 }
 
 .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.48rem * var(--init-ui-scale));
+  font-size: calc(0.5616rem * var(--init-ui-scale));
 }
 
 .init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.38rem * var(--init-ui-scale));
+  font-size: calc(0.4446rem * var(--init-ui-scale));
 }
 
 @media (prefers-color-scheme: light) {
