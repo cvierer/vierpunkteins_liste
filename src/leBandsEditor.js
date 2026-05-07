@@ -21,6 +21,12 @@ const THRESHOLD_TYPE_OPTIONS = [
   { value: 'negKoDepth', label: 'Negativ-KO-Tiefe (-LE > Faktor × KO)' },
 ]
 
+const MOD_OP_OPTIONS = [
+  { value: 'delta', label: 'Delta (±n)' },
+  { value: 'set', label: 'Setzen (=n, optisch)' },
+  { value: 'strike', label: 'Durchstreichen (optisch)' },
+]
+
 function fmtFieldLabel(f) {
   switch (f) {
     case 'at':
@@ -61,8 +67,12 @@ function makeNewBand() {
     label: '',
     tooltip: '',
     threshold: { type: 'fraction', num: 1, den: 2 },
-    mods: [{ field: 'at', delta: -1 }],
+    mods: [{ field: 'at', op: 'delta', delta: -1 }],
   }
+}
+
+function makeNewMod() {
+  return { field: 'at', op: 'delta', delta: -1 }
 }
 
 /**
@@ -151,7 +161,14 @@ export function mountLeBandsEditor(host, opts) {
     const issues = []
     const activeBands = state.filter((b) => b.active)
     for (const b of activeBands) {
-      const hasMod = (b.mods || []).some((m) => m && m.delta && m.field)
+      const hasMod = (b.mods || []).some((m) => {
+        if (!m || !m.field) return false
+        const op = m.op ?? 'delta'
+        if (op === 'delta') return Number(m.delta) !== 0
+        if (op === 'strike') return true
+        if (op === 'set') return Number.isFinite(Number(m.setValue))
+        return false
+      })
       if (!hasMod) {
         issues.push(`Band "${defaultLeBandLabel(b)}" hat keine Mods.`)
       }
@@ -489,6 +506,8 @@ export function mountLeBandsEditor(host, opts) {
     const renderMods = () => {
       modsList.replaceChildren()
       ;(def.mods || []).forEach((mod, mi) => {
+        if (!mod.op) mod.op = 'delta'
+
         const row = document.createElement('div')
         row.className = 'kampf-le-bands-editor__mod-row'
 
@@ -509,21 +528,89 @@ export function mountLeBandsEditor(host, opts) {
         })
         row.appendChild(fldSel)
 
-        const dInp = document.createElement('input')
-        dInp.type = 'number'
-        dInp.className = 'init-row-extra-input kampf-le-bands-editor__mod-delta'
-        dInp.value = String(mod.delta ?? 0)
-        dInp.disabled = readOnly
-        dInp.title = 'Delta (negativ = Erschwernis)'
-        dInp.addEventListener('change', () => {
-          const n = parseInt(dInp.value, 10)
-          mod.delta = Number.isFinite(n)
-            ? Math.max(-99, Math.min(99, n))
-            : 0
-          dInp.value = String(mod.delta)
+        const opSel = document.createElement('select')
+        opSel.className =
+          'init-row-extra-input init-row-extra-select kampf-le-bands-editor__mod-op'
+        opSel.disabled = readOnly
+        opSel.title = 'Wirkung: Delta (rechnerisch), Setzen (rein optisch), Durchstreichen (rein optisch)'
+        for (const o of MOD_OP_OPTIONS) {
+          const opt = document.createElement('option')
+          opt.value = o.value
+          opt.textContent = o.label
+          opSel.appendChild(opt)
+        }
+        opSel.value = mod.op
+        row.appendChild(opSel)
+
+        const valHost = document.createElement('div')
+        valHost.className = 'kampf-le-bands-editor__mod-val-host'
+        row.appendChild(valHost)
+
+        const renderValField = () => {
+          valHost.replaceChildren()
+          if (mod.op === 'delta') {
+            const dInp = document.createElement('input')
+            dInp.type = 'number'
+            dInp.className =
+              'init-row-extra-input kampf-le-bands-editor__mod-delta'
+            dInp.value = String(mod.delta ?? 0)
+            dInp.disabled = readOnly
+            dInp.title = 'Delta (negativ = Erschwernis)'
+            dInp.addEventListener('change', () => {
+              const n = parseInt(dInp.value, 10)
+              mod.delta = Number.isFinite(n)
+                ? Math.max(-99, Math.min(99, n))
+                : 0
+              dInp.value = String(mod.delta)
+              emitChange()
+            })
+            valHost.appendChild(dInp)
+          } else if (mod.op === 'set') {
+            const sInp = document.createElement('input')
+            sInp.type = 'number'
+            sInp.className =
+              'init-row-extra-input kampf-le-bands-editor__mod-set'
+            sInp.value = String(mod.setValue ?? 0)
+            sInp.min = '0'
+            sInp.max = '9999'
+            sInp.disabled = readOnly
+            sInp.title = 'Optisch erzwungener Anzeigewert (Eingabewert bleibt erhalten)'
+            sInp.addEventListener('change', () => {
+              const n = parseInt(sInp.value, 10)
+              mod.setValue = Number.isFinite(n)
+                ? Math.max(0, Math.min(9999, n))
+                : 0
+              sInp.value = String(mod.setValue)
+              emitChange()
+            })
+            valHost.appendChild(sInp)
+          } else {
+            const hint = document.createElement('span')
+            hint.className = 'kampf-le-bands-editor__mod-strike-hint'
+            hint.textContent = '(diagonal durchgestrichen)'
+            valHost.appendChild(hint)
+          }
+        }
+        renderValField()
+
+        opSel.addEventListener('change', () => {
+          const next = opSel.value
+          if (next === 'delta') {
+            mod.op = 'delta'
+            if (!Number.isFinite(Number(mod.delta))) mod.delta = -1
+            delete mod.setValue
+          } else if (next === 'set') {
+            mod.op = 'set'
+            if (!Number.isFinite(Number(mod.setValue))) mod.setValue = 1
+            delete mod.delta
+          } else if (next === 'strike') {
+            mod.op = 'strike'
+            delete mod.delta
+            delete mod.setValue
+          }
+          renderValField()
           emitChange()
         })
-        row.appendChild(dInp)
 
         const rmRowBtn = document.createElement('button')
         rmRowBtn.type = 'button'
@@ -554,7 +641,7 @@ export function mountLeBandsEditor(host, opts) {
       e.preventDefault()
       e.stopPropagation()
       if (!Array.isArray(def.mods)) def.mods = []
-      def.mods.push({ field: 'at', delta: -1 })
+      def.mods.push(makeNewMod())
       renderMods()
       emitChange()
     })

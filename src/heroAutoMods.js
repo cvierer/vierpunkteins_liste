@@ -27,6 +27,7 @@ import {
   aggregateLeBandModsByField,
   defaultLeBandLabel,
   effectiveLeBandsForHero,
+  leBandFieldOverridesFromDef,
   legacyTriggerSignatureForLeBand,
   matchLeBand,
 } from './leBandDefs.js'
@@ -335,8 +336,11 @@ export function computeAutoTriggerSignature(snap, autoBundleId) {
     )
     if (!match) return null
     const agg = aggregateLeBandModsByField(match.def)
-    const hasMod = Object.values(agg).some((v) => v !== 0)
-    if (!hasMod) return null
+    const vis = leBandFieldOverridesFromDef(match.def)
+    const hasDelta = Object.values(agg).some((v) => v !== 0)
+    const hasVisual =
+      vis.strikeFields.length > 0 || Object.keys(vis.setValues).length > 0
+    if (!hasDelta && !hasVisual) return null
     return legacyTriggerSignatureForLeBand(match.def)
   }
   if (bid.startsWith(AUTO_ZONE_PREFIX)) {
@@ -509,9 +513,16 @@ export function buildHeroAutoModRecords(snap, ctx) {
   /** @type {Record<string, unknown>[]} */
   const out = []
 
-  const pushRows = (bundleId, bundleLabel, rows) => {
+  /**
+   * @param {string} bundleId
+   * @param {string} bundleLabel
+   * @param {{ field: string, delta: number }[]} rows
+   * @param {boolean} [allowZeroDelta] — nur auto-le-band: Ankerzeile delta 0 bei rein visuellem Band
+   */
+  const pushRows = (bundleId, bundleLabel, rows, allowZeroDelta = false) => {
     for (const { field, delta } of rows) {
-      if (!delta) continue
+      if (!field || !Number.isFinite(delta)) continue
+      if (!allowZeroDelta && delta === 0) continue
       out.push({
         id: genModId(),
         field,
@@ -541,6 +552,15 @@ export function buildHeroAutoModRecords(snap, ctx) {
       if (mod.field === 'fk' && !showFk) continue
       rows.push({ field: mod.field, delta: mod.delta })
     }
+    if (rows.length === 0) {
+      const ov = leBandFieldOverridesFromDef(leMatch.def)
+      if (
+        ov.strikeFields.length > 0 ||
+        Object.keys(ov.setValues).length > 0
+      ) {
+        rows.push({ field: 'at', delta: 0 })
+      }
+    }
     if (rows.length > 0) {
       const baseLabel = defaultLeBandLabel(leMatch.def) || 'LE'
       const label =
@@ -550,7 +570,7 @@ export function buildHeroAutoModRecords(snap, ctx) {
         baseLabel.startsWith('<-1/2KO')
           ? baseLabel
           : `LE${baseLabel}`
-      pushRows('auto-le-band', label, rows)
+      pushRows('auto-le-band', label, rows, true)
     }
   }
 

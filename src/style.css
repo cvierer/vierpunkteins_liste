@@ -3061,6 +3061,65 @@ body {
   color: #121212;
 }
 
+/* LE-Band-Overlays (rein optisch): Strike (Diagonale) und Set (erzwungener
+   Anzeigewert). Eingabewerte bleiben unverändert; sobald das Band nicht mehr
+   greift, verschwinden die Overlays und der Originalwert ist wieder sichtbar. */
+.init-hero-ex__micro-cell--le-band-host {
+  position: relative;
+}
+
+.init-hero-ex__cell-strike {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--init-hero-abbr-line-h, 0px);
+  width: auto;
+  height: auto;
+  pointer-events: none;
+  color: rgba(168, 18, 14, 0.92);
+  z-index: 3;
+  overflow: visible;
+}
+
+.init-hero-ex__cell-set {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: calc(var(--init-hero-abbr-line-h, 0px) + var(--init-hero-label-input-gap, 0px));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: calc(0.7rem * var(--init-box-scale, 1));
+  line-height: 1;
+  color: rgba(168, 18, 14, 0.96);
+  background: rgba(255, 244, 230, 0.92);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 3;
+  text-shadow: 0 0 2px rgba(255, 253, 248, 0.85);
+}
+
+/* Bei Fokus innerhalb der Zelle (Editieren) Set-Overlay ausblenden, damit
+   der Originalwert sichtbar und editierbar ist. */
+.init-hero-ex__micro-cell--le-set:focus-within .init-hero-ex__cell-set {
+  display: none;
+}
+
+/* Wenn die Zelle keinen Input hat (z. B. IB-Kette als Container), Strike-/
+   Set-Overlay deckt die ganze Zelle ab. */
+.init-hero-ex__ib-chain.init-hero-ex__micro-cell--le-band-host {
+  position: relative;
+}
+
+.init-hero-ex__ib-chain > .init-hero-ex__cell-strike,
+.init-hero-ex__ib-chain > .init-hero-ex__cell-set {
+  top: 0;
+}
+
 .init-hero-ex__attr-cols
   > .init-hero-ex__micro-cell.init-hero-ex__micro-cell--calc-penalty
   > .init-hero-ex__micro:not(.init-hero-ex__micro--kr-reduced):not(

@@ -10,6 +10,7 @@ import {
   effectiveLeBandsForHero,
   HERO_EX_LE_BANDS_OVERRIDE,
   LE_BAND_MOD_FIELDS,
+  leBandFieldOverridesFromDef,
   legacyTriggerSignatureForLeBand,
   matchesThreshold,
   matchLeBand,
@@ -18,12 +19,13 @@ import {
 } from './leBandDefs.js'
 
 describe('DEFAULT_LE_BAND_DEFS', () => {
-  it('hat 7 Bänder in Reihenfolge schwer → mild', () => {
-    expect(DEFAULT_LE_BAND_DEFS.length).toBe(7)
+  it('hat 8 Bänder in Reihenfolge schwer → mild', () => {
+    expect(DEFAULT_LE_BAND_DEFS.length).toBe(8)
     expect(DEFAULT_LE_BAND_DEFS.map((d) => d.threshold.type)).toEqual([
       'negKoDepth',
       'negKoDepth',
       'negKoDepth',
+      'absolute',
       'absolute',
       'fraction',
       'fraction',
@@ -31,8 +33,30 @@ describe('DEFAULT_LE_BAND_DEFS', () => {
     ])
   })
 
-  it('alle Default-Bänder sind aktiv', () => {
+  it('alle Default-Bänder inkl. Kampfunfähig (LE≤5) sind aktiv', () => {
     expect(DEFAULT_LE_BAND_DEFS.every((d) => d.active)).toBe(true)
+  })
+
+  it('Kampfunfähig-Band (LE≤5): strike at/pa/fk + set gs=1', () => {
+    const koDef = DEFAULT_LE_BAND_DEFS.find((d) => d.id === 'le-ko')
+    expect(koDef).toBeDefined()
+    expect(koDef.threshold).toEqual({ type: 'absolute', value: 5 })
+    const strikeFields = koDef.mods
+      .filter((m) => m.op === 'strike')
+      .map((m) => m.field)
+      .sort()
+    expect(strikeFields).toEqual(['at', 'fk', 'pa'])
+    const setMod = koDef.mods.find((m) => m.op === 'set' && m.field === 'gs')
+    expect(setMod).toBeDefined()
+    expect(setMod.setValue).toBe(1)
+  })
+
+  it('<=0-Band enthält dieselben optischen Strike/Set wie Kampfunfähig', () => {
+    const z = DEFAULT_LE_BAND_DEFS.find((d) => d.id === 'le-zero')
+    expect(z).toBeDefined()
+    expect(z.mods.some((m) => m.op === 'strike' && m.field === 'at')).toBe(true)
+    expect(z.mods.some((m) => m.op === 'set' && m.field === 'gs')).toBe(true)
+    expect(aggregateLeBandModsByField(z).at).toBe(-3)
   })
 
   it('Bruch-Bänder reproduzieren das alte Schema (-1, -2, -3)', () => {
@@ -104,8 +128,15 @@ describe('matchLeBand', () => {
     expect(m.def.threshold).toMatchObject({ type: 'fraction', num: 1, den: 3 })
   })
 
-  it('LE = 5 / 40 → Bruch-Band <1/4', () => {
+  it('LE = 5 / 40 → Kampfunfähig (LE≤5) vor Bruch-Band <1/4', () => {
     const m = matchLeBand({ le: '5', leMax: '40' }, defs)
+    expect(m).not.toBeNull()
+    expect(m.def.id).toBe('le-ko')
+    expect(m.def.threshold).toEqual({ type: 'absolute', value: 5 })
+  })
+
+  it('LE = 6 / 40 → Bruch-Band <1/4 (über LE≤5-Kampfunfähig)', () => {
+    const m = matchLeBand({ le: '6', leMax: '40' }, defs)
     expect(m).not.toBeNull()
     expect(m.def.threshold).toMatchObject({ type: 'fraction', num: 1, den: 4 })
   })
@@ -653,5 +684,119 @@ describe('matchesThreshold (export)', () => {
     expect(
       matchesThreshold({ type: 'negKoDepth', factor: 1 }, -10, 30, 12)
     ).toBe(false)
+  })
+})
+
+describe('LeBandMod op (delta/set/strike)', () => {
+  it('normalizeLeBandDefs: op=delta ohne Angabe (Backward-Compat)', () => {
+    const res = normalizeLeBandDefs([
+      {
+        id: 'b',
+        threshold: { type: 'fraction', num: 1, den: 2 },
+        mods: [{ field: 'at', delta: -1 }],
+      },
+    ])
+    expect(res[0].mods[0]).toEqual({ field: 'at', op: 'delta', delta: -1 })
+  })
+
+  it('normalizeLeBandDefs: op=set übernimmt setValue', () => {
+    const res = normalizeLeBandDefs([
+      {
+        id: 'b',
+        threshold: { type: 'absolute', value: 5 },
+        mods: [{ field: 'gs', op: 'set', setValue: 1 }],
+      },
+    ])
+    expect(res[0].mods).toHaveLength(1)
+    expect(res[0].mods[0]).toEqual({ field: 'gs', op: 'set', setValue: 1 })
+  })
+
+  it('normalizeLeBandDefs: op=strike braucht keinen Wert', () => {
+    const res = normalizeLeBandDefs([
+      {
+        id: 'b',
+        threshold: { type: 'absolute', value: 5 },
+        mods: [{ field: 'at', op: 'strike' }],
+      },
+    ])
+    expect(res[0].mods).toHaveLength(1)
+    expect(res[0].mods[0]).toEqual({ field: 'at', op: 'strike' })
+  })
+
+  it('normalizeLeBandDefs: op=set clamped auf 0..9999', () => {
+    const res = normalizeLeBandDefs([
+      {
+        id: 'b',
+        threshold: { type: 'absolute', value: 5 },
+        mods: [
+          { field: 'gs', op: 'set', setValue: -10 },
+          { field: 'kk', op: 'set', setValue: 99999 },
+        ],
+      },
+    ])
+    expect(res[0].mods[0].setValue).toBe(0)
+    expect(res[0].mods[1].setValue).toBe(9999)
+  })
+})
+
+describe('aggregateLeBandModsByField (delta-only)', () => {
+  it('berücksichtigt nur op=delta, ignoriert set/strike', () => {
+    const def = {
+      id: 'b',
+      active: true,
+      label: '',
+      tooltip: '',
+      threshold: { type: 'absolute', value: 5 },
+      mods: [
+        { field: 'at', op: 'delta', delta: -1 },
+        { field: 'pa', op: 'strike' },
+        { field: 'gs', op: 'set', setValue: 1 },
+      ],
+    }
+    const agg = aggregateLeBandModsByField(def)
+    expect(agg).toEqual({ at: -1 })
+  })
+})
+
+describe('leBandFieldOverridesFromDef', () => {
+  it('liefert Strike-Felder und Set-Werte', () => {
+    const def = {
+      id: 'b',
+      active: true,
+      label: '',
+      tooltip: '',
+      threshold: { type: 'absolute', value: 5 },
+      mods: [
+        { field: 'at', op: 'strike' },
+        { field: 'pa', op: 'strike' },
+        { field: 'fk', op: 'strike' },
+        { field: 'gs', op: 'set', setValue: 1 },
+        { field: 'mu', op: 'delta', delta: -2 },
+      ],
+    }
+    const ov = leBandFieldOverridesFromDef(def)
+    expect(ov.strikeFields.sort()).toEqual(['at', 'fk', 'pa'])
+    expect(ov.setValues).toEqual({ gs: 1 })
+  })
+
+  it('leeres Band → leere Listen', () => {
+    expect(leBandFieldOverridesFromDef(null)).toEqual({
+      strikeFields: [],
+      setValues: {},
+    })
+    expect(leBandFieldOverridesFromDef({ mods: null })).toEqual({
+      strikeFields: [],
+      setValues: {},
+    })
+  })
+
+  it('mehrfache Strike-Einträge auf gleichem Feld werden dedupliziert', () => {
+    const def = {
+      mods: [
+        { field: 'at', op: 'strike' },
+        { field: 'at', op: 'strike' },
+      ],
+    }
+    expect(leBandFieldOverridesFromDef(def).strikeFields).toEqual(['at'])
   })
 })

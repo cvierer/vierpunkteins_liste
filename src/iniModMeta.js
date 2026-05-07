@@ -39,7 +39,9 @@ import {
   bandViewMode,
   defaultLeBandLabel,
   effectiveLeBandsForHero,
+  leBandFieldOverridesFromDef,
   matchesThreshold,
+  matchLeBand,
   NEG_LE_KO_RANGE,
 } from './leBandDefs.js'
 import {
@@ -1548,6 +1550,91 @@ export function mountHeroExpandBlock(
     return ln
   }
 
+  /* Heldenblock-Zellen, auf denen LE-Bänder einen rein optischen Override
+     (Strike / Set) anzeigen können. Reihenfolge nicht relevant. */
+  const leBandFieldTargets = {
+    at: { cell: at.cell, inp: at.inp },
+    pa: { cell: pa.cell, inp: pa.inp },
+    a: { cell: ausw.cell, inp: ausw.inp },
+    fk: { cell: fk.cell, inp: fk.inp },
+    mu: { cell: mu.cell, inp: mu.inp },
+    kl: { cell: kl.cell, inp: kl.inp },
+    inn: { cell: inn.cell, inp: inn.inp },
+    ko: { cell: koAttr.cell, inp: koAttr.inp },
+    kk: { cell: kk.cell, inp: kk.inp },
+    ff: { cell: ff.cell, inp: ff.inp },
+    gs: { cell: gs.cell, inp: gs.inp },
+    ge: { cell: ge.cell, inp: ge.inp },
+    ib: { cell: ibChain, inp: null },
+  }
+
+  /** Erzeugt die Overlay-Elemente einer Zelle einmalig (Strike + Set). */
+  const ensureLeBandOverlays = (cell) => {
+    if (!cell) return null
+    if (cell.__leBandOverlays) return cell.__leBandOverlays
+    cell.classList.add('init-hero-ex__micro-cell--le-band-host')
+    const strike = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'svg'
+    )
+    strike.setAttribute('viewBox', '0 0 100 100')
+    strike.setAttribute('preserveAspectRatio', 'none')
+    strike.setAttribute('aria-hidden', 'true')
+    strike.classList.add('init-hero-ex__cell-strike')
+    strike.style.display = 'none'
+    strike.innerHTML =
+      '<line x1="6" y1="92" x2="94" y2="8" stroke="currentColor" stroke-width="6" stroke-linecap="round" vector-effect="non-scaling-stroke" />'
+    const set = document.createElement('div')
+    set.className = 'init-hero-ex__cell-set'
+    set.setAttribute('aria-hidden', 'true')
+    set.style.display = 'none'
+    cell.appendChild(strike)
+    cell.appendChild(set)
+    const overlays = { strike, set }
+    /** @type {any} */ (cell).__leBandOverlays = overlays
+    return overlays
+  }
+
+  /** Setzt alle Strike-/Set-Overlays in den Heldenblock-Feldern zurück. */
+  const resetLeBandFieldOverlays = () => {
+    for (const t of Object.values(leBandFieldTargets)) {
+      if (!t || !t.cell) continue
+      const ov = /** @type {any} */ (t.cell).__leBandOverlays
+      if (ov) {
+        ov.strike.style.display = 'none'
+        ov.set.style.display = 'none'
+        ov.set.textContent = ''
+      }
+      t.cell.classList.remove('init-hero-ex__micro-cell--le-strike')
+      t.cell.classList.remove('init-hero-ex__micro-cell--le-set')
+    }
+  }
+
+  /**
+   * Wendet Strike-/Set-Overrides eines Bandes auf die Heldenblock-Zellen an.
+   *
+   * @param {{ strikeFields: string[], setValues: Record<string, number> }} ov
+   */
+  const applyLeBandFieldOverlays = (ov) => {
+    for (const f of ov.strikeFields) {
+      const t = leBandFieldTargets[f]
+      if (!t || !t.cell) continue
+      const overlays = ensureLeBandOverlays(t.cell)
+      if (!overlays) continue
+      overlays.strike.style.display = ''
+      t.cell.classList.add('init-hero-ex__micro-cell--le-strike')
+    }
+    for (const [f, val] of Object.entries(ov.setValues)) {
+      const t = leBandFieldTargets[f]
+      if (!t || !t.cell) continue
+      const overlays = ensureLeBandOverlays(t.cell)
+      if (!overlays) continue
+      overlays.set.textContent = String(val)
+      overlays.set.style.display = ''
+      t.cell.classList.add('init-hero-ex__micro-cell--le-set')
+    }
+  }
+
   const updateLeThreshold = () => {
     const leV = parseLeIntSafe(leInp.value)
     const maxV = parseLeIntSafe(leMaxInp.value)
@@ -1560,6 +1647,20 @@ export function mountHeroExpandBlock(
        (Raum-Default oder Held-Override) sofort sichtbar werden. */
     leThreshLines.replaceChildren()
     const bands = Array.isArray(snap.leBands) ? snap.leBands : []
+
+    /* Optische Strike-/Set-Overrides aus dem getroffenen Band anwenden.
+       Eingabewerte bleiben unangetastet, damit beim Verlassen des Bands die
+       Originalwerte sofort wieder sichtbar werden. */
+    resetLeBandFieldOverlays()
+    if (!dead) {
+      const match = matchLeBand(
+        { le: leV, leMax: maxV, ko: koV },
+        bands
+      )
+      if (match) {
+        applyLeBandFieldOverlays(leBandFieldOverridesFromDef(match.def))
+      }
+    }
 
     if (negLe) {
       resetLeThreshNegOff()

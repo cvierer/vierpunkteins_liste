@@ -12,10 +12,11 @@
  * Default-Set entspricht 1:1 dem heutigen Verhalten (siehe
  * [`heroAutoMods.leBand` / `leAtPaMalusForBand`](./heroAutoMods.js)).
  *
- * @typedef {{
- *   field: string,
- *   delta: number,
- * }} LeBandMod
+ * @typedef {(
+ *   { field: string, op?: 'delta', delta: number } |
+ *   { field: string, op: 'set', setValue: number } |
+ *   { field: string, op: 'strike' }
+ * )} LeBandMod
  *
  * @typedef {(
  *   { type: 'fraction', num: number, den: number } |
@@ -117,10 +118,28 @@ const DEFAULT_LE_BAND_DEFS_RAW = [
     tooltip: 'LE ist 0 oder negativ — kampfunfähig.',
     threshold: { type: 'absolute', value: 0 },
     mods: [
+      { field: 'at', op: 'strike' },
+      { field: 'pa', op: 'strike' },
+      { field: 'fk', op: 'strike' },
+      { field: 'gs', op: 'set', setValue: 1 },
       { field: 'at', delta: -3 },
       { field: 'pa', delta: -3 },
       { field: 'a', delta: -3 },
       { field: 'fk', delta: -3 },
+    ],
+  },
+  {
+    id: 'le-ko',
+    active: true,
+    label: 'Kampfunfähig',
+    tooltip:
+      'LE 1–5: kampfunfähig (Regel). Optisch: AT/PA/FK durchgestrichen, GS = 1.',
+    threshold: { type: 'absolute', value: 5 },
+    mods: [
+      { field: 'at', op: 'strike' },
+      { field: 'pa', op: 'strike' },
+      { field: 'fk', op: 'strike' },
+      { field: 'gs', op: 'set', setValue: 1 },
     ],
   },
   {
@@ -169,7 +188,7 @@ export const DEFAULT_LE_BAND_DEFS = Object.freeze(
   DEFAULT_LE_BAND_DEFS_RAW.map((d) =>
     Object.freeze({
       ...d,
-      active: true,
+      active: d.active === undefined ? true : Boolean(d.active),
       threshold: Object.freeze({ ...d.threshold }),
       mods: Object.freeze(d.mods.map((m) => Object.freeze({ ...m }))),
     })
@@ -235,9 +254,18 @@ function normalizeMod(raw) {
   if (!raw || typeof raw !== 'object') return null
   const field = String(raw.field ?? '').trim().toLowerCase()
   if (!field) return null
+  const opRaw = String(raw.op ?? 'delta').trim().toLowerCase()
+  if (opRaw === 'strike') {
+    return { field, op: 'strike' }
+  }
+  if (opRaw === 'set') {
+    const setValue = clampInt(raw.setValue, 0, 9999, 0)
+    return { field, op: 'set', setValue }
+  }
+  /* default: delta (auch bei unbekanntem op) */
   const delta = clampInt(raw.delta, -99, 99, 0)
   if (delta === 0) return null
-  return { field, delta }
+  return { field, op: 'delta', delta }
 }
 
 /**
@@ -442,10 +470,38 @@ export function aggregateLeBandModsByField(def) {
   const out = {}
   if (!def || !Array.isArray(def.mods)) return out
   for (const m of def.mods) {
-    if (!m || !m.field || !m.delta) continue
+    if (!m || !m.field) continue
+    const op = m.op ?? 'delta'
+    if (op !== 'delta') continue
+    if (!m.delta) continue
     out[m.field] = (out[m.field] ?? 0) + m.delta
   }
   return out
+}
+
+/**
+ * Liefert die rein optischen Overrides eines Bandes:
+ * - `strikeFields`: Liste der Feldnamen, die diagonal durchgestrichen werden.
+ * - `setValues`: Map Feldname → optisch erzwungener Anzeigewert.
+ *
+ * @param {LeBandDef | null | undefined} def
+ * @returns {{ strikeFields: string[], setValues: Record<string, number> }}
+ */
+export function leBandFieldOverridesFromDef(def) {
+  /** @type {string[]} */
+  const strikeFields = []
+  /** @type {Record<string, number>} */
+  const setValues = {}
+  if (!def || !Array.isArray(def.mods)) return { strikeFields, setValues }
+  for (const m of def.mods) {
+    if (!m || !m.field) continue
+    if (m.op === 'strike') {
+      if (!strikeFields.includes(m.field)) strikeFields.push(m.field)
+    } else if (m.op === 'set' && Number.isFinite(Number(m.setValue))) {
+      setValues[m.field] = Math.floor(Number(m.setValue))
+    }
+  }
+  return { strikeFields, setValues }
 }
 
 /**
