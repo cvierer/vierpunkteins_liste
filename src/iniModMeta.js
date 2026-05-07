@@ -1267,13 +1267,18 @@ export function mountHeroExpandBlock(
     inp.setAttribute('aria-label', aria)
     return inp
   }
-  const mrInp = mkChainInp(
-    'mr',
-    microDisplayForModField('mr', snap.mr),
-    3,
-    true,
-    'Magieresistenz (MR)'
-  )
+  const mrInp = document.createElement('input')
+  mrInp.type = 'text'
+  mrInp.inputMode = 'numeric'
+  mrInp.className = 'init-hero-ex__micro init-hero-ex__micro--mr-chain'
+  mrInp.id = `hero-ex-${itemId}-mr`
+  mrInp.autocomplete = 'off'
+  mrInp.spellcheck = false
+  mrInp.disabled = !canEdit
+  mrInp.value = microDisplayForModField('mr', snap.mr)
+  mrInp.maxLength = 3
+  mrInp.title = 'Magieresistenz (MR)'
+  mrInp.setAttribute('aria-label', 'Magieresistenz (MR)')
   const ibInp = mkChainInp(
     'ib',
     microDisplayForModField('ib', snap.ib),
@@ -1320,14 +1325,20 @@ export function mountHeroExpandBlock(
     stack.appendChild(colEl)
     return stack
   }
-  const mrCol = mkIbChainCol(mrInp)
+  /** MR wie KO: Mikrozelle (Kuerzel + eigenes Kaestchen), nicht Ketten-/Segment-Rahmen. */
+  const mrCell = document.createElement('div')
+  mrCell.className =
+    'init-hero-ex__micro-cell init-hero-ex__micro-cell--mr-chain'
+  mrCell.append(mrAbbrLabel, mrInp)
+  const stackMr = document.createElement('div')
+  stackMr.className =
+    'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--mr-r-gap'
+  stackMr.appendChild(mrCell)
   const ibCol = mkIbChainCol(ibInp)
   const beCol = mkIbChainCol(
     beInp,
     'init-hero-ex__ib-chain__col--half-cell'
   )
-  const stackMr = mkIbChainStack(mrAbbrLabel, mrCol)
-  stackMr.classList.add('init-hero-ex__ib-chain__stack--mr-r-gap')
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
   const w6Col = mkIbChainCol(
@@ -2754,7 +2765,7 @@ export function mountHeroExpandBlock(
     leMax: { cell: stackLeMax, inp: leMaxInp, ab: leAbbrMax },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
     ws: { cell: ws.cell, inp: ws.inp, ab: ws.ab },
-    mr: { cell: stackMr, inp: mrInp, ab: mrAbbrLabel },
+    mr: { cell: mrCell, inp: mrInp, ab: mrAbbrLabel },
     ib: { cell: stackIb, inp: ibInp, ab: ibAbbrLabel },
     be: { cell: stackBe, inp: beInp, ab: ibBeLbl },
   }
