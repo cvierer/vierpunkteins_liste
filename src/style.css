@@ -2350,12 +2350,13 @@ body {
   outline: none;
 }
 
-/* IB-Kette (Hauptblock): drei Spalten; goldener Rahmen nur um die Eingabezeile. */
+/* IB-Kette: Spalten unten ausrichten, damit Wertfelder/Ini-Taste mit Strip (AT … GS)
+   unter der Kürzelzeile dieselbe Zeile bilden wie die Mikrozellen (bei zweizeiligem −BE/+W6). */
 .init-hero-ex__ib-chain > .init-hero-ex__ib-chain__cols {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: flex-start;
   width: fit-content;
   flex-shrink: 0;
