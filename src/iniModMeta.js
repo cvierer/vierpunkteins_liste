@@ -4452,16 +4452,39 @@ export function mountHeroExpandBlock(
     applyUnfaehigVisualOverlay(metaForVisuals)
   }
 
+  const isLeRelatedLiveInput = (inp) =>
+    inp === le.inp ||
+    inp === leMax.inp ||
+    inp === koAttr.inp ||
+    inp === lePopLeInp ||
+    inp === lePopLeMaxInp ||
+    inp === lePopKoInp
+
+  const buildLiveLePreviewMeta = () => {
+    const cNow = getCombat()
+    const roundNow =
+      cNow?.started && Number.isFinite(Number(cNow.round))
+        ? Number(cNow.round)
+        : null
+    const previewMeta = { ...(meta ?? {}) }
+    const snapPreview = persistBasisFromGathered(gather())
+    patchHeroExModsWithAutoBundles(previewMeta, snapPreview, {
+      round: roundNow,
+      navIni: readCurrentNavIniGlobal(),
+    })
+    return previewMeta
+  }
+
   /** @type {ReturnType<typeof setTimeout> | null} */
   let liveRefreshTimer = null
   /** Debounce für abgeleitete UI (LE-Schwelle, S-Popover, …) bei kurzer Eingabe. */
   const LIVE_INPUT_DEBOUNCE_MS = 4000
 
-  const scheduleLiveDerivedRefresh = () => {
+  const scheduleLiveDerivedRefresh = (metaForVisuals) => {
     if (liveRefreshTimer != null) clearTimeout(liveRefreshTimer)
     liveRefreshTimer = setTimeout(() => {
       liveRefreshTimer = null
-      refreshDerivedUiFromInputs()
+      refreshDerivedUiFromInputs(metaForVisuals)
     }, LIVE_INPUT_DEBOUNCE_MS)
   }
 
@@ -4768,6 +4791,7 @@ export function mountHeroExpandBlock(
     /* S-Overlay LE/max: gleiche Blur/Enter/Persist/Fokus wie die Hauptfelder */
     lePopLeInp,
     lePopLeMaxInp,
+    lePopKoInp,
   ]
   let lastPointerDownInsideAt = 0
   root.addEventListener(
@@ -4783,27 +4807,8 @@ export function mountHeroExpandBlock(
       // die 4s-Debounce von syncLeThreshold / Popover zu warten).
       refreshComputedPenaltyHighlights()
       const len = inp.value.trim().length
-      const immediateDerivedForLe =
-        inp === le.inp ||
-        inp === leMax.inp ||
-        inp === koAttr.inp ||
-        inp === lePopLeInp ||
-        inp === lePopLeMaxInp ||
-        inp === lePopKoInp
-      let previewMeta = null
-      if (immediateDerivedForLe) {
-        const cNow = getCombat()
-        const roundNow =
-          cNow?.started && Number.isFinite(Number(cNow.round))
-            ? Number(cNow.round)
-            : null
-        previewMeta = { ...(meta ?? {}) }
-        const snapPreview = persistBasisFromGathered(gather())
-        patchHeroExModsWithAutoBundles(previewMeta, snapPreview, {
-          round: roundNow,
-          navIni: readCurrentNavIniGlobal(),
-        })
-      }
+      const immediateDerivedForLe = isLeRelatedLiveInput(inp)
+      const previewMeta = immediateDerivedForLe ? buildLiveLePreviewMeta() : null
       if (inp === tpInp) {
         if (len >= 2) {
           if (liveRefreshTimer != null) {
@@ -4825,7 +4830,7 @@ export function mountHeroExpandBlock(
         }
         refreshDerivedUiFromInputs(previewMeta ?? undefined)
       } else {
-        scheduleLiveDerivedRefresh()
+        scheduleLiveDerivedRefresh(previewMeta ?? undefined)
       }
       // Keine Persistenz mehr beim Tippen: nur blur/Enter/Explizit-Apply,
       // damit Felder nicht durch Remount mitten in der Eingabe flackern.
