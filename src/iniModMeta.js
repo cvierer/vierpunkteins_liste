@@ -1489,6 +1489,17 @@ export function mountHeroExpandBlock(
     true,
     'Lebensenergie Maximum (LE max)'
   )
+  /* Manuelles Tippen hier sperren: Bearbeitung nur ueber S-Popover (lePopLeInp /
+     lePopLeMaxInp). Mod-Auswahl per Klick auf die Zelle bleibt aktiv (Pick-Modus). */
+  if (canEdit) {
+    leInp.readOnly = true
+    leMaxInp.readOnly = true
+    const ROHINT = ' (Bearbeitung im S-Overlay)'
+    leInp.title = `${leInp.title}${ROHINT}`
+    leMaxInp.title = `${leMaxInp.title}${ROHINT}`
+    leInp.setAttribute('aria-readonly', 'true')
+    leMaxInp.setAttribute('aria-readonly', 'true')
+  }
   const mkLeChainCol = (inpEl) => {
     const col = document.createElement('div')
     col.className = 'init-hero-ex__le-chain__col'
