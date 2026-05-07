@@ -7673,7 +7673,14 @@ select.init-row-extra-select {
   .init-hero-ex__le-chain
   > .init-hero-ex__le-chain__cols
   .init-hero-ex__le-chain__inp-cell {
-  background: var(--color-bg);
+  background: var(--color-bg) !important;
+}
+
+.init-hero-ex__bottom-strip
+  .init-hero-ex__le-chain
+  > .init-hero-ex__le-chain__cols:focus-within
+  .init-hero-ex__le-chain__inp-cell {
+  background: var(--color-bg) !important;
 }
 
 .init-hero-ex__mod-chip-card--long-label .init-hero-ex__mod-chip-card__label-line {
