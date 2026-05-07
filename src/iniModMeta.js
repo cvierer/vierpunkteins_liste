@@ -1390,7 +1390,7 @@ export function mountHeroExpandBlock(
       'init-hero-ex__ib-chain__col init-hero-ex__ib-chain__col--mod-pick'
     const modShell = document.createElement('div')
     modShell.className =
-      'init-hero-ex__ib-chain__inp-cell init-hero-ex__ib-chain__inp-cell--mod-pick'
+      'init-hero-ex__ib-chain__inp-cell init-hero-ex__ib-chain__inp-cell--mod-pick init-hero-ex__ib-chain__inp-cell--mod-solo-btn'
     modShell.appendChild(modToggleBtn)
     modIbCol.appendChild(modShell)
     stackMod = mkIbChainStack(

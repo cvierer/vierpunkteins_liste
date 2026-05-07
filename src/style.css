@@ -2476,10 +2476,62 @@ body {
   border-radius: 0 4px 4px 0;
 }
 
-.init-hero-ex__ib-chain__inp-cell--mod-pick {
+.init-hero-ex__ib-chain__inp-cell--mod-pick:not(
+    .init-hero-ex__ib-chain__inp-cell--mod-solo-btn
+  ) {
   background: rgba(var(--rgb-gold), 0.06);
   border-style: dashed !important;
   border-color: rgba(var(--rgb-gold), 0.62) !important;
+}
+
+/* MOD+: nur der Toggle-Button gerahmt, keine volle Ketten-Kachel */
+.init-hero-ex__ib-chain__inp-cell--mod-solo-btn {
+  align-items: center;
+  justify-content: center;
+}
+
+.init-hero-ex__ib-chain--cols-6
+  > .init-hero-ex__ib-chain__cols
+  > .init-hero-ex__ib-chain__stack:nth-child(6)
+  .init-hero-ex__ib-chain__inp-cell--mod-solo-btn {
+  border: none !important;
+  background: transparent !important;
+}
+
+.init-hero-ex__ib-chain
+  > .init-hero-ex__ib-chain__cols:focus-within
+  .init-hero-ex__ib-chain__inp-cell--mod-solo-btn {
+  border: none !important;
+  background: transparent !important;
+}
+
+.init-hero-ex__ib-chain__inp-cell--mod-solo-btn .init-hero-ex__mod-toggle--hero-block {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  height: auto;
+  min-height: calc(0.68 * var(--init-hero-cell));
+  min-width: calc(0.52 * var(--init-hero-cell));
+  border: 1px solid var(--init-action-cell-border);
+  border-radius: 4px;
+  background: var(--init-action-cell-fill);
+  box-sizing: border-box;
+}
+
+.init-hero-ex__ib-chain__inp-cell--mod-solo-btn .init-hero-ex__mod-toggle--hero-block:hover {
+  background: var(--init-action-cell-fill-focus);
+  border-color: var(--init-action-cell-border);
+}
+
+.init-hero-ex__ib-chain__inp-cell--mod-solo-btn
+  .init-hero-ex__mod-toggle--hero-block.init-hero-ex__mod-toggle--on {
+  border: 0;
+}
+
+.init-hero-ex__ib-chain__inp-cell--mod-solo-btn .init-hero-ex__mod-toggle__panel {
+  width: auto;
+  height: auto;
+  min-height: 0;
 }
 
 /* Lesemodus: unsichtbare MOD-Zelle — gleiche Breite/Höhe wie MOD+, Dock fuer Mod-Streifen */
