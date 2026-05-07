@@ -2028,16 +2028,12 @@ export function mountHeroExpandBlock(
 
   const applyUnfaehigVisualOverlay = (metaForMods = meta) => {
     const s = readHeroExpandSnapshot(metaForMods)
-    const unfaehigBundleActive = readHeroExMods(metaForMods).some(
+    /* Rein optisch: Effekt nur wenn das Auto-Bündel in den gepatchten Mods
+       vorhanden ist (gleiche Quelle wie Mod-Chip). Live-LE steht in gather(),
+       nicht always in meta — bundle presence matches threshold rule in heroAutoMods. */
+    const active = readHeroExMods(metaForMods).some(
       (m) => String(m?.bundleId ?? '') === 'auto-le-unfaehig'
     )
-    const leNum = Number.parseInt(String(s.le ?? '').trim(), 10)
-    const threshold = Number(s.unfaehigThreshold)
-    const active =
-      unfaehigBundleActive &&
-      Number.isFinite(leNum) &&
-      Number.isFinite(threshold) &&
-      leNum <= Math.floor(threshold)
 
     for (const cell of Object.values(unfaehigVisualTargets)) {
       if (!(cell instanceof HTMLElement)) continue
