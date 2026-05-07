@@ -2507,13 +2507,14 @@ body {
 
 .init-hero-ex__ib-chain__inp-cell--mod-solo-btn .init-hero-ex__mod-toggle--hero-block {
   flex: 0 0 auto;
-  width: auto;
-  max-width: none;
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
   height: auto;
   min-height: calc(0.68 * var(--init-hero-cell));
-  min-width: calc(0.88 * var(--init-hero-cell));
-  padding-left: calc(0.22rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
-  padding-right: calc(0.22rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  min-width: 0;
+  padding-left: calc(0.26rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  padding-right: calc(0.26rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
   border: 1px solid var(--init-action-cell-border);
   border-radius: 4px;
   background: var(--init-action-cell-fill);
@@ -2531,7 +2532,7 @@ body {
 }
 
 .init-hero-ex__ib-chain__inp-cell--mod-solo-btn .init-hero-ex__mod-toggle__panel {
-  width: auto;
+  width: 100%;
   height: auto;
   min-height: 0;
 }
@@ -3193,8 +3194,8 @@ body {
 
 /* BE/W6-Kürzel in der IB-Kette etwas kleiner */
 .init-hero-ex__ib-chain__stack > .init-hero-ex__abbr--ib-chain-compact {
-  font-size: calc(0.39rem * var(--init-box-scale));
-  letter-spacing: 0.03em;
+  font-size: calc(0.345rem * var(--init-box-scale));
+  letter-spacing: 0.025em;
 }
 
 .init-hero-ex__abbr.init-hero-ex__abbr--malus-active {
