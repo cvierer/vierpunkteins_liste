@@ -327,18 +327,18 @@ export function readHeroExpandSnapshot(meta) {
     .trim()
     .toLowerCase()
   const energyMode =
-    energyModeRaw === 'ke' || energyModeRaw === 'both' || energyModeRaw === 'none'
-      ? energyModeRaw
-      : 'ae'
+    energyModeRaw === 'ke'
+      ? 'ke'
+      : energyModeRaw === 'none'
+        ? 'none'
+        : energyModeRaw === 'both'
+          ? 'ae'
+          : 'ae'
   const aeVal = strOrEmpty(meta?.[HERO_EX_AE])
   const keVal = strOrEmpty(meta?.[HERO_EX_KE])
   const aeKeLegacy = strOrEmpty(meta?.[HERO_EX_AEKE_LEGACY])
   const energyVal =
-    energyMode === 'ke'
-      ? keVal || aeKeLegacy
-      : energyMode === 'both'
-        ? aeVal || aeKeLegacy
-        : aeVal || aeKeLegacy
+    energyMode === 'ke' ? keVal || aeKeLegacy : aeVal || aeKeLegacy
   const showFkRaw = String(meta?.[HERO_EX_SHOW_FK] ?? '')
     .trim()
     .toLowerCase()
@@ -494,19 +494,19 @@ export async function applyHeroExpandFields(itemId, next) {
       setStr(HERO_EX_LE_MAX, next.leMax)
       const energyModeRaw = String(next.energyMode ?? '').trim().toLowerCase()
       const energyMode =
-        energyModeRaw === 'ke' || energyModeRaw === 'both' || energyModeRaw === 'none'
-          ? energyModeRaw
-          : 'ae'
+        energyModeRaw === 'ke'
+          ? 'ke'
+          : energyModeRaw === 'none'
+            ? 'none'
+            : energyModeRaw === 'both'
+              ? 'ae'
+              : 'ae'
       const aeNext = String(next.ae ?? '').trim()
       const keNext = String(next.ke ?? '').trim()
       if (energyMode === 'ke') {
         setStr(HERO_EX_KE, aeNext)
         delete m[HERO_EX_AE]
         m[HERO_EX_ENERGY_MODE] = 'ke'
-      } else if (energyMode === 'both') {
-        setStr(HERO_EX_AE, aeNext)
-        setStr(HERO_EX_KE, keNext)
-        m[HERO_EX_ENERGY_MODE] = 'both'
       } else if (energyMode === 'none') {
         delete m[HERO_EX_AE]
         delete m[HERO_EX_KE]
@@ -795,13 +795,8 @@ export function mountHeroExpandBlock(
 ) {
   const snap = readHeroExpandSnapshot(meta)
   const energyFieldLabel =
-    snap.energyMode === 'ke'
-      ? 'Karmaenergie (KE)'
-      : snap.energyMode === 'both'
-        ? 'Astralenergie (AE) und Karmaenergie (KE)'
-        : 'Astralenergie (AE)'
-  const energyFieldAbbr =
-    snap.energyMode === 'ke' ? 'KE' : snap.energyMode === 'both' ? 'AE / KE' : 'AE'
+    snap.energyMode === 'ke' ? 'Karmaenergie (KE)' : 'Astralenergie (AE)'
+  const energyFieldAbbr = snap.energyMode === 'ke' ? 'KE' : 'AE'
   const showFkField = snap.showFk !== false
   const showEnergyField = snap.energyMode !== 'none'
   const customLeThreshold =
@@ -1204,63 +1199,16 @@ export function mountHeroExpandBlock(
     '',
     true
   )
+  const energyModField = snap.energyMode === 'ke' ? 'ke' : 'ae'
   const ae = mkMicro(
     energyFieldAbbr,
     energyFieldLabel,
     'ae',
-    microDisplayForModField('ae', snap.ae),
+    microDisplayForModField(energyModField, snap.ae),
     3,
     '',
     true
   )
-  const keDualInp = document.createElement('input')
-  if (snap.energyMode === 'both') {
-    ae.ab.textContent = ''
-    ae.ab.style.fontSize = '10px'
-    ae.ab.style.lineHeight = '1.1'
-    ae.ab.style.display = 'grid'
-    ae.ab.style.gridTemplateRows = '1fr 1fr'
-    const aeLbl = document.createElement('span')
-    aeLbl.textContent = 'AE'
-    aeLbl.style.fontSize = '10px'
-    const keLbl = document.createElement('span')
-    keLbl.textContent = 'KE'
-    keLbl.style.fontSize = '10px'
-    ae.ab.append(aeLbl, keLbl)
-
-    const dualWrap = document.createElement('div')
-    dualWrap.style.display = 'grid'
-    dualWrap.style.gridTemplateRows = '1fr 1fr'
-    dualWrap.style.gap = '1px'
-    dualWrap.style.width = '100%'
-    dualWrap.style.height = '100%'
-
-    ae.inp.value = microDisplayForModField('ae', snap.ae)
-    ae.inp.maxLength = 3
-    ae.inp.style.fontSize = '12px'
-    ae.inp.style.lineHeight = '1.05'
-    ae.inp.style.height = '100%'
-    ae.inp.title = 'Astralenergie (AE)'
-    ae.inp.setAttribute('aria-label', 'Astralenergie (AE)')
-
-    keDualInp.type = 'text'
-    keDualInp.inputMode = 'numeric'
-    keDualInp.className = 'init-hero-ex__micro'
-    keDualInp.id = `hero-ex-${itemId}-ke`
-    keDualInp.autocomplete = 'off'
-    keDualInp.spellcheck = false
-    keDualInp.disabled = !canEdit
-    keDualInp.value = snap.ke
-    keDualInp.maxLength = 3
-    keDualInp.style.fontSize = '12px'
-    keDualInp.style.lineHeight = '1.05'
-    keDualInp.style.height = '100%'
-    keDualInp.title = 'Karmaenergie (KE)'
-    keDualInp.setAttribute('aria-label', 'Karmaenergie (KE)')
-
-    dualWrap.append(ae.inp, keDualInp)
-    ae.cell.replaceChildren(ae.ab, dualWrap)
-  }
   if (!showEnergyField) {
     ae.cell.style.visibility = 'hidden'
     ae.cell.setAttribute('aria-hidden', 'true')
@@ -1281,8 +1229,8 @@ export function mountHeroExpandBlock(
   ws.inp.title = WS_RULES_TOOLTIP
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
-  /* Immer 5 Spalten: Lesemodus nutzt unsichtbare MOD-Geometrie wie Bearbeitung (Dock). */
-  ibChain.classList.add('init-hero-ex__ib-chain--cols-5')
+  /* Sechs Spalten: MR IB −BE +W6 INI MOD (Lesemodus: MOD wie Bearbeitung). */
+  ibChain.classList.add('init-hero-ex__ib-chain--cols-6')
   const mkChainAbbr = (text, title, noUppercase) => {
     const s = document.createElement('span')
     s.className =
@@ -1298,7 +1246,7 @@ export function mountHeroExpandBlock(
     'Ini-Basis + Modifikation (IB)'
   )
   const ibBeLbl = mkChainAbbr('-BE', 'Behinderung (BE)', true)
-  const ibW6LblMini = mkChainAbbr('+W6', 'Würfelwurf (W6)', true)
+  const ibW6Lbl = mkChainAbbr('+W6', 'Würfelwurf (W6)', true)
   const ibIniLblHold = document.createElement('span')
   ibIniLblHold.className = 'init-hero-ex__ib-chain__label-placeholder'
   ibIniLblHold.setAttribute('aria-hidden', 'true')
@@ -1339,8 +1287,6 @@ export function mountHeroExpandBlock(
     'Behinderung (BE)'
   )
   const w6Inp = mkChainInp('w6', snap.w6, 14, false, 'Würfelwurf (W6)')
-  w6Inp.style.fontSize = '11px'
-  w6Inp.style.lineHeight = '1.05'
 
   /**
    * Spalte: nur Eingabe im oberen Kasten (Rahmen), Mod-Band darunter — wie Mikrozelle.
@@ -1379,6 +1325,8 @@ export function mountHeroExpandBlock(
   stackMr.classList.add('init-hero-ex__ib-chain__stack--mr-r-gap')
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
+  const w6Col = mkIbChainCol(w6Inp)
+  const stackW6 = mkIbChainStack(ibW6Lbl, w6Col)
   const iniUpBtn = document.createElement('button')
   iniUpBtn.type = 'button'
   iniUpBtn.className = 'init-hero-ex__ini-up-btn'
@@ -1406,16 +1354,8 @@ export function mountHeroExpandBlock(
   iniIbCol.className =
     'init-hero-ex__ib-chain__col init-hero-ex__ib-chain__col--ini'
   const iniShell = document.createElement('div')
-  iniShell.className =
-    'init-hero-ex__ib-chain__inp-cell init-hero-ex__ib-chain__inp-cell--ini-w6-stack'
-  const iniBtnRow = document.createElement('div')
-  iniBtnRow.className = 'init-hero-ex__ib-chain__ini-w6-stack__btn-row'
-  iniBtnRow.appendChild(iniUpBtn)
-  const iniW6Row = document.createElement('div')
-  iniW6Row.className = 'init-hero-ex__ib-chain__ini-w6-stack__w6-row'
-  ibW6LblMini.classList.add('init-hero-ex__ib-chain__ini-w6-stack__w6-abbr')
-  iniW6Row.append(ibW6LblMini, w6Inp)
-  iniShell.append(iniBtnRow, iniW6Row)
+  iniShell.className = 'init-hero-ex__ib-chain__inp-cell'
+  iniShell.appendChild(iniUpBtn)
   iniIbCol.appendChild(iniShell)
 
   if (canEdit) {
@@ -1474,7 +1414,7 @@ export function mountHeroExpandBlock(
   const stackIni = mkIbChainStack(ibIniLblHold, iniIbCol)
   const ibChainCols = document.createElement('div')
   ibChainCols.className = 'init-hero-ex__ib-chain__cols'
-  ibChainCols.append(stackMr, stackIb, stackBe, stackIni)
+  ibChainCols.append(stackMr, stackIb, stackBe, stackW6, stackIni)
   if (stackMod) ibChainCols.appendChild(stackMod)
   ibChain.appendChild(ibChainCols)
   const mr = { inp: mrInp }
@@ -2753,7 +2693,13 @@ export function mountHeroExpandBlock(
   const modPopZoneIds = new Set(HIT_ZONE_MOD_FIELD_IDS)
   const modFieldsWerte = MOD_FIELDS.filter(
     (f) => !modPopAttrIds.has(f) && !modPopZoneIds.has(f)
-  )
+  ).filter((f) => {
+    if (f === 'ae')
+      return showEnergyField && snap.energyMode !== 'ke' && snap.energyMode !== 'none'
+    if (f === 'ke')
+      return showEnergyField && snap.energyMode === 'ke'
+    return true
+  })
   const modFieldsEigenschaften = [
     'mu',
     'kl',
@@ -2790,7 +2736,11 @@ export function mountHeroExpandBlock(
     a: { cell: ausw.cell, inp: ausw.inp, ab: ausw.ab },
     fk: { cell: fk.cell, inp: fk.inp, ab: fk.ab },
     gs: { cell: gs.cell, inp: gs.inp, ab: gs.ab },
-    ae: { cell: ae.cell, inp: ae.inp, ab: ae.ab },
+    ...(showEnergyField && snap.energyMode === 'ke'
+      ? { ke: { cell: ae.cell, inp: ae.inp, ab: ae.ab } }
+      : showEnergyField && snap.energyMode !== 'none'
+        ? { ae: { cell: ae.cell, inp: ae.inp, ab: ae.ab } }
+        : {}),
     le: { cell: stackLe, inp: leInp, ab: leAbbrLE },
     leMax: { cell: stackLeMax, inp: leMaxInp, ab: leAbbrMax },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
@@ -4471,13 +4421,9 @@ export function mountHeroExpandBlock(
     a: ausw.inp.value,
     le: le.inp.value,
     leMax: leMax.inp.value,
-    ae: showEnergyField ? ae.inp.value : '',
-    ke:
-      snap.energyMode === 'both'
-        ? keDualInp.value
-        : snap.energyMode === 'ke'
-          ? ae.inp.value
-          : snap.ke,
+    ae:
+      showEnergyField && snap.energyMode !== 'ke' ? ae.inp.value : '',
+    ke: snap.energyMode === 'ke' ? ae.inp.value : snap.ke,
     energyMode: snap.energyMode,
     au: auSnap,
     ko: koAttr.inp.value,
@@ -4930,7 +4876,6 @@ export function mountHeroExpandBlock(
     le.inp,
     leMax.inp,
     ...(showEnergyField ? [ae.inp] : []),
-    ...(snap.energyMode === 'both' ? [keDualInp] : []),
     tpInp,
     ...(showFkField ? [fk.inp] : []),
     gs.inp,

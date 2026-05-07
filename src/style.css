@@ -1315,7 +1315,7 @@ body {
   overflow-x: auto;
 }
 
-/* MR / IB / −BE+W6: IB-Kette gleiche Geometrie wie zuvor (fünf Spalten) */
+/* MR / IB / −BE / +W6 / INI / MOD: sechs Stacks in der IB-Kette */
 .init-hero-ex__ib-chain {
   --init-hero-ib-mod-gap: calc(0.06rem * var(--init-ui-scale));
   display: flex;
@@ -1364,6 +1364,17 @@ body {
 
 .init-hero-ex__ib-chain--cols-5 .init-hero-ex__ib-chain__labels {
   grid-template-columns:
+    var(--init-hero-cell)
+    var(--init-hero-cell)
+    var(--init-hero-cell)
+    var(--init-hero-ib-ini-col-w, var(--init-hero-cell))
+    var(--init-hero-ib-mod-gap)
+    calc(2 * var(--init-hero-ib-ini-col-w, var(--init-hero-cell)));
+}
+
+.init-hero-ex__ib-chain--cols-6 .init-hero-ex__ib-chain__labels {
+  grid-template-columns:
+    var(--init-hero-cell)
     var(--init-hero-cell)
     var(--init-hero-cell)
     var(--init-hero-cell)
@@ -2406,23 +2417,27 @@ body {
   background: var(--init-action-cell-fill);
 }
 
-/* IB-Kette 4 oder 5 Spalten: erste Kachel links rund, Mitte nur Trenner, letzte rechts rund */
+/* IB-Kette 4 oder 6 Spalten: erste Kachel links rund, Mitte nur Trenner, letzte rechts rund */
 .init-hero-ex__ib-chain > .init-hero-ex__ib-chain__cols > .init-hero-ex__ib-chain__stack:nth-child(1) .init-hero-ex__ib-chain__inp-cell {
   border: 1px solid var(--init-action-cell-border);
   border-radius: 4px 0 0 4px;
 }
 
-.init-hero-ex__ib-chain--cols-5
+.init-hero-ex__ib-chain--cols-6
   > .init-hero-ex__ib-chain__cols
   > .init-hero-ex__ib-chain__stack:nth-child(2)
   .init-hero-ex__ib-chain__inp-cell,
-.init-hero-ex__ib-chain--cols-5
+.init-hero-ex__ib-chain--cols-6
   > .init-hero-ex__ib-chain__cols
   > .init-hero-ex__ib-chain__stack:nth-child(3)
   .init-hero-ex__ib-chain__inp-cell,
-.init-hero-ex__ib-chain--cols-5
+.init-hero-ex__ib-chain--cols-6
   > .init-hero-ex__ib-chain__cols
   > .init-hero-ex__ib-chain__stack:nth-child(4)
+  .init-hero-ex__ib-chain__inp-cell,
+.init-hero-ex__ib-chain--cols-6
+  > .init-hero-ex__ib-chain__cols
+  > .init-hero-ex__ib-chain__stack:nth-child(5)
   .init-hero-ex__ib-chain__inp-cell,
 .init-hero-ex__ib-chain--cols-4
   > .init-hero-ex__ib-chain__cols
@@ -2439,9 +2454,9 @@ body {
   border-radius: 0;
 }
 
-.init-hero-ex__ib-chain--cols-5
+.init-hero-ex__ib-chain--cols-6
   > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(5)
+  > .init-hero-ex__ib-chain__stack:nth-child(6)
   .init-hero-ex__ib-chain__inp-cell,
 .init-hero-ex__ib-chain--cols-4
   > .init-hero-ex__ib-chain__cols
@@ -2479,50 +2494,12 @@ body {
   box-sizing: border-box;
 }
 
-/* INI-Zelle: schmaler Pfeil-Button oben, +W6 unten (hoehere gemeinsame Kachel) */
-.init-hero-ex__ib-chain__inp-cell--ini-w6-stack {
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: stretch;
-  height: calc(2 * var(--init-hero-cell) + var(--init-hero-label-input-gap));
-  min-height: calc(2 * var(--init-hero-cell) + var(--init-hero-label-input-gap));
-  max-height: calc(2 * var(--init-hero-cell) + var(--init-hero-label-input-gap));
-  gap: 0;
-  padding: 0;
-}
-
-.init-hero-ex__ib-chain__ini-w6-stack__btn-row {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-}
-
-.init-hero-ex__ib-chain__ini-w6-stack__w6-row {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  border-top: 1px solid rgba(var(--rgb-gold), 0.42);
-  box-sizing: border-box;
-}
-
-.init-hero-ex__ib-chain__ini-w6-stack__w6-abbr {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: stretch;
-  padding: 0 0.06rem 0 0.12rem;
-  font-size: calc(0.4rem * var(--init-box-scale));
-  white-space: nowrap;
-}
-
-.init-hero-ex__ib-chain__ini-w6-stack__w6-row .init-hero-ex__micro--ib-chain-inp {
-  flex: 1 1 0;
+/* INI-Spalte: Pfeil-Button schmaler als die volle Kachelbreite */
+.init-hero-ex__ib-chain__col--ini .init-hero-ex__ib-chain__inp-cell .init-hero-ex__ini-up-btn {
+  width: 54%;
   min-width: 0;
+  max-width: calc(0.42 * var(--init-hero-ib-ini-col-w, var(--init-hero-cell)));
+  align-self: center;
 }
 
 .init-hero-ex__ib-chain > .init-hero-ex__ib-chain__cols:focus-within .init-hero-ex__ib-chain__inp-cell {
@@ -2685,16 +2662,6 @@ body {
 
 .init-hero-ex__ini-up-btn svg {
   display: block;
-}
-
-/* INI+Pfeil in IB-Kette: schmaler als freistehender Ini-Button, volle Zeilenhöhe */
-.init-hero-ex__ib-chain__inp-cell.init-hero-ex__ib-chain__inp-cell--ini-w6-stack .init-hero-ex__ini-up-btn {
-  width: 52%;
-  min-width: 0;
-  max-width: 100%;
-  min-height: 0;
-  max-height: none;
-  height: 100%;
 }
 
 /* Trefferzonen + SP/TZ/F (Heldenblock Zeile 3), unter Zeile 2 (Eigenschaften inkl. WS/LE/S neben KO) */
