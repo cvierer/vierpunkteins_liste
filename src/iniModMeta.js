@@ -4164,7 +4164,7 @@ export function mountHeroExpandBlock(
       } else {
         valSpan.textContent = String(useFixedValueView ? fixedValueForField : absSum)
       }
-      if (!useFixedValueView && !hasArmWoundNote) {
+      if (!useFixedValueView && !hasArmWoundNote && field !== 'be') {
         const arrowSpan = document.createElement('span')
         arrowSpan.className = 'init-hero-ex__mod-badge__arrow'
         arrowSpan.setAttribute('aria-hidden', 'true')

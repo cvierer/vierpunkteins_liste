@@ -2993,24 +2993,6 @@ body {
   font-size: calc(0.29rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.78);
 }
 
-.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__arrow {
-  margin-right: calc(0.06rem * var(--init-ui-scale) * 0.78);
-}
-
-.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__arrow .init-hero-ex__mod-toggle-sum-svg {
-  width: calc(0.44rem * var(--init-ui-scale) * 0.78);
-  height: calc(0.5rem * var(--init-ui-scale) * 0.78);
-}
-
-/* BE Mod-Band: Delta-Pfeil wie Chip (hoch rot, runter grün) */
-.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge--pos .init-hero-ex__mod-badge__arrow {
-  color: #b71c1c;
-}
-
-.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge--neg .init-hero-ex__mod-badge__arrow {
-  color: #1b5e20;
-}
-
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated {
   gap: calc(0.012rem * var(--init-ui-scale) * 0.78);
 }
@@ -3033,20 +3015,6 @@ body {
   .init-hero-ex__mod-badge--arm-wound
   .init-hero-ex__mod-badge__tail {
   font-size: calc(0.38rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.78);
-}
-
-.init-hero-ex__mod-sub-slot--be-compact
-  .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
-  .init-hero-ex__mod-badge__arrow {
-  margin-right: calc(0.04rem * var(--init-ui-scale) * 0.78);
-}
-
-.init-hero-ex__mod-sub-slot--be-compact
-  .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
-  .init-hero-ex__mod-badge__arrow
-  .init-hero-ex__mod-toggle-sum-svg {
-  width: calc(0.36rem * var(--init-ui-scale) * 0.78);
-  height: calc(0.41rem * var(--init-ui-scale) * 0.78);
 }
 
 /* RS + Wundmarken neben G: gleiche Spaltenbreite/-höhe wie Mikro-Zelle */
@@ -8277,6 +8245,15 @@ select.init-row-extra-select {
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--neg .init-hero-ex__mod-badge__val,
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--neg .init-hero-ex__mod-badge__tail {
   color: #b71c1c;
+}
+
+/* BE Mod-Band (unter BE): kein Pfeil — nur Zahl, invertiert zum Standard-Delta (Wert rot bei +, grün bei −) */
+.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge--pos .init-hero-ex__mod-badge__val {
+  color: #b71c1c;
+}
+
+.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge--neg .init-hero-ex__mod-badge__val {
+  color: #1b5e20;
 }
 
 /* Heldenblock: Standard-Ziffern schwarz; Mod +/- weiterhin grün/rot */
