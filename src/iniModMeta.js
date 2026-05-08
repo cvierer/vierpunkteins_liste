@@ -3944,7 +3944,7 @@ export function mountHeroExpandBlock(
       )
       const marked = new Set()
       if (!active) {
-        return { active, marked, leg3w: false, armOnly: false, armSide: '' }
+        return { active, marked, leg3w: false, armOnly: false, armSide: '', armSetSides: [] }
       }
       const combUf = getCombat()
       const roundUf =
@@ -3959,15 +3959,11 @@ export function mountHeroExpandBlock(
       const armOnly = !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
       if (armOnly) {
         for (const key of ['at', 'pa', 'ff', 'kk']) marked.add(key)
-        const armSide =
-          ufSrc.armSet.length === 2
-            ? 'AR'
-            : ufSrc.armSet.includes('schildarm')
-              ? 'LA'
-              : ufSrc.armSet.includes('schwertarm')
-                ? 'RA'
-                : 'AR'
-        return { active, marked, leg3w: false, armOnly: true, armSide }
+        const armSetSides = []
+        if (ufSrc.armSet.includes('schildarm')) armSetSides.push('LA')
+        if (ufSrc.armSet.includes('schwertarm')) armSetSides.push('RA')
+        const armSide = armSetSides.length === 1 ? armSetSides[0] : 'AR'
+        return { active, marked, leg3w: false, armOnly: true, armSide, armSetSides }
       }
       const baseMarked = Array.isArray(snapForFieldBadges.unfaehigMarkFields)
         ? snapForFieldBadges.unfaehigMarkFields
@@ -3978,7 +3974,14 @@ export function mountHeroExpandBlock(
       }
       if (ufSrc.armSet.length > 0) marked.add('fk')
       if (ufSrc.leg3w) marked.add('gs')
-      return { active, marked, leg3w: Boolean(ufSrc.leg3w), armOnly: false, armSide: '' }
+      return {
+        active,
+        marked,
+        leg3w: Boolean(ufSrc.leg3w),
+        armOnly: false,
+        armSide: '',
+        armSetSides: [],
+      }
     })()
 
     /* Pro Feld: Sub-Badge entfernen + ggf. neu erstellen. */
@@ -4009,25 +4012,21 @@ export function mountHeroExpandBlock(
             String(m.bundleId ?? '') === `${AUTO_MOD_BUNDLE_PREFIX}zone-schildarm` ||
             String(m.bundleId ?? '') === `${AUTO_MOD_BUNDLE_PREFIX}zone-schwertarm`
         )
-        if (!armMods.length) return { side: '', value: 0 }
-        const hasLa = armMods.some(
-          (m) => String(m.bundleId ?? '') === `${AUTO_MOD_BUNDLE_PREFIX}zone-schildarm`
-        )
-        const hasRa = armMods.some(
-          (m) => String(m.bundleId ?? '') === `${AUTO_MOD_BUNDLE_PREFIX}zone-schwertarm`
-        )
-        const side = hasLa && hasRa ? 'AR' : hasLa ? 'LA' : hasRa ? 'RA' : ''
-        let value = 0
+        if (!armMods.length) return { la: 0, ra: 0, hasLa: false, hasRa: false }
+        let la = 0
+        let ra = 0
         for (const m of armMods) {
           if (String(m.field ?? '') !== field) continue
-          value += modEffectiveContribution(m, ownerIniNum, round, navIni, lhMech)
+          const v = modEffectiveContribution(m, ownerIniNum, round, navIni, lhMech)
+          const bid = String(m.bundleId ?? '')
+          if (bid === `${AUTO_MOD_BUNDLE_PREFIX}zone-schildarm`) la += v
+          if (bid === `${AUTO_MOD_BUNDLE_PREFIX}zone-schwertarm`) ra += v
         }
-        return { side, value }
+        return { la, ra, hasLa: la < 0, hasRa: ra < 0 }
       })()
       const hasArmWoundNote =
         ['at', 'pa', 'ff', 'kk'].includes(field) &&
-        armSource.side &&
-        armSource.value < 0
+        (armSource.hasLa || armSource.hasRa)
       const armW3FixedField =
         isUnfaehigFixedField &&
         unfaehigDisplay.armOnly &&
@@ -4096,15 +4095,27 @@ export function mountHeroExpandBlock(
       }
       if (valSpan.textContent) badge.appendChild(valSpan)
       if (hasArmWoundNote || armW3FixedField) {
-        const srcSpan = document.createElement('span')
-        srcSpan.className =
-          'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-note'
-        const armSide = armSource.side || unfaehigDisplay.armSide || 'AR'
-        const armValue = Math.max(1, Math.abs(armSource.value) || 0)
-        const armNote = armW3FixedField ? `${armSide}:0` : `${armSide}↓${armValue}`
-        const withParens = modBandIntegrated ? `(${armNote})` : armNote
-        srcSpan.textContent = withParens
-        badge.appendChild(srcSpan)
+        /** @type {string[]} */
+        const armNotes = []
+        if (armW3FixedField) {
+          const sides = Array.isArray(unfaehigDisplay.armSetSides)
+            ? unfaehigDisplay.armSetSides
+            : []
+          if (sides.includes('LA')) armNotes.push('LA:0')
+          if (sides.includes('RA')) armNotes.push('RA:0')
+          if (armNotes.length === 0) armNotes.push(`${unfaehigDisplay.armSide || 'AR'}:0`)
+        } else {
+          if (armSource.hasLa) armNotes.push(`LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`)
+          if (armSource.hasRa) armNotes.push(`RA↓${Math.max(1, Math.abs(armSource.ra) || 0)}`)
+        }
+        if (armNotes.length >= 2) badge.classList.add('init-hero-ex__mod-badge--arm-wound-stack')
+        for (const note of armNotes) {
+          const srcSpan = document.createElement('span')
+          srcSpan.className =
+            'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-note'
+          srcSpan.textContent = modBandIntegrated ? `(${note})` : note
+          badge.appendChild(srcSpan)
+        }
       }
       if (tightFrac) {
         const tailSpan = document.createElement('span')
