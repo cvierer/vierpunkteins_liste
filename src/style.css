@@ -7898,6 +7898,8 @@ select.init-row-extra-select {
   line-height: 1;
   letter-spacing: 0.01em;
   color: #1f2f24;
+  justify-content: center;
+  transform: translateY(calc(-0.06rem * var(--init-ui-scale)));
 }
 
 .init-hero-ex__mod-chip-card--auto-le-magic .init-hero-ex__mod-chip-card__label-line {

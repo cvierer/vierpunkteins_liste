@@ -849,11 +849,11 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       } else if (labelKind === 'unfaehig') {
         label = `LE ≤ ${Math.floor(Number(criticalThreshold))}`
       } else if (labelKind === 'band0') {
-        label = '<1/2 ↓1'
+        label = 'LE<1/2 ↓1'
       } else if (labelKind === 'band1') {
-        label = '<1/3 ↓2'
+        label = 'LE<1/3 ↓2'
       } else if (labelKind === 'band2plus') {
-        label = '<1/4 ↓3'
+        label = 'LE<1/4 ↓3'
       } else {
         const fallback = leKoCriticalLabel(leNum, koNum) || leAutoChipLabelDe(band, leThreshold)
         label = fallback ? `LE${fallback}` : 'LE'

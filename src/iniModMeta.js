@@ -4064,6 +4064,21 @@ export function mountHeroExpandBlock(
     primaryStack.className = 'init-hero-ex__mods-stack'
 
     const seenBundle = new Set()
+    const formatDeltaForTooltip = (n) => {
+      const x = Number(n)
+      if (!Number.isFinite(x)) return '0'
+      if (x < 0) return `↓${Math.abs(x)}`
+      if (x > 0) return `↑${x}`
+      return '0'
+    }
+    const hasActiveSterbendOrRip = active.some((x) => {
+      const bid = String(x?.bundleId ?? '')
+      if (!bid.startsWith(AUTO_MOD_BUNDLE_PREFIX)) return false
+      const lab = String(x?.label ?? '').trim()
+      return lab === 'sterbend' || lab === 'R.I.P.'
+    })
+    const unfaehigIgnoreTooltip =
+      'Unfähigkeit ignorieren: durch Vorteil oder Selbstbeherrschung +12, dann Zauber- und Talentproben ↓9 und Eigenschaftsproben und Kampfwerte zusätzlich ↓3'
     for (const modRec of active) {
       if (modRec.bundleId) {
         if (seenBundle.has(modRec.bundleId)) continue
@@ -4078,9 +4093,8 @@ export function mountHeroExpandBlock(
             navIni,
             lhMech
           )
-          const sign = eff > 0 ? '+' : ''
           const abbr = MOD_FIELD_LABEL[bm.field] || bm.field.toUpperCase()
-          return `${abbr}${sign}${eff}`
+          return `${abbr}${formatDeltaForTooltip(eff)}`
         })
         const shortSummary =
           String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
@@ -4097,21 +4111,46 @@ export function mountHeroExpandBlock(
                   navIni,
                   lhMech
                 )
-                const sign = eff > 0 ? '+' : ''
-                return `${MOD_FIELD_LABEL[bm.field]} ${sign}${eff} (${modNavFractionLabelFromNav(bm, ownerIniNum, lhMech, round, navIni)})`
+                return `${MOD_FIELD_LABEL[bm.field]} ${formatDeltaForTooltip(eff)} (${modNavFractionLabelFromNav(bm, ownerIniNum, lhMech, round, navIni)})`
               })
+        const bidStr = String(modRec.bundleId ?? '')
+        const isMagicLeBundle = bidStr === AUTO_LE_TAW_ZFW_BUNDLE_ID
+        const isUnfaehigBundle = bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID
+        if (isMagicLeBundle) {
+          const nMatch = String(packLabel ?? '').match(/↓\s*(\d+)/u)
+          const nTxt = nMatch?.[1] ?? '0'
+          detailLines.length = 0
+          if (String(packLabel ?? '').startsWith('LE ≤')) {
+            detailLines.push(unfaehigIgnoreTooltip)
+          } else {
+            detailLines.push(`Zauber und Talentproben um ↓${nTxt} erschwert`)
+          }
+        } else if (
+          isUnfaehigBundle &&
+          String(packLabel ?? '') === 'unfähig' &&
+          !hasActiveSterbendOrRip
+        ) {
+          detailLines.length = 0
+          detailLines.push(unfaehigIgnoreTooltip)
+        }
         const longSummary = detailLines.join(' \u00B7 ')
         const bundleTitlePfx = packLabel ? `"${packLabel}" — ` : ''
         const isAutoBundle = String(modRec.bundleId ?? '').startsWith(
           AUTO_MOD_BUNDLE_PREFIX
         )
-        const cardTitle = `${bundleTitlePfx}${longSummary}${
-          !isAutoBundle && canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''
-        }${
-          isAutoBundle && canEdit
-            ? ' \u00B7 Nur per X entfernen, nicht bearbeitbar'
-            : ''
-        }`
+        const cardTitleBase = `${bundleTitlePfx}${longSummary}`
+        const keepTitleClean =
+          isMagicLeBundle ||
+          (isUnfaehigBundle &&
+            String(packLabel ?? '') === 'unfähig' &&
+            !hasActiveSterbendOrRip)
+        const cardTitle = keepTitleClean
+          ? cardTitleBase
+          : `${cardTitleBase}${!isAutoBundle && canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''}${
+              isAutoBundle && canEdit
+                ? ' \u00B7 Nur per X entfernen, nicht bearbeitbar'
+                : ''
+            }`
         let netSum = 0
         if (String(modRec.bundleId ?? '') !== AUTO_LE_UNFAEHIG_BUNDLE_ID) {
           for (const bm of bundleMods) {
@@ -4167,10 +4206,9 @@ export function mountHeroExpandBlock(
         navIni,
         lhMech
       )
-      const sign = eff > 0 ? '+' : ''
       const abbr = MOD_FIELD_LABEL[modRec.field] || modRec.field.toUpperCase()
-      const shortSummary = `${abbr}${sign}${eff}`
-      const longSummary = `${MOD_FIELD_LABEL[modRec.field]} ${sign}${eff} (${modNavFractionLabelFromNav(modRec, ownerIniNum, lhMech, round, navIni)})`
+      const shortSummary = `${abbr}${formatDeltaForTooltip(eff)}`
+      const longSummary = `${MOD_FIELD_LABEL[modRec.field]} ${formatDeltaForTooltip(eff)} (${modNavFractionLabelFromNav(modRec, ownerIniNum, lhMech, round, navIni)})`
       const labOnce = modRec.label ? `"${modRec.label}" — ` : ''
       const cardTitle = `${labOnce}${longSummary}${
         canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''
@@ -4183,7 +4221,7 @@ export function mountHeroExpandBlock(
         netSum: eff,
         cardTitle,
         removeTitle: 'Modifikator entfernen',
-        removeAria: `${modRec.label ? `${modRec.label} \u00B7 ` : ''}${MOD_FIELD_LABEL[modRec.field]} ${sign}${eff} entfernen`,
+        removeAria: `${modRec.label ? `${modRec.label} \u00B7 ` : ''}${MOD_FIELD_LABEL[modRec.field]} ${formatDeltaForTooltip(eff)} entfernen`,
         onRemove: () => {
           void (async () => {
             await removeHeroExMod(itemId, modRec.id)
