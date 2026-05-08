@@ -978,7 +978,9 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       def.id !== 'schildarm' &&
       def.id !== 'schwertarm'
     ) {
-      label = `${label} unfähig`
+      const zoneAbbr = String(def.abbr ?? '').trim().toUpperCase()
+      const zoneName = String(def.id ?? '').trim().toUpperCase()
+      label = `${zoneAbbr || zoneName} unfähig`
     }
     /** @type {{ field: string, delta: number }[]} */
     const rows = []
