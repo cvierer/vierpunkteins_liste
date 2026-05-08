@@ -261,8 +261,28 @@ function readKrActionPoolRemFromStoredOrCfgPair(m) {
 }
 
 /**
- * Bei INI-Zeichenwechsel über die Null eine Einheit zwischen Aktions- und
- * Reaktions-REM verschieben (nur wenn vorherige Verschiebung nachvollziehbar).
+ * Nach INI < 0 war die Mutter-Aktion oft auf S.R.A. migriert (`sra_ang`).
+ * Beim Zurückkehren zu INI >= 0 und Neuaufbau der Ladungen muss der Paarmodus
+ * wieder dem KR-Standard entsprechen — sonst bleiben Hilfs-Zähler inkonsistent
+ * und "Nächste Aktion" / Umwandlung können einen leeren Primärslot erzeugen.
+ *
+ * @param {Record<string, unknown>} m
+ */
+function resetMotherPrimarySlotAfterIniRecoveryFromNegative(m) {
+  if (!m || typeof m !== 'object') return
+  m[KR_FIRST_SLOT_KIND] = 'ang'
+  m[KR_PAIR_MODE] = 'ang_abw'
+  m[KR_ANG] = 1
+  m[KR_SRA] = 1
+  m[KR_LH_ACTION] = 1
+  delete m[KR_LH_SECOND]
+  delete m[KR_LH_VOID_BY_TRANSFER]
+  delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+}
+
+/**
+ * Bei INI-Zeichenwechsel über die Null: REM verschieben; beim Verlassen der
+ * negativen INI Mutter-Slot und Visuals an positiven Split anbinden.
  *
  * @param {Record<string, unknown>} m
  * @param {boolean} iniWasBelowZero
@@ -301,6 +321,7 @@ export function applyIniNegativePoolShiftForMetaMutation(
 
   const lhMaxActive = Math.max(0, Math.floor(Number(m[LH_MAX])) || 0) > 0
   if (!lhMaxActive) {
+    resetMotherPrimarySlotAfterIniRecoveryFromNegative(m)
     rebuildKrActionPoolVisualsFromAngAbw(m, splitPos.ang, splitPos.abw)
   }
 }

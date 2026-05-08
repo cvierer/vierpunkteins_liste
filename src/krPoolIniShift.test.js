@@ -11,6 +11,9 @@ import {
   KR_ACTION_POOL_ABW_REM,
   KR_ACTION_POOL_ANG_REM,
   KR_INI_NEG_POOL_SHIFT_APPLIED,
+  KR_PAIR_MODE,
+  KR_FIRST_SLOT_KIND,
+  readKrFirstSlotKind,
 } from './krCounters.js'
 
 function poolMeta(over = {}) {
@@ -163,6 +166,36 @@ describe('initKrActionPoolsFromHeroDefaults / INI-neg Flag', () => {
       expect(m[KR_ABW]).not.toEqual(marksNeg)
       expect(m[KR_ACTION_POOL_ANG_REM]).toBe(2)
       expect(m[KR_ACTION_POOL_ABW_REM]).toBe(2)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('setzt Mutter-Slot auf AN/ang_abw nach INI-Recovery (vorher SRA-Migration)', () => {
+    vi.spyOn(combatRoom, 'getCombat').mockReturnValue({
+      started: true,
+      round: 1,
+      currentItemId: null,
+      currentPhaseLinkId: null,
+      roundIntroPending: false,
+      roundIntroPrevRound: null,
+      roundIntroPrevItemId: null,
+      roundIntroPrevPhaseLinkId: null,
+    })
+    try {
+      const m = {
+        ...poolMeta(),
+        initiative: '-5',
+        phases: { links: [], rowPanelOpen: false },
+        [KR_FIRST_SLOT_KIND]: 'sra',
+        [KR_PAIR_MODE]: 'sra_ang',
+        [KR_ACTION_POOL_ANG_REM]: 1,
+        [KR_ACTION_POOL_ABW_REM]: 3,
+      }
+      m.initiative = '4'
+      applyIniNegativePoolShiftForMetaMutation(m, true, false)
+      expect(readKrFirstSlotKind(m)).toBe('ang')
+      expect(m[KR_PAIR_MODE]).toBe('ang_abw')
     } finally {
       vi.restoreAllMocks()
     }
