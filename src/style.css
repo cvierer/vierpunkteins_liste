@@ -8101,13 +8101,13 @@ select.init-row-extra-select {
   align-items: center;
   gap: 0;
   white-space: normal;
-  font-size: calc(0.24rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  font-size: calc(0.22rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--arm-wound-stack
   .init-hero-ex__mod-badge__tail--arm-note {
   display: block;
-  line-height: 0.72;
+  line-height: 0.76;
   letter-spacing: 0;
 }
 

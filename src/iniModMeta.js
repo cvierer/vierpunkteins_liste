@@ -3944,7 +3944,15 @@ export function mountHeroExpandBlock(
       )
       const marked = new Set()
       if (!active) {
-        return { active, marked, leg3w: false, armOnly: false, armSide: '', armSetSides: [] }
+        return {
+          active,
+          marked,
+          leg3w: false,
+          armOnly: false,
+          armSide: '',
+          armSetSides: [],
+          leTriggered: false,
+        }
       }
       const combUf = getCombat()
       const roundUf =
@@ -3963,7 +3971,15 @@ export function mountHeroExpandBlock(
         if (ufSrc.armSet.includes('schildarm')) armSetSides.push('LA')
         if (ufSrc.armSet.includes('schwertarm')) armSetSides.push('RA')
         const armSide = armSetSides.length === 1 ? armSetSides[0] : 'AR'
-        return { active, marked, leg3w: false, armOnly: true, armSide, armSetSides }
+        return {
+          active,
+          marked,
+          leg3w: false,
+          armOnly: true,
+          armSide,
+          armSetSides,
+          leTriggered: Boolean(ufSrc.leTriggered),
+        }
       }
       const baseMarked = Array.isArray(snapForFieldBadges.unfaehigMarkFields)
         ? snapForFieldBadges.unfaehigMarkFields
@@ -3981,6 +3997,7 @@ export function mountHeroExpandBlock(
         armOnly: false,
         armSide: '',
         armSetSides: [],
+        leTriggered: Boolean(ufSrc.leTriggered),
       }
     })()
 
@@ -4027,11 +4044,11 @@ export function mountHeroExpandBlock(
       const hasArmWoundNote =
         ['at', 'pa', 'ff', 'kk'].includes(field) &&
         (armSource.hasLa || armSource.hasRa)
-      const armW3FixedField =
+      const unfaehigLeFixedField =
         isUnfaehigFixedField &&
-        unfaehigDisplay.armOnly &&
+        unfaehigDisplay.leTriggered &&
         ['at', 'pa', 'ff', 'kk'].includes(field)
-      const useArmWoundCompactBadge = hasArmWoundNote && !armW3FixedField
+      const useArmWoundCompactBadge = hasArmWoundNote && !unfaehigLeFixedField
       const fixedValueForField = (() => {
         if (field !== 'gs') return fixedFieldValues[field] ?? 0
         const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
@@ -4094,7 +4111,7 @@ export function mountHeroExpandBlock(
         badge.appendChild(arrowSpan)
       }
       if (valSpan.textContent) badge.appendChild(valSpan)
-      if (hasArmWoundNote && !armW3FixedField) {
+      if (hasArmWoundNote && !unfaehigLeFixedField) {
         /** @type {string[]} */
         const armNotes = []
         if (armSource.hasLa) armNotes.push(`LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`)
