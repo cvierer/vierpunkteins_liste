@@ -648,6 +648,16 @@ export function lhEndKrConvertMode(meta, combatRound) {
   return isLhActive(meta) && !isLhLockingActions(meta, combatRound)
 }
 
+/** @param {unknown} meta */
+function isConvertAnytimeEnabled(meta) {
+  return (
+    typeof meta === 'object' &&
+    meta !== null &&
+    /** @type {{ convertAnytimeEnabled?: unknown }} */ (meta)
+      .convertAnytimeEnabled === true
+  )
+}
+
 /**
  * End-KR-Umwandlung: fixe L.H. am Mutterfeld vs. reguläre 2.A.-Kette — exklusive Pfeile.
  *
@@ -656,6 +666,9 @@ export function lhEndKrConvertMode(meta, combatRound) {
  * @returns {{ blockUpperLhMotherNoZao: boolean, blockLowerPendingZao: boolean }}
  */
 export function lhEndKrConvertArrowGates(meta, combatRound) {
+  if (isConvertAnytimeEnabled(meta)) {
+    return { blockUpperLhMotherNoZao: false, blockLowerPendingZao: false }
+  }
   if (!lhEndKrConvertMode(meta, combatRound)) {
     return { blockUpperLhMotherNoZao: false, blockLowerPendingZao: false }
   }
@@ -1297,8 +1310,10 @@ export async function patchKrTransferAbwToPrimary(itemId) {
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  const roundForLh = lhLockRoundFromCombat()
   if (
-    lhEndKrConvertMode(meta, lhLockRoundFromCombat()) &&
+    !isConvertAnytimeEnabled(meta) &&
+    lhEndKrConvertMode(meta, roundForLh) &&
     metaHasPendingLoadedNonHeroExtraZao(meta)
   ) {
     return
@@ -1309,11 +1324,15 @@ export async function patchKrTransferAbwToPrimary(itemId) {
     if (motherPrimarySelfStamped(stamps.entries, itemId)) return
   }
   const firstKind = readKrFirstSlotKind(meta)
-  // Edge-Case 3 (Plan): bei aktiver L.H. (auch in End-KR) NICHT in den
-  // L.H.-Stempel-Slot transferieren — das wuerde Pseudo-Ladungen schaffen
-  // und die Slot-Konflikt-Logik umgehen. firstKind === 'lh' targets the
-  // LH stamp slot; das verbieten wir, solange die L.H. laeuft.
-  if (firstKind === 'lh' && isLhActive(meta)) return
+  // Edge-Case 3: Schild → L.H.-Stempel-Slot nur solange die „mittendrin“-
+  // Sperre gilt; in der End-KR (`lhEndKrConvertMode`) ist Umwandeln erlaubt.
+  if (
+    firstKind === 'lh' &&
+    isLhActive(meta) &&
+    !lhEndKrConvertMode(meta, roundForLh)
+  ) {
+    return
+  }
   /* INI < 0: kein Schwert — wie bei den Tauschpfeilen wird Angriff wie S.R.A. behandelt. */
   const transferKind =
     firstKind === 'ang' && isHeroIniBelowZero(meta) ? 'sra' : firstKind
@@ -1333,7 +1352,12 @@ export async function patchKrTransferAbwToPrimary(itemId) {
   if (nextAbw === abw) return
 
   if (!motherHasCharge) {
-    if (metaHasPendingLoadedNonHeroExtraZao(meta)) return
+    if (
+      !isConvertAnytimeEnabled(meta) &&
+      metaHasPendingLoadedNonHeroExtraZao(meta)
+    ) {
+      return
+    }
     await OBR.scene.items.updateItems([itemId], (drafts) => {
       for (const d of drafts) {
         const m = d.metadata[TRACKER_ITEM_META_KEY]

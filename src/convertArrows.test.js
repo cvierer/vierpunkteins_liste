@@ -152,4 +152,41 @@ describe('lhEndKrConvertArrowGates', () => {
     expect(r.blockUpperLhMotherNoZao).toBe(false)
     expect(r.blockLowerPendingZao).toBe(true)
   })
+
+  it('End-KR + pendelnde ZAO + convertAnytimeEnabled: keine Reihenfolge-Sperren', () => {
+    const linkId = 'zao-a'
+    const meta = {
+      ...baseMeta,
+      convertAnytimeEnabled: true,
+      phases: {
+        links: [
+          {
+            id: linkId,
+            parentId: null,
+            offset: 8,
+          },
+        ],
+        rowPanelOpen: false,
+      },
+      [KR_ZAO_SLOTS]: {
+        [linkId]: { kind: 'ang', marks: 1 },
+      },
+    }
+    expect(lhEndKrConvertArrowGates(meta, 2)).toEqual({
+      blockUpperLhMotherNoZao: false,
+      blockLowerPendingZao: false,
+    })
+  })
+
+  it('End-KR ohne ZAO + convertAnytimeEnabled: keine Reihenfolge-Sperren', () => {
+    expect(
+      lhEndKrConvertArrowGates(
+        { ...baseMeta, convertAnytimeEnabled: true },
+        2
+      )
+    ).toEqual({
+      blockUpperLhMotherNoZao: false,
+      blockLowerPendingZao: false,
+    })
+  })
 })
