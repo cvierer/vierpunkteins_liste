@@ -2175,6 +2175,7 @@ export function mountHeroExpandBlock(
         : []
     )
     if (ufSrc.armSet.length > 0) marked.add('fk')
+    if (ufSrc.leg3w) marked.add('gs')
     for (const key of marked) {
       const cell = unfaehigVisualTargets[key]
       if (cell instanceof HTMLElement) {
@@ -3947,7 +3948,7 @@ export function mountHeroExpandBlock(
         (m) => String(m?.bundleId ?? '') === 'auto-le-unfaehig'
       )
       const marked = new Set()
-      if (!active) return { active, marked }
+      if (!active) return { active, marked, leg3w: false }
       const combUf = getCombat()
       const roundUf =
         combUf?.started && Number.isFinite(Number(combUf.round))
@@ -3961,7 +3962,7 @@ export function mountHeroExpandBlock(
       const armOnly = !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
       if (armOnly) {
         for (const key of ['at', 'pa', 'tp', 'fk']) marked.add(key)
-        return { active, marked }
+        return { active, marked, leg3w: false }
       }
       const baseMarked = Array.isArray(snapForFieldBadges.unfaehigMarkFields)
         ? snapForFieldBadges.unfaehigMarkFields
@@ -3971,7 +3972,8 @@ export function mountHeroExpandBlock(
         if (UNFAEHIG_FIXED_ALLOWED_FIELDS.includes(keyNorm)) marked.add(keyNorm)
       }
       if (ufSrc.armSet.length > 0) marked.add('fk')
-      return { active, marked }
+      if (ufSrc.leg3w) marked.add('gs')
+      return { active, marked, leg3w: Boolean(ufSrc.leg3w) }
     })()
 
     /* Pro Feld: Sub-Badge entfernen + ggf. neu erstellen. */
@@ -3996,6 +3998,15 @@ export function mountHeroExpandBlock(
       )
       const isUnfaehigFixedField =
         unfaehigDisplay.active && unfaehigDisplay.marked.has(field)
+      const fixedValueForField = (() => {
+        if (field !== 'gs') return fixedFieldValues[field] ?? 0
+        const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
+        const fixedGs = Number.isFinite(fixedGsRaw)
+          ? Math.max(0, Math.floor(Math.abs(fixedGsRaw)))
+          : null
+        if (!unfaehigDisplay.leg3w) return fixedFieldValues[field] ?? 0
+        return fixedGs == null ? 0 : Math.min(fixedGs, 0)
+      })()
       if (sum === 0 && !isUnfaehigFixedField) {
         continue
       }
@@ -4034,7 +4045,7 @@ export function mountHeroExpandBlock(
       const valSpan = document.createElement('span')
       valSpan.className = 'init-hero-ex__mod-badge__val'
       valSpan.textContent = String(
-        useFixedValueView ? fixedFieldValues[field] ?? 0 : absSum
+        useFixedValueView ? fixedValueForField : absSum
       )
       if (!useFixedValueView) {
         const arrowSpan = document.createElement('span')
@@ -4066,7 +4077,7 @@ export function mountHeroExpandBlock(
         })
         .join(' \u00B7 ')
       badge.title = useFixedValueView
-        ? `${namePrefix}Fixwert ${fixedFieldValues[field] ?? 0} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
+        ? `${namePrefix}Fixwert ${fixedValueForField} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
         : `${namePrefix}Modifikator ${sum > 0 ? '+' : ''}${sum} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
       const fieldModsAutoOnly =
         fieldMods.length > 0 &&

@@ -439,7 +439,7 @@ function effectiveLeForThresholds(snap, meta, ctx) {
   return leBase + dLe
 }
 
-/** Nicht-Arm-Zonen für „3. Wunde“ → kampfunfähig (Bits 3–8 der Signatur). */
+/** Nicht-Arm-Zonen für „3. Wunde“ → kampfunfähig (Bits 3–9 der Signatur). */
 const UNFAEHIG_NON_ARM_ZONE_IDS = Object.freeze([
   'kopf',
   'brust',
@@ -447,6 +447,7 @@ const UNFAEHIG_NON_ARM_ZONE_IDS = Object.freeze([
   'bauch',
   'lbein',
   'rbein',
+  'beine',
 ])
 
 /** Stabile Reihenfolge für LA/RA in `armSet`. */
@@ -454,6 +455,7 @@ const UNFAEHIG_ARM_ZONE_ORDER = Object.freeze(['schildarm', 'schwertarm'])
 
 /**
  * Quellen für `auto-le-unfaehig`: LE-Schwelle, dritte Wunde am Arm, dritte Wunde woanders.
+ * Zusatzeffekt: `leg3w` (menschliches Bein/Tier-Beine) erzwingt GS-Fix 0 in der UI.
  *
  * @param {Record<string, unknown>} snap — wie snapshotFromTrackerMeta / readHeroExpandSnapshot
  * @param {Record<string, unknown> | undefined} meta
@@ -467,6 +469,7 @@ export function computeUnfaehigSources(snap, meta, ctx) {
   /** @type {string[]} */
   const armSet = []
   let nonArm3w = false
+  let leg3w = false
 
   const defs = wappenDefsFromSnap(snap)
   const nonArm = new Set(UNFAEHIG_NON_ARM_ZONE_IDS)
@@ -480,7 +483,15 @@ export function computeUnfaehigSources(snap, meta, ctx) {
       if (!armSet.includes(zid)) armSet.push(zid)
     } else if (nonArm.has(zid)) {
       nonArm3w = true
+      if (zid === 'lbein' || zid === 'rbein' || zid === 'beine') leg3w = true
     }
+  }
+  /* Vierbeiner-Snapshots ohne aktive `beine`-Def im Runtime-Set trotzdem
+     berücksichtigen, solange die Zone im Snapshot vorhanden ist. */
+  const beineW = clampWound(snap.hitZones?.zones?.beine?.w ?? 0)
+  if (beineW >= 3) {
+    nonArm3w = true
+    leg3w = true
   }
 
   armSet.sort(
@@ -488,12 +499,12 @@ export function computeUnfaehigSources(snap, meta, ctx) {
       UNFAEHIG_ARM_ZONE_ORDER.indexOf(a) - UNFAEHIG_ARM_ZONE_ORDER.indexOf(b)
   )
 
-  return { leTriggered, armSet, nonArm3w }
+  return { leTriggered, armSet, nonArm3w, leg3w }
 }
 
 /**
  * Bitmaske für Suppression / Signatur von `auto-le-unfaehig`.
- * Bit 0 = LE-Schwelle, 1 = Schildarm, 2 = Schwertarm, 3–8 = kopf…rbein (je Zone).
+ * Bit 0 = LE-Schwelle, 1 = Schildarm, 2 = Schwertarm, 3–9 = kopf…beine (je Zone).
  *
  * @param {Record<string, unknown>} snap
  * @param {Record<string, unknown> | undefined} meta

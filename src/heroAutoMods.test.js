@@ -164,6 +164,21 @@ describe('buildHeroAutoModRecords', () => {
     expect(u.length).toBe(1)
   })
 
+  it('unfähig-UI-Bundle bei vierbeiner Beine W3', () => {
+    const zones = { ...emptyZones(), beine: { rs: '0', w: 3 } }
+    const mods = buildHeroAutoModRecords(
+      snap({
+        le: '30',
+        leMax: '40',
+        wappenTemplate: 'vierbeiner',
+        hitZones: { notiz: '', zones: zones },
+      }),
+      ctx
+    )
+    const u = mods.filter((m) => m.bundleId === 'auto-le-unfaehig')
+    expect(u.length).toBe(1)
+  })
+
   it('genau ein unfähig-Bündel wenn LE-Schwelle und 3. Wunde zusammen', () => {
     const zones = { ...emptyZones(), brust: { rs: '0', w: 3 } }
     const mods = buildHeroAutoModRecords(
@@ -317,6 +332,17 @@ describe('patchHeroExModsWithAutoBundles + heroExAutoSuppressed', () => {
       hitZones: { notiz: '', zones: zones },
     })
     expect(computeAutoTriggerSignature(s, 'auto-le-unfaehig')).toBe(16)
+  })
+
+  it('auto-le-unfaehig Signatur bei vierbeiner Beine W3 (nicht LE)', () => {
+    const zones = { ...emptyZones(), beine: { rs: '0', w: 3 } }
+    const s = snap({
+      le: '30',
+      leMax: '40',
+      wappenTemplate: 'vierbeiner',
+      hitZones: { notiz: '', zones: zones },
+    })
+    expect(computeAutoTriggerSignature(s, 'auto-le-unfaehig')).toBe(512)
   })
 })
 
