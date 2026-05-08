@@ -67,11 +67,11 @@ const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
 function autoZoneWoundLabel(zoneId, wounds) {
   const w = Math.max(1, Math.floor(Number(wounds)) || 1)
   const zid = String(zoneId ?? '').trim().toLowerCase()
-  if (zid === 'kopf') return `Kopf -${2 * w}`
-  if (zid === 'schildarm' || zid === 'schwertarm') return `Arm -${2 * w}`
-  if (zid === 'lbein' || zid === 'rbein') return `Bein -${2 * w}`
+  if (zid === 'kopf') return `Kopf ↓${2 * w}`
+  if (zid === 'schildarm' || zid === 'schwertarm') return `Arm ↓${2 * w}`
+  if (zid === 'lbein' || zid === 'rbein') return `Bein ↓${2 * w}`
   if (zid === 'brust' || zid === 'ruecken' || zid === 'bauch') {
-    return `Rumpf-${w}-${2 * w}`
+    return `Rumpf ↓${w}/↓${2 * w}`
   }
   return `${w}*W ${String(zoneId || '').trim().toUpperCase()}`
 }
@@ -849,11 +849,11 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       } else if (labelKind === 'unfaehig') {
         label = `LE ≤ ${Math.floor(Number(criticalThreshold))}`
       } else if (labelKind === 'band0') {
-        label = '<1/2 -1'
+        label = '<1/2 ↓1'
       } else if (labelKind === 'band1') {
-        label = '<1/3 -2'
+        label = '<1/3 ↓2'
       } else if (labelKind === 'band2plus') {
-        label = '<1/4 -3'
+        label = '<1/4 ↓3'
       } else {
         const fallback = leKoCriticalLabel(leNum, koNum) || leAutoChipLabelDe(band, leThreshold)
         label = fallback ? `LE${fallback}` : 'LE'

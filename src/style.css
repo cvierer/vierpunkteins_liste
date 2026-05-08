@@ -7876,6 +7876,10 @@ select.init-row-extra-select {
   color: #2d4a37;
 }
 
+.init-hero-ex__mod-chip-card__sum-arrow--magic-empty {
+  min-width: calc(0.44rem * var(--init-ui-scale));
+}
+
 .init-hero-ex__mod-chip-card__magic-svg {
   display: block;
   width: calc(0.44rem * var(--init-ui-scale));
