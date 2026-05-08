@@ -4083,7 +4083,8 @@ export function mountHeroExpandBlock(
           ? Math.max(0, Math.floor(Math.abs(fixedGsRaw)))
           : null
         if (unfaehigDisplay.leTriggered) {
-          return unfaehigDisplay.leg3w ? 0 : 1
+          const hasAnyRelevant3w = hasGsZeroPriorityFromSnapshot(snapForFieldBadges)
+          return hasAnyRelevant3w ? 0 : 1
         }
         if (!unfaehigDisplay.leg3w) return fixedFieldValues[field] ?? 0
         return fixedGs == null ? 0 : Math.min(fixedGs, 0)
