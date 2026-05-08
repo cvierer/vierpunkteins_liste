@@ -3715,10 +3715,12 @@ export function mountHeroExpandBlock(
       if (o.modField) chip.dataset.modField = o.modField
       const labelTrim = String(o.label ?? '').trim()
       const sublineText = labelTrim || o.shortSummary
+      const hasRumpfLabel = sublineText.toUpperCase().includes('RUMPF')
       const autoLongLabel =
         !!o.isAutoBundle &&
         (sublineText.includes('KO') || sublineText.length >= 9)
       if (autoLongLabel) chip.classList.add('init-hero-ex__mod-chip-card--long-label')
+      if (hasRumpfLabel) chip.classList.add('init-hero-ex__mod-chip-card--rumpf-label')
 
       const head = document.createElement('div')
       head.className = 'init-hero-ex__mod-chip-card__head'
