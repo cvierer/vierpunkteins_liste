@@ -4135,6 +4135,13 @@ export function mountHeroExpandBlock(
         ) {
           detailLines.length = 0
           detailLines.push(unfaehigIgnoreTooltip)
+        } else if (
+          isUnfaehigBundle &&
+          String(packLabel ?? '') === 'unfähig' &&
+          hasActiveSterbendOrRip
+        ) {
+          detailLines.length = 0
+          detailLines.push(sterbendTooltipExtra)
         }
         const longSummary = detailLines.join(' \u00B7 ')
         const bundleTitlePfx = packLabel ? `"${packLabel}" — ` : ''
@@ -4146,8 +4153,7 @@ export function mountHeroExpandBlock(
           isMagicLeBundle ||
           (isLeBandBundle && String(packLabel ?? '') === 'sterbend') ||
           (isUnfaehigBundle &&
-            String(packLabel ?? '') === 'unfähig' &&
-            !hasActiveSterbendOrRip)
+            String(packLabel ?? '') === 'unfähig')
         const cardTitle = keepTitleClean
           ? cardTitleBase
           : `${cardTitleBase}${!isAutoBundle && canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''}`
