@@ -2993,9 +2993,22 @@ body {
   font-size: calc(0.29rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.78);
 }
 
-/* BE: kein Auf/Ab-Pfeil vor der Zahl (wird in JS für field be unterdrückt) */
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__arrow {
-  display: none !important;
+  margin-right: calc(0.06rem * var(--init-ui-scale) * 0.78);
+}
+
+.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__arrow .init-hero-ex__mod-toggle-sum-svg {
+  width: calc(0.44rem * var(--init-ui-scale) * 0.78);
+  height: calc(0.5rem * var(--init-ui-scale) * 0.78);
+}
+
+/* BE Mod-Band: Delta-Pfeil wie Chip (hoch rot, runter grün) */
+.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge--pos .init-hero-ex__mod-badge__arrow {
+  color: #b71c1c;
+}
+
+.init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge--neg .init-hero-ex__mod-badge__arrow {
+  color: #1b5e20;
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated {
@@ -3020,6 +3033,20 @@ body {
   .init-hero-ex__mod-badge--arm-wound
   .init-hero-ex__mod-badge__tail {
   font-size: calc(0.38rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.78);
+}
+
+.init-hero-ex__mod-sub-slot--be-compact
+  .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
+  .init-hero-ex__mod-badge__arrow {
+  margin-right: calc(0.04rem * var(--init-ui-scale) * 0.78);
+}
+
+.init-hero-ex__mod-sub-slot--be-compact
+  .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
+  .init-hero-ex__mod-badge__arrow
+  .init-hero-ex__mod-toggle-sum-svg {
+  width: calc(0.36rem * var(--init-ui-scale) * 0.78);
+  height: calc(0.41rem * var(--init-ui-scale) * 0.78);
 }
 
 /* RS + Wundmarken neben G: gleiche Spaltenbreite/-höhe wie Mikro-Zelle */
@@ -7609,6 +7636,15 @@ select.init-row-extra-select {
 
 .init-hero-ex__mod-chip-card__sum-arrow--down {
   color: #b71c1c;
+}
+
+/* BE-Chip: Pfeil hoch rot, runter grün (Ausnahme) */
+.init-hero-ex__mod-chip-card--field-be .init-hero-ex__mod-chip-card__sum-arrow--up {
+  color: #b71c1c;
+}
+
+.init-hero-ex__mod-chip-card--field-be .init-hero-ex__mod-chip-card__sum-arrow--down {
+  color: #1b5e20;
 }
 
 .init-hero-ex__mod-chip-card__sum-arrow--zero {

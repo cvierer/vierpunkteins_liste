@@ -3821,6 +3821,9 @@ export function mountHeroExpandBlock(
       if (palId) chip.classList.add(`init-hero-ex__mod-chip-card--pal-${palId}`)
       if (o.bundleId) chip.dataset.modBundleId = String(o.bundleId)
       if (o.modField) chip.dataset.modField = o.modField
+      if (o.modField === 'be') {
+        chip.classList.add('init-hero-ex__mod-chip-card--field-be')
+      }
       const labelTrim = String(o.label ?? '').trim()
       const sublineText = labelTrim || o.shortSummary
       const hasRumpfLabel = sublineText.toUpperCase().includes('RUMPF')
@@ -4161,7 +4164,7 @@ export function mountHeroExpandBlock(
       } else {
         valSpan.textContent = String(useFixedValueView ? fixedValueForField : absSum)
       }
-      if (!useFixedValueView && !hasArmWoundNote && field !== 'be') {
+      if (!useFixedValueView && !hasArmWoundNote) {
         const arrowSpan = document.createElement('span')
         arrowSpan.className = 'init-hero-ex__mod-badge__arrow'
         arrowSpan.setAttribute('aria-hidden', 'true')
@@ -4485,6 +4488,10 @@ export function mountHeroExpandBlock(
           bundleId: String(modRec.bundleId),
           label: packLabel,
           chipColor: bundleMods.find((x) => x.chipColor)?.chipColor,
+          modField:
+            visibleBundleMods.length === 1
+              ? String(visibleBundleMods[0]?.field ?? '')
+              : '',
           shortSummary,
           netSum,
           cardTitle,
