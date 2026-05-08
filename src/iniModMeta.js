@@ -4112,7 +4112,10 @@ export function mountHeroExpandBlock(
         const isLeBandBundle = bidStr === AUTO_LE_BAND_BUNDLE_ID
         const isMagicLeBundle = bidStr === AUTO_LE_TAW_ZFW_BUNDLE_ID
         const isUnfaehigBundle = bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID
-        if (isMagicLeBundle) {
+        if (String(packLabel ?? '') === 'R.I.P.') {
+          detailLines.length = 0
+          detailLines.push('gestorben')
+        } else if (isMagicLeBundle) {
           const nMatch = String(packLabel ?? '').match(/↓\s*(\d+)/u)
           const nTxt = nMatch?.[1] ?? '0'
           detailLines.length = 0
@@ -4150,6 +4153,7 @@ export function mountHeroExpandBlock(
         )
         const cardTitleBase = `${bundleTitlePfx}${longSummary}`
         const keepTitleClean =
+          String(packLabel ?? '') === 'R.I.P.' ||
           isMagicLeBundle ||
           (isLeBandBundle && String(packLabel ?? '') === 'sterbend') ||
           (isUnfaehigBundle &&
