@@ -4101,7 +4101,7 @@ export function mountHeroExpandBlock(
           'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-note'
         const armSide = armSource.side || unfaehigDisplay.armSide || 'AR'
         const armValue = Math.max(1, Math.abs(armSource.value) || 0)
-        const armNote = `${armSide}↓${armValue}`
+        const armNote = armW3FixedField ? `${armSide}:0` : `${armSide}↓${armValue}`
         const withParens = modBandIntegrated ? `(${armNote})` : armNote
         srcSpan.textContent = withParens
         badge.appendChild(srcSpan)
