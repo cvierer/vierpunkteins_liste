@@ -2974,6 +2974,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               if (!m) continue
               const wasBelow = isHeroIniBelowZero(m)
               m.initiative = proposedStr
+              applyIniLockCharges(m)
               if (getCombat().started) {
                 applyIniNegativePoolShiftForMetaMutation(
                   m,
@@ -2981,7 +2982,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
                   isHeroIniBelowZero(m)
                 )
               }
-              applyIniLockCharges(m)
               if (!getCombat().started) ensureFullFreeActionQuota(m)
             }
           })
@@ -5015,6 +5015,7 @@ function bindStampContextRemove(el, stamp, items) {
               if (!m) continue
               const wasBelow = isHeroIniBelowZero(m)
               m.initiative = persistStr
+              applyIniLockCharges(m)
               if (getCombat().started) {
                 applyIniNegativePoolShiftForMetaMutation(
                   m,
@@ -5022,7 +5023,6 @@ function bindStampContextRemove(el, stamp, items) {
                   isHeroIniBelowZero(m)
                 )
               }
-              applyIniLockCharges(m)
               if (!getCombat().started) ensureFullFreeActionQuota(m)
             }
           })

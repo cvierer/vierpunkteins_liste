@@ -320,6 +320,7 @@ async function writeItemInitiative(itemId, iniStr) {
       if (!m) continue
       const wasBelow = isHeroIniBelowZero(m)
       m.initiative = iniStr
+      applyIniLockCharges(m)
       if (getCombat().started) {
         applyIniNegativePoolShiftForMetaMutation(
           m,
@@ -327,7 +328,6 @@ async function writeItemInitiative(itemId, iniStr) {
           isHeroIniBelowZero(m)
         )
       }
-      applyIniLockCharges(m)
     }
   })
 }
@@ -489,6 +489,7 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
       if (!m) continue
       const wasBelow = isHeroIniBelowZero(m)
       m.initiative = iniStr
+      applyIniLockCharges(m)
       if (getCombat().started) {
         applyIniNegativePoolShiftForMetaMutation(
           m,
@@ -496,7 +497,6 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
           isHeroIniBelowZero(m)
         )
       }
-      applyIniLockCharges(m)
     }
   })
   logCombat(`INI: IB − BE + W6 für ${updates.length} Token gesetzt`)

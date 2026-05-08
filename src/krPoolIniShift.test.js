@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as combatRoom from './combatRoom.js'
 import {
+  applyIniLockCharges,
   applyIniNegativePoolShiftForMetaMutation,
   effectiveHeroPoolSplit,
   HERO_ACTION_POOL_ABW,
@@ -10,6 +11,7 @@ import {
   KR_ABW,
   KR_ACTION_POOL_ABW_REM,
   KR_ACTION_POOL_ANG_REM,
+  KR_INI_LOCK_MINUS_B,
   KR_INI_NEG_POOL_SHIFT_APPLIED,
   KR_PAIR_MODE,
   KR_FIRST_SLOT_KIND,
@@ -196,6 +198,46 @@ describe('initKrActionPoolsFromHeroDefaults / INI-neg Flag', () => {
       applyIniNegativePoolShiftForMetaMutation(m, true, false)
       expect(readKrFirstSlotKind(m)).toBe('ang')
       expect(m[KR_PAIR_MODE]).toBe('ang_abw')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('INI leave-negative: Lock vor Rebuild — keine extra KR_ABW-Mark durch minusB', () => {
+    vi.spyOn(combatRoom, 'getCombat').mockReturnValue({
+      started: true,
+      round: 1,
+      currentItemId: null,
+      currentPhaseLinkId: null,
+      roundIntroPending: false,
+      roundIntroPrevRound: null,
+      roundIntroPrevItemId: null,
+      roundIntroPrevPhaseLinkId: null,
+    })
+    try {
+      const m = {
+        ...poolMeta({ initiative: '7' }),
+        phases: { links: [], rowPanelOpen: false },
+      }
+      initKrActionPoolsFromHeroDefaults(m)
+      const canonicalAbwDigit = m[KR_ABW]
+      m[KR_INI_LOCK_MINUS_B] = 1
+
+      applyIniLockCharges(m)
+      applyIniNegativePoolShiftForMetaMutation(m, true, false)
+
+      expect(m[KR_ABW]).toEqual(canonicalAbwDigit)
+      expect(m[KR_INI_LOCK_MINUS_B]).toBeUndefined()
+
+      const mBug = {
+        ...poolMeta({ initiative: '7' }),
+        phases: { links: [], rowPanelOpen: false },
+      }
+      initKrActionPoolsFromHeroDefaults(mBug)
+      mBug[KR_INI_LOCK_MINUS_B] = 1
+      applyIniNegativePoolShiftForMetaMutation(mBug, true, false)
+      applyIniLockCharges(mBug)
+      expect(mBug[KR_ABW]).not.toEqual(canonicalAbwDigit)
     } finally {
       vi.restoreAllMocks()
     }
