@@ -230,6 +230,8 @@ export const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
 export const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
 export const HERO_EX_UNFAEHIG_MARK_FIELDS = 'heroExUnfaehigMarkFields'
 export const HERO_EX_UNFAEHIG_FIXED_FIELDS = 'heroExUnfaehigFixedFields'
+const HERO_DEATH_MODE = 'heroDeathMode'
+const HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO = 'heroDeathAtMinusOnePointFiveKo'
 /** @deprecated Nur Lesen/Migration */
 export const HERO_EX_AEKE_LEGACY = 'heroExAeKe'
 /** @deprecated Nur Lesen/Migration */
@@ -397,6 +399,10 @@ export function readHeroExpandSnapshot(meta) {
     unfaehigThreshold,
     unfaehigMarkFields,
     unfaehigFixedFields,
+    deathMode: strOrEmpty(meta?.[HERO_DEATH_MODE]),
+    deathAtMinusOnePointFiveKo: strOrEmpty(
+      meta?.[HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO]
+    ),
     gs: strOrEmpty(meta?.[HERO_EX_GS]),
     mr: strOrEmpty(meta?.[HERO_EX_MR]),
     ib: strOrEmpty(meta?.[HERO_EX_IB]),
