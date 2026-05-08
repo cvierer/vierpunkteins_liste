@@ -51,7 +51,11 @@ import {
 import { applyHitZoneStrikeFromSpTz } from './hitZoneStrike.js'
 import { computeIniFromIbBeW6 } from './iniCompute.js'
 import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
-import { applyIniLockCharges } from './krCounters.js'
+import {
+  applyIniLockCharges,
+  applyIniNegativePoolShiftForMetaMutation,
+  isHeroIniBelowZero,
+} from './krCounters.js'
 import { readLhMechanics } from './lhMeta.js'
 import { getManualIniTieOverridePairs } from './manualIniTieOverrides.js'
 import {
@@ -314,7 +318,15 @@ async function writeItemInitiative(itemId, iniStr) {
     for (const d of drafts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
+      const wasBelow = isHeroIniBelowZero(m)
       m.initiative = iniStr
+      if (getCombat().started) {
+        applyIniNegativePoolShiftForMetaMutation(
+          m,
+          wasBelow,
+          isHeroIniBelowZero(m)
+        )
+      }
       applyIniLockCharges(m)
     }
   })
@@ -475,7 +487,15 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
       if (!iniStr) continue
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
+      const wasBelow = isHeroIniBelowZero(m)
       m.initiative = iniStr
+      if (getCombat().started) {
+        applyIniNegativePoolShiftForMetaMutation(
+          m,
+          wasBelow,
+          isHeroIniBelowZero(m)
+        )
+      }
       applyIniLockCharges(m)
     }
   })

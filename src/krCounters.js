@@ -79,6 +79,10 @@ export const KR_PRIMARY_LADUNG = 'krPrimaryLadung'
  */
 /** Zweite L.H.-Ladung (Schild → Feld); 0 = nur Grundladung (UI halbiert), 1 = voll. Fehlender Schlüssel = 1 (Altbestand). */
 export const KR_LH_SECOND = 'krLhSecondCharge'
+/** L.H. mit genau einer Aktion: klickbarer Stempel wie Ang./Abw./S.R.A./F.A. */
+export const KR_LH_ACTION = 'krLhAction'
+/** Freie Aktion (Zyklus): verbrauchte Klicks vs. Obergrenze. */
+export const KR_FREE_ACTION = 'krFreeAction'
 /** 1: L.H.-Feld per oberem Pfeil geleert (krLhAction 1 ohne Stempel); Rechtsklick −1 hebt Leerung auf, ohne zweite Ladung zu erfinden. */
 export const KR_LH_VOID_BY_TRANSFER = 'krLhVoidByTransfer'
 /**
@@ -148,6 +152,12 @@ export const KR_ACTION_POOL_ANG_REM = 'krActionPoolAngRem'
 /** Laufzeit: Rest-Abwehranteil in der laufenden KR. */
 export const KR_ACTION_POOL_ABW_REM = 'krActionPoolAbwRem'
 
+/**
+ * 1: In dieser KR wurde bei INI&lt;0 eine Einheit vom Aktions- zum Reaktionspool
+ * verschoben — wird bei INI wieder ≥0 symmetrisch zurückgenommen (keine Drift).
+ */
+export const KR_INI_NEG_POOL_SHIFT_APPLIED = 'krIniNegPoolShiftApplied'
+
 const DEFAULT_HERO_ACTION_POOL_ANG = 1
 const DEFAULT_HERO_ACTION_POOL_ABW = 1
 /** Summe Aktions- + Reaktionsladungen pro KR (untere Grenze). */
@@ -215,11 +225,84 @@ export function readHeroActionPoolPair(meta) {
 }
 
 /**
+ * Effektive Aufteilung für Pool und KR-Ladevorgang: bei INI &lt; 0 eine
+ * Aktionsladung nach Reaktionsseite verschoben (Summe S unverändert).
+ *
+ * @param {unknown} meta
+ * @returns {{ ang: number, abw: number }}
+ */
+export function effectiveHeroPoolSplit(meta) {
+  const pair = readHeroActionPoolPair(meta)
+  if (!isHeroIniBelowZero(meta)) return pair
+  const S = readHeroActionPoolMax(meta)
+  const angEff = Math.max(0, pair.ang - 1)
+  return { ang: angEff, abw: S - angEff }
+}
+
+/**
+ * Rohe Pool-REM ohne INI-effektiven Fallback (nur konfigurierte Aufteilung),
+ * damit Zeichenwechsel nicht doppelt verschiebt.
+ *
+ * @param {Record<string, unknown>} m
+ * @returns {{ ang: number, abw: number }}
+ */
+function readKrActionPoolRemFromStoredOrCfgPair(m) {
+  const pair = readHeroActionPoolPair(m)
+  const S = pair.ang + pair.abw
+  const ra = m?.[KR_ACTION_POOL_ANG_REM]
+  const rb = m?.[KR_ACTION_POOL_ABW_REM]
+  if (!Number.isFinite(Number(ra)) || !Number.isFinite(Number(rb))) {
+    return { ang: pair.ang, abw: pair.abw }
+  }
+  const a = Math.max(0, Math.floor(Number(ra)))
+  const b = Math.max(0, Math.floor(Number(rb)))
+  if (a + b !== S) return { ang: pair.ang, abw: pair.abw }
+  return { ang: a, abw: b }
+}
+
+/**
+ * Bei INI-Zeichenwechsel über die Null eine Einheit zwischen Aktions- und
+ * Reaktions-REM verschieben (nur wenn vorherige Verschiebung nachvollziehbar).
+ *
+ * @param {Record<string, unknown>} m
+ * @param {boolean} iniWasBelowZero
+ * @param {boolean} iniNowBelowZero
+ */
+export function applyIniNegativePoolShiftForMetaMutation(
+  m,
+  iniWasBelowZero,
+  iniNowBelowZero
+) {
+  if (!m || typeof m !== 'object') return
+  if (iniWasBelowZero === iniNowBelowZero) return
+  const S = readHeroActionPoolMax(m)
+  const cfg = readHeroActionPoolPair(m)
+  const rem = readKrActionPoolRemFromStoredOrCfgPair(m)
+
+  if (iniNowBelowZero) {
+    if (cfg.ang < 1) return
+    const prevAng = rem.ang
+    const ang = Math.max(0, rem.ang - 1)
+    m[KR_ACTION_POOL_ANG_REM] = ang
+    m[KR_ACTION_POOL_ABW_REM] = S - ang
+    if (prevAng > 0) m[KR_INI_NEG_POOL_SHIFT_APPLIED] = 1
+    else delete m[KR_INI_NEG_POOL_SHIFT_APPLIED]
+    return
+  }
+
+  if (!m[KR_INI_NEG_POOL_SHIFT_APPLIED]) return
+  const ang = Math.min(S, rem.ang + 1)
+  m[KR_ACTION_POOL_ANG_REM] = ang
+  m[KR_ACTION_POOL_ABW_REM] = S - ang
+  delete m[KR_INI_NEG_POOL_SHIFT_APPLIED]
+}
+
+/**
  * @param {unknown} meta
  * @returns {{ ang: number, abw: number }}
  */
 export function readKrActionPoolRem(meta) {
-  const cfg = readHeroActionPoolPair(meta)
+  const cfg = effectiveHeroPoolSplit(meta)
   const sumCfg = cfg.ang + cfg.abw
   const ra = meta?.[KR_ACTION_POOL_ANG_REM]
   const rb = meta?.[KR_ACTION_POOL_ABW_REM]
@@ -244,7 +327,8 @@ export function readKrActionPoolRem(meta) {
  */
 export function initKrActionPoolsFromHeroDefaults(m, { skipActionInit = false } = {}) {
   if (!m || typeof m !== 'object') return
-  const { ang, abw } = readHeroActionPoolPair(m)
+  delete m[KR_INI_NEG_POOL_SHIFT_APPLIED]
+  const { ang, abw } = effectiveHeroPoolSplit(m)
   m[KR_ACTION_POOL_ANG_REM] = ang
   m[KR_ACTION_POOL_ABW_REM] = abw
 
@@ -1408,10 +1492,6 @@ export async function undoLastZaoSlotStamp(itemId, linkId) {
     }
   }
 }
-
-export const KR_FREE_ACTION = 'krFreeAction'
-/** L.H. mit genau einer Aktion: klickbarer Stempel wie Ang./Abw./S.R.A./F.A. */
-export const KR_LH_ACTION = 'krLhAction'
 
 /** Max. Abwehr-Schildladungen per Umwandlung (Ang.→Abw bzw. L.H.→Abw). */
 export function krAbwTransferMaxMarks() {
@@ -2728,7 +2808,6 @@ export async function resetAllKrCountersInScene(opts = {}) {
           }
           if (slotsChanged) m[KR_ZAO_SLOTS] = slots
         }
-        applyIniLockCharges(m)
         // Mutex z.AT vs schwarzes Schild: jede neue KR startet die Wahl
         // wieder neutral — beide Optionen sind verfuegbar, bis der Spieler
         // den ersten Mutex-Stempel setzt.
@@ -2754,6 +2833,7 @@ export async function resetAllKrCountersInScene(opts = {}) {
         }
         ensureFullFreeActionQuota(m)
         initKrActionPoolsFromHeroDefaults(m, { skipActionInit: lhMaxActive })
+        applyIniLockCharges(m)
         // 2.A.-Panel offen lassen: Liste zeigt Phasen-Zeilen nur bei
         // rowPanelOpen; nach KR-Reset sonst nur Mutterzeile trotz laufender L.H.
         if (keepPhasePanelOpen) {
@@ -2811,7 +2891,6 @@ export async function resetAllTrackerStateForCombatStart() {
         delete m[LH_DONE_INI]
         delete m[KR_INI_LOCK_MINUS_A]
         delete m[KR_INI_LOCK_MINUS_B]
-        applyIniLockCharges(m)
         // Mutex z.AT vs schwarzes Schild: Voll-Reset gibt die Wahl wieder
         // vollstaendig frei.
         delete m.krExtraChoiceUsed
@@ -2833,6 +2912,7 @@ export async function resetAllTrackerStateForCombatStart() {
         }
         ensureFullFreeActionQuota(m)
         initKrActionPoolsFromHeroDefaults(m)
+        applyIniLockCharges(m)
       }
     }
   )

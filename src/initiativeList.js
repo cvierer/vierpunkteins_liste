@@ -74,6 +74,7 @@ import {
   KR_PRIMARY_VOID_BY_ABW_TRANSFER,
   KR_SRA,
   KR_ZAO_SLOTS,
+  applyIniNegativePoolShiftForMetaMutation,
   applyIniLockCharges,
   ensureFullFreeActionQuota,
   initKrActionPoolsFromHeroDefaults,
@@ -2971,7 +2972,15 @@ export function setupInitiativeList(element, { onListChange } = {}) {
             for (const d of drafts) {
               const m = d.metadata[TRACKER_ITEM_META_KEY]
               if (!m) continue
+              const wasBelow = isHeroIniBelowZero(m)
               m.initiative = proposedStr
+              if (getCombat().started) {
+                applyIniNegativePoolShiftForMetaMutation(
+                  m,
+                  wasBelow,
+                  isHeroIniBelowZero(m)
+                )
+              }
               applyIniLockCharges(m)
               if (!getCombat().started) ensureFullFreeActionQuota(m)
             }
@@ -3149,6 +3158,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       <input type="text" id="kampf-hero-settings-pool-ang" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Ladungen als Aktionsobjekte beim Rundenstart (0…Max); Reaktion = Rest" />
       <label class="init-row-extra-label" for="kampf-hero-settings-pool-abw">Reaktionsladungen (Rundenstart)</label>
       <input type="text" id="kampf-hero-settings-pool-abw" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Ladungen als blaue Schilde beim Rundenstart (0…Max); Aktion = Rest" />
+      <p class="kampf-settings-panel__microhint"><strong>INI im positiven Bereich (≥ 0):</strong> Beim Kampfstart und Kampfrundenstart gelten die eingetragenen Aktions- und Reaktionsladungen wie oben. <strong>INI unter 0:</strong> Es wird intern eine Aktionsladung zugunsten der Reaktionsladungen verschoben (<strong>Ladungen gesamt</strong> bleibt gleich). Wechselt die INI in der laufenden Kampfrunde über die Null-Grenze, wird diese Verschiebung angepasst oder zurückgenommen — ohne dass sich die Gesamtkapazität dauerhaft ändern würde.</p>
     </div>
     <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
       <label class="init-row-extra-label" for="kampf-hero-settings-fa-max">Freie Aktionen (Obergrenze)</label>
@@ -5003,7 +5013,15 @@ function bindStampContextRemove(el, stamp, items) {
             for (const d of drafts) {
               const m = d.metadata[TRACKER_ITEM_META_KEY]
               if (!m) continue
+              const wasBelow = isHeroIniBelowZero(m)
               m.initiative = persistStr
+              if (getCombat().started) {
+                applyIniNegativePoolShiftForMetaMutation(
+                  m,
+                  wasBelow,
+                  isHeroIniBelowZero(m)
+                )
+              }
               applyIniLockCharges(m)
               if (!getCombat().started) ensureFullFreeActionQuota(m)
             }
