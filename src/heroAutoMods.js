@@ -56,6 +56,9 @@ const HERO_EX_WAPPEN_TEMPLATE = 'heroExWappenTemplate'
 
 export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
 const AUTO_ZONE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}zone-`
+const AUTO_LE_BAND_BUNDLE_ID = 'auto-le-band'
+const AUTO_LE_TAW_ZFW_BUNDLE_ID = 'auto-le-tawzfw'
+const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
 
 /**
  * @param {string} zoneId
@@ -264,6 +267,29 @@ function isDeathTriggered(leNum, koNum, deathMode) {
   const depth = -leNum
   const deathThreshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
   return depth >= deathThreshold
+}
+
+/**
+ * Gemeinsame Label-Priorität für LE-basierte Auto-Chips:
+ * Tod > sterbend > unfähig-Schwelle > Band.
+ *
+ * @param {number} leNum
+ * @param {number | null} koNum
+ * @param {'lt0'|'minusKo'|'minusOnePointFiveKo'} deathMode
+ * @param {number} band
+ * @param {number | null} criticalThreshold
+ * @returns {'rip'|'sterbend'|'unfaehig'|'band0'|'band1'|'band2plus'|'fallback'}
+ */
+function leAutoLabelKind(leNum, koNum, deathMode, band, criticalThreshold) {
+  if (isDeathTriggered(leNum, koNum, deathMode)) return 'rip'
+  if (leNum <= 0) return 'sterbend'
+  if (Number.isFinite(Number(criticalThreshold)) && leNum <= Number(criticalThreshold)) {
+    return 'unfaehig'
+  }
+  if (band === 0) return 'band0'
+  if (band === 1) return 'band1'
+  if (band >= 2) return 'band2plus'
+  return 'fallback'
 }
 
 /**
@@ -587,7 +613,7 @@ export async function refreshAutoBundlesForItem(itemId) {
  */
 export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxForLe) {
   const bid = String(autoBundleId ?? '')
-  if (bid === 'auto-le-band') {
+  if (bid === AUTO_LE_BAND_BUNDLE_ID || bid === AUTO_LE_TAW_ZFW_BUNDLE_ID) {
     const leNum = effectiveLeForThresholds(snap, metaForLe, ctxForLe)
     const leMaxNum = parseNonNegInt(snap.leMax)
     const koNum = parseSignedInt(snap.ko)
@@ -611,7 +637,7 @@ export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxFo
     if (w <= 0) return null
     return w
   }
-  if (bid === 'auto-le-unfaehig') {
+  if (bid === AUTO_LE_UNFAEHIG_BUNDLE_ID) {
     return computeUnfaehigTriggerMask(snap, metaForLe, ctxForLe)
   }
   return null
@@ -814,22 +840,19 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       const unfaehigThreshold = readUnfaehigThresholdFromSnapshot(snap)
       const criticalThreshold = unfaehigFix ?? unfaehigThreshold
       const deathMode = deathModeFromSnapshot(snap)
-      const deathTriggered = isDeathTriggered(leNum, koNum, deathMode)
+      const labelKind = leAutoLabelKind(leNum, koNum, deathMode, band, criticalThreshold)
       let label = ''
-      if (deathTriggered) {
+      if (labelKind === 'rip') {
         label = 'R.I.P.'
-      } else if (leNum <= 0) {
+      } else if (labelKind === 'sterbend') {
         label = 'sterbend'
-      } else if (
-        Number.isFinite(Number(criticalThreshold)) &&
-        leNum <= Number(criticalThreshold)
-      ) {
+      } else if (labelKind === 'unfaehig') {
         label = `LE ≤ ${Math.floor(Number(criticalThreshold))}`
-      } else if (band === 0) {
+      } else if (labelKind === 'band0') {
         label = '<1/2 -1'
-      } else if (band === 1) {
+      } else if (labelKind === 'band1') {
         label = '<1/3 -2'
-      } else if (band >= 2) {
+      } else if (labelKind === 'band2plus') {
         label = '<1/4 -3'
       } else {
         const fallback = leKoCriticalLabel(leNum, koNum) || leAutoChipLabelDe(band, leThreshold)
@@ -842,7 +865,22 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
         field,
         delta: -m,
       }))
-      pushRows('auto-le-band', label, rows)
+      pushRows(AUTO_LE_BAND_BUNDLE_ID, label, rows)
+
+      let magicLabel = ''
+      if (labelKind === 'rip') magicLabel = 'R.I.P.'
+      else if (labelKind === 'sterbend') magicLabel = 'sterbend'
+      else if (labelKind === 'unfaehig') magicLabel = `LE ≤ ${Math.floor(Number(criticalThreshold))}`
+      else if (labelKind === 'band0') magicLabel = 'TaW,ZfW+3'
+      else if (labelKind === 'band1') magicLabel = 'TaW,ZfW+6'
+      else if (labelKind === 'band2plus') magicLabel = 'TaW,ZfW+9'
+      else magicLabel = 'TaW,ZfW'
+      pushRows(
+        AUTO_LE_TAW_ZFW_BUNDLE_ID,
+        magicLabel,
+        [{ field: 'ib', delta: 0 }],
+        { includeZero: true }
+      )
     }
   }
 
@@ -857,7 +895,7 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     const koNum = parseSignedInt(snap.ko)
     const unfaehigLabel = isDeathTriggered(leNum, koNum, deathMode) ? 'R.I.P.' : 'unfähig'
     pushRows(
-      'auto-le-unfaehig',
+      AUTO_LE_UNFAEHIG_BUNDLE_ID,
       unfaehigLabel,
       [{ field: 'le', delta: 0 }],
       { includeZero: true }

@@ -792,6 +792,8 @@ const SVG_MOD_CHIP_SUM_DOWN =
   '<svg class="init-hero-ex__mod-chip-card__sum-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.75" stroke-dasharray="4.5 4" stroke-linecap="round" d="M12 4v15"/><path fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" d="M5.5 17L12 24l6.5-7"/></svg>'
 const SVG_MOD_CHIP_UNFAEHIG_MARK =
   '<svg class="init-hero-ex__mod-chip-card__sum-svg init-hero-ex__mod-chip-card__sum-svg--unfaehig" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M7 17L17 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'
+const SVG_MOD_CHIP_MAGIC_WAND =
+  '<svg class="init-hero-ex__mod-chip-card__magic-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 19L19 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M16.5 3.7l.4 1.1 1.1.4-1.1.4-.4 1.1-.4-1.1-1.1-.4 1.1-.4zM20 8.7l.3.8.8.3-.8.3-.3.8-.3-.8-.8-.3.8-.3zM13.7 2.6l.3.8.8.3-.8.3-.3.8-.3-.8-.8-.3.8-.3z" fill="currentColor"/><circle cx="4.2" cy="19.8" r="1.4" fill="currentColor"/></svg>'
 
 /**
  * @param {HTMLElement} container
@@ -3587,6 +3589,7 @@ export function mountHeroExpandBlock(
     }
 
     const AUTO_LE_BAND_BUNDLE_ID = 'auto-le-band'
+    const AUTO_LE_TAW_ZFW_BUNDLE_ID = 'auto-le-tawzfw'
     const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
     const AUTO_ZONE_BUNDLE_PREFIX = 'auto-zone-'
     const CHIP_NEG_LE_KO_RANGE = 1.6
@@ -3699,6 +3702,7 @@ export function mountHeroExpandBlock(
     const mountModListChip = (stripEl, o) => {
       const chip = document.createElement('div')
       const bidStr = o.bundleId ? String(o.bundleId) : ''
+      const isAutoLeTawZfw = bidStr === AUTO_LE_TAW_ZFW_BUNDLE_ID
       const autoCompactLabel =
         bidStr === AUTO_LE_BAND_BUNDLE_ID ||
         bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX)
@@ -3713,6 +3717,9 @@ export function mountHeroExpandBlock(
       }`
       if (bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID) {
         chip.classList.add('init-hero-ex__mod-chip-card--auto-unfaehig')
+      }
+      if (isAutoLeTawZfw) {
+        chip.classList.add('init-hero-ex__mod-chip-card--auto-le-magic')
       }
       const palRaw = normalizeModChipColor(o.chipColor)
       const palId = o.isAutoBundle ? 'neutral' : palRaw
@@ -3764,6 +3771,13 @@ export function mountHeroExpandBlock(
         const leInner = buildModChipLeRing()
         arrowWrap.appendChild(leInner)
         syncModChipLeRing(leInner, modMeta)
+      } else if (isAutoLeTawZfw) {
+        arrowWrap = document.createElement('span')
+        arrowWrap.className =
+          'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--magic'
+        arrowWrap.innerHTML = SVG_MOD_CHIP_MAGIC_WAND
+        arrowWrap.title = 'Zauberstab'
+        arrowWrap.setAttribute('aria-hidden', 'true')
       } else {
         arrowWrap = document.createElement('span')
         const ns = o.netSum
@@ -3837,7 +3851,15 @@ export function mountHeroExpandBlock(
       labelLine.title = o.cardTitle
 
       chip.appendChild(head)
-      chip.appendChild(labelLine)
+      if (isAutoLeTawZfw) {
+        const magicTop = document.createElement('div')
+        magicTop.className = 'init-hero-ex__mod-chip-card__magic-topline'
+        magicTop.innerHTML = `${SVG_MOD_CHIP_MAGIC_WAND}<span>Zauber</span>`
+        magicTop.title = o.cardTitle
+        chip.append(magicTop, labelLine)
+      } else {
+        chip.appendChild(labelLine)
+      }
 
       chip.title = o.cardTitle
       chip.addEventListener('click', (e) => {

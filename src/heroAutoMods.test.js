@@ -77,6 +77,35 @@ describe('buildHeroAutoModRecords', () => {
     expect(mods.some((m) => m.bundleId === 'auto-le-unfaehig')).toBe(false)
   })
 
+  it('LE-Band <1/2 → zusätzlicher auto-le-tawzfw mit TaW,ZfW+3', () => {
+    const mods = buildHeroAutoModRecords(snap({ le: '15', leMax: '40' }), ctx)
+    const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
+    expect(zf.length).toBe(1)
+    expect(zf[0].field).toBe('ib')
+    expect(zf[0].delta).toBe(0)
+    expect(zf[0].label).toBe('TaW,ZfW+3')
+  })
+
+  it('auto-le-tawzfw nutzt gleiche Todes-Priorität und zeigt R.I.P.', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '-8', leMax: '40', ko: '8', deathMode: 'minusKo', unfaehigThreshold: '5' }),
+      ctx
+    )
+    const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
+    expect(zf.length).toBe(1)
+    expect(zf[0].label).toBe('R.I.P.')
+  })
+
+  it('auto-le-tawzfw zeigt bei Unfähigkeit LE ≤ X statt +N', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '4', leMax: '40', unfaehigThreshold: '5' }),
+      ctx
+    )
+    const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
+    expect(zf.length).toBe(1)
+    expect(zf[0].label).toBe('LE ≤ 5')
+  })
+
   it('unfähig-UI-Bundle wird bei LE<=Schwelle erzeugt (ohne Zahlenänderung)', () => {
     const mods = buildHeroAutoModRecords(
       snap({ le: '4', leMax: '40', unfaehigThreshold: '5' }),
