@@ -3657,8 +3657,19 @@ export function mountHeroExpandBlock(
     const AUTO_LE_TAW_ZFW_BUNDLE_ID = 'auto-le-tawzfw'
     const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
     const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
+    const AUTO_BLUTEND_BUNDLE_ID = 'auto-blutend'
     const AUTO_ZONE_BUNDLE_PREFIX = 'auto-zone-'
     const CHIP_NEG_LE_KO_RANGE = 1.6
+    const THREE_WOUND_CHIP_RULE = {
+      kopf: 'Kopf: +2W6 SP, bewusstlos & Blutverlust (\u22121 LeP/KR). Kampfunf\u00e4hig.',
+      brust: 'Brust: Bewusstlos & Blutverlust (\u22121 LeP/KR). Kampfunf\u00e4hig.',
+      ruecken: 'R\u00fccken: Bewusstlos & Blutverlust (\u22121 LeP/KR). Kampfunf\u00e4hig.',
+      bauch: 'Bauch: Bewusstlos & Blutverlust (\u22121 LeP/KR). Kampfunf\u00e4hig.',
+      schildarm: 'Linker Arm: Arm unbrauchbar, Waffe/Schild f\u00e4llt. Held bleibt handlungsf\u00e4hig.',
+      schwertarm: 'Rechter Arm: Arm unbrauchbar, Waffe/Schild f\u00e4llt. Held bleibt handlungsf\u00e4hig.',
+      lbein: 'Linkes Bein: Verlust der Standfestigkeit, keine aktive Teilnahme am Kampf m\u00f6glich.',
+      rbein: 'Rechtes Bein: Verlust der Standfestigkeit, keine aktive Teilnahme am Kampf m\u00f6glich.',
+    }
 
     const parseMetaLeIntChip = (raw) => {
       const t = String(raw ?? '').trim()
@@ -3862,13 +3873,13 @@ export function mountHeroExpandBlock(
               'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--unfaehig-arm'
             if (ufSrc.armSet.length >= 2) {
               arrowWrap.textContent = 'Arme'
-              arrowWrap.title = 'Arme handlungsunfähig'
+              arrowWrap.title = `${THREE_WOUND_CHIP_RULE.schildarm}\n${THREE_WOUND_CHIP_RULE.schwertarm}`
             } else if (ufSrc.armSet[0] === 'schildarm') {
               arrowWrap.textContent = 'LA'
-              arrowWrap.title = 'Arm handlungsunfähig'
+              arrowWrap.title = THREE_WOUND_CHIP_RULE.schildarm
             } else {
               arrowWrap.textContent = 'RA'
-              arrowWrap.title = 'Arm handlungsunfähig'
+              arrowWrap.title = THREE_WOUND_CHIP_RULE.schwertarm
             }
           } else {
             arrowWrap.className =
@@ -4311,6 +4322,18 @@ export function mountHeroExpandBlock(
         const isLeBandBundle = bidStr === AUTO_LE_BAND_BUNDLE_ID
         const isMagicLeBundle = bidStr === AUTO_LE_TAW_ZFW_BUNDLE_ID
         const isUnfaehigBundle = bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID
+        const isBlutendBundle = bidStr === AUTO_BLUTEND_BUNDLE_ID
+        const zoneIdFromBid = bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX)
+          ? bidStr.slice(AUTO_ZONE_BUNDLE_PREFIX.length)
+          : ''
+        const wZoneForChip = zoneIdFromBid
+          ? clampWound(
+              readHeroExpandSnapshot(modMeta)?.hitZones?.zones?.[zoneIdFromBid]
+                ?.w ?? 0
+            )
+          : 0
+        const zoneRuleText =
+          wZoneForChip >= 3 ? THREE_WOUND_CHIP_RULE[zoneIdFromBid] : ''
         if (String(packLabel ?? '') === 'R.I.P.') {
           detailLines.length = 0
           detailLines.push('gestorben')
@@ -4346,19 +4369,31 @@ export function mountHeroExpandBlock(
         ) {
           detailLines.length = 0
           detailLines.push(sterbendTooltipExtra)
+        } else if (isBlutendBundle) {
+          detailLines.length = 0
+          detailLines.push(
+            'Blutverlust durch 3. Wunde an Torso oder Kopf: jede KR \u22121 LE'
+          )
+        } else if (zoneRuleText) {
+          detailLines.length = 0
+          detailLines.push(zoneRuleText)
         }
         const longSummary = detailLines.join(' \u00B7 ')
         const bundleTitlePfx = packLabel ? `"${packLabel}" — ` : ''
         const isAutoBundle = String(modRec.bundleId ?? '').startsWith(
           AUTO_MOD_BUNDLE_PREFIX
         )
-        const cardTitleBase = `${bundleTitlePfx}${longSummary}`
+        const cardTitleBase = zoneRuleText
+          ? zoneRuleText
+          : `${bundleTitlePfx}${longSummary}`
         const keepTitleClean =
           String(packLabel ?? '') === 'R.I.P.' ||
           isMagicLeBundle ||
           (isLeBandBundle && String(packLabel ?? '') === 'sterbend') ||
           (isUnfaehigBundle &&
-            String(packLabel ?? '') === 'unfähig')
+            String(packLabel ?? '') === 'unfähig') ||
+          isBlutendBundle ||
+          Boolean(zoneRuleText)
         const cardTitle = keepTitleClean
           ? cardTitleBase
           : `${cardTitleBase}${!isAutoBundle && canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''}`

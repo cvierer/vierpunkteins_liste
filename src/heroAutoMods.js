@@ -61,6 +61,10 @@ const AUTO_LE_BAND_BUNDLE_ID = 'auto-le-band'
 const AUTO_LE_TAW_ZFW_BUNDLE_ID = 'auto-le-tawzfw'
 const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
 const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
+const AUTO_BLUTEND_BUNDLE_ID = 'auto-blutend'
+
+const TORSO_GS0_3W_ZONES = Object.freeze(['kopf', 'brust', 'ruecken', 'bauch'])
+const BLUTEND_TORSO_ZONES = Object.freeze(['kopf', 'brust', 'ruecken', 'bauch'])
 
 /**
  * @param {string} zoneId
@@ -682,6 +686,15 @@ export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxFo
   if (bid === AUTO_LE_UNFAEHIG_BUNDLE_ID) {
     return computeUnfaehigTriggerMask(snap, metaForLe, ctxForLe)
   }
+  if (bid === AUTO_BLUTEND_BUNDLE_ID) {
+    let mask = 0
+    for (let i = 0; i < BLUTEND_TORSO_ZONES.length; i++) {
+      const zid = BLUTEND_TORSO_ZONES[i]
+      const w = clampWound(snap.hitZones?.zones?.[zid]?.w ?? 0)
+      if (w >= 3) mask |= 1 << i
+    }
+    return mask === 0 ? null : mask
+  }
   return null
 }
 
@@ -775,14 +788,27 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
     if (w <= 0) continue
     const stage = zoneStageFromWounds(w)
     if (stage <= 0) continue
+    const isGs0Zone3w = w >= 3 && TORSO_GS0_3W_ZONES.includes(def.id)
     const deltas = autoModDeltasForWappen(def, w)
+    let gsHandled = false
     for (const [field, delta] of Object.entries(deltas)) {
       let d = delta
-      if (field === 'gs' && baseGs !== null && Number.isFinite(baseGs)) {
-        const minDelta = -(baseGs - 1)
-        d = Math.max(d, minDelta)
+      if (field === 'gs') {
+        if (isGs0Zone3w && baseGs !== null && Number.isFinite(baseGs) && baseGs > 0) {
+          d = -baseGs
+        } else if (baseGs !== null && Number.isFinite(baseGs)) {
+          const minDelta = -(baseGs - 1)
+          d = Math.max(d, minDelta)
+        }
+        gsHandled = true
       }
       add(field, d)
+    }
+    if (
+      isGs0Zone3w && !gsHandled &&
+      baseGs !== null && Number.isFinite(baseGs) && baseGs > 0
+    ) {
+      add('gs', -baseGs)
     }
   }
 
@@ -854,6 +880,7 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
 
   const pushRows = (bundleId, bundleLabel, rows, opts = {}) => {
     const includeZero = Boolean(opts.includeZero)
+    const accrual = opts.accrual ?? 'none'
     for (const { field, delta } of rows) {
       if (!includeZero && !delta) continue
       out.push({
@@ -864,7 +891,7 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
         addedRound: round,
         addedNavIni,
         permanent: true,
-        accrual: 'none',
+        accrual,
         label: bundleLabel,
         bundleId,
       })
@@ -984,16 +1011,44 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     }
     /** @type {{ field: string, delta: number }[]} */
     const rows = []
+    const isGs0Zone3w = w >= 3 && TORSO_GS0_3W_ZONES.includes(def.id)
     const deltas = autoModDeltasForWappen(def, w)
+    let gsHandled = false
     for (const [field, delta] of Object.entries(deltas)) {
       let d = delta
-      if (field === 'gs' && baseGs !== null && Number.isFinite(baseGs)) {
-        const minDelta = -(baseGs - 1)
-        d = Math.max(d, minDelta)
+      if (field === 'gs') {
+        if (isGs0Zone3w && baseGs !== null && Number.isFinite(baseGs) && baseGs > 0) {
+          d = -baseGs
+        } else if (baseGs !== null && Number.isFinite(baseGs)) {
+          const minDelta = -(baseGs - 1)
+          d = Math.max(d, minDelta)
+        }
+        gsHandled = true
       }
       rows.push({ field, delta: d })
     }
+    if (
+      isGs0Zone3w && !gsHandled &&
+      baseGs !== null && Number.isFinite(baseGs) && baseGs > 0
+    ) {
+      rows.push({ field: 'gs', delta: -baseGs })
+    }
     pushRows(bundleId, label, rows)
+  }
+
+  const hasBlutendTrigger = wappenDefs.some((def) => {
+    if (!def.active) return false
+    if (!BLUTEND_TORSO_ZONES.includes(def.id)) return false
+    const w = clampWound(snap.hitZones?.zones?.[def.id]?.w ?? 0)
+    return w >= 3
+  })
+  if (hasBlutendTrigger) {
+    pushRows(
+      AUTO_BLUTEND_BUNDLE_ID,
+      'blutend',
+      [{ field: 'le', delta: -1 }],
+      { accrual: 'round' }
+    )
   }
 
   return out
