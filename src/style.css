@@ -2927,7 +2927,8 @@ body {
 }
 
 /* Bei unfaehig-Strike: Mod-Band unter dem Wert ausblenden (Slot-Hoehe bleibt erhalten). */
-.init-hero-ex__micro-cell--unfaehig-mark .init-hero-ex__mod-badge {
+.init-hero-ex__micro-cell--unfaehig-mark
+  .init-hero-ex__mod-badge:not(.init-hero-ex__mod-badge--unfaehig-fixed) {
   display: none !important;
 }
 
@@ -8024,6 +8025,12 @@ select.init-row-extra-select {
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--fixed .init-hero-ex__mod-badge__val,
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--fixed .init-hero-ex__mod-badge__tail {
   color: var(--color-accent);
+}
+
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--unfaehig-fixed,
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--unfaehig-fixed .init-hero-ex__mod-badge__val,
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--unfaehig-fixed .init-hero-ex__mod-badge__tail {
+  color: #b71c1c;
 }
 
 /* Delta-Vorzeichen: Lesetext im Band unter dem Kästchen */

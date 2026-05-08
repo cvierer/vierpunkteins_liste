@@ -3270,7 +3270,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       <label class="init-row-extra-label" for="kampf-hero-unfaehig-mark-fields">Markierung (rote Diagonale)</label>
       <input type="text" id="kampf-hero-unfaehig-mark-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, z. B. at,pa,a,tp,fk" />
       <label class="init-row-extra-label" for="kampf-hero-unfaehig-fixed-fields">Optische Fixwerte</label>
-      <input type="text" id="kampf-hero-unfaehig-fixed-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, aktuell unterstützt: gs=1" />
+      <input type="text" id="kampf-hero-unfaehig-fixed-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, z. B. at=0,pa=0,a=0,tp=0,fk=0,gs=1" />
     </div>
     <div class="kampf-settings-panel__actions">
       <button type="button" class="btn kampf-settings-panel__cancel" data-kampf-hero-settings-cancel>Abbrechen</button>
@@ -3438,13 +3438,19 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   const normalizeUnfaehigFixedFieldsText = (raw) => {
     const txt = String(raw ?? '')
+    const out = []
+    const seen = new Set()
     for (const part of txt.split(',')) {
       const [kRaw, vRaw] = part.split('=')
       const k = String(kRaw ?? '').trim().toLowerCase()
       const n = Math.floor(Number(String(vRaw ?? '').trim().replace(',', '.')))
-      if (k === 'gs' && Number.isFinite(n)) return `gs=${n}`
+      if (!['at', 'pa', 'a', 'tp', 'fk', 'gs'].includes(k)) continue
+      if (!Number.isFinite(n)) continue
+      if (seen.has(k)) continue
+      seen.add(k)
+      out.push(`${k}=${n}`)
     }
-    return 'gs=1'
+    return out.join(',')
   }
 
   if (heroColorGrid instanceof HTMLElement) {
