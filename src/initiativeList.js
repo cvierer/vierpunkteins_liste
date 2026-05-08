@@ -5759,7 +5759,9 @@ function bindStampContextRemove(el, stamp, items) {
                   hideLh: true,
                   hideConvert: false,
                   abwMirrorLinkUi: true,
-                  motherPrimaryStamped: zaoMotherStamped,
+                  motherPrimaryStamped: ownerTrackerMeta?.convertAnytimeEnabled
+                    ? false
+                    : zaoMotherStamped,
                   zaoSlotOverride: zaoSlot
                     ? {
                         linkId: link.id,

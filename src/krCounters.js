@@ -1206,11 +1206,6 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
-  {
-    const roomMeta = await OBR.room.getMetadata()
-    const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
-    if (motherPrimarySelfStamped(stamps.entries, itemId)) return
-  }
   const abw = normalizeKrDigit(meta[KR_ABW])
 
   // 1) Letzter 2.A.-Slot mit Ladung (marks=1) → entladen & entfernen.
@@ -1251,6 +1246,12 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
       }
     })
     return
+  }
+
+  {
+    const roomMeta = await OBR.room.getMetadata()
+    const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
+    if (motherPrimarySelfStamped(stamps.entries, itemId)) return
   }
 
   const firstKind = readKrFirstSlotKind(meta)
@@ -1318,7 +1319,7 @@ export async function patchKrTransferAbwToPrimary(itemId) {
   ) {
     return
   }
-  {
+  if (!isConvertAnytimeEnabled(meta)) {
     const roomMeta = await OBR.room.getMetadata()
     const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
     if (motherPrimarySelfStamped(stamps.entries, itemId)) return
