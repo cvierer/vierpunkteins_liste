@@ -217,7 +217,7 @@ function readUnfaehigFixedLeFromSnapshot(snap) {
  */
 function deathAtMinusOnePointFiveKoFromSnapshot(snap) {
   const t = String(snap?.deathAtMinusOnePointFiveKo ?? '').trim().toLowerCase()
-  return !['0', 'false', 'off', 'no', 'nein'].includes(t)
+  return ['1', 'true', 'on', 'yes', 'ja'].includes(t)
 }
 
 /**

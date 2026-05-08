@@ -3799,7 +3799,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         m?.[HERO_EX_UNFAEHIG_THRESHOLD],
         isVierbeinerDefault
       ),
-      deathAtMinusOnePointFiveKo: !['0', 'false', 'off', 'no', 'nein'].includes(
+      deathAtMinusOnePointFiveKo: ['1', 'true', 'on', 'yes', 'ja'].includes(
         String(m?.[HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO] ?? '')
           .trim()
           .toLowerCase()
