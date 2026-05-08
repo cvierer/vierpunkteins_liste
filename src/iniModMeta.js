@@ -2061,11 +2061,6 @@ export function mountHeroExpandBlock(
     fk: fk.cell,
     gs: gs.cell,
   }
-  const gsUnfaehigOverlay = document.createElement('span')
-  gsUnfaehigOverlay.className = 'init-hero-ex__unfaehig-fixed-overlay'
-  gsUnfaehigOverlay.setAttribute('aria-hidden', 'true')
-  gs.cell.appendChild(gsUnfaehigOverlay)
-
   const applyUnfaehigVisualOverlay = (metaForMods = meta) => {
     const s = readHeroExpandSnapshot(metaForMods)
     /* Rein optisch: Effekt nur wenn das Auto-Bündel in den gepatchten Mods
@@ -2079,9 +2074,6 @@ export function mountHeroExpandBlock(
       if (!(cell instanceof HTMLElement)) continue
       cell.classList.remove('init-hero-ex__micro-cell--unfaehig-mark')
     }
-    gsUnfaehigOverlay.textContent = ''
-    gsUnfaehigOverlay.classList.remove('init-hero-ex__unfaehig-fixed-overlay--on')
-
     if (!active) return
 
     const combUf = getCombat()
@@ -2122,8 +2114,6 @@ export function mountHeroExpandBlock(
     const gsFixed = Number(s.unfaehigFixedFields?.gs)
     if (Number.isFinite(gsFixed)) {
       gs.cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
-      gsUnfaehigOverlay.textContent = String(gsFixed)
-      gsUnfaehigOverlay.classList.add('init-hero-ex__unfaehig-fixed-overlay--on')
     }
   }
 
@@ -3853,6 +3843,12 @@ export function mountHeroExpandBlock(
 
       stripEl.appendChild(chip)
     }
+    const snapForFieldBadges = readHeroExpandSnapshot(modMeta)
+    const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
+    const fixedGsValue = Number.isFinite(fixedGsRaw)
+      ? Math.max(0, Math.floor(Math.abs(fixedGsRaw)))
+      : null
+
     /* Pro Feld: Sub-Badge entfernen + ggf. neu erstellen. */
     for (const [field, t] of Object.entries(modFieldTargets)) {
       const cell = t.cell
@@ -3879,11 +3875,13 @@ export function mountHeroExpandBlock(
       cell.classList.add('init-hero-ex__mod-anchor--active')
       const badge = document.createElement('span')
       badge.className = 'init-hero-ex__mod-badge'
+      const useFixedValueView = field === 'gs' && fixedGsValue != null
       if (sum > 0) {
         badge.classList.add('init-hero-ex__mod-badge--pos')
       } else if (sum < 0) {
         badge.classList.add('init-hero-ex__mod-badge--neg')
       }
+      if (useFixedValueView) badge.classList.add('init-hero-ex__mod-badge--fixed')
       const absSum = Math.abs(sum)
       const fieldMods = activeModsFull.filter((m) => m.field === field)
       const tightest =
@@ -3901,14 +3899,16 @@ export function mountHeroExpandBlock(
         : ''
       const tightFrac = tightest?.permanent ? '' : tightFracRaw
       /* Hauptwert größer als Restlaufzeit; schmale Abstände um den Mittelpunkt. */
-      const arrowSpan = document.createElement('span')
-      arrowSpan.className = 'init-hero-ex__mod-badge__arrow'
-      arrowSpan.setAttribute('aria-hidden', 'true')
-      arrowSpan.innerHTML = sum > 0 ? SVG_HERO_MOD_TOGGLE_UP : SVG_HERO_MOD_TOGGLE_DOWN
-      badge.appendChild(arrowSpan)
       const valSpan = document.createElement('span')
       valSpan.className = 'init-hero-ex__mod-badge__val'
-      valSpan.textContent = String(absSum)
+      valSpan.textContent = String(useFixedValueView ? fixedGsValue : absSum)
+      if (!useFixedValueView) {
+        const arrowSpan = document.createElement('span')
+        arrowSpan.className = 'init-hero-ex__mod-badge__arrow'
+        arrowSpan.setAttribute('aria-hidden', 'true')
+        arrowSpan.innerHTML = sum > 0 ? SVG_HERO_MOD_TOGGLE_UP : SVG_HERO_MOD_TOGGLE_DOWN
+        badge.appendChild(arrowSpan)
+      }
       badge.appendChild(valSpan)
       if (tightFrac) {
         const tailSpan = document.createElement('span')
@@ -3931,7 +3931,9 @@ export function mountHeroExpandBlock(
           return `${eff > 0 ? '+' : ''}${eff} (${frac})`
         })
         .join(' \u00B7 ')
-      badge.title = `${namePrefix}Modifikator ${sum > 0 ? '+' : ''}${sum} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
+      badge.title = useFixedValueView
+        ? `${namePrefix}Fixwert ${fixedGsValue} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
+        : `${namePrefix}Modifikator ${sum > 0 ? '+' : ''}${sum} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
       const fieldModsAutoOnly =
         fieldMods.length > 0 &&
         fieldMods.every((m) =>
