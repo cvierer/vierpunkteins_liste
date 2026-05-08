@@ -549,6 +549,29 @@ export function computeUnfaehigSources(snap, meta, ctx) {
 }
 
 /**
+ * Aktive Arm-Wappen mit ≥3 Wunden — für Mod-Bänder `LA:0`/`RA:0` unabhängig von „nur Arm“-Unfähig-UI.
+ *
+ * @param {Record<string, unknown> | null | undefined} snap — wie readHeroExpandSnapshot
+ * @returns {ReadonlySet<'LA'|'RA'>}
+ */
+export function armThirdWoundSidesFromSnapshot(snap) {
+  const sn = snap && typeof snap === 'object' ? snap : {}
+  /** @type {Set<'LA'|'RA'>} */
+  const sides = new Set()
+  const defs = wappenDefsFromSnap(sn)
+  for (const def of defs) {
+    if (!def?.active) continue
+    const zid = def.id
+    if (zid !== 'schildarm' && zid !== 'schwertarm') continue
+    const w = clampWound(sn.hitZones?.zones?.[zid]?.w ?? 0)
+    if (w < 3) continue
+    if (zid === 'schildarm') sides.add('LA')
+    else sides.add('RA')
+  }
+  return sides
+}
+
+/**
  * Bitmaske für Suppression / Signatur von `auto-le-unfaehig`.
  * Bit 0 = LE-Schwelle, 1 = Schildarm, 2 = Schwertarm, 3–9 = kopf…beine (je Zone).
  *

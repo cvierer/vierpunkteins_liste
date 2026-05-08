@@ -3,6 +3,7 @@ import { HIT_ZONE_DEFS, hzWKey } from './hitZoneMeta.js'
 import {
   aggregateHeroAutoPenaltyDeltasFromExpandSnapshot,
   applyBundleRemovalCleanup,
+  armThirdWoundSidesFromSnapshot,
   AUTO_MOD_BUNDLE_PREFIX,
   buildHeroAutoModRecords,
   computeAutoTriggerSignature,
@@ -14,6 +15,7 @@ import {
   relabelAutoBundleInMods,
   updateLastSafeLeIfSafe,
 } from './heroAutoMods.js'
+import { cloneDefaultWappenDefs } from './wappenDefs.js'
 import { HERO_EX_MODS } from './heroExMods.js'
 
 /** @returns {Record<string, { rs: string, w: number }>} */
@@ -566,6 +568,37 @@ describe('applyBundleRemovalCleanup', () => {
     })
     applyBundleRemovalCleanup(m, 'bun-manual', ctx)
     expect(m[HERO_EX_MODS]).toBeUndefined()
+  })
+})
+
+describe('armThirdWoundSidesFromSnapshot', () => {
+  it('liefert LA bei aktivem Schildarm mit drei Wunden', () => {
+    const zones = { ...emptyZones(), schildarm: { rs: '0', w: 3 } }
+    const sides = armThirdWoundSidesFromSnapshot(snap({ hitZones: { notiz: '', zones } }))
+    expect(sides.has('LA')).toBe(true)
+    expect(sides.has('RA')).toBe(false)
+  })
+
+  it('liefert nichts wenn Schildarm inaktiv trotz 3 Wunden', () => {
+    const defs = cloneDefaultWappenDefs().map((d) =>
+      d.id === 'schildarm' ? { ...d, active: false } : d
+    )
+    const zones = { ...emptyZones(), schildarm: { rs: '0', w: 3 } }
+    const sides = armThirdWoundSidesFromSnapshot(
+      snap({ hitZones: { notiz: '', zones }, wappenDefs: defs })
+    )
+    expect(sides.has('LA')).toBe(false)
+  })
+
+  it('liefert LA und RA wenn beide Arme drei Wunden haben', () => {
+    const zones = {
+      ...emptyZones(),
+      schildarm: { rs: '0', w: 3 },
+      schwertarm: { rs: '0', w: 3 },
+    }
+    const sides = armThirdWoundSidesFromSnapshot(snap({ hitZones: { notiz: '', zones } }))
+    expect(sides.has('LA')).toBe(true)
+    expect(sides.has('RA')).toBe(true)
   })
 })
 

@@ -37,6 +37,7 @@ import {
   AUTO_MOD_BUNDLE_PREFIX,
   computeKrAutoPenaltyWorseningMarks,
   hasGsZeroPriorityFromSnapshot,
+  armThirdWoundSidesFromSnapshot,
   computeUnfaehigSources,
   leAtPaMalusForBand,
   leBand,
@@ -3947,6 +3948,7 @@ export function mountHeroExpandBlock(
       stripEl.appendChild(chip)
     }
     const snapForFieldBadges = readHeroExpandSnapshot(modMeta)
+    const armThirdWoundSides = armThirdWoundSidesFromSnapshot(snapForFieldBadges)
     const modBandIntegrated = readModDisplayMode(modMeta) === 'integrated'
     const fixedFieldValues = Object.fromEntries(
       UNFAEHIG_FIXED_ALLOWED_FIELDS.map((k) => {
@@ -4066,12 +4068,18 @@ export function mountHeroExpandBlock(
       })()
       const hasArmWoundNote =
         ['at', 'pa', 'ff', 'kk'].includes(field) &&
-        (armSource.hasLa || armSource.hasRa)
+        (armSource.hasLa ||
+          armSource.hasRa ||
+          armThirdWoundSides.has('LA') ||
+          armThirdWoundSides.has('RA'))
       const unfaehigLeFixedField =
         isUnfaehigFixedField &&
         unfaehigDisplay.leTriggered &&
         ['at', 'pa', 'ff', 'kk'].includes(field)
-      const useArmWoundCompactBadge = hasArmWoundNote && !unfaehigLeFixedField
+      const useArmWoundCompactBadge =
+        ['at', 'pa', 'ff', 'kk'].includes(field) &&
+        (armSource.hasLa || armSource.hasRa) &&
+        !unfaehigLeFixedField
       const armDelta = armSource.la + armSource.ra
       const nonArmDelta = sum - armDelta
       const hasNonArmExtra =
@@ -4146,22 +4154,15 @@ export function mountHeroExpandBlock(
       if (hasArmWoundNote && !unfaehigLeFixedField) {
         /** @type {string[]} */
         const armNotes = []
-        const armZeroSides =
-          isUnfaehigFixedField && unfaehigDisplay.armOnly
-            ? new Set(
-                Array.isArray(unfaehigDisplay.armSetSides)
-                  ? unfaehigDisplay.armSetSides
-                  : []
-              )
-            : new Set()
-        if (armSource.hasLa) {
+        const armZeroSides = armThirdWoundSides
+        if (armSource.hasLa || armThirdWoundSides.has('LA')) {
           armNotes.push(
             armZeroSides.has('LA')
               ? 'LA:0'
               : `LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`
           )
         }
-        if (armSource.hasRa) {
+        if (armSource.hasRa || armThirdWoundSides.has('RA')) {
           armNotes.push(
             armZeroSides.has('RA')
               ? 'RA:0'
