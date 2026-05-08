@@ -4072,6 +4072,8 @@ export function mountHeroExpandBlock(
     })
     const unfaehigIgnoreTooltip =
       'Unfähigkeit ignorieren: durch Vorteil oder Selbstbeherrschung +12, dann Zauber- und Talentproben ↓9 und Eigenschaftsproben und Kampfwerte zusätzlich ↓3'
+    const sterbendTooltipExtra =
+      'Erste Hilfe und Rettung mit Frist von W6×Konstitution (KO) Kampfrunden (KR) notwendig'
     for (const modRec of active) {
       if (modRec.bundleId) {
         if (seenBundle.has(modRec.bundleId)) continue
@@ -4107,17 +4109,25 @@ export function mountHeroExpandBlock(
                 return `${MOD_FIELD_LABEL[bm.field]} ${formatDeltaForTooltip(eff)} (${modNavFractionLabelFromNav(bm, ownerIniNum, lhMech, round, navIni)})`
               })
         const bidStr = String(modRec.bundleId ?? '')
+        const isLeBandBundle = bidStr === AUTO_LE_BAND_BUNDLE_ID
         const isMagicLeBundle = bidStr === AUTO_LE_TAW_ZFW_BUNDLE_ID
         const isUnfaehigBundle = bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID
         if (isMagicLeBundle) {
           const nMatch = String(packLabel ?? '').match(/↓\s*(\d+)/u)
           const nTxt = nMatch?.[1] ?? '0'
           detailLines.length = 0
-          if (String(packLabel ?? '').startsWith('LE ≤')) {
+          if (String(packLabel ?? '') === 'sterbend') {
+            detailLines.push('sterbend')
+            detailLines.push(sterbendTooltipExtra)
+          } else if (String(packLabel ?? '').startsWith('LE ≤')) {
             detailLines.push(unfaehigIgnoreTooltip)
           } else {
             detailLines.push(`Zauber und Talentproben um ↓${nTxt} erschwert`)
           }
+        } else if (isLeBandBundle && String(packLabel ?? '') === 'sterbend') {
+          detailLines.length = 0
+          detailLines.push('sterbend')
+          detailLines.push(sterbendTooltipExtra)
         } else if (
           isUnfaehigBundle &&
           String(packLabel ?? '') === 'unfähig' &&
@@ -4134,16 +4144,13 @@ export function mountHeroExpandBlock(
         const cardTitleBase = `${bundleTitlePfx}${longSummary}`
         const keepTitleClean =
           isMagicLeBundle ||
+          (isLeBandBundle && String(packLabel ?? '') === 'sterbend') ||
           (isUnfaehigBundle &&
             String(packLabel ?? '') === 'unfähig' &&
             !hasActiveSterbendOrRip)
         const cardTitle = keepTitleClean
           ? cardTitleBase
-          : `${cardTitleBase}${!isAutoBundle && canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''}${
-              isAutoBundle && canEdit
-                ? ' \u00B7 Nur per X entfernen, nicht bearbeitbar'
-                : ''
-            }`
+          : `${cardTitleBase}${!isAutoBundle && canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''}`
         let netSum = 0
         if (String(modRec.bundleId ?? '') !== AUTO_LE_UNFAEHIG_BUNDLE_ID) {
           for (const bm of bundleMods) {
