@@ -2160,12 +2160,7 @@ export function mountHeroExpandBlock(
       !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
 
     if (armOnly) {
-      for (const key of ['at', 'pa', 'tp', 'fk']) {
-        const cell = unfaehigVisualTargets[key]
-        if (cell instanceof HTMLElement) {
-          cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
-        }
-      }
+      /* Arm-W3 zeigt Fixbänder, aber ohne diagonales Durchstreichen. */
       return
     }
 
@@ -3948,7 +3943,9 @@ export function mountHeroExpandBlock(
         (m) => String(m?.bundleId ?? '') === 'auto-le-unfaehig'
       )
       const marked = new Set()
-      if (!active) return { active, marked, leg3w: false }
+      if (!active) {
+        return { active, marked, leg3w: false, armOnly: false, armSide: '' }
+      }
       const combUf = getCombat()
       const roundUf =
         combUf?.started && Number.isFinite(Number(combUf.round))
@@ -3961,8 +3958,16 @@ export function mountHeroExpandBlock(
       })
       const armOnly = !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
       if (armOnly) {
-        for (const key of ['at', 'pa', 'tp', 'fk']) marked.add(key)
-        return { active, marked, leg3w: false }
+        for (const key of ['at', 'pa', 'ff', 'kk']) marked.add(key)
+        const armSide =
+          ufSrc.armSet.length === 2
+            ? 'AR'
+            : ufSrc.armSet.includes('schildarm')
+              ? 'LA'
+              : ufSrc.armSet.includes('schwertarm')
+                ? 'RA'
+                : 'AR'
+        return { active, marked, leg3w: false, armOnly: true, armSide }
       }
       const baseMarked = Array.isArray(snapForFieldBadges.unfaehigMarkFields)
         ? snapForFieldBadges.unfaehigMarkFields
@@ -3973,7 +3978,7 @@ export function mountHeroExpandBlock(
       }
       if (ufSrc.armSet.length > 0) marked.add('fk')
       if (ufSrc.leg3w) marked.add('gs')
-      return { active, marked, leg3w: Boolean(ufSrc.leg3w) }
+      return { active, marked, leg3w: Boolean(ufSrc.leg3w), armOnly: false, armSide: '' }
     })()
 
     /* Pro Feld: Sub-Badge entfernen + ggf. neu erstellen. */
@@ -3998,6 +4003,27 @@ export function mountHeroExpandBlock(
       )
       const isUnfaehigFixedField =
         unfaehigDisplay.active && unfaehigDisplay.marked.has(field)
+      const armSource = (() => {
+        const armMods = activeModsFull.filter(
+          (m) =>
+            String(m.bundleId ?? '') === `${AUTO_MOD_BUNDLE_PREFIX}zone-schildarm` ||
+            String(m.bundleId ?? '') === `${AUTO_MOD_BUNDLE_PREFIX}zone-schwertarm`
+        )
+        if (!armMods.length) return { side: '', value: 0 }
+        const hasLa = armMods.some(
+          (m) => String(m.bundleId ?? '') === `${AUTO_MOD_BUNDLE_PREFIX}zone-schildarm`
+        )
+        const hasRa = armMods.some(
+          (m) => String(m.bundleId ?? '') === `${AUTO_MOD_BUNDLE_PREFIX}zone-schwertarm`
+        )
+        const side = hasLa && hasRa ? 'AR' : hasLa ? 'LA' : hasRa ? 'RA' : ''
+        let value = 0
+        for (const m of armMods) {
+          if (String(m.field ?? '') !== field) continue
+          value += modEffectiveContribution(m, ownerIniNum, round, navIni, lhMech)
+        }
+        return { side, value }
+      })()
       const fixedValueForField = (() => {
         if (field !== 'gs') return fixedFieldValues[field] ?? 0
         const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
@@ -4044,9 +4070,15 @@ export function mountHeroExpandBlock(
       /* Hauptwert größer als Restlaufzeit; schmale Abstände um den Mittelpunkt. */
       const valSpan = document.createElement('span')
       valSpan.className = 'init-hero-ex__mod-badge__val'
-      valSpan.textContent = String(
-        useFixedValueView ? fixedValueForField : absSum
-      )
+      const armW3FixedField =
+        useFixedValueView &&
+        unfaehigDisplay.armOnly &&
+        ['at', 'pa', 'ff', 'kk'].includes(field)
+      if (armW3FixedField) {
+        valSpan.textContent = `${unfaehigDisplay.armSide || 'AR'}: 0`
+      } else {
+        valSpan.textContent = String(useFixedValueView ? fixedValueForField : absSum)
+      }
       if (!useFixedValueView) {
         const arrowSpan = document.createElement('span')
         arrowSpan.className = 'init-hero-ex__mod-badge__arrow'
@@ -4055,6 +4087,17 @@ export function mountHeroExpandBlock(
         badge.appendChild(arrowSpan)
       }
       badge.appendChild(valSpan)
+      if (
+        !useFixedValueView &&
+        ['at', 'pa', 'ff', 'kk'].includes(field) &&
+        armSource.side &&
+        armSource.value < 0
+      ) {
+        const srcSpan = document.createElement('span')
+        srcSpan.className = 'init-hero-ex__mod-badge__tail'
+        srcSpan.textContent = ` ${armSource.side}↓${Math.abs(armSource.value)}`
+        badge.appendChild(srcSpan)
+      }
       if (tightFrac) {
         const tailSpan = document.createElement('span')
         tailSpan.className = 'init-hero-ex__mod-badge__tail'
