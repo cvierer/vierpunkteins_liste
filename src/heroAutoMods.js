@@ -871,10 +871,10 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       if (labelKind === 'rip') magicLabel = 'R.I.P.'
       else if (labelKind === 'sterbend') magicLabel = 'sterbend'
       else if (labelKind === 'unfaehig') magicLabel = `LE ≤ ${Math.floor(Number(criticalThreshold))}`
-      else if (labelKind === 'band0') magicLabel = 'TaW,ZfW+3'
-      else if (labelKind === 'band1') magicLabel = 'TaW,ZfW+6'
-      else if (labelKind === 'band2plus') magicLabel = 'TaW,ZfW+9'
-      else magicLabel = 'TaW,ZfW'
+      else if (labelKind === 'band0') magicLabel = 'Ta&Za ↓3'
+      else if (labelKind === 'band1') magicLabel = 'Ta&Za ↓6'
+      else if (labelKind === 'band2plus') magicLabel = 'Ta&Za ↓9'
+      else magicLabel = 'Ta&Za'
       pushRows(
         AUTO_LE_TAW_ZFW_BUNDLE_ID,
         magicLabel,

@@ -3854,7 +3854,7 @@ export function mountHeroExpandBlock(
       if (isAutoLeTawZfw) {
         const magicTop = document.createElement('div')
         magicTop.className = 'init-hero-ex__mod-chip-card__magic-topline'
-        magicTop.innerHTML = `${SVG_MOD_CHIP_MAGIC_WAND}<span>Zauber</span>`
+        magicTop.innerHTML = SVG_MOD_CHIP_MAGIC_WAND
         magicTop.title = o.cardTitle
         chip.append(magicTop, labelLine)
       } else {
