@@ -4301,6 +4301,15 @@ export function mountHeroExpandBlock(
       const w = clampWound(readHeroExpandSnapshot(modMeta)?.hitZones?.zones?.[zoneId]?.w ?? 0)
       return w >= 3
     })
+    /** Nur LA/RA-3W: LE-unfähig- und Ta&Za-Chips weiter zeigen; 3.W. außerhalb der Arme blendet sie aus wie zuvor */
+    const hasNonArmThirdWoundAutoZoneChip = active.some((x) => {
+      const bid = String(x?.bundleId ?? '')
+      if (!bid.startsWith(AUTO_ZONE_BUNDLE_PREFIX)) return false
+      const zoneId = bid.slice(AUTO_ZONE_BUNDLE_PREFIX.length)
+      if (zoneId === 'schildarm' || zoneId === 'schwertarm') return false
+      const w = clampWound(readHeroExpandSnapshot(modMeta)?.hitZones?.zones?.[zoneId]?.w ?? 0)
+      return w >= 3
+    })
     const gsZeroPriorityActive = hasGsZeroPriorityFromSnapshot(
       readHeroExpandSnapshot(modMeta)
     )
@@ -4313,13 +4322,13 @@ export function mountHeroExpandBlock(
           continue
         }
         if (
-          hasThirdWoundAutoZoneChip &&
+          hasNonArmThirdWoundAutoZoneChip &&
           String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
         ) {
           continue
         }
         if (
-          hasThirdWoundAutoZoneChip &&
+          hasNonArmThirdWoundAutoZoneChip &&
           String(modRec.bundleId ?? '') === AUTO_LE_TAW_ZFW_BUNDLE_ID
         ) {
           continue
