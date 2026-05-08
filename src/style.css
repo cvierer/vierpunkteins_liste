@@ -7902,7 +7902,7 @@ select.init-row-extra-select {
 }
 
 .init-hero-ex__mod-chip-card--rumpf-label .init-hero-ex__mod-chip-card__label-line {
-  font-size: calc(0.56rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  font-size: calc(0.48rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 .init-hero-ex__mods-strip--under-mod-btn
