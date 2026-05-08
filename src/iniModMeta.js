@@ -4076,12 +4076,13 @@ export function mountHeroExpandBlock(
     const sterbendTooltipExtra =
       'Erste Hilfe und Rettung mit Frist von W6×Konstitution (KO) Kampfrunden (KR) notwendig'
     const permanentLossTooltip =
-      'permanenter Verlust von einem Punkt der Basis-Lebensenergie verliert'
+      'LE<-Wundschwelle. Das bedeutet: permanenter Verlust von einem Punkt der Basis-Lebensenergie (LEmax ↓1). Dieser kann nicht durch gewöhnliche Heilung wieder ausgeglichen werden. (LEmax muss nach der Heilung neu mit einem Punkt weniger in das Wertefeld eingetragen werden).'
     const hasActiveLeMaxLossBand = active.some(
       (x) => String(x?.bundleId ?? '') === AUTO_LE_MAXLOSS_BUNDLE_ID
     )
     for (const modRec of active) {
       if (modRec.bundleId) {
+        if (String(modRec.bundleId) === AUTO_LE_MAXLOSS_BUNDLE_ID) continue
         if (seenBundle.has(modRec.bundleId)) continue
         seenBundle.add(modRec.bundleId)
         const bundleMods = active.filter((x) => x.bundleId === modRec.bundleId)
