@@ -802,7 +802,7 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       let label = ''
       if (leNum <= 0) {
         if (deathMode === 'lt0') {
-          label = leNum < 0 ? 'R.I.P.' : 'sterbend'
+          label = 'R.I.P.'
         } else if (koNum != null && koNum > 0) {
           const depth = -leNum
           const deathThreshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
