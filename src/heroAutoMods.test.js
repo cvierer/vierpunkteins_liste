@@ -89,6 +89,16 @@ describe('buildHeroAutoModRecords', () => {
     expect(u[0].delta).toBe(0)
   })
 
+  it('unfähig-UI-Bundle zeigt R.I.P., sobald Todesregel greift (Priorität vor LE≤)', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '-8', leMax: '40', ko: '8', deathMode: 'minusKo', unfaehigThreshold: '5' }),
+      ctx
+    )
+    const u = mods.filter((m) => m.bundleId === 'auto-le-unfaehig')
+    expect(u.length).toBe(1)
+    expect(u[0].label).toBe('R.I.P.')
+  })
+
   it('unfähig-UI-Bundle bei dritter Wunde (ohne LE-Schwelle)', () => {
     const zones = { ...emptyZones(), brust: { rs: '0', w: 3 } }
     const mods = buildHeroAutoModRecords(

@@ -252,6 +252,21 @@ function leKoCriticalLabel(leNum, koNum) {
 }
 
 /**
+ * @param {number | null} leNum
+ * @param {number | null} koNum
+ * @param {'lt0'|'minusKo'|'minusOnePointFiveKo'} deathMode
+ * @returns {boolean}
+ */
+function isDeathTriggered(leNum, koNum, deathMode) {
+  if (leNum === null) return false
+  if (deathMode === 'lt0') return leNum <= 0
+  if (!(koNum != null && koNum > 0)) return false
+  const depth = -leNum
+  const deathThreshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
+  return depth >= deathThreshold
+}
+
+/**
  * @typedef {{
  *   round: number | null | undefined,
  *   navIni: number | null | undefined,
@@ -799,15 +814,12 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       const unfaehigThreshold = readUnfaehigThresholdFromSnapshot(snap)
       const criticalThreshold = unfaehigFix ?? unfaehigThreshold
       const deathMode = deathModeFromSnapshot(snap)
+      const deathTriggered = isDeathTriggered(leNum, koNum, deathMode)
       let label = ''
-      if (leNum <= 0) {
-        if (deathMode === 'lt0') {
-          label = 'R.I.P.'
-        } else if (koNum != null && koNum > 0) {
-          const depth = -leNum
-          const deathThreshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
-          label = depth >= deathThreshold ? 'R.I.P.' : 'sterbend'
-        } else label = 'sterbend'
+      if (deathTriggered) {
+        label = 'R.I.P.'
+      } else if (leNum <= 0) {
+        label = 'sterbend'
       } else if (
         Number.isFinite(Number(criticalThreshold)) &&
         leNum <= Number(criticalThreshold)
@@ -840,9 +852,13 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     ufSources.nonArm3w ||
     ufSources.armSet.length > 0
   ) {
+    const deathMode = deathModeFromSnapshot(snap)
+    const leNum = effectiveLeForThresholds(snap, metaForLe, ctx)
+    const koNum = parseSignedInt(snap.ko)
+    const unfaehigLabel = isDeathTriggered(leNum, koNum, deathMode) ? 'R.I.P.' : 'unfähig'
     pushRows(
       'auto-le-unfaehig',
-      'unfähig',
+      unfaehigLabel,
       [{ field: 'le', delta: 0 }],
       { includeZero: true }
     )
