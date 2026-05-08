@@ -3272,7 +3272,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         <legend class="kampf-settings-convert-announce__legend">Todesregel</legend>
         <label class="kampf-settings-radio-label">
           <input type="radio" name="kampf-hero-death-mode" value="lt0" />
-          <span><strong>Tod schon bei LE &lt; 0</strong></span>
+          <span><strong>Tod schon bei LE &lt; 0</strong> (bei LE = 0 noch nicht tot)</span>
         </label>
         <label class="kampf-settings-radio-label">
           <input type="radio" name="kampf-hero-death-mode" value="minusKo" />
