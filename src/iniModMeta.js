@@ -1709,6 +1709,17 @@ export function mountHeroExpandBlock(
     const threshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
     return depth >= threshold
   }
+  /**
+   * Blinkgrenze in LE (nicht in Tiefe), ab der der Negativ-Puls endet.
+   * @param {number | null} koNum
+   * @param {'lt0'|'minusKo'|'minusOnePointFiveKo'} deathMode
+   * @returns {number}
+   */
+  const blinkStopLeBoundaryForMode = (koNum, deathMode) => {
+    if (deathMode === 'lt0') return 0
+    if (!(koNum != null && koNum > 0)) return Number.NEGATIVE_INFINITY
+    return deathMode === 'minusOnePointFiveKo' ? -1.5 * koNum : -koNum
+  }
   /** Minus-Skala 0 … −1,6·KO (ab LE≤0 mit gültigem KO). */
   const NEG_LE_KO_RANGE = 1.6
 
@@ -1744,6 +1755,7 @@ export function mountHeroExpandBlock(
     const wsRaw = parseWsIntSafe(ws.inp.value)
     const deathMode = resolveDeathModeForLeUi(snap)
     const deathTriggered = isDeathTriggeredForLeUi(leV, koV, deathMode)
+    const blinkStopBoundary = blinkStopLeBoundaryForMode(koV, deathMode)
     /* KO/minus-Skala und Ansicht ab LE≤0 (inkl. LE=0), sobald KO gültig */
     const negLe =
       leV != null && leV <= 0 && koV != null && koV > 0
@@ -1787,7 +1799,7 @@ export function mountHeroExpandBlock(
       leThreshSkull.style.top = 'auto'
       leThreshSkull.style.transform = 'translate(-50%, 50%)'
       /* Blinken oberhalb −1·KO; langsamer/unregelmäßig zwischen −1·KO und −WS */
-      const negPulseOn = !deathTriggered && leV > -koV
+      const negPulseOn = !deathTriggered && leV > blinkStopBoundary
       const negPulseIrregular =
         negPulseOn && leV <= -wsThreshold
       leThreshCell.classList.toggle(
@@ -2277,6 +2289,7 @@ export function mountHeroExpandBlock(
     const wsRaw = parseWsIntSafe(ws.inp.value)
     const deathMode = resolveDeathModeForLeUi(snap)
     const deathTriggered = isDeathTriggeredForLeUi(leV, koV, deathMode)
+    const blinkStopBoundary = blinkStopLeBoundaryForMode(koV, deathMode)
     const negLe =
       leV != null && leV <= 0 && koV != null && koV > 0
     const dead = leV != null && leV <= 0 && !negLe
@@ -2306,7 +2319,7 @@ export function mountHeroExpandBlock(
       const cap = NEG_LE_KO_RANGE * koV
       lePopFill.style.height = Math.min(100, (depth / cap) * 100).toFixed(3) + '%'
       lePop.dataset.leBand = 'neg-le'
-      const negPulseOnPop = !deathTriggered && leV > -koV
+      const negPulseOnPop = !deathTriggered && leV > blinkStopBoundary
       const negPulseIrregularPop =
         negPulseOnPop && leV <= -0.5 * koV
       lePop.classList.toggle('init-hero-ex__le-pop--neg-pulse', negPulseOnPop)
