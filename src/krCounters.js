@@ -588,6 +588,28 @@ export function readZaoSlot(meta, linkId) {
 }
 
 /**
+ * Mindestens eine reguläre (nicht `heroExtra`) 2.A.-Wurzel mit voller Ladung
+ * (`marks === 1`). Wird genutzt, um Abwehr→leeres Mutterfeld zu sperren, solange
+ * noch eine zweite Aktion abgearbeitet werden soll.
+ *
+ * @param {unknown} meta
+ * @returns {boolean}
+ */
+export function metaHasPendingLoadedNonHeroExtraZao(meta) {
+  if (!meta || typeof meta !== 'object') return false
+  const zaoSlotsMap = readZaoSlots(meta)
+  const phaseLinksForTransfer = normalizePhases(meta.phases).links
+  const heroExtraLinkIds = new Set(
+    phaseLinksForTransfer
+      .filter((l) => l.parentId === null && l.heroExtra)
+      .map((l) => l.id)
+  )
+  return Object.entries(zaoSlotsMap).some(
+    ([linkId, s]) => s && s.marks === 1 && !heroExtraLinkIds.has(linkId)
+  )
+}
+
+/**
  * @param {string} itemId
  * @param {string} linkId
  * @param {{ kind?: 'ang'|'sra'|'lh', marks?: 0|1 }} patch
@@ -1237,6 +1259,7 @@ export async function patchKrTransferAbwToPrimary(itemId) {
   if (nextAbw === abw) return
 
   if (!motherHasCharge) {
+    if (metaHasPendingLoadedNonHeroExtraZao(meta)) return
     await OBR.scene.items.updateItems([itemId], (drafts) => {
       for (const d of drafts) {
         const m = d.metadata[TRACKER_ITEM_META_KEY]

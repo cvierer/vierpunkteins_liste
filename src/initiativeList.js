@@ -117,6 +117,7 @@ import {
   readKrLhSecondCharge,
   readKrPrimaryLadung,
   readKrSra,
+  metaHasPendingLoadedNonHeroExtraZao,
   readZaoSlot,
   readZaoSlots,
   stampLhCompletion,
@@ -1620,18 +1621,11 @@ function appendKrConvertArrowsCell(
   // Quelle für Primär→Schild: Mutter ODER irgendein „normaler" 2.A.-Slot mit
   // Ladung. Helden-Zusatz-Objekte (`heroExtra`) liefern keine umwandelbare
   // Ladung — ihre einzelne Ladung ist ausdrücklich nur stempelbar.
-  const zaoSlotsMap = trackerMeta ? readZaoSlots(trackerMeta) : {}
-  const phaseLinksForTransfer = trackerMeta
-    ? normalizePhases(trackerMeta.phases).links
-    : []
-  const heroExtraLinkIds = new Set(
-    phaseLinksForTransfer
-      .filter((l) => l.parentId === null && l.heroExtra)
-      .map((l) => l.id)
+  const anyZaoCharged = Boolean(
+    trackerMeta && metaHasPendingLoadedNonHeroExtraZao(trackerMeta)
   )
-  const anyZaoCharged = Object.entries(zaoSlotsMap).some(
-    ([linkId, s]) => s && s.marks === 1 && !heroExtraLinkIds.has(linkId)
-  )
+  const lowerBlockedPendingLoadedZao =
+    !motherHasCharge && anyZaoCharged
   const canUpperTransfer =
     canEdit &&
     (motherHasCharge || anyZaoCharged) &&
@@ -1649,10 +1643,12 @@ function appendKrConvertArrowsCell(
     ) != null
   // Schild→Primär: läuft, solange das Schild eine Ladung hat (Mutter
   // bekommt Ladung, oder es entsteht ein neuer 2.A.-Slot mit freier INI).
+  // Kein Schild→leeres Mutterfeld, solange noch eine geladene 2.A.-Zeile wartet.
   const canLowerTransfer =
     canEdit &&
     krTransferMarkPresent(abwVal) &&
-    (!motherHasCharge || canAppendChainedZao)
+    (!motherHasCharge || canAppendChainedZao) &&
+    !lowerBlockedPendingLoadedZao
 
   const upperLabel = firstIsLh
     ? 'L.H.-Ladung ins Abwehr-Schild verschieben'
@@ -1737,6 +1733,19 @@ function appendKrConvertArrowsCell(
   if (lhLocked) toAng.classList.add('init-kr-convert-cell__btn--lh-locked')
   if (lockedByConvertLock) {
     toAng.classList.add('init-kr-convert-cell__btn--convert-locked')
+  }
+  if (
+    !canLowerTransfer &&
+    canEdit &&
+    !lhLocked &&
+    !lockedByConvertLock &&
+    lowerBlockedPendingLoadedZao &&
+    krTransferMarkPresent(abwVal) &&
+    (!motherHasCharge || canAppendChainedZao)
+  ) {
+    toAng.title =
+      'Zuerst die ausstehende 2.-Aktion an der Phasenzeile nutzen (oder den Slot schließen) — Schild nicht erneut ins leere Mutterfeld.'
+    toAng.setAttribute('aria-label', toAng.title)
   }
   if (canEdit) {
     toAng.addEventListener('click', (e) => {
