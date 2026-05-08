@@ -50,6 +50,7 @@ const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
 const HERO_EX_SHOW_FK = 'heroExShowFk'
 const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
 const HERO_EX_UNFAEHIG_FIXED_FIELDS = 'heroExUnfaehigFixedFields'
+const HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO = 'heroDeathAtMinusOnePointFiveKo'
 const HERO_EX_WAPPEN_TEMPLATE = 'heroExWappenTemplate'
 
 export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
@@ -208,6 +209,15 @@ function readUnfaehigFixedLeFromSnapshot(snap) {
     if (Number.isFinite(n) && n >= 0) return n
   }
   return null
+}
+
+/**
+ * @param {Record<string, unknown>} snap
+ * @returns {boolean}
+ */
+function deathAtMinusOnePointFiveKoFromSnapshot(snap) {
+  const t = String(snap?.deathAtMinusOnePointFiveKo ?? '').trim().toLowerCase()
+  return !['0', 'false', 'off', 'no', 'nein'].includes(t)
 }
 
 /**
@@ -600,6 +610,9 @@ export function snapshotFromTrackerMeta(m) {
     showFk: showFkEff ? '1' : '0',
     unfaehigThreshold: String(m?.[HERO_EX_UNFAEHIG_THRESHOLD] ?? ''),
     unfaehigFixedFields: String(m?.[HERO_EX_UNFAEHIG_FIXED_FIELDS] ?? ''),
+    deathAtMinusOnePointFiveKo: String(
+      m?.[HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO] ?? ''
+    ),
     wappenTemplate: String(m?.[HERO_EX_WAPPEN_TEMPLATE] ?? ''),
     hitZones: readHitZoneBundle(m, TRACKER_ITEM_META_KEY, wappenDefs),
     wappenDefs,
@@ -769,9 +782,16 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       const unfaehigFix = readUnfaehigFixedLeFromSnapshot(snap)
       const unfaehigThreshold = readUnfaehigThresholdFromSnapshot(snap)
       const criticalThreshold = unfaehigFix ?? unfaehigThreshold
+      const deathAtMinusOnePointFiveKo = deathAtMinusOnePointFiveKoFromSnapshot(snap)
       let label = ''
       if (leNum <= 0) {
-        label = 'sterbend'
+        if (koNum != null && koNum > 0) {
+          const depth = -leNum
+          const deathThreshold = deathAtMinusOnePointFiveKo ? 1.5 * koNum : koNum
+          label = depth >= deathThreshold ? 'R.I.P.' : 'sterbend'
+        } else {
+          label = 'sterbend'
+        }
       } else if (
         Number.isFinite(Number(criticalThreshold)) &&
         leNum <= Number(criticalThreshold)

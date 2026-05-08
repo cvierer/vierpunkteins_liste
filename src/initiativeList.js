@@ -202,6 +202,8 @@ import {
   normalizeWappenDefs,
 } from './wappenDefs.js'
 
+const HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO = 'heroDeathAtMinusOnePointFiveKo'
+
 /** Letzter L.H.-Stand pro Token (für kurzes „fertig“ nach rem→0). */
 const lhRenderPrev = new Map()
 
@@ -3265,6 +3267,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         <input type="checkbox" data-kampf-hero-unfaehig-enabled />
         <span><strong>Auto-Mod „unfähig“ aktivieren:</strong> rein optische Überlagerung bei LE-Schwelle.</span>
       </label>
+      <label class="kampf-settings-checkbox-label">
+        <input type="checkbox" data-kampf-hero-death-15ko />
+        <span><strong>Tod erst bei -1,5KO:</strong> sonst gilt Tod ab LE ≤ -KO.</span>
+      </label>
       <label class="init-row-extra-label" for="kampf-hero-unfaehig-threshold-value">Schwelle „unfähig“ (LE ≤)</label>
       <input type="text" id="kampf-hero-unfaehig-threshold-value" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="0 oder größer. Standard Mensch: 5, Vierbeiner: 0." />
       <label class="init-row-extra-label" for="kampf-hero-unfaehig-mark-fields">Markierung (rote Diagonale)</label>
@@ -3352,6 +3358,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const heroUnfaehigEnabledCb = heroSettingsPanel.querySelector(
     '[data-kampf-hero-unfaehig-enabled]'
   )
+  const heroDeath15KoCb = heroSettingsPanel.querySelector('[data-kampf-hero-death-15ko]')
   const heroUnfaehigThresholdInp = heroSettingsPanel.querySelector(
     '#kampf-hero-unfaehig-threshold-value'
   )
@@ -3622,6 +3629,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
     if (
       heroUnfaehigEnabledCb instanceof HTMLInputElement &&
+      heroDeath15KoCb instanceof HTMLInputElement &&
       heroUnfaehigThresholdInp instanceof HTMLInputElement &&
       heroUnfaehigMarkFieldsInp instanceof HTMLInputElement &&
       heroUnfaehigFixedFieldsInp instanceof HTMLInputElement &&
@@ -3630,6 +3638,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       const enabled = heroPending.unfaehigEnabled !== false
       heroUnfaehigEnabledCb.checked = enabled
       heroUnfaehigEnabledCb.disabled = !heroSettingsGmMode
+      heroDeath15KoCb.checked = heroPending.deathAtMinusOnePointFiveKo === true
+      heroDeath15KoCb.disabled = !heroSettingsGmMode
       heroUnfaehigThresholdInp.disabled = !heroSettingsGmMode || !enabled
       heroUnfaehigMarkFieldsInp.disabled = !heroSettingsGmMode
       heroUnfaehigFixedFieldsInp.disabled = !heroSettingsGmMode
@@ -3788,6 +3798,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       unfaehigThreshold: normalizeUnfaehigThreshold(
         m?.[HERO_EX_UNFAEHIG_THRESHOLD],
         isVierbeinerDefault
+      ),
+      deathAtMinusOnePointFiveKo: !['0', 'false', 'off', 'no', 'nein'].includes(
+        String(m?.[HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO] ?? '')
+          .trim()
+          .toLowerCase()
       ),
       unfaehigEnabled: String(m?.[HERO_EX_UNFAEHIG_THRESHOLD] ?? '').trim() !== '',
       unfaehigMarkFields: normalizeUnfaehigMarkFieldsText(
@@ -4067,6 +4082,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         m[HERO_EX_UNFAEHIG_MARK_FIELDS] = normalizeUnfaehigMarkFieldsText(
           pend.unfaehigMarkFields
         )
+        if (pend.deathAtMinusOnePointFiveKo) {
+          m[HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO] = '1'
+        } else {
+          delete m[HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO]
+        }
         const pendingFixedRaw =
           heroUnfaehigFixedFieldsInp instanceof HTMLInputElement
             ? heroUnfaehigFixedFieldsInp.value
@@ -4361,6 +4381,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       }
       heroPending.unfaehigThreshold = Math.max(0, Math.min(999, n))
       heroUnfaehigThresholdInp.value = String(heroPending.unfaehigThreshold)
+    })
+  }
+  if (heroDeath15KoCb instanceof HTMLInputElement) {
+    heroDeath15KoCb.addEventListener('change', () => {
+      if (!isGmSync() || !heroPending) return
+      heroPending.deathAtMinusOnePointFiveKo = heroDeath15KoCb.checked
     })
   }
   if (heroUnfaehigMarkFieldsInp instanceof HTMLInputElement) {
