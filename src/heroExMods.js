@@ -57,6 +57,25 @@ export function readModDisplayMode(meta) {
 }
 
 /**
+ * LE und IB zeigen Basis+Mods immer als eine Zahl („integriert“), auch wenn die
+ * Anzeige der übrigen Felder getrennt ist.
+ *
+ * @param {string} field
+ */
+export function heroFieldModsAlwaysIntegratedDisplay(field) {
+  return field === 'le' || field === 'ib'
+}
+
+/**
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {string} field
+ */
+export function integratesHeroModsIntoDisplayedValue(meta, field) {
+  if (heroFieldModsAlwaysIntegratedDisplay(field)) return true
+  return readModDisplayMode(meta) === 'integrated'
+}
+
+/**
  * Whitelist der mod-faehigen Felder. Identifier matchen die Helden-Block-
  * Felder in [src/iniModMeta.js](src/iniModMeta.js) sowie das Listen-INI.
  * `inn` = Intuition (IN), entspricht `heroExIn`.
@@ -757,13 +776,20 @@ export function basisHeroExpandSnapshotFromDisplayed(
   currentRound,
   currentNavIni
 ) {
-  if (readModDisplayMode(meta) !== 'integrated' || ownerIniNum == null) {
+  if (ownerIniNum == null) {
     return { ...displayed }
   }
   const out = { ...displayed }
+  const zonesIntegrated =
+    readModDisplayMode(meta) === 'integrated' &&
+    out.hitZones &&
+    typeof out.hitZones === 'object' &&
+    out.hitZones.zones
+
   for (const field of MOD_FIELDS) {
     if (field === 'tp') continue
     if (HIT_ZONE_MOD_FIELD_IDS.includes(field)) continue
+    if (!integratesHeroModsIntoDisplayedValue(meta, field)) continue
     const key = field
     if (!(key in out)) continue
     const raw = out[key]
@@ -781,7 +807,11 @@ export function basisHeroExpandSnapshotFromDisplayed(
     )
     out[key] = String(n - d)
   }
-  if ('tp' in out && out.tp !== undefined) {
+  if (
+    readModDisplayMode(meta) === 'integrated' &&
+    'tp' in out &&
+    out.tp !== undefined
+  ) {
     out.tp = basisTpStringFromDisplayedIntegrated(
       meta,
       String(out.tp ?? ''),
@@ -790,7 +820,7 @@ export function basisHeroExpandSnapshotFromDisplayed(
       currentNavIni
     )
   }
-  if (out.hitZones && typeof out.hitZones === 'object' && out.hitZones.zones) {
+  if (zonesIntegrated) {
     const zones = { ...out.hitZones.zones }
     for (const zid of HIT_ZONE_MOD_FIELD_IDS) {
       const zd = zones[zid]

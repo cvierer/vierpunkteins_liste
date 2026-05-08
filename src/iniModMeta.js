@@ -72,6 +72,7 @@ import {
   addHeroExMod,
   countHeroModUiSlots,
   effectiveDeltaForField,
+  integratesHeroModsIntoDisplayedValue,
   generateModBundleId,
   listActiveMods,
   modEffectiveContribution,
@@ -850,8 +851,6 @@ export function mountHeroExpandBlock(
 
   const ownerIniNum = readOwnerIniReferenceForMods(meta)
 
-  const modDisplayIntegrated = readModDisplayMode(meta) === 'integrated'
-
   const parseWholeIntFieldString = (raw) => {
     const t = String(raw ?? '').trim()
     if (!/^-?\d+$/.test(t)) return null
@@ -860,7 +859,8 @@ export function mountHeroExpandBlock(
   }
 
   const microDisplayForModField = (field, baseStr) => {
-    if (!modDisplayIntegrated || ownerIniNum == null) return baseStr
+    if (!integratesHeroModsIntoDisplayedValue(meta, field) || ownerIniNum == null)
+      return baseStr
     const d = effectiveDeltaForField(
       meta,
       field,
@@ -1242,9 +1242,11 @@ export function mountHeroExpandBlock(
     return s
   }
   const mrAbbrLabel = mkChainAbbr('MR', 'Magieresistenz (MR)')
+  const LE_IB_MOD_INTEGRATED_HINT =
+    ' Modifikatoren sind in der angezeigten Zahl bereits eingerechnet und erscheinen im Mod-Band darunter zusätzlich in Klammern.'
   const ibAbbrLabel = mkChainAbbr(
     'IB',
-    'Ini-Basis + Modifikation (IB)'
+    'Ini-Basis + Modifikation (IB).' + LE_IB_MOD_INTEGRATED_HINT.trim()
   )
   const ibBeLbl = mkChainAbbr('BE', 'Behinderung (BE)', true)
   ibBeLbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
@@ -1285,7 +1287,7 @@ export function mountHeroExpandBlock(
     microDisplayForModField('ib', snap.ib),
     10,
     false,
-    'Ini-Basis + Modifikation (IB)'
+    'Ini-Basis + Modifikation (IB).' + LE_IB_MOD_INTEGRATED_HINT.trim()
   )
   const beInp = mkChainInp(
     'be',
@@ -1336,6 +1338,9 @@ export function mountHeroExpandBlock(
     'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--mr-r-gap'
   stackMr.appendChild(mrCell)
   const ibCol = mkIbChainCol(ibInp)
+  ibCol
+    .querySelector('.init-hero-ex__ib-chain__inp-cell')
+    ?.classList?.add('init-hero-ex__mods-in-body-shell')
   const beCol = mkIbChainCol(
     beInp,
     'init-hero-ex__ib-chain__col--half-cell'
@@ -1502,14 +1507,17 @@ export function mountHeroExpandBlock(
   const leChain = document.createElement('div')
   leChain.className = 'init-hero-ex__le-chain'
   const leMaxTitle = 'Lebensenergie Maximum (LE max)'
-  const leAbbrLE = mkChainAbbr('LE/', 'Lebensenergie (LE)')
+  const leAbbrLE = mkChainAbbr(
+    'LE/',
+    'Lebensenergie (LE).' + LE_IB_MOD_INTEGRATED_HINT.trim()
+  )
   const leAbbrMax = mkChainAbbr('MAX', leMaxTitle)
   const leInp = mkChainInp(
     'le',
     microDisplayForModField('le', snap.le),
     3,
     true,
-    'Lebensenergie (LE)'
+    'Lebensenergie (LE).' + LE_IB_MOD_INTEGRATED_HINT.trim()
   )
   const leMaxInp = mkChainInp(
     'lemax',
@@ -1550,6 +1558,9 @@ export function mountHeroExpandBlock(
     return stack
   }
   const leCol = mkLeChainCol(leInp)
+  leCol
+    .querySelector('.init-hero-ex__le-chain__inp-cell')
+    ?.classList?.add('init-hero-ex__mods-in-body-shell')
   const leMaxCol = mkLeChainCol(leMaxInp)
   const stackLe = mkLeChainStack(leAbbrLE, leCol)
   const stackLeMax = mkLeChainStack(leAbbrMax, leMaxCol)
@@ -4046,6 +4057,8 @@ export function mountHeroExpandBlock(
         round,
         navIni
       )
+      const integratedModBandForField =
+        modBandIntegrated || field === 'le' || field === 'ib'
       const isUnfaehigFixedField =
         unfaehigDisplay.active && unfaehigDisplay.marked.has(field)
       const armSource = (() => {
@@ -4113,7 +4126,7 @@ export function mountHeroExpandBlock(
       if (useFixedValueView) {
         badge.classList.add('init-hero-ex__mod-badge--fixed')
         badge.classList.add('init-hero-ex__mod-badge--unfaehig-fixed')
-      } else if (modBandIntegrated) {
+      } else if (integratedModBandForField) {
         badge.classList.add('init-hero-ex__mod-badge--integrated')
       }
       if (useArmWoundCompactBadge) {
@@ -4176,7 +4189,7 @@ export function mountHeroExpandBlock(
           const srcSpan = document.createElement('span')
           srcSpan.className =
             'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-note'
-          srcSpan.textContent = modBandIntegrated ? `(${note})` : note
+          srcSpan.textContent = integratedModBandForField ? `(${note})` : note
           badge.appendChild(srcSpan)
         }
         if (hasNonArmExtra) {
@@ -4190,7 +4203,7 @@ export function mountHeroExpandBlock(
           )
           const sign = nonArmDelta > 0 ? '+' : '\u2212'
           const text = `${sign}${Math.abs(nonArmDelta)}`
-          extraSpan.textContent = modBandIntegrated ? `(${text})` : text
+          extraSpan.textContent = integratedModBandForField ? `(${text})` : text
           badge.appendChild(extraSpan)
         }
       }
@@ -4937,10 +4950,7 @@ export function mountHeroExpandBlock(
         const navIni = readCurrentNavIniGlobal()
         const ownerN = Number(iniStr)
         let displayVal = iniStr
-        if (
-          readModDisplayMode(meta) === 'integrated' &&
-          Number.isFinite(ownerN)
-        ) {
+        if (Number.isFinite(ownerN)) {
           const patched = { ...meta, initiative: iniStr }
           const d = effectiveDeltaForField(
             patched,

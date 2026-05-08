@@ -158,7 +158,7 @@ describe('readModDisplayMode', () => {
 })
 
 describe('basisHeroExpandSnapshotFromDisplayed', () => {
-  it('passes through if not integrated or no owner INI', () => {
+  it('passthrough ohne Owner-INI oder nur Nicht‑LE‑Felder im getrennten Modus', () => {
     const g = { at: '12', pa: '10' }
     expect(
       basisHeroExpandSnapshotFromDisplayed(
@@ -178,6 +178,31 @@ describe('basisHeroExpandSnapshotFromDisplayed', () => {
         Number.POSITIVE_INFINITY
       )
     ).toEqual(g)
+  })
+
+  it('zieht LE-Mod auch im getrennten Anzeigemodus von der Eingabe ab', () => {
+    const meta = {
+      [MOD_DISPLAY_MODE]: 'separate',
+      [HERO_EX_MODS]: [
+        mkMod({
+          id: 'm-le',
+          field: 'le',
+          delta: -3,
+          duration: 5,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+        }),
+      ],
+    }
+    const basis = basisHeroExpandSnapshotFromDisplayed(
+      meta,
+      { le: '17', at: '12' },
+      10,
+      1,
+      Number.POSITIVE_INFINITY
+    )
+    expect(basis.le).toBe('20')
+    expect(basis.at).toBe('12')
   })
 
   it('subtracts effective mod delta for integer fields', () => {

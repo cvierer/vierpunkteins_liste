@@ -166,7 +166,6 @@ import {
 } from './longHandlung.js'
 import {
   effectiveDeltaForField,
-  readModDisplayMode,
   runHeroExModsAfterCombatUpdate,
 } from './heroExMods.js'
 import { cancelLh } from './lhEngine.js'
@@ -4944,7 +4943,6 @@ function bindStampContextRemove(el, stamp, items) {
         input.autocomplete = 'off'
         input.spellcheck = false
         input.value = (() => {
-          if (readModDisplayMode(meta) !== 'integrated') return row.initiative
           if (ownerIniRef == null) return row.initiative
           const cr = combat.started ? combat.round : null
           const d = effectiveDeltaForField(
@@ -4971,12 +4969,11 @@ function bindStampContextRemove(el, stamp, items) {
             'init-row-init--mod-val-neg',
             'init-row-init--mod-val-zero'
           )
-          if (readModDisplayMode(meta) !== 'integrated') {
+          const v = parseIniNumber(input.value)
+          if (v === null) {
             input.classList.add('init-row-init--mod-val-separate')
             return
           }
-          const v = parseIniNumber(input.value)
-          if (v === null) return
           if (v > 0) input.classList.add('init-row-init--mod-val-pos')
           else if (v < 0) input.classList.add('init-row-init--mod-val-neg')
           else input.classList.add('init-row-init--mod-val-zero')
@@ -4988,19 +4985,17 @@ function bindStampContextRemove(el, stamp, items) {
           if (!canEdit) return
           const raw = input.value.trim()
           let persistStr = raw
-          if (readModDisplayMode(meta) === 'integrated') {
-            const cr = combat.started ? combat.round : null
-            const dispNum = parseIniNumber(raw)
-            if (ownerIniRef != null && dispNum != null) {
-              const d = effectiveDeltaForField(
-                meta,
-                'ib',
-                ownerIniRef,
-                cr,
-                currentNavIniForRender
-              )
-              persistStr = formatHookDisplay(dispNum - d)
-            }
+          const cr = combat.started ? combat.round : null
+          const dispNum = parseIniNumber(raw)
+          if (ownerIniRef != null && dispNum != null) {
+            const d = effectiveDeltaForField(
+              meta,
+              'ib',
+              ownerIniRef,
+              cr,
+              currentNavIniForRender
+            )
+            persistStr = formatHookDisplay(dispNum - d)
           }
           if (persistStr === row.initiative) return
           restoreFocusItemId = row.id

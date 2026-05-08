@@ -2638,6 +2638,14 @@ body {
   background: transparent !important;
 }
 
+/* LE/IB: Mods sind im Kästchenwert eingerechnet — roter Rahmen + Tooltip im Code */
+.init-hero-ex__ib-chain__inp-cell.init-hero-ex__mods-in-body-shell,
+.init-hero-ex__le-chain__inp-cell.init-hero-ex__mods-in-body-shell {
+  outline: 2px solid #c62828;
+  outline-offset: -1px;
+  border-radius: 2px;
+}
+
 .init-hero-ex__micro--ib-chain-inp {
   width: 100%;
   min-width: 0;
