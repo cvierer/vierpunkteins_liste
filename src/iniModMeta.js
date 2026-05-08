@@ -1672,6 +1672,43 @@ export function mountHeroExpandBlock(
     const n = parseInt(t, 10)
     return Number.isFinite(n) ? n : null
   }
+  /**
+   * @param {ReturnType<typeof readHeroExpandSnapshot>} curSnap
+   * @returns {'lt0'|'minusKo'|'minusOnePointFiveKo'}
+   */
+  const resolveDeathModeForLeUi = (curSnap) => {
+    const v = String(curSnap?.deathMode ?? '')
+      .trim()
+      .toLowerCase()
+    if (v === 'lt0' || v === 'minusko' || v === 'minusonepointfiveko') {
+      return v === 'minusko'
+        ? 'minusKo'
+        : v === 'minusonepointfiveko'
+          ? 'minusOnePointFiveKo'
+          : 'lt0'
+    }
+    const legacy = String(curSnap?.deathAtMinusOnePointFiveKo ?? '')
+      .trim()
+      .toLowerCase()
+    if (['1', 'true', 'on', 'yes', 'ja'].includes(legacy)) {
+      return 'minusOnePointFiveKo'
+    }
+    return 'minusKo'
+  }
+  /**
+   * @param {number | null} leNum
+   * @param {number | null} koNum
+   * @param {'lt0'|'minusKo'|'minusOnePointFiveKo'} deathMode
+   * @returns {boolean}
+   */
+  const isDeathTriggeredForLeUi = (leNum, koNum, deathMode) => {
+    if (leNum === null) return false
+    if (deathMode === 'lt0') return leNum <= 0
+    if (!(koNum != null && koNum > 0)) return false
+    const depth = -leNum
+    const threshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
+    return depth >= threshold
+  }
   /** Minus-Skala 0 … −1,6·KO (ab LE≤0 mit gültigem KO). */
   const NEG_LE_KO_RANGE = 1.6
 
@@ -1705,6 +1742,8 @@ export function mountHeroExpandBlock(
     const maxV = parseLeIntSafe(leMaxInp.value)
     const koV = parseKoIntSafe(koAttr.inp.value)
     const wsRaw = parseWsIntSafe(ws.inp.value)
+    const deathMode = resolveDeathModeForLeUi(snap)
+    const deathTriggered = isDeathTriggeredForLeUi(leV, koV, deathMode)
     /* KO/minus-Skala und Ansicht ab LE≤0 (inkl. LE=0), sobald KO gültig */
     const negLe =
       leV != null && leV <= 0 && koV != null && koV > 0
@@ -1748,7 +1787,7 @@ export function mountHeroExpandBlock(
       leThreshSkull.style.top = 'auto'
       leThreshSkull.style.transform = 'translate(-50%, 50%)'
       /* Blinken oberhalb −1·KO; langsamer/unregelmäßig zwischen −1·KO und −WS */
-      const negPulseOn = leV > -koV
+      const negPulseOn = !deathTriggered && leV > -koV
       const negPulseIrregular =
         negPulseOn && leV <= -wsThreshold
       leThreshCell.classList.toggle(
@@ -2236,6 +2275,8 @@ export function mountHeroExpandBlock(
     const maxV = parseLeIntSafe(leMaxInp.value)
     const koV = parseKoIntSafe(koAttr.inp.value)
     const wsRaw = parseWsIntSafe(ws.inp.value)
+    const deathMode = resolveDeathModeForLeUi(snap)
+    const deathTriggered = isDeathTriggeredForLeUi(leV, koV, deathMode)
     const negLe =
       leV != null && leV <= 0 && koV != null && koV > 0
     const dead = leV != null && leV <= 0 && !negLe
@@ -2265,7 +2306,7 @@ export function mountHeroExpandBlock(
       const cap = NEG_LE_KO_RANGE * koV
       lePopFill.style.height = Math.min(100, (depth / cap) * 100).toFixed(3) + '%'
       lePop.dataset.leBand = 'neg-le'
-      const negPulseOnPop = leV > -koV
+      const negPulseOnPop = !deathTriggered && leV > -koV
       const negPulseIrregularPop =
         negPulseOnPop && leV <= -0.5 * koV
       lePop.classList.toggle('init-hero-ex__le-pop--neg-pulse', negPulseOnPop)
