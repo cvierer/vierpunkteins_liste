@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lhDisplayStepFromNav } from './lhMeta.js'
+import { lhDisplayStepFromNav, lhPieFraction } from './lhMeta.js'
 
 describe('lhDisplayStepFromNav', () => {
   const mechanics2Ap = {
@@ -75,5 +75,40 @@ describe('lhDisplayStepFromNav', () => {
       1
     )
     expect(stepMotherKr3).toBe(3)
+  })
+
+  it('KR2 Mutter: L.H. auf 2.A. gestartet (commitIni zweite Zeile) + priorSpend 1 → Schritt 2/3, Pie 2/3', () => {
+    const heroIni = 8
+    const commitIniSecondAo = 0
+    const navMother = 8
+    const commitRound = 1
+    const currentRound = 2
+    const lhMax = 3
+    const priorFrozen = 1
+
+    const step = lhDisplayStepFromNav(
+      heroIni,
+      mechanics2Ap,
+      commitRound,
+      currentRound,
+      navMother,
+      lhMax,
+      commitIniSecondAo,
+      priorFrozen
+    )
+    expect(step).toBe(2)
+
+    const frac = lhPieFraction(
+      currentRound,
+      navMother,
+      commitRound,
+      heroIni,
+      mechanics2Ap.actionsPerKr,
+      mechanics2Ap.triggerIniStep,
+      lhMax,
+      commitIniSecondAo,
+      priorFrozen
+    )
+    expect(frac).toBeCloseTo(2 / 3, 6)
   })
 })

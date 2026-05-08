@@ -605,6 +605,26 @@ export function freezeLhCommitKrPriorSpendFromLive(
 }
 
 /**
+ * Wenn die L.H. auf der 2.-Aktion gestartet wurde (`commitRef !== Helden-INI`)
+ * und `ticksInCommitKr === 0` ist, deckt Offset + Prior die Commit-KR ohne
+ * navigierbare Restschritte ab — der ZAO-Start zählt aber einen Ausloeser.
+ * Ein Schritt wird fuer Folge-KRs in Pie/Bruch gutgeschrieben.
+ *
+ * @param {number} ticksInCommitKr
+ * @param {number} commitRef
+ * @param {number} ownerIni
+ * @returns {0 | 1}
+ */
+function implicitLhZaoCommitCarryTicks(ticksInCommitKr, commitRef, ownerIni) {
+  if (ticksInCommitKr !== 0) return 0
+  const owner = Number(ownerIni)
+  const cref = Number(commitRef)
+  if (!Number.isFinite(owner) || !Number.isFinite(cref)) return 0
+  if (cref === owner) return 0
+  return 1
+}
+
+/**
  * Pie-Anteil 0…1 des LH-Sterns. Baut sich kontinuierlich ueber die gesamte
  * Lebensdauer der L.H. auf — jeder L.H.-Trigger-INI-Schritt, an dem die
  * Navigation vorbei wandert, erhoeht den Anteil um 1/max. Die Funktion
@@ -660,6 +680,11 @@ export function lhPieFraction(
   let ticksPassed = 0
   if (cr > cmt) {
     ticksPassed = Math.min(max, ticksInCommitKr + (cr - cmt - 1) * effAp)
+    ticksPassed = Math.min(
+      max,
+      ticksPassed +
+        implicitLhZaoCommitCarryTicks(ticksInCommitKr, commitRef, owner)
+    )
   }
   if (ticksPassed >= max) return 1
   if (currentNavIni != null) {
@@ -745,6 +770,11 @@ export function lhDisplayStepFromNav(
   let passedPriorKr = 0
   if (cr > commit) {
     passedPriorKr = ticksInCommitKr + Math.max(0, cr - commit - 1) * effAp
+    passedPriorKr = Math.min(
+      max,
+      passedPriorKr +
+        implicitLhZaoCommitCarryTicks(ticksInCommitKr, commitRef, heroIni)
+    )
   }
   const raw = passedPriorKr + positionInCurrentKr
   return Math.min(max, Math.max(1, raw))
