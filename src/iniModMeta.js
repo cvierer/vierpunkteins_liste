@@ -4334,6 +4334,7 @@ export function mountHeroExpandBlock(
           isAutoBundle && gsZeroPriorityActive
             ? bundleMods.filter((bm) => String(bm.field ?? '') !== 'gs')
             : bundleMods
+        /* LA/RA unfähig nicht ausblenden: Zonenpakete bleiben sichtbar, wenn auto-le-unfaehig bei anderer Zone 3W verborgen ist */
         const packLabel = bundleMods.find((x) => x.label)?.label
         const shortParts = visibleBundleMods.map((bm) => {
           const eff = modEffectiveContribution(
