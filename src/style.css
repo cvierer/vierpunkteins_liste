@@ -7521,7 +7521,7 @@ select.init-row-extra-select {
 .init-hero-ex__mod-chip-card__head {
   display: flex;
   flex-direction: row;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
   width: 100%;
   min-height: calc(0.5644rem * var(--init-ui-scale));
@@ -7533,7 +7533,9 @@ select.init-row-extra-select {
   flex-direction: row;
   align-items: flex-end;
   gap: calc(0.035rem * var(--init-ui-scale));
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  width: 100%;
   transform: translateY(1px);
 }
 
@@ -7822,31 +7824,13 @@ select.init-row-extra-select {
   cursor: pointer;
   border-radius: 50%;
   flex-shrink: 0;
+  margin-left: auto;
   transform: translateY(2px);
 }
 
 .init-hero-ex__mod-chip-card__x:hover {
   background: rgba(0, 0, 0, 0.1);
   color: var(--color-accent);
-}
-
-.init-hero-ex__mod-chip-card__head-tag {
-  position: absolute;
-  left: calc(0.16rem * var(--init-ui-scale));
-  top: calc(0.1rem * var(--init-ui-scale));
-  font-family: var(--font-heading);
-  font-size: calc(0.42rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.01em;
-  color: rgba(18, 18, 18, 0.86);
-  pointer-events: none;
-}
-
-.init-hero-ex__mods-strip--under-mod-btn .init-hero-ex__mod-chip-card__head-tag {
-  left: calc(0.12rem * var(--init-ui-scale));
-  top: calc(0.08rem * var(--init-ui-scale));
-  font-size: calc(0.38rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
 }
 
 /* Eine Zeile: Bezeichnung oder Kurztext (AT+1, …); groß genug für „Wunde“ in der MOD-Spalte */
