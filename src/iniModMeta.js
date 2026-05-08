@@ -4028,6 +4028,11 @@ export function mountHeroExpandBlock(
         ['at', 'pa', 'ff', 'kk'].includes(field) &&
         armSource.side &&
         armSource.value < 0
+      const armW3FixedField =
+        isUnfaehigFixedField &&
+        unfaehigDisplay.armOnly &&
+        ['at', 'pa', 'ff', 'kk'].includes(field)
+      const useArmWoundCompactBadge = hasArmWoundNote || armW3FixedField
       const fixedValueForField = (() => {
         if (field !== 'gs') return fixedFieldValues[field] ?? 0
         const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
@@ -4055,7 +4060,7 @@ export function mountHeroExpandBlock(
       } else if (modBandIntegrated) {
         badge.classList.add('init-hero-ex__mod-badge--integrated')
       }
-      if (!useFixedValueView && hasArmWoundNote) {
+      if (useArmWoundCompactBadge) {
         badge.classList.add('init-hero-ex__mod-badge--arm-wound')
       }
       const absSum = Math.abs(sum)
@@ -4077,29 +4082,28 @@ export function mountHeroExpandBlock(
       /* Hauptwert größer als Restlaufzeit; schmale Abstände um den Mittelpunkt. */
       const valSpan = document.createElement('span')
       valSpan.className = 'init-hero-ex__mod-badge__val'
-      const armW3FixedField =
-        useFixedValueView &&
-        unfaehigDisplay.armOnly &&
-        ['at', 'pa', 'ff', 'kk'].includes(field)
-      if (armW3FixedField) {
-        valSpan.textContent = `${unfaehigDisplay.armSide || 'AR'}: 0`
+      if (useArmWoundCompactBadge) {
+        valSpan.textContent = ''
       } else {
         valSpan.textContent = String(useFixedValueView ? fixedValueForField : absSum)
       }
-      if (!useFixedValueView) {
+      if (!useFixedValueView && !hasArmWoundNote) {
         const arrowSpan = document.createElement('span')
         arrowSpan.className = 'init-hero-ex__mod-badge__arrow'
         arrowSpan.setAttribute('aria-hidden', 'true')
         arrowSpan.innerHTML = sum > 0 ? SVG_HERO_MOD_TOGGLE_UP : SVG_HERO_MOD_TOGGLE_DOWN
         badge.appendChild(arrowSpan)
       }
-      badge.appendChild(valSpan)
-      if (hasArmWoundNote) {
+      if (valSpan.textContent) badge.appendChild(valSpan)
+      if (hasArmWoundNote || armW3FixedField) {
         const srcSpan = document.createElement('span')
         srcSpan.className =
           'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-note'
-        const armNote = `${armSource.side}↓${Math.abs(armSource.value)}`
-        srcSpan.textContent = modBandIntegrated ? ` (${armNote})` : ` ${armNote}`
+        const armSide = armSource.side || unfaehigDisplay.armSide || 'AR'
+        const armValue = Math.max(1, Math.abs(armSource.value) || 0)
+        const armNote = `${armSide}↓${armValue}`
+        const withParens = modBandIntegrated ? `(${armNote})` : armNote
+        srcSpan.textContent = withParens
         badge.appendChild(srcSpan)
       }
       if (tightFrac) {
