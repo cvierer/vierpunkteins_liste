@@ -51,6 +51,7 @@ const HERO_EX_SHOW_FK = 'heroExShowFk'
 const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
 const HERO_EX_UNFAEHIG_FIXED_FIELDS = 'heroExUnfaehigFixedFields'
 const HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO = 'heroDeathAtMinusOnePointFiveKo'
+const HERO_DEATH_MODE = 'heroDeathMode'
 const HERO_EX_WAPPEN_TEMPLATE = 'heroExWappenTemplate'
 
 export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
@@ -215,9 +216,23 @@ function readUnfaehigFixedLeFromSnapshot(snap) {
  * @param {Record<string, unknown>} snap
  * @returns {boolean}
  */
-function deathAtMinusOnePointFiveKoFromSnapshot(snap) {
-  const t = String(snap?.deathAtMinusOnePointFiveKo ?? '').trim().toLowerCase()
-  return ['1', 'true', 'on', 'yes', 'ja'].includes(t)
+function deathModeFromSnapshot(snap) {
+  const v = String(snap?.deathMode ?? '')
+    .trim()
+    .toLowerCase()
+  if (v === 'lt0' || v === 'minusko' || v === 'minusonepointfiveko') {
+    return v === 'minusko'
+      ? 'minusKo'
+      : v === 'minusonepointfiveko'
+        ? 'minusOnePointFiveKo'
+        : 'lt0'
+  }
+  const legacy = String(snap?.deathAtMinusOnePointFiveKo ?? '')
+    .trim()
+    .toLowerCase()
+  if (['1', 'true', 'on', 'yes', 'ja'].includes(legacy)) return 'minusOnePointFiveKo'
+  const tpl = String(snap?.wappenTemplate ?? '').trim().toLowerCase()
+  return tpl === 'vierbeiner' ? 'lt0' : 'minusKo'
 }
 
 /**
@@ -610,6 +625,7 @@ export function snapshotFromTrackerMeta(m) {
     showFk: showFkEff ? '1' : '0',
     unfaehigThreshold: String(m?.[HERO_EX_UNFAEHIG_THRESHOLD] ?? ''),
     unfaehigFixedFields: String(m?.[HERO_EX_UNFAEHIG_FIXED_FIELDS] ?? ''),
+    deathMode: String(m?.[HERO_DEATH_MODE] ?? ''),
     deathAtMinusOnePointFiveKo: String(
       m?.[HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO] ?? ''
     ),
@@ -782,16 +798,16 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       const unfaehigFix = readUnfaehigFixedLeFromSnapshot(snap)
       const unfaehigThreshold = readUnfaehigThresholdFromSnapshot(snap)
       const criticalThreshold = unfaehigFix ?? unfaehigThreshold
-      const deathAtMinusOnePointFiveKo = deathAtMinusOnePointFiveKoFromSnapshot(snap)
+      const deathMode = deathModeFromSnapshot(snap)
       let label = ''
       if (leNum <= 0) {
-        if (koNum != null && koNum > 0) {
+        if (deathMode === 'lt0') {
+          label = 'R.I.P.'
+        } else if (koNum != null && koNum > 0) {
           const depth = -leNum
-          const deathThreshold = deathAtMinusOnePointFiveKo ? 1.5 * koNum : koNum
+          const deathThreshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
           label = depth >= deathThreshold ? 'R.I.P.' : 'sterbend'
-        } else {
-          label = 'sterbend'
-        }
+        } else label = 'sterbend'
       } else if (
         Number.isFinite(Number(criticalThreshold)) &&
         leNum <= Number(criticalThreshold)
