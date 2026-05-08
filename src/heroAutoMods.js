@@ -61,11 +61,11 @@ const AUTO_ZONE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}zone-`
 function autoZoneWoundLabel(zoneId, wounds) {
   const w = Math.max(1, Math.floor(Number(wounds)) || 1)
   const zid = String(zoneId ?? '').trim().toLowerCase()
-  if (zid === 'kopf') return `KOPF -${2 * w}`
-  if (zid === 'schildarm' || zid === 'schwertarm') return `ARM -${2 * w}`
-  if (zid === 'lbein' || zid === 'rbein') return `BEIN -${2 * w}`
+  if (zid === 'kopf') return `Kopf -${2 * w}`
+  if (zid === 'schildarm' || zid === 'schwertarm') return `Arm -${2 * w}`
+  if (zid === 'lbein' || zid === 'rbein') return `Bein -${2 * w}`
   if (zid === 'brust' || zid === 'ruecken' || zid === 'bauch') {
-    return `RUMPF -${w}-${2 * w}`
+    return `Rumpf-${w}-${2 * w}`
   }
   return `${w}*W ${String(zoneId || '').trim().toUpperCase()}`
 }
