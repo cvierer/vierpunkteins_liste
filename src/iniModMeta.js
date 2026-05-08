@@ -1666,6 +1666,12 @@ export function mountHeroExpandBlock(
     const n = parseInt(t, 10)
     return Number.isFinite(n) ? n : null
   }
+  const parseWsIntSafe = (raw) => {
+    const t = String(raw ?? '').trim()
+    if (t === '') return null
+    const n = parseInt(t, 10)
+    return Number.isFinite(n) ? n : null
+  }
   /** Minus-Skala 0 … −1,6·KO (ab LE≤0 mit gültigem KO). */
   const NEG_LE_KO_RANGE = 1.6
 
@@ -1698,6 +1704,7 @@ export function mountHeroExpandBlock(
     const leV = parseLeIntSafe(leInp.value)
     const maxV = parseLeIntSafe(leMaxInp.value)
     const koV = parseKoIntSafe(koAttr.inp.value)
+    const wsRaw = parseWsIntSafe(ws.inp.value)
     /* KO/minus-Skala und Ansicht ab LE≤0 (inkl. LE=0), sobald KO gültig */
     const negLe =
       leV != null && leV <= 0 && koV != null && koV > 0
@@ -1718,8 +1725,10 @@ export function mountHeroExpandBlock(
       leThreshLine50.style.display = 'none'
       const pctBot = (koMult) =>
         100 - (koMult / NEG_LE_KO_RANGE) * 100
+      const wsThreshold = wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
+      const wsMult = Math.max(0, Math.min(NEG_LE_KO_RANGE, wsThreshold / koV))
       leThreshLine33.style.display = ''
-      leThreshLine33.style.bottom = `${pctBot(0.5).toFixed(3)}%`
+      leThreshLine33.style.bottom = `${pctBot(wsMult).toFixed(3)}%`
       leThreshLine33.classList.add('init-hero-ex__le-threshold__line--neg-ko')
       leThreshLine25.style.display = ''
       leThreshLine25.style.bottom = `${pctBot(1).toFixed(3)}%`
@@ -1738,10 +1747,10 @@ export function mountHeroExpandBlock(
       leThreshSkull.style.bottom = `${skullBot.toFixed(3)}%`
       leThreshSkull.style.top = 'auto'
       leThreshSkull.style.transform = 'translate(-50%, 50%)'
-      /* Blinken oberhalb −1·KO; langsamer/unregelmäßig zwischen −1·KO und −½·KO */
+      /* Blinken oberhalb −1·KO; langsamer/unregelmäßig zwischen −1·KO und −WS */
       const negPulseOn = leV > -koV
       const negPulseIrregular =
-        negPulseOn && leV <= -0.5 * koV
+        negPulseOn && leV <= -wsThreshold
       leThreshCell.classList.toggle(
         'init-hero-ex__le-threshold--neg-pulse',
         negPulseOn
@@ -2226,6 +2235,7 @@ export function mountHeroExpandBlock(
     const leV = parseLeIntSafe(leInp.value)
     const maxV = parseLeIntSafe(leMaxInp.value)
     const koV = parseKoIntSafe(koAttr.inp.value)
+    const wsRaw = parseWsIntSafe(ws.inp.value)
     const negLe =
       leV != null && leV <= 0 && koV != null && koV > 0
     const dead = leV != null && leV <= 0 && !negLe
@@ -2265,7 +2275,9 @@ export function mountHeroExpandBlock(
       )
 
       const pctBot = (m) => 100 - (m / NEG_LE_KO_RANGE) * 100
-      const b05 = pctBot(0.5)
+      const wsThreshold = wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
+      const wsMult = Math.max(0, Math.min(NEG_LE_KO_RANGE, wsThreshold / koV))
+      const bWs = pctBot(wsMult)
       const b1 = pctBot(1)
       const b15 = pctBot(1.5)
       const skullBot = (b1 + b15) / 2
@@ -2278,7 +2290,7 @@ export function mountHeroExpandBlock(
       lePopLab50.style.display = 'none'
 
       lePopLine33.style.display = ''
-      lePopLine33.style.bottom = `${b05.toFixed(3)}%`
+      lePopLine33.style.bottom = `${bWs.toFixed(3)}%`
       lePopLine33.classList.add('init-hero-ex__le-pop__gauge-line--neg-ko')
       lePopLine25.style.display = ''
       lePopLine25.style.bottom = `${b1.toFixed(3)}%`
@@ -2292,20 +2304,19 @@ export function mountHeroExpandBlock(
       )
 
       lePopLab33.style.display = ''
-      lePopLab33.style.bottom = `${b05.toFixed(3)}%`
+      lePopLab33.style.bottom = `${bWs.toFixed(3)}%`
       lePopLab25.style.display = ''
       lePopLab25.style.bottom = `${b1.toFixed(3)}%`
       lePopLabUnf.style.display = 'none'
       lePopLabLe5.style.display = ''
       lePopLabLe5.style.bottom = `${b15.toFixed(3)}%`
 
-      const n05 = Math.round(0.5 * koV)
       const n15 = Math.round(1.5 * koV)
-      lePopLab33.textContent = `−½·KO (${n05})`
+      lePopLab33.textContent = `-WS (${wsThreshold})`
       lePopLab25.textContent = `−1·KO (${koV})`
       lePopLabLe5.textContent = `−1,5·KO (${n15})`
 
-      setConnPath(lePopConn33, b05, b05, KINK_33, END_X)
+      setConnPath(lePopConn33, bWs, bWs, KINK_33, END_X)
       setConnPath(lePopConn25, b1, b1, KINK_25, END_X)
       setConnPath(lePopConnLe5, b15, b15, KINK_LE5, END_X)
       lePopConn33.style.display = ''
