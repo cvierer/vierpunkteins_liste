@@ -3436,8 +3436,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     return canonical.map(toLabel).join(',')
   }
 
-  const normalizeUnfaehigFixedFieldsText = (raw) => {
+  const normalizeUnfaehigFixedFieldsText = (raw, fallback = '') => {
     const txt = String(raw ?? '')
+      .replace(/[;\n\r\t ]+/g, ',')
+      .replace(/,+/g, ',')
+      .replace(/^,|,$/g, '')
     const out = []
     const seen = new Set()
     for (const part of txt.split(',')) {
@@ -3450,7 +3453,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       seen.add(k)
       out.push(`${k}=${n}`)
     }
-    return out.join(',')
+    const normalized = out.join(',')
+    if (normalized) return normalized
+    return String(fallback ?? '').trim()
   }
 
   if (heroColorGrid instanceof HTMLElement) {
@@ -4049,7 +4054,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         m[HERO_EX_UNFAEHIG_MARK_FIELDS] = normalizeUnfaehigMarkFieldsText(
           pend.unfaehigMarkFields
         )
+        const pendingFixedRaw =
+          heroUnfaehigFixedFieldsInp instanceof HTMLInputElement
+            ? heroUnfaehigFixedFieldsInp.value
+            : pend.unfaehigFixedFields
         m[HERO_EX_UNFAEHIG_FIXED_FIELDS] = normalizeUnfaehigFixedFieldsText(
+          pendingFixedRaw,
           pend.unfaehigFixedFields
         )
         if (pend.wappenSource === 'own' && Array.isArray(pend.wappenOverride)) {
@@ -4350,12 +4360,24 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     })
   }
   if (heroUnfaehigFixedFieldsInp instanceof HTMLInputElement) {
-    heroUnfaehigFixedFieldsInp.addEventListener('change', () => {
+    const syncUnfaehigFixedFields = (commitValue = false) => {
       if (!isGmSync() || !heroPending) return
       heroPending.unfaehigFixedFields = normalizeUnfaehigFixedFieldsText(
-        heroUnfaehigFixedFieldsInp.value
+        heroUnfaehigFixedFieldsInp.value,
+        heroPending.unfaehigFixedFields
       )
-      heroUnfaehigFixedFieldsInp.value = heroPending.unfaehigFixedFields
+      if (commitValue) {
+        heroUnfaehigFixedFieldsInp.value = heroPending.unfaehigFixedFields
+      }
+    }
+    heroUnfaehigFixedFieldsInp.addEventListener('input', () => {
+      syncUnfaehigFixedFields(false)
+    })
+    heroUnfaehigFixedFieldsInp.addEventListener('blur', () => {
+      syncUnfaehigFixedFields(true)
+    })
+    heroUnfaehigFixedFieldsInp.addEventListener('change', () => {
+      syncUnfaehigFixedFields(true)
     })
   }
 
