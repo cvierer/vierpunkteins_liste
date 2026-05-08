@@ -2877,6 +2877,9 @@ export function mountHeroExpandBlock(
     sub.setAttribute('aria-hidden', 'true')
     c.appendChild(sub)
   }
+  stackBe
+    .querySelector(':scope > .init-hero-ex__mod-sub-slot')
+    ?.classList?.add('init-hero-ex__mod-sub-slot--be-compact')
   if (!stackW6.querySelector(':scope > .init-hero-ex__mod-sub-slot')) {
     const w6Sub = document.createElement('span')
     w6Sub.className = 'init-hero-ex__mod-sub-slot'
