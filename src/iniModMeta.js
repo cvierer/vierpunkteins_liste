@@ -36,6 +36,7 @@ import {
 import {
   AUTO_MOD_BUNDLE_PREFIX,
   computeKrAutoPenaltyWorseningMarks,
+  hasGsZeroPriorityFromSnapshot,
   computeUnfaehigSources,
   leAtPaMalusForBand,
   leBand,
@@ -4282,15 +4283,24 @@ export function mountHeroExpandBlock(
     const hasActiveLeMaxLossBand = active.some(
       (x) => String(x?.bundleId ?? '') === AUTO_LE_MAXLOSS_BUNDLE_ID
     )
+    const gsZeroPriorityActive = hasGsZeroPriorityFromSnapshot(
+      readHeroExpandSnapshot(modMeta)
+    )
     for (const modRec of active) {
       if (modRec.bundleId) {
         if (String(modRec.bundleId) === AUTO_LE_MAXLOSS_BUNDLE_ID) continue
         if (seenBundle.has(modRec.bundleId)) continue
         seenBundle.add(modRec.bundleId)
         const bundleMods = active.filter((x) => x.bundleId === modRec.bundleId)
+        const bidStr = String(modRec.bundleId ?? '')
+        const isAutoBundle = bidStr.startsWith(AUTO_MOD_BUNDLE_PREFIX)
+        const visibleBundleMods =
+          isAutoBundle && gsZeroPriorityActive
+            ? bundleMods.filter((bm) => String(bm.field ?? '') !== 'gs')
+            : bundleMods
         const packLabel = bundleMods.find((x) => x.label)?.label
         if (packLabel === 'LA unfähig' || packLabel === 'RA unfähig') continue
-        const shortParts = bundleMods.map((bm) => {
+        const shortParts = visibleBundleMods.map((bm) => {
           const eff = modEffectiveContribution(
             bm,
             ownerIniNum,
@@ -4308,7 +4318,7 @@ export function mountHeroExpandBlock(
         const detailLines =
           String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
             ? ['rein optische Überlagerung (keine Zahlenänderung)']
-            : bundleMods.map((bm) => {
+            : visibleBundleMods.map((bm) => {
                 const eff = modEffectiveContribution(
                   bm,
                   ownerIniNum,
@@ -4318,7 +4328,6 @@ export function mountHeroExpandBlock(
                 )
                 return `${MOD_FIELD_LABEL[bm.field]} ${formatDeltaForTooltip(eff)} (${modNavFractionLabelFromNav(bm, ownerIniNum, lhMech, round, navIni)})`
               })
-        const bidStr = String(modRec.bundleId ?? '')
         const isLeBandBundle = bidStr === AUTO_LE_BAND_BUNDLE_ID
         const isMagicLeBundle = bidStr === AUTO_LE_TAW_ZFW_BUNDLE_ID
         const isUnfaehigBundle = bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID
@@ -4380,9 +4389,6 @@ export function mountHeroExpandBlock(
         }
         const longSummary = detailLines.join(' \u00B7 ')
         const bundleTitlePfx = packLabel ? `"${packLabel}" — ` : ''
-        const isAutoBundle = String(modRec.bundleId ?? '').startsWith(
-          AUTO_MOD_BUNDLE_PREFIX
-        )
         const cardTitleBase = zoneRuleText
           ? zoneRuleText
           : `${bundleTitlePfx}${longSummary}`
@@ -4399,7 +4405,7 @@ export function mountHeroExpandBlock(
           : `${cardTitleBase}${!isAutoBundle && canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''}`
         let netSum = 0
         if (String(modRec.bundleId ?? '') !== AUTO_LE_UNFAEHIG_BUNDLE_ID) {
-          for (const bm of bundleMods) {
+          for (const bm of visibleBundleMods) {
             netSum += modEffectiveContribution(
               bm,
               ownerIniNum,
@@ -4452,6 +4458,13 @@ export function mountHeroExpandBlock(
         navIni,
         lhMech
       )
+      if (
+        gsZeroPriorityActive &&
+        String(modRec.field ?? '') === 'gs' &&
+        String(modRec.bundleId ?? '').startsWith(AUTO_MOD_BUNDLE_PREFIX)
+      ) {
+        continue
+      }
       const abbr = MOD_FIELD_LABEL[modRec.field] || modRec.field.toUpperCase()
       const shortSummary = `${abbr}${formatDeltaForTooltip(eff)}`
       const longSummary = `${MOD_FIELD_LABEL[modRec.field]} ${formatDeltaForTooltip(eff)} (${modNavFractionLabelFromNav(modRec, ownerIniNum, lhMech, round, navIni)})`

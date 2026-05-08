@@ -67,6 +67,23 @@ const TORSO_GS0_3W_ZONES = Object.freeze(['kopf', 'brust', 'ruecken', 'bauch'])
 const BLUTEND_TORSO_ZONES = Object.freeze(['kopf', 'brust', 'ruecken', 'bauch'])
 
 /**
+ * GS-Priorisierung: mindestens eine 3. Wunde an KF/BR/RÜ/BA aktiv.
+ *
+ * @param {Record<string, unknown>} snap
+ * @returns {boolean}
+ */
+export function hasGsZeroPriorityFromSnapshot(snap) {
+  const wappenDefs = wappenDefsFromSnap(snap)
+  for (const def of wappenDefs) {
+    if (!def?.active) continue
+    if (!TORSO_GS0_3W_ZONES.includes(def.id)) continue
+    const w = clampWound(snap.hitZones?.zones?.[def.id]?.w ?? 0)
+    if (w >= 3) return true
+  }
+  return false
+}
+
+/**
  * @param {string} zoneId
  * @param {number} wounds
  * @param {string | undefined} [abbr]
@@ -780,6 +797,8 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
 
   const baseGs = parseSignedInt(snap.gs)
   const wappenDefs = wappenDefsFromSnap(snap)
+  const gsZeroPriorityActive = hasGsZeroPriorityFromSnapshot(snap)
+  let gsZeroApplied = false
 
   for (const def of wappenDefs) {
     if (!def.active) continue
@@ -794,8 +813,19 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
     for (const [field, delta] of Object.entries(deltas)) {
       let d = delta
       if (field === 'gs') {
-        if (isGs0Zone3w && baseGs !== null && Number.isFinite(baseGs) && baseGs > 0) {
-          d = -baseGs
+        if (gsZeroPriorityActive) {
+          if (
+            !gsZeroApplied &&
+            isGs0Zone3w &&
+            baseGs !== null &&
+            Number.isFinite(baseGs) &&
+            baseGs > 0
+          ) {
+            d = -baseGs
+            gsZeroApplied = true
+          } else {
+            continue
+          }
         } else if (baseGs !== null && Number.isFinite(baseGs)) {
           const minDelta = -(baseGs - 1)
           d = Math.max(d, minDelta)
@@ -808,7 +838,10 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
       isGs0Zone3w && !gsHandled &&
       baseGs !== null && Number.isFinite(baseGs) && baseGs > 0
     ) {
-      add('gs', -baseGs)
+      if (!gsZeroPriorityActive || !gsZeroApplied) {
+        add('gs', -baseGs)
+        gsZeroApplied = true
+      }
     }
   }
 
@@ -983,6 +1016,8 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
 
   const baseGs = parseSignedInt(snap.gs)
   const wappenDefs = wappenDefsFromSnap(snap)
+  const gsZeroPriorityActive = hasGsZeroPriorityFromSnapshot(snap)
+  let gsZeroApplied = false
 
   for (const def of wappenDefs) {
     if (!def.active) continue
@@ -1017,8 +1052,19 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     for (const [field, delta] of Object.entries(deltas)) {
       let d = delta
       if (field === 'gs') {
-        if (isGs0Zone3w && baseGs !== null && Number.isFinite(baseGs) && baseGs > 0) {
-          d = -baseGs
+        if (gsZeroPriorityActive) {
+          if (
+            !gsZeroApplied &&
+            isGs0Zone3w &&
+            baseGs !== null &&
+            Number.isFinite(baseGs) &&
+            baseGs > 0
+          ) {
+            d = -baseGs
+            gsZeroApplied = true
+          } else {
+            continue
+          }
         } else if (baseGs !== null && Number.isFinite(baseGs)) {
           const minDelta = -(baseGs - 1)
           d = Math.max(d, minDelta)
@@ -1031,7 +1077,10 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       isGs0Zone3w && !gsHandled &&
       baseGs !== null && Number.isFinite(baseGs) && baseGs > 0
     ) {
-      rows.push({ field: 'gs', delta: -baseGs })
+      if (!gsZeroPriorityActive || !gsZeroApplied) {
+        rows.push({ field: 'gs', delta: -baseGs })
+        gsZeroApplied = true
+      }
     }
     pushRows(bundleId, label, rows)
   }
