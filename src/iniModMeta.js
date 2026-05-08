@@ -3591,6 +3591,7 @@ export function mountHeroExpandBlock(
     const AUTO_LE_BAND_BUNDLE_ID = 'auto-le-band'
     const AUTO_LE_TAW_ZFW_BUNDLE_ID = 'auto-le-tawzfw'
     const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
+    const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
     const AUTO_ZONE_BUNDLE_PREFIX = 'auto-zone-'
     const CHIP_NEG_LE_KO_RANGE = 1.6
 
@@ -4074,6 +4075,11 @@ export function mountHeroExpandBlock(
       'Unfähigkeit ignorieren: durch Vorteil oder Selbstbeherrschung +12, dann Zauber- und Talentproben ↓9 und Eigenschaftsproben und Kampfwerte zusätzlich ↓3'
     const sterbendTooltipExtra =
       'Erste Hilfe und Rettung mit Frist von W6×Konstitution (KO) Kampfrunden (KR) notwendig'
+    const permanentLossTooltip =
+      'permanenter Verlust von einem Punkt der Basis-Lebensenergie verliert'
+    const hasActiveLeMaxLossBand = active.some(
+      (x) => String(x?.bundleId ?? '') === AUTO_LE_MAXLOSS_BUNDLE_ID
+    )
     for (const modRec of active) {
       if (modRec.bundleId) {
         if (seenBundle.has(modRec.bundleId)) continue
@@ -4122,6 +4128,7 @@ export function mountHeroExpandBlock(
           if (String(packLabel ?? '') === 'sterbend') {
             detailLines.push('sterbend')
             detailLines.push(sterbendTooltipExtra)
+            if (hasActiveLeMaxLossBand) detailLines.push(permanentLossTooltip)
           } else if (String(packLabel ?? '').startsWith('LE ≤')) {
             detailLines.push(unfaehigIgnoreTooltip)
           } else {
@@ -4131,6 +4138,7 @@ export function mountHeroExpandBlock(
           detailLines.length = 0
           detailLines.push('sterbend')
           detailLines.push(sterbendTooltipExtra)
+          if (hasActiveLeMaxLossBand) detailLines.push(permanentLossTooltip)
         } else if (
           isUnfaehigBundle &&
           String(packLabel ?? '') === 'unfähig' &&

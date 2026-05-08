@@ -46,6 +46,7 @@ const HERO_EX_LE = 'heroExLe'
 const HERO_EX_LE_MAX = 'heroExLeMax'
 const HERO_EX_KO = 'heroExKo'
 const HERO_EX_GS = 'heroExGs'
+const HERO_EX_WS = 'heroExWs'
 const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
 const HERO_EX_SHOW_FK = 'heroExShowFk'
 const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
@@ -59,6 +60,7 @@ const AUTO_ZONE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}zone-`
 const AUTO_LE_BAND_BUNDLE_ID = 'auto-le-band'
 const AUTO_LE_TAW_ZFW_BUNDLE_ID = 'auto-le-tawzfw'
 const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
+const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
 
 /**
  * @param {string} zoneId
@@ -267,6 +269,20 @@ function isDeathTriggered(leNum, koNum, deathMode) {
   const depth = -leNum
   const deathThreshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
   return depth >= deathThreshold
+}
+
+/**
+ * Zusatzeffekt-Schwelle: unterschreitet LE den negativen WS-Wert,
+ * gilt die MAX-Reduktion.
+ *
+ * @param {number | null} leNum
+ * @param {number | null} wsNum
+ * @returns {boolean}
+ */
+function isBelowNegativeWsThreshold(leNum, wsNum) {
+  if (!(leNum != null && Number.isFinite(leNum))) return false
+  if (!(wsNum != null && Number.isFinite(wsNum) && wsNum > 0)) return false
+  return leNum < -wsNum
 }
 
 /**
@@ -613,6 +629,11 @@ export async function refreshAutoBundlesForItem(itemId) {
  */
 export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxForLe) {
   const bid = String(autoBundleId ?? '')
+  if (bid === AUTO_LE_MAXLOSS_BUNDLE_ID) {
+    const leNum = effectiveLeForThresholds(snap, metaForLe, ctxForLe)
+    const wsNum = parseSignedInt(snap.ws)
+    return isBelowNegativeWsThreshold(leNum, wsNum) ? 1 : null
+  }
   if (bid === AUTO_LE_BAND_BUNDLE_ID || bid === AUTO_LE_TAW_ZFW_BUNDLE_ID) {
     const leNum = effectiveLeForThresholds(snap, metaForLe, ctxForLe)
     const leMaxNum = parseNonNegInt(snap.leMax)
@@ -661,6 +682,7 @@ export function snapshotFromTrackerMeta(m) {
     le: String(m?.[HERO_EX_LE] ?? ''),
     leMax: String(m?.[HERO_EX_LE_MAX] ?? ''),
     ko: String(m?.[HERO_EX_KO] ?? ''),
+    ws: String(m?.[HERO_EX_WS] ?? ''),
     gs: String(m?.[HERO_EX_GS] ?? ''),
     leThreshold: String(m?.[HERO_EX_LE_THRESHOLD] ?? ''),
     showFk: showFkEff ? '1' : '0',
@@ -831,6 +853,7 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
   const leNum = effectiveLeForThresholds(snap, metaForLe, ctx)
   const leMaxNum = parseNonNegInt(snap.leMax)
   const koNum = parseSignedInt(snap.ko)
+  const wsNum = parseSignedInt(snap.ws)
   if (leNum !== null && leMaxNum !== null && leMaxNum > 0) {
     const leThreshold = readLeThresholdFromSnapshot(snap)
     const band = leBand(leNum, leMaxNum, leThreshold)
@@ -881,6 +904,14 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
         [{ field: 'ib', delta: 0 }],
         { includeZero: true }
       )
+      if (labelKind === 'sterbend' && isBelowNegativeWsThreshold(leNum, wsNum)) {
+        pushRows(
+          AUTO_LE_MAXLOSS_BUNDLE_ID,
+          'MAX ↓1',
+          [{ field: 'leMax', delta: -1 }],
+          { includeZero: true }
+        )
+      }
     }
   }
 

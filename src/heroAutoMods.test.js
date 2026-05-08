@@ -27,6 +27,7 @@ function snap(overrides = {}) {
   return {
     le: '20',
     leMax: '40',
+    ws: '7',
     gs: '10',
     hitZones: { notiz: '', zones: emptyZones() },
     ...overrides,
@@ -104,6 +105,26 @@ describe('buildHeroAutoModRecords', () => {
     const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
     expect(zf.length).toBe(1)
     expect(zf[0].label).toBe('LE ≤ 5')
+  })
+
+  it('unter LE < -WS entsteht zusätzliches auto-le-maxloss mit LEmax ↓1', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '-8', leMax: '40', ws: '7', ko: '40', deathMode: 'minusKo' }),
+      ctx
+    )
+    const maxLoss = mods.filter((m) => m.bundleId === 'auto-le-maxloss')
+    expect(maxLoss.length).toBe(1)
+    expect(maxLoss[0].field).toBe('leMax')
+    expect(maxLoss[0].delta).toBe(-1)
+    expect(maxLoss[0].label).toBe('MAX ↓1')
+  })
+
+  it('bei LE = -WS entsteht noch kein auto-le-maxloss', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '-7', leMax: '40', ws: '7', ko: '40', deathMode: 'minusKo' }),
+      ctx
+    )
+    expect(mods.some((m) => m.bundleId === 'auto-le-maxloss')).toBe(false)
   })
 
   it('unfähig-UI-Bundle wird bei LE<=Schwelle erzeugt (ohne Zahlenänderung)', () => {
