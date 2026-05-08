@@ -5730,9 +5730,20 @@ function bindStampContextRemove(el, stamp, items) {
           !isLhEndLink &&
           zaoOverrideKind !== 'lh'
 
-        if (isZaoRoot && zaoMotherMirrorUi) {
+        // Offset-Kästchen vor Primär/Umwandeln (wie Spiegel-Zeile bei Ang/S.R.A.),
+        // nicht in der Umwandel-Spalte — sonst wirkt die Phasen-„8“ bei L.H.-2.A. anders.
+        if (isZaoRoot) {
           btnCol.appendChild(zaoOffsetSlot)
         }
+        const zaoConvertSlotPlaceholder =
+          isZaoRoot && !zaoMotherMirrorUi
+            ? (() => {
+                const el = document.createElement('div')
+                el.className = 'init-kr-convert-cell'
+                el.setAttribute('aria-hidden', 'true')
+                return el
+              })()
+            : null
 
         const zaoMotherStamped = motherPrimarySelfStamped(
           stampEntries,
@@ -5779,7 +5790,7 @@ function bindStampContextRemove(el, stamp, items) {
                   hideFa: true,
                   hideLh: true,
                   hideConvert: true,
-                  convertReplacement: zaoOffsetSlot,
+                  convertReplacement: zaoConvertSlotPlaceholder,
                   abwReplacement: zaoTextReplacement,
                   zaoSlotOverride: zaoSlot
                     ? {
