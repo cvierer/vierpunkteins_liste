@@ -43,8 +43,9 @@ import {
   LH_DONE_INI,
   LH_DONE_ROUND,
   clearLhTrackerActivity,
-  lhEndsInRound,
   lhAwaitingCompletionStamp,
+  lhDisplayStepFromNav,
+  lhEndsInRound,
   readLhCommitKrPriorSpendForRound,
   readLhMechanics,
   readLhState,
@@ -361,6 +362,19 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
       )
       if (!endsInThisRound) continue
       if (endIni == null || !Number.isFinite(endIni)) continue
+      // Ergänzung zu rem===1 (lhAwaitingCompletionStamp): Nav-Schritt wie Pie /
+      // „x/max“ — kann bei noch höherem rem schon max erreichen (Maske/Bits).
+      const navCompletionStep = lhDisplayStepFromNav(
+        ownerIni,
+        mech,
+        commitRound,
+        curr.round,
+        currIni,
+        max,
+        Number.isFinite(commitIniN) ? commitIniN : undefined,
+        priorSpend
+      )
+      if (navCompletionStep >= max) continue
       // Vorbei-Navigation: vorher >= endIni, jetzt strikt < endIni.
       if (prevIni < endIni) continue
       if (currIni >= endIni) continue
