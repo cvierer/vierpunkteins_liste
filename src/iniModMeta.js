@@ -3843,7 +3843,7 @@ export function mountHeroExpandBlock(
         arrowWrap.className =
           'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--magic'
         arrowWrap.innerHTML = SVG_MOD_CHIP_MAGIC_STAR
-        arrowWrap.title = 'Zauber'
+        arrowWrap.title = 'Zauber & Talente'
         arrowWrap.setAttribute('aria-hidden', 'true')
       } else {
         arrowWrap = document.createElement('span')

@@ -65,15 +65,25 @@ const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
 /**
  * @param {string} zoneId
  * @param {number} wounds
+ * @param {string | undefined} [abbr]
  */
-function autoZoneWoundLabel(zoneId, wounds) {
+function autoZoneWoundLabel(zoneId, wounds, abbr) {
   const w = Math.max(1, Math.floor(Number(wounds)) || 1)
   const zid = String(zoneId ?? '').trim().toLowerCase()
-  if (zid === 'kopf') return `Kopf ↓${2 * w}`
-  if (zid === 'schildarm' || zid === 'schwertarm') return `Arm ↓${2 * w}`
-  if (zid === 'lbein' || zid === 'rbein') return `Bein ↓${2 * w}`
+  const zoneAbbr = String(abbr ?? '').trim().toUpperCase()
+  if (zoneAbbr) {
+    if (zid === 'brust' || zid === 'ruecken' || zid === 'bauch') {
+      return `${zoneAbbr} ↓${w}/↓${2 * w}`
+    }
+    return `${zoneAbbr} ↓${2 * w}`
+  }
+  if (zid === 'kopf') return `KF ↓${2 * w}`
+  if (zid === 'schildarm') return `LA ↓${2 * w}`
+  if (zid === 'schwertarm') return `RA ↓${2 * w}`
+  if (zid === 'lbein') return `LB ↓${2 * w}`
+  if (zid === 'rbein') return `RB ↓${2 * w}`
   if (zid === 'brust' || zid === 'ruecken' || zid === 'bauch') {
-    return `Rumpf ↓${w}/↓${2 * w}`
+    return `${String(zoneId || '').trim().toUpperCase()} ↓${w}/↓${2 * w}`
   }
   return `${w}*W ${String(zoneId || '').trim().toUpperCase()}`
 }
@@ -955,7 +965,7 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     const stage = zoneStageFromWounds(w)
     if (stage <= 0) continue
     const bundleId = `${AUTO_ZONE_PREFIX}${def.id}`
-    const label = autoZoneWoundLabel(def.id, w)
+    const label = autoZoneWoundLabel(def.id, w, def.abbr)
     /** @type {{ field: string, delta: number }[]} */
     const rows = []
     const deltas = autoModDeltasForWappen(def, w)
