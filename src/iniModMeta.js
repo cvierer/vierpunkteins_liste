@@ -4024,6 +4024,10 @@ export function mountHeroExpandBlock(
         }
         return { side, value }
       })()
+      const hasArmWoundNote =
+        ['at', 'pa', 'ff', 'kk'].includes(field) &&
+        armSource.side &&
+        armSource.value < 0
       const fixedValueForField = (() => {
         if (field !== 'gs') return fixedFieldValues[field] ?? 0
         const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
@@ -4050,6 +4054,9 @@ export function mountHeroExpandBlock(
         badge.classList.add('init-hero-ex__mod-badge--unfaehig-fixed')
       } else if (modBandIntegrated) {
         badge.classList.add('init-hero-ex__mod-badge--integrated')
+      }
+      if (!useFixedValueView && hasArmWoundNote) {
+        badge.classList.add('init-hero-ex__mod-badge--arm-wound')
       }
       const absSum = Math.abs(sum)
       const fieldMods = activeModsFull.filter((m) => m.field === field)
@@ -4087,12 +4094,7 @@ export function mountHeroExpandBlock(
         badge.appendChild(arrowSpan)
       }
       badge.appendChild(valSpan)
-      if (
-        !useFixedValueView &&
-        ['at', 'pa', 'ff', 'kk'].includes(field) &&
-        armSource.side &&
-        armSource.value < 0
-      ) {
+      if (hasArmWoundNote) {
         const srcSpan = document.createElement('span')
         srcSpan.className =
           'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-note'
