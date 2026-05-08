@@ -2160,7 +2160,11 @@ export function mountHeroExpandBlock(
       !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
 
     if (armOnly) {
-      /* Arm-W3 zeigt Fixbänder, aber ohne diagonales Durchstreichen. */
+      /* Arm-W3: nur FK bekommt Diagonale (Fixwert 0); andere Arm-Felder ohne. */
+      const fkCell = unfaehigVisualTargets.fk
+      if (fkCell instanceof HTMLElement) {
+        fkCell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
+      }
       return
     }
 
@@ -3967,6 +3971,7 @@ export function mountHeroExpandBlock(
       const armOnly = !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
       if (armOnly) {
         for (const key of ['at', 'pa', 'ff', 'kk']) marked.add(key)
+        marked.add('fk')
         const armSetSides = []
         if (ufSrc.armSet.includes('schildarm')) armSetSides.push('LA')
         if (ufSrc.armSet.includes('schwertarm')) armSetSides.push('RA')
