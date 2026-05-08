@@ -192,6 +192,7 @@ import {
   readHeroBgColor,
 } from './heroColors.js'
 import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
+import { refreshAutoBundlesForItem } from './heroAutoMods.js'
 import { mountWappenEditor } from './wappenEditor.js'
 import {
   cleanupOrphanHitZoneKeys,
@@ -4137,6 +4138,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         applyIniLockCharges(m)
       }
     })
+    await refreshAutoBundlesForItem(id)
     closeHeroSettings()
   }
 
