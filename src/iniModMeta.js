@@ -4094,8 +4094,10 @@ export function mountHeroExpandBlock(
         armSource.value < 0
       ) {
         const srcSpan = document.createElement('span')
-        srcSpan.className = 'init-hero-ex__mod-badge__tail'
-        srcSpan.textContent = ` ${armSource.side}↓${Math.abs(armSource.value)}`
+        srcSpan.className =
+          'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-note'
+        const armNote = `${armSource.side}↓${Math.abs(armSource.value)}`
+        srcSpan.textContent = modBandIntegrated ? ` (${armNote})` : ` ${armNote}`
         badge.appendChild(srcSpan)
       }
       if (tightFrac) {
