@@ -44,6 +44,7 @@ import {
   LH_DONE_ROUND,
   clearLhTrackerActivity,
   lhEndsInRound,
+  lhAwaitingCompletionStamp,
   readLhCommitKrPriorSpendForRound,
   readLhMechanics,
   readLhState,
@@ -338,6 +339,8 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
       const meta = item.metadata[TRACKER_ITEM_META_KEY]
       const { max, rem } = readLhState(meta)
       if (max <= 0 || rem <= 0) continue
+      // „GO!“ / letzter Auslöser: Stempel noch möglich — nicht zurücksetzen.
+      if (lhAwaitingCompletionStamp(meta)) continue
       const ownerIni = currCtx.ownerIniById.get(item.id)
       if (!Number.isFinite(ownerIni)) continue
       const mech = readLhMechanics(meta)

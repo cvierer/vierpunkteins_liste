@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { lhDisplayStepFromNav, lhPieFraction } from './lhMeta.js'
+import {
+  LH_MAX,
+  LH_REM,
+  lhAwaitingCompletionStamp,
+  lhDisplayStepFromNav,
+  lhPieFraction,
+} from './lhMeta.js'
+
+describe('lhAwaitingCompletionStamp', () => {
+  it('true bei mehrteiliger L.H. mit rem 1 (GO!)', () => {
+    expect(
+      lhAwaitingCompletionStamp({ [LH_MAX]: 3, [LH_REM]: 1 })
+    ).toBe(true)
+  })
+  it('false bei einteiliger L.H. (max 1, rem 1)', () => {
+    expect(
+      lhAwaitingCompletionStamp({ [LH_MAX]: 1, [LH_REM]: 1 })
+    ).toBe(false)
+  })
+  it('false bei mittendrin (rem > 1)', () => {
+    expect(
+      lhAwaitingCompletionStamp({ [LH_MAX]: 3, [LH_REM]: 2 })
+    ).toBe(false)
+  })
+})
 
 describe('lhDisplayStepFromNav', () => {
   const mechanics2Ap = {

@@ -91,6 +91,19 @@ export function readLhState(meta) {
 }
 
 /**
+ * Mehrteilige L.H. im letzten Auslöser-Segment (`rem === 1`): Anzeige „GO!“,
+ * voller Stern — Abschluss-Stempel am Mutterobjekt steht noch aus. Navigation
+ * (Phase 6) soll den Tracker dann nicht per `clearLhTrackerActivity` leeren.
+ *
+ * @param {unknown} meta
+ * @returns {boolean}
+ */
+export function lhAwaitingCompletionStamp(meta) {
+  const { max, rem } = readLhState(meta)
+  return max > 1 && rem === 1
+}
+
+/**
  * Sperr-Prädikat (V2): Wahr genau dann, wenn eine Längerfristige Handlung
  * läuft (max > 0 && rem > 0). Pure Funktion, keine OBR-/Async-Abhängigkeiten —
  * darf von `krCounters.js` gefahrlos importiert werden.
