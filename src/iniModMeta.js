@@ -4233,6 +4233,7 @@ export function mountHeroExpandBlock(
         seenBundle.add(modRec.bundleId)
         const bundleMods = active.filter((x) => x.bundleId === modRec.bundleId)
         const packLabel = bundleMods.find((x) => x.label)?.label
+        if (packLabel === 'LA unfähig' || packLabel === 'RA unfähig') continue
         const shortParts = bundleMods.map((bm) => {
           const eff = modEffectiveContribution(
             bm,

@@ -965,7 +965,21 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     const stage = zoneStageFromWounds(w)
     if (stage <= 0) continue
     const bundleId = `${AUTO_ZONE_PREFIX}${def.id}`
-    const label = autoZoneWoundLabel(def.id, w, def.abbr)
+    let label = autoZoneWoundLabel(def.id, w, def.abbr)
+    const isArmUnfaehig =
+      w >= 3 &&
+      ((def.id === 'schildarm' && ufSources.armSet.includes('schildarm')) ||
+        (def.id === 'schwertarm' && ufSources.armSet.includes('schwertarm')))
+    if (isArmUnfaehig) {
+      label = def.id === 'schildarm' ? 'LA unfähig' : 'RA unfähig'
+    } else if (
+      w >= 3 &&
+      ufSources.nonArm3w &&
+      def.id !== 'schildarm' &&
+      def.id !== 'schwertarm'
+    ) {
+      label = `${label} unfähig`
+    }
     /** @type {{ field: string, delta: number }[]} */
     const rows = []
     const deltas = autoModDeltasForWappen(def, w)
