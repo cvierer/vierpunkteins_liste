@@ -54,6 +54,22 @@ const HERO_EX_WAPPEN_TEMPLATE = 'heroExWappenTemplate'
 export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
 const AUTO_ZONE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}zone-`
 
+/**
+ * @param {string} zoneId
+ * @param {number} wounds
+ */
+function autoZoneWoundLabel(zoneId, wounds) {
+  const w = Math.max(1, Math.floor(Number(wounds)) || 1)
+  const zid = String(zoneId ?? '').trim().toLowerCase()
+  if (zid === 'kopf') return `KOPF -${2 * w}`
+  if (zid === 'schildarm' || zid === 'schwertarm') return `ARM -${2 * w}`
+  if (zid === 'lbein' || zid === 'rbein') return `BEIN -${2 * w}`
+  if (zid === 'brust' || zid === 'ruecken' || zid === 'bauch') {
+    return `RUMPF -${w}-${2 * w}`
+  }
+  return `${w}*W ${String(zoneId || '').trim().toUpperCase()}`
+}
+
 /** @param {string} raw */
 function parseSignedInt(raw) {
   const t = String(raw ?? '').trim()
@@ -777,9 +793,8 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     if (w <= 0) continue
     const stage = zoneStageFromWounds(w)
     if (stage <= 0) continue
-    const ab = String(def.abbr || '').trim() || def.id
     const bundleId = `${AUTO_ZONE_PREFIX}${def.id}`
-    const label = `${w}*W ${ab}`
+    const label = autoZoneWoundLabel(def.id, w)
     /** @type {{ field: string, delta: number }[]} */
     const rows = []
     const deltas = autoModDeltasForWappen(def, w)
