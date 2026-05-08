@@ -166,7 +166,6 @@ import {
 } from './longHandlung.js'
 import {
   effectiveDeltaForField,
-  MOD_DISPLAY_MODE,
   readModDisplayMode,
   runHeroExModsAfterCombatUpdate,
 } from './heroExMods.js'
@@ -3194,20 +3193,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       </fieldset>
     </div>
     <div class="kampf-settings-panel__section">
-      <p class="kampf-settings-panel__microhint">Helden-Mods: Unter den Wertfeldern erscheinen die Mod-Badges immer gleich (Summe und Rest wie bei „Getrennt“). Unterschied ist nur, ob die Kästchen die Basis oder die Basis inklusive Mod-Summe zeigen; gespeichert wird stets die Basis.</p>
-      <fieldset class="kampf-settings-mod-display">
-        <legend class="kampf-settings-convert-announce__legend">Modifikatoren anzeigen</legend>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-mod-display" value="integrated" />
-          <span><strong>Integriert:</strong> Kästchen zeigen Basis plus aktive Mod-Summe (gespeichert nur Basis). Unter den Feldern dieselben Mod-Badges wie bei „Getrennt“ (Summe und Restlaufzeit).</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-mod-display" value="separate" />
-          <span><strong>Getrennt:</strong> Kästchen nur mit Basiswerten; Mod-Summe in den Badges unter den Feldern und als Summen-Pfeil neben dem Namen in der Liste.</span>
-        </label>
-      </fieldset>
-    </div>
-    <div class="kampf-settings-panel__section">
       <label class="init-row-extra-label">Hintergrundfarbe (Hauptzeile)</label>
       <p class="kampf-settings-panel__microhint">Für alle in der Szene sichtbar (SL und Spieler). Klick setzt die Farbe sofort; „×“ entfernt sie.</p>
       <div class="kampf-hero-color-grid" data-kampf-hero-color-grid></div>
@@ -3417,7 +3402,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (heroSettingsHintEl instanceof HTMLElement) {
       heroSettingsHintEl.textContent = gm
         ? 'Spielleitung: Werte gelten für dieses Token in der Szene. Die Zeilen-Hintergrundfarbe ist für alle sichtbar.'
-        : 'Nur für deinen Helden: Zeilenfarbe und Mod-Anzeige (integriert oder getrennt) werden im Token gespeichert. Ob andere deine Farbe sehen, steuern sie unter Kampf-Einstellungen (Zahnrad unten).'
+        : 'Nur für deinen Helden: Zeilenfarbe wird im Token gespeichert. Ob andere deine Farbe sehen, steuern sie unter Kampf-Einstellungen (Zahnrad unten).'
     }
     if (saveHeroBtn instanceof HTMLElement) {
       saveHeroBtn.textContent = gm ? 'Speichern und schließen' : 'Schließen'
@@ -3752,16 +3737,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               )
         if (toCheck instanceof HTMLInputElement) toCheck.checked = true
       }
-      const md = heroPending?.modDisplayMode ?? readModDisplayMode(m)
-      const mdSel = heroSettingsPanel.querySelector(
-        `input[name="kampf-hero-mod-display"][value="${md === 'integrated' ? 'integrated' : 'separate'}"]`
-      )
-      const mdFallback = heroSettingsPanel.querySelector(
-        'input[name="kampf-hero-mod-display"][value="separate"]'
-      )
-      const mdCheck =
-        mdSel instanceof HTMLInputElement ? mdSel : mdFallback
-      if (mdCheck instanceof HTMLInputElement) mdCheck.checked = true
     }
     if (heroColorGrid instanceof HTMLElement && heroSettingsItemId) {
       const it = lastItems.find((i) => i.id === heroSettingsItemId)
@@ -3826,7 +3801,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroActionPoolMax: poolMax,
       heroIniNegActionsLost: readHeroIniNegActionsLost(m),
       heroIniNegAngMode: readHeroIniNegAngMode(m),
-      modDisplayMode: readModDisplayMode(m),
       energyMode: readHeroEnergyMode(m, isVierbeinerDefault),
       showFk: readHeroShowFk(m, isVierbeinerDefault),
       leThreshold: readHeroLeThreshold(m),
@@ -4037,11 +4011,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
     const id = heroSettingsItemId
     const pend = heroPending
-    const md = pend.modDisplayMode ?? 'separate'
-
     const patchModDisplayMode = (m) => {
-      if (md === 'separate') delete m[MOD_DISPLAY_MODE]
-      else m[MOD_DISPLAY_MODE] = 'integrated'
+      // Modifikator-Anzeige ist dauerhaft "getrennt".
+      delete m.modDisplayMode
     }
 
     if (!heroSettingsGmMode) {
@@ -4331,14 +4303,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     heroPending.unfaehigThresholdDefault = nextUnfaehigDefault
     syncHeroWappenUi(getRoomSettings())
     syncHeroSettingsCheckboxes()
-  })
-
-  heroSettingsPanel.addEventListener('change', (e) => {
-    const t = e.target
-    if (!(t instanceof HTMLInputElement)) return
-    if (t.name !== 'kampf-hero-mod-display' || !heroPending) return
-    heroPending.modDisplayMode =
-      t.value === 'integrated' ? 'integrated' : 'separate'
   })
 
   heroSettingsPanel.addEventListener('click', (e) => {
