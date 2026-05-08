@@ -3730,6 +3730,15 @@ export function mountHeroExpandBlock(
         o.isAutoBundle && bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX)
       const useAutoLeRing =
         o.isAutoBundle && bidStr === AUTO_LE_BAND_BUNDLE_ID
+      const chipHeadTagText = useAutoZoneDots ? 'W.' : useAutoLeRing ? 'LE' : ''
+
+      if (chipHeadTagText) {
+        const headTag = document.createElement('span')
+        headTag.className = 'init-hero-ex__mod-chip-card__head-tag'
+        headTag.textContent = chipHeadTagText
+        headTag.setAttribute('aria-hidden', 'true')
+        head.appendChild(headTag)
+      }
 
       /** @type {HTMLElement} */
       let arrowWrap

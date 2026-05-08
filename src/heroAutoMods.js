@@ -49,6 +49,7 @@ const HERO_EX_GS = 'heroExGs'
 const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
 const HERO_EX_SHOW_FK = 'heroExShowFk'
 const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
+const HERO_EX_UNFAEHIG_FIXED_FIELDS = 'heroExUnfaehigFixedFields'
 const HERO_EX_WAPPEN_TEMPLATE = 'heroExWappenTemplate'
 
 export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
@@ -191,6 +192,22 @@ function readUnfaehigThresholdFromSnapshot(snap) {
   if (t && Number.isFinite(n) && n >= 0) return n
   const tpl = String(snap?.wappenTemplate ?? '').trim().toLowerCase()
   return tpl === 'vierbeiner' ? 0 : 5
+}
+
+/**
+ * @param {Record<string, unknown>} snap
+ * @returns {number | null}
+ */
+function readUnfaehigFixedLeFromSnapshot(snap) {
+  const txt = String(snap?.unfaehigFixedFields ?? '')
+  for (const part of txt.split(',')) {
+    const [kRaw, vRaw] = String(part ?? '').split('=')
+    const k = String(kRaw ?? '').trim().toLowerCase()
+    if (k !== 'gs') continue
+    const n = Math.floor(Number(String(vRaw ?? '').trim().replace(',', '.')))
+    if (Number.isFinite(n) && n >= 0) return n
+  }
+  return null
 }
 
 /**
@@ -582,6 +599,7 @@ export function snapshotFromTrackerMeta(m) {
     leThreshold: String(m?.[HERO_EX_LE_THRESHOLD] ?? ''),
     showFk: showFkEff ? '1' : '0',
     unfaehigThreshold: String(m?.[HERO_EX_UNFAEHIG_THRESHOLD] ?? ''),
+    unfaehigFixedFields: String(m?.[HERO_EX_UNFAEHIG_FIXED_FIELDS] ?? ''),
     wappenTemplate: String(m?.[HERO_EX_WAPPEN_TEMPLATE] ?? ''),
     hitZones: readHitZoneBundle(m, TRACKER_ITEM_META_KEY, wappenDefs),
     wappenDefs,
@@ -748,16 +766,27 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     const band = leBand(leNum, leMaxNum, leThreshold)
     const m = leAtPaMalusForBand(band)
     if (m > 0) {
-      const labelBand =
-        leNum <= 0
-          ? leKoCriticalLabel(leNum, koNum)
-          : leAutoChipLabelDe(band, leThreshold)
-      const label =
-        labelBand === '<-1,5KO' || labelBand === '<-KO/2'
-          ? labelBand
-          : labelBand
-            ? `LE${labelBand}`
-            : 'LE'
+      const unfaehigFix = readUnfaehigFixedLeFromSnapshot(snap)
+      const unfaehigThreshold = readUnfaehigThresholdFromSnapshot(snap)
+      const criticalThreshold = unfaehigFix ?? unfaehigThreshold
+      let label = ''
+      if (leNum <= 0) {
+        label = 'sterbend'
+      } else if (
+        Number.isFinite(Number(criticalThreshold)) &&
+        leNum <= Number(criticalThreshold)
+      ) {
+        label = `LE ≤ ${Math.floor(Number(criticalThreshold))}`
+      } else if (band === 0) {
+        label = '<1/2 -1'
+      } else if (band === 1) {
+        label = '<1/3 -2'
+      } else if (band >= 2) {
+        label = '<1/4 -3'
+      } else {
+        const fallback = leKoCriticalLabel(leNum, koNum) || leAutoChipLabelDe(band, leThreshold)
+        label = fallback ? `LE${fallback}` : 'LE'
+      }
       const leFields = showFkFromSnapshot(snap)
         ? ['at', 'pa', 'a', 'fk']
         : ['at', 'pa', 'a']
