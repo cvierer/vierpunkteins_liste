@@ -8117,6 +8117,21 @@ select.init-row-extra-select {
   letter-spacing: 0;
 }
 
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--arm-wound-stack
+  .init-hero-ex__mod-badge__tail--arm-extra {
+  display: block;
+  line-height: 0.76;
+  letter-spacing: 0;
+}
+
+.init-hero-ex__mod-badge .init-hero-ex__mod-badge__tail--pos {
+  color: #1b5e20;
+}
+
+.init-hero-ex__mod-badge .init-hero-ex__mod-badge__tail--neg {
+  color: #b71c1c;
+}
+
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated {
   gap: calc(0.012rem * var(--init-ui-scale));
 }

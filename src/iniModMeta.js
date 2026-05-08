@@ -4054,6 +4054,10 @@ export function mountHeroExpandBlock(
         unfaehigDisplay.leTriggered &&
         ['at', 'pa', 'ff', 'kk'].includes(field)
       const useArmWoundCompactBadge = hasArmWoundNote && !unfaehigLeFixedField
+      const armDelta = armSource.la + armSource.ra
+      const nonArmDelta = sum - armDelta
+      const hasNonArmExtra =
+        hasArmWoundNote && !unfaehigLeFixedField && nonArmDelta !== 0
       const fixedValueForField = (() => {
         if (field !== 'gs') return fixedFieldValues[field] ?? 0
         const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
@@ -4141,13 +4145,29 @@ export function mountHeroExpandBlock(
               : `RA↓${Math.max(1, Math.abs(armSource.ra) || 0)}`
           )
         }
-        if (armNotes.length >= 2) badge.classList.add('init-hero-ex__mod-badge--arm-wound-stack')
+        if (armNotes.length >= 2 || hasNonArmExtra) {
+          badge.classList.add('init-hero-ex__mod-badge--arm-wound-stack')
+        }
         for (const note of armNotes) {
           const srcSpan = document.createElement('span')
           srcSpan.className =
             'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-note'
           srcSpan.textContent = modBandIntegrated ? `(${note})` : note
           badge.appendChild(srcSpan)
+        }
+        if (hasNonArmExtra) {
+          const extraSpan = document.createElement('span')
+          extraSpan.className =
+            'init-hero-ex__mod-badge__tail init-hero-ex__mod-badge__tail--arm-extra'
+          extraSpan.classList.add(
+            nonArmDelta > 0
+              ? 'init-hero-ex__mod-badge__tail--pos'
+              : 'init-hero-ex__mod-badge__tail--neg'
+          )
+          const sign = nonArmDelta > 0 ? '+' : '\u2212'
+          const text = `${sign}${Math.abs(nonArmDelta)}`
+          extraSpan.textContent = modBandIntegrated ? `(${text})` : text
+          badge.appendChild(extraSpan)
         }
       }
       if (tightFrac) {
