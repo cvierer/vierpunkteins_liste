@@ -4031,7 +4031,7 @@ export function mountHeroExpandBlock(
         isUnfaehigFixedField &&
         unfaehigDisplay.armOnly &&
         ['at', 'pa', 'ff', 'kk'].includes(field)
-      const useArmWoundCompactBadge = hasArmWoundNote || armW3FixedField
+      const useArmWoundCompactBadge = hasArmWoundNote && !armW3FixedField
       const fixedValueForField = (() => {
         if (field !== 'gs') return fixedFieldValues[field] ?? 0
         const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
@@ -4094,21 +4094,11 @@ export function mountHeroExpandBlock(
         badge.appendChild(arrowSpan)
       }
       if (valSpan.textContent) badge.appendChild(valSpan)
-      if (hasArmWoundNote || armW3FixedField) {
+      if (hasArmWoundNote && !armW3FixedField) {
         /** @type {string[]} */
         const armNotes = []
-        if (armW3FixedField) {
-          // Bei Unfaehig-Ueberlagerung explizit 0 anzeigen.
-          const sides = Array.isArray(unfaehigDisplay.armSetSides)
-            ? unfaehigDisplay.armSetSides
-            : []
-          if (sides.includes('LA')) armNotes.push('LA:0')
-          if (sides.includes('RA')) armNotes.push('RA:0')
-          if (armNotes.length === 0) armNotes.push(`${unfaehigDisplay.armSide || 'AR'}:0`)
-        } else {
-          if (armSource.hasLa) armNotes.push(`LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`)
-          if (armSource.hasRa) armNotes.push(`RA↓${Math.max(1, Math.abs(armSource.ra) || 0)}`)
-        }
+        if (armSource.hasLa) armNotes.push(`LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`)
+        if (armSource.hasRa) armNotes.push(`RA↓${Math.max(1, Math.abs(armSource.ra) || 0)}`)
         if (armNotes.length >= 2) badge.classList.add('init-hero-ex__mod-badge--arm-wound-stack')
         for (const note of armNotes) {
           const srcSpan = document.createElement('span')
