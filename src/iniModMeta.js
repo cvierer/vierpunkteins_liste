@@ -4335,7 +4335,6 @@ export function mountHeroExpandBlock(
             ? bundleMods.filter((bm) => String(bm.field ?? '') !== 'gs')
             : bundleMods
         const packLabel = bundleMods.find((x) => x.label)?.label
-        if (packLabel === 'LA unfähig' || packLabel === 'RA unfähig') continue
         const shortParts = visibleBundleMods.map((bm) => {
           const eff = modEffectiveContribution(
             bm,
