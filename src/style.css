@@ -8021,6 +8021,36 @@ select.init-row-extra-select {
   opacity: 0.9;
 }
 
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated {
+  gap: calc(0.012rem * var(--init-ui-scale));
+}
+
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated::before {
+  content: '(';
+}
+
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated::after {
+  content: ')';
+}
+
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated,
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated .init-hero-ex__mod-badge__val,
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated .init-hero-ex__mod-badge__tail {
+  font-size: calc(0.46rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+}
+
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
+  .init-hero-ex__mod-badge__arrow {
+  margin-right: calc(0.04rem * var(--init-ui-scale));
+}
+
+.init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
+  .init-hero-ex__mod-badge__arrow
+  .init-hero-ex__mod-toggle-sum-svg {
+  width: calc(0.36rem * var(--init-ui-scale));
+  height: calc(0.41rem * var(--init-ui-scale));
+}
+
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--fixed,
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--fixed .init-hero-ex__mod-badge__val,
 .init-hero-ex__mod-badge.init-hero-ex__mod-badge--fixed .init-hero-ex__mod-badge__tail {

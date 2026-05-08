@@ -3846,6 +3846,7 @@ export function mountHeroExpandBlock(
       stripEl.appendChild(chip)
     }
     const snapForFieldBadges = readHeroExpandSnapshot(modMeta)
+    const modBandIntegrated = readModDisplayMode(modMeta) === 'integrated'
     const fixedFieldValues = Object.fromEntries(
       UNFAEHIG_FIXED_ALLOWED_FIELDS.map((k) => {
         const raw = Number(snapForFieldBadges.unfaehigFixedFields?.[k])
@@ -3922,6 +3923,8 @@ export function mountHeroExpandBlock(
       if (useFixedValueView) {
         badge.classList.add('init-hero-ex__mod-badge--fixed')
         badge.classList.add('init-hero-ex__mod-badge--unfaehig-fixed')
+      } else if (modBandIntegrated) {
+        badge.classList.add('init-hero-ex__mod-badge--integrated')
       }
       const absSum = Math.abs(sum)
       const fieldMods = activeModsFull.filter((m) => m.field === field)
