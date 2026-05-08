@@ -246,8 +246,7 @@ function strOrEmpty(v) {
   return String(v)
 }
 
-const UNFAEHIG_MARK_DEFAULT_FIELDS_HUMAN = ['at', 'pa', 'a', 'tp', 'fk', 'gs']
-const UNFAEHIG_MARK_DEFAULT_FIELDS_VIERBEINER = ['at', 'pa', 'a', 'tp', 'fk']
+const UNFAEHIG_MARK_DEFAULT_FIELDS = ['at', 'pa', 'a', 'tp', 'fk', 'gs']
 const UNFAEHIG_FIXED_ALLOWED_FIELDS = ['at', 'pa', 'a', 'tp', 'fk', 'gs']
 
 function isVierbeinerTemplateMeta(meta) {
@@ -265,7 +264,7 @@ function parseUnfaehigThreshold(raw, isVierbeiner) {
   return defaultUnfaehigThresholdForTemplate(isVierbeiner)
 }
 
-function normalizeUnfaehigMarkFields(raw, isVierbeiner = false) {
+function normalizeUnfaehigMarkFields(raw) {
   const txt = String(raw ?? '')
   const fields = txt
     .split(',')
@@ -274,14 +273,12 @@ function normalizeUnfaehigMarkFields(raw, isVierbeiner = false) {
       return t === 'aw' ? 'a' : t
     })
     .filter((x) => ['at', 'pa', 'a', 'tp', 'fk', 'gs'].includes(x))
-  return fields.length > 0
-    ? [...new Set(fields)]
-    : isVierbeiner
-      ? [...UNFAEHIG_MARK_DEFAULT_FIELDS_VIERBEINER]
-      : [...UNFAEHIG_MARK_DEFAULT_FIELDS_HUMAN]
+  const unique = fields.length > 0 ? [...new Set(fields)] : [...UNFAEHIG_MARK_DEFAULT_FIELDS]
+  if (!unique.includes('gs')) unique.push('gs')
+  return unique
 }
 
-function normalizeUnfaehigFixedFields(raw, isVierbeiner = false) {
+function normalizeUnfaehigFixedFields(raw) {
   const txt = String(raw ?? '')
   const out = {}
   for (const part of txt.split(',')) {
@@ -290,7 +287,7 @@ function normalizeUnfaehigFixedFields(raw, isVierbeiner = false) {
     const n = Math.floor(Number(String(vRaw ?? '').trim().replace(',', '.')))
     if (UNFAEHIG_FIXED_ALLOWED_FIELDS.includes(k) && Number.isFinite(n)) out[k] = n
   }
-  if (!isVierbeiner && !Number.isFinite(Number(out.gs))) out.gs = 1
+  if (!Number.isFinite(Number(out.gs))) out.gs = 1
   return out
 }
 
@@ -372,12 +369,10 @@ export function readHeroExpandSnapshot(meta) {
     isVierbeiner
   )
   const unfaehigMarkFields = normalizeUnfaehigMarkFields(
-    meta?.[HERO_EX_UNFAEHIG_MARK_FIELDS],
-    isVierbeiner
+    meta?.[HERO_EX_UNFAEHIG_MARK_FIELDS]
   )
   const unfaehigFixedFields = normalizeUnfaehigFixedFields(
-    meta?.[HERO_EX_UNFAEHIG_FIXED_FIELDS],
-    isVierbeiner
+    meta?.[HERO_EX_UNFAEHIG_FIXED_FIELDS]
   )
   const room = getRoomSettings()
   const wappenDefs = effectiveWappenForHero(meta, room)
@@ -550,17 +545,11 @@ export async function applyHeroExpandFields(itemId, next) {
         delete m[HERO_EX_UNFAEHIG_THRESHOLD]
       }
       {
-        const markFields = normalizeUnfaehigMarkFields(
-          next.unfaehigMarkFields,
-          isVierbeinerTemplateMeta(m)
-        )
+        const markFields = normalizeUnfaehigMarkFields(next.unfaehigMarkFields)
         m[HERO_EX_UNFAEHIG_MARK_FIELDS] = markFields.join(',')
       }
       {
-        const fixed = normalizeUnfaehigFixedFields(
-          next.unfaehigFixedFields,
-          isVierbeinerTemplateMeta(m)
-        )
+        const fixed = normalizeUnfaehigFixedFields(next.unfaehigFixedFields)
         m[HERO_EX_UNFAEHIG_FIXED_FIELDS] = `gs=${fixed.gs}`
       }
       setStr(HERO_EX_GS, next.gs)
