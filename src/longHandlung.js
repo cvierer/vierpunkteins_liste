@@ -83,18 +83,35 @@ function getCurrentStepContext(rows, items, tieOrderIds, combat) {
   const idx = findCombatStepIndex(steps, combat)
   const ownerIniById = new Map(rows.map((r) => [r.id, parseIni(r.initiative)]))
   if (idx < 0 || idx >= merged.length) {
-    return { idx: -1, activeIni: null, ownerIniById }
+    return {
+      idx: -1,
+      activeIni: null,
+      ownerIniById,
+      atRoundBoundaryStep: false,
+    }
   }
   const current = merged[idx]
-  const activeIni =
+  const atRoundBoundaryStep =
     current.kind === 'roundEnd' || current.kind === 'roundStart'
+  const activeIni =
+    atRoundBoundaryStep
       ? 0
       : current.kind === 'token'
         ? parseIni(current.row.initiative)
         : Number.isFinite(current.hookIni)
           ? current.hookIni
           : null
-  return { idx, activeIni, ownerIniById }
+  return { idx, activeIni, ownerIniById, atRoundBoundaryStep }
+}
+
+/**
+ * Liste „Beginn/Ende Kampfrunde“: keine echte INI — Phase-6-L.H.-Reset nicht anwenden.
+ *
+ * @param {string | undefined} kind
+ * @returns {boolean}
+ */
+export function isRoundBoundaryMergedKind(kind) {
+  return kind === 'roundStart' || kind === 'roundEnd'
 }
 
 /**
@@ -306,7 +323,9 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
   // Trigger: aktuelle Navigation strikt unter endIni UND vorherige Position
   // war auf/oberhalb endIni (Helden- oder n.A.-Objekt-Phase). Beruecksichtigt
   // wird nur Vorwaertsnavigation (currIni < prevIni) innerhalb derselben KR.
+  // KR-Beginn/-Ende-Marker nutzen activeIni=0 — Navigation dorthin darf keine L.H. abbrechen.
   if (
+    !currCtx.atRoundBoundaryStep &&
     Number.isFinite(currIni) &&
     Number.isFinite(prevIni) &&
     Number.isFinite(curr.round) &&

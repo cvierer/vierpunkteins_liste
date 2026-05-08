@@ -5,7 +5,7 @@ import {
   KR_LH_ACTION,
   KR_SRA,
   KR_ZAO_SLOTS,
-  motherPrimaryActionStamped,
+  motherPrimarySelfStamped,
   lhEndKrConvertArrowGates,
 } from './krCounters.js'
 import {
@@ -17,16 +17,16 @@ import {
   LH_TRIGGER_INI_STEP,
 } from './lhMeta.js'
 
-describe('motherPrimaryActionStamped', () => {
+describe('motherPrimarySelfStamped', () => {
   const itemId = 'hero-token'
 
   it('false ohne Einträge', () => {
-    expect(motherPrimaryActionStamped([], itemId)).toBe(false)
+    expect(motherPrimarySelfStamped([], itemId)).toBe(false)
   })
 
-  it('true bei Ang-Stempel am Mutteranker', () => {
+  it('true bei Ang-Stempel am Mutteranker (eigene Zeile)', () => {
     expect(
-      motherPrimaryActionStamped(
+      motherPrimarySelfStamped(
         [
           {
             id: 's1',
@@ -42,9 +42,27 @@ describe('motherPrimaryActionStamped', () => {
     ).toBe(true)
   })
 
+  it('false wenn anchorRowId auf anderer Navigationszeile lag', () => {
+    expect(
+      motherPrimarySelfStamped(
+        [
+          {
+            id: 's1',
+            itemId,
+            ownerName: '',
+            field: KR_ANG,
+            anchorRowId: 'other-row',
+            anchorPhaseLinkId: null,
+          },
+        ],
+        itemId
+      )
+    ).toBe(false)
+  })
+
   it('false bei ZAO-Stempel (Phasen-Link gesetzt)', () => {
     expect(
-      motherPrimaryActionStamped(
+      motherPrimarySelfStamped(
         [
           {
             id: 's1',
@@ -62,7 +80,7 @@ describe('motherPrimaryActionStamped', () => {
 
   it('false bei Abwehr-/Parade-Stempel', () => {
     expect(
-      motherPrimaryActionStamped(
+      motherPrimarySelfStamped(
         [
           {
             id: 's1',

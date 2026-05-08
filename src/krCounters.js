@@ -613,21 +613,29 @@ export function metaHasPendingLoadedNonHeroExtraZao(meta) {
 const MOTHER_PRIMARY_STAMP_FIELDS = new Set([KR_ANG, KR_SRA, KR_LH_ACTION])
 
 /**
+ * Mutter-Primärstempel, angelegt während die Navigation auf der **eigenen**
+ * Token-Zeile stand (`anchorRowId === itemId`). Fremde `anchorRowId` (andere
+ * Zeile) sperren die Umwandlung am Mutterobjekt nicht.
+ *
  * @param {unknown[]} entries
  * @param {string} itemId
  * @returns {boolean}
  */
-export function motherPrimaryActionStamped(entries, itemId) {
+export function motherPrimarySelfStamped(entries, itemId) {
   if (!Array.isArray(entries) || typeof itemId !== 'string') return false
   return entries.some((e) => {
     if (!e || typeof e !== 'object') return false
     if (e.itemId !== itemId) return false
     if (e.paradeExtra) return false
     if (e.anchorPhaseLinkId != null) return false
+    if (e.anchorRowId != null && e.anchorRowId !== itemId) return false
     if (!MOTHER_PRIMARY_STAMP_FIELDS.has(e.field)) return false
     return true
   })
 }
+
+/** @deprecated Nutze `motherPrimarySelfStamped` — Alias für Kompatibilität. */
+export const motherPrimaryActionStamped = motherPrimarySelfStamped
 
 /**
  * KR, in der eine L.H. endet: Tracker noch aktiv, aber keine „mittendrin“-Sperre.
@@ -1188,7 +1196,7 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
   {
     const roomMeta = await OBR.room.getMetadata()
     const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
-    if (motherPrimaryActionStamped(stamps.entries, itemId)) return
+    if (motherPrimarySelfStamped(stamps.entries, itemId)) return
   }
   const abw = normalizeKrDigit(meta[KR_ABW])
 
@@ -1298,7 +1306,7 @@ export async function patchKrTransferAbwToPrimary(itemId) {
   {
     const roomMeta = await OBR.room.getMetadata()
     const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
-    if (motherPrimaryActionStamped(stamps.entries, itemId)) return
+    if (motherPrimarySelfStamped(stamps.entries, itemId)) return
   }
   const firstKind = readKrFirstSlotKind(meta)
   // Edge-Case 3 (Plan): bei aktiver L.H. (auch in End-KR) NICHT in den

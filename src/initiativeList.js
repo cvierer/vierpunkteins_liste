@@ -123,7 +123,7 @@ import {
   stampLhCompletion,
   undoKrActionStamp,
   undoLastZaoSlotStamp,
-  motherPrimaryActionStamped,
+  motherPrimarySelfStamped,
   lhEndKrConvertArrowGates,
 } from './krCounters.js'
 import {
@@ -409,6 +409,7 @@ function createRoundRowConvertLockButton() {
  * - Schloss „offen“: immer erlaubt.
  * - Schloss „geschlossen“: nie erlaubt.
  * - Schloss „Automatik“:
+ *   - `convertAnytimeEnabled` auf dem Tracker → erlaubt (wie offen, aber nur dieser Held).
  *   - Navigation steht auf Beginn/Ende der Kampfrunde → erlaubt.
  *   - Sonst greifen die Helden-Ansageoptionen:
  *     · `convertAllowEntireRound` → erlaubt (gesamte KR).
@@ -433,8 +434,9 @@ function isHeroConvertAllowedForViewer(
 ) {
   if (isGmSync()) return true
   const lock = getRoomSettings().convertLockState
-  if (lock === 'open') return true
   if (lock === 'closed') return false
+  if (trackerMeta?.convertAnytimeEnabled === true) return true
+  if (lock === 'open') return true
   const atRoundBoundary =
     !rowActivePhaseLinkId &&
     (rowActiveId === ROUND_START_STEP_ID || rowActiveId === ROUND_END_STEP_ID)
@@ -1323,7 +1325,8 @@ function appendKrAbwSplitCell(
   boundaryAsActiveVisual = false,
   combatRound = null,
   combatStarted = false,
-  roundIntroPending = false
+  roundIntroPending = false,
+  mirrorLinkUi = false
 ) {
   const value = readKrAbw(trackerMeta)
   const v = normalizeKrDigit(value)
@@ -1387,6 +1390,9 @@ function appendKrAbwSplitCell(
     abwRoundBoundaryShell
   )
   shell.setAttribute('role', 'group')
+  if (mirrorLinkUi) {
+    shell.classList.add('init-kr-abw-split-shell--mirror-link')
+  }
   if (reactionAbwUi) {
     shell.classList.add('init-kr-abw-split-shell--reaction-theme')
     shell.setAttribute('aria-label', 'Reaktion, Abwehr-Schildladungen')
@@ -1443,19 +1449,23 @@ function appendKrAbwSplitCell(
   applySplitLadungVisual(shell, chargeRow, exec, v, 'abw')
   const abwMaxMarks = krAbwTransferMaxMarks()
   const abwCombatAllowsStamp = Boolean(combatStarted && !roundIntroPending)
-  exec.title = canEdit
-    ? shieldCount >= 2
-      ? `Abwehr: ${shieldCount} Schildladungen geladen (maximal ${abwMaxMarks}).`
-      : v <= 0
-        ? !abwLadungAllowed
-          ? !abwCombatAllowsStamp
-            ? !combatStarted
-              ? 'Abwehr: Schild erst stempeln, wenn der Kampf läuft (Start).'
-              : 'Abwehr: neue Kampfrunde zuerst bestätigen (oben „Weiter“), dann stempeln.'
-            : 'Abwehr: am Beginn/Ende der Kampfrunde gesperrt; stempeln erst wieder im nächsten Zug.'
-          : 'Abwehr: Untere Ladung stempeln; am Beginn/Ende der Kampfrunde gesperrt. Rechtsklick holt verbrauchte Ladung zurück'
-        : 'Abwehr: Rechtsklick aufs Kästchen — Ladung zurück, letzten Stempel entfernen'
-    : 'Abwehr (nur Anzeige)'
+  exec.title = mirrorLinkUi
+    ? canEdit
+      ? 'Reaktion (Spiegel): gleiche Schildladungen wie am Mutterobjekt — Stempeln und Parade nur am Mutterobjekt; Umwandlung über die Pfeile wirkt auf dieselben Ladungen.'
+      : 'Reaktion (Spiegel): Anzeige der Mutter-Schildladungen.'
+    : canEdit
+      ? shieldCount >= 2
+        ? `Abwehr: ${shieldCount} Schildladungen geladen (maximal ${abwMaxMarks}).`
+        : v <= 0
+          ? !abwLadungAllowed
+            ? !abwCombatAllowsStamp
+              ? !combatStarted
+                ? 'Abwehr: Schild erst stempeln, wenn der Kampf läuft (Start).'
+                : 'Abwehr: neue Kampfrunde zuerst bestätigen (oben „Weiter“), dann stempeln.'
+              : 'Abwehr: am Beginn/Ende der Kampfrunde gesperrt; stempeln erst wieder im nächsten Zug.'
+            : 'Abwehr: Untere Ladung stempeln; am Beginn/Ende der Kampfrunde gesperrt. Rechtsklick holt verbrauchte Ladung zurück'
+          : 'Abwehr: Rechtsklick aufs Kästchen — Ladung zurück, letzten Stempel entfernen'
+      : 'Abwehr (nur Anzeige)'
   if (paradeLoaded) {
     exec.title =
       (exec.title ? `${exec.title} ` : '') +
@@ -1470,10 +1480,11 @@ function appendKrAbwSplitCell(
       'Längerfristige Handlung läuft – Schild/Parade gesperrt; nur freie Aktionen erlaubt.'
   }
   exec.disabled =
+    mirrorLinkUi ||
     !canEdit ||
     abwLhLocked ||
     ((shieldCount >= 1 || paradeLoaded) && !abwLadungAllowed)
-  if (canEdit) {
+  if (canEdit && !mirrorLinkUi) {
     exec.addEventListener('click', (e) => {
       e.preventDefault()
       if (abwLhLocked) return
@@ -1498,6 +1509,7 @@ function appendKrAbwSplitCell(
     })
     shell.addEventListener('contextmenu', (e) => {
       e.preventDefault()
+      if (mirrorLinkUi) return
       if (abwLhLocked) return
       if (!abwLadungAllowed) return
       const t = e.target instanceof Element ? e.target : null
@@ -1523,6 +1535,7 @@ function appendKrAbwSplitCell(
   container.appendChild(shell)
 
   if (
+    !mirrorLinkUi &&
     readHeroExtraParCount(trackerMeta) > 0 &&
     paradeSlots.some((slot) => slot === undefined) &&
     trackerMeta?.krExtraChoiceUsed !== 'ang'
@@ -1663,7 +1676,7 @@ function appendKrConvertArrowsCell(
     allowLower = false
   }
   const stampLockTip =
-    'Umwandeln gesperrt — am Mutter-Primärfeld liegt ein Aktions-Stempel (Angriff, S.R.A. oder L.H.-Abschluss).'
+    'Umwandeln gesperrt — am Mutter-Primärfeld liegt ein Aktions-Stempel von der eigenen Heldenzeile (Angriff, S.R.A. oder L.H.-Abschluss).'
 
   const upperLabel = firstIsLh
     ? 'L.H.-Ladung ins Abwehr-Schild verschieben'
@@ -1930,6 +1943,8 @@ function appendKrCounterPair(
     /** Kampf muss laufen und Runden-Intro bestätigt sein — sonst keine Schild-Stempel. */
     combatStarted = false,
     roundIntroPending = false,
+    /** 2.A.-Zeile: Schilde nur Spiegel des Mutter-`KR_ABW`, kein Stempeln hier. */
+    abwMirrorLinkUi = false,
   } = options || {}
   const primaryLadungAllowed = navigationMatchesRow(
     ownerItemId,
@@ -2101,13 +2116,14 @@ function appendKrCounterPair(
       ownerItemId,
       trackerMeta,
       canEdit,
-      abwLadungAllowed,
+      abwMirrorLinkUi ? false : abwLadungAllowed,
       phaseRowActive,
       abwRoundBoundaryShell,
       atRoundBoundaryNav,
       combatRound,
       combatStarted,
-      roundIntroPending
+      roundIntroPending,
+      abwMirrorLinkUi
     )
   }
 
@@ -3282,6 +3298,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         </label>
       </fieldset>
     </div>
+    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
+      <label class="kampf-settings-checkbox-label">
+        <input type="checkbox" data-kampf-hero-convert-anytime />
+        <span><strong>Umwandeln jederzeit möglich:</strong> Umwandlungspfeile unabhängig von der Listen-Navigation (vorbehaltlich SL-Schloss „geschlossen“). Bei aktiv gesetzt können an regulären 2.-Aktionszeilen dieselben Pfeile und eine Schildanzeige als Spiegel des Mutterobjekts erscheinen — keine zusätzlichen Ladungen.</span>
+      </label>
+    </div>
     <div class="kampf-settings-panel__section">
       <label class="init-row-extra-label">Hintergrundfarbe (Hauptzeile)</label>
       <p class="kampf-settings-panel__microhint">Für alle in der Szene sichtbar (SL und Spieler). Klick setzt die Farbe sofort; „×“ entfernt sie.</p>
@@ -3410,6 +3432,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   )
   const heroConvertAnnounceFieldset = heroSettingsPanel.querySelector(
     'fieldset.kampf-settings-convert-announce'
+  )
+  const heroConvertAnytimeCb = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-convert-anytime]'
   )
   const heroHideForeignCb = heroSettingsPanel.querySelector(
     '[data-kampf-hero-hide-foreign-colors]'
@@ -3827,6 +3852,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               )
         if (toCheck instanceof HTMLInputElement) toCheck.checked = true
       }
+      if (heroConvertAnytimeCb instanceof HTMLInputElement) {
+        const ca = heroPending?.convertAnytimeEnabled === true
+        heroConvertAnytimeCb.checked = ca
+        heroConvertAnytimeCb.disabled = !heroSettingsGmMode
+      }
     }
     if (heroColorGrid instanceof HTMLElement && heroSettingsItemId) {
       const it = lastItems.find((i) => i.id === heroSettingsItemId)
@@ -3911,6 +3941,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       wappenOverride: hasWappenOverride
         ? normalizeWappenDefs(wappenOverrideRaw)
         : null,
+      convertAnytimeEnabled: m?.convertAnytimeEnabled === true,
     }
     if (titleHeroEl) {
       titleHeroEl.textContent = gm
@@ -4146,6 +4177,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         const mode = pend.convertAnnounceMode ?? 'none'
         if (mode === 'firstPhase') m.convertAllowFirstPhase = true
         else if (mode === 'entireRound') m.convertAllowEntireRound = true
+        if (pend.convertAnytimeEnabled) m.convertAnytimeEnabled = true
+        else delete m.convertAnytimeEnabled
         m[HERO_ACTION_POOL_MAX] = pend.heroActionPoolMax
         m[HERO_ACTION_POOL_ANG] = pend.heroActionPoolAng
         m[HERO_ACTION_POOL_ABW] = pend.heroActionPoolAbw
@@ -4360,6 +4393,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const v = t.value
     heroPending.convertAnnounceMode =
       v === 'firstPhase' || v === 'entireRound' ? v : 'none'
+  })
+
+  heroConvertAnytimeCb?.addEventListener('change', (e) => {
+    if (!isGmSync() || !heroPending) return
+    const t = e.target
+    if (!(t instanceof HTMLInputElement)) return
+    heroPending.convertAnytimeEnabled = t.checked
   })
 
   heroSettingsPanel.addEventListener('change', (e) => {
@@ -4935,7 +4975,7 @@ function bindStampContextRemove(el, stamp, items) {
 
         const slotRow = document.createElement('div')
         slotRow.className = 'init-phase-slot-row'
-        const motherPrimaryStampedToken = motherPrimaryActionStamped(
+        const motherPrimaryStampedToken = motherPrimarySelfStamped(
           stampEntries,
           row.id
         )
@@ -5683,6 +5723,22 @@ function bindStampContextRemove(el, stamp, items) {
         const lhCol = document.createElement('div')
         lhCol.className = 'init-col-lh'
 
+        const zaoMotherMirrorUi =
+          isZaoRoot &&
+          Boolean(ownerTrackerMeta?.convertAnytimeEnabled) &&
+          !isHeroExtraZao &&
+          !isLhEndLink &&
+          zaoOverrideKind !== 'lh'
+
+        if (isZaoRoot && zaoMotherMirrorUi) {
+          btnCol.appendChild(zaoOffsetSlot)
+        }
+
+        const zaoMotherStamped = motherPrimarySelfStamped(
+          stampEntries,
+          ownerId
+        )
+
         appendKrCounterPair(
           btnCol,
           ownerId,
@@ -5696,25 +5752,45 @@ function bindStampContextRemove(el, stamp, items) {
           link.id,
           zaoBadgeUi,
           isZaoRoot
-            ? {
-                hideAbw: true,
-                hideFa: true,
-                hideLh: true,
-                hideConvert: true,
-                convertReplacement: zaoOffsetSlot,
-                abwReplacement: zaoTextReplacement,
-                zaoSlotOverride: zaoSlot
-                  ? {
-                      linkId: link.id,
-                      ...zaoSlot,
-                      heroExtra: link.heroExtra || null,
-                      lhEnd: Boolean(link.lhEnd),
-                    }
-                  : null,
-                lhContainer: lhCol,
-                combatStarted: combat.started,
-                roundIntroPending: combat.roundIntroPending,
-              }
+            ? zaoMotherMirrorUi
+              ? {
+                  hideAbw: false,
+                  hideFa: true,
+                  hideLh: true,
+                  hideConvert: false,
+                  abwMirrorLinkUi: true,
+                  motherPrimaryStamped: zaoMotherStamped,
+                  zaoSlotOverride: zaoSlot
+                    ? {
+                        linkId: link.id,
+                        ...zaoSlot,
+                        heroExtra: link.heroExtra || null,
+                        lhEnd: Boolean(link.lhEnd),
+                      }
+                    : null,
+                  lhContainer: lhCol,
+                  combatStarted: combat.started,
+                  roundIntroPending: combat.roundIntroPending,
+                }
+              : {
+                  hideAbw: true,
+                  hideFa: true,
+                  hideLh: true,
+                  hideConvert: true,
+                  convertReplacement: zaoOffsetSlot,
+                  abwReplacement: zaoTextReplacement,
+                  zaoSlotOverride: zaoSlot
+                    ? {
+                        linkId: link.id,
+                        ...zaoSlot,
+                        heroExtra: link.heroExtra || null,
+                        lhEnd: Boolean(link.lhEnd),
+                      }
+                    : null,
+                  lhContainer: lhCol,
+                  combatStarted: combat.started,
+                  roundIntroPending: combat.roundIntroPending,
+                }
             : {
                 lhContainer: lhCol,
                 combatStarted: combat.started,
