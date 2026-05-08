@@ -4312,6 +4312,12 @@ export function mountHeroExpandBlock(
         ) {
           continue
         }
+        if (
+          hasThirdWoundAutoZoneChip &&
+          String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
+        ) {
+          continue
+        }
         if (String(modRec.bundleId) === AUTO_LE_MAXLOSS_BUNDLE_ID) continue
         if (seenBundle.has(modRec.bundleId)) continue
         seenBundle.add(modRec.bundleId)
