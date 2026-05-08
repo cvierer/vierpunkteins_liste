@@ -3423,7 +3423,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     return defaultUnfaehigThresholdForTemplate(Boolean(fallbackIsVierbeiner))
   }
 
-  const normalizeUnfaehigMarkFieldsText = (raw) => {
+  const normalizeUnfaehigMarkFieldsText = (raw, fallbackIsVierbeiner = false) => {
     const fields = String(raw ?? '')
       .split(',')
       .map((x) => {
@@ -3431,12 +3431,21 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         return t === 'aw' ? 'a' : t
       })
       .filter((x) => ['at', 'pa', 'a', 'tp', 'fk', 'gs'].includes(x))
-    const canonical = fields.length > 0 ? [...new Set(fields)] : ['at', 'pa', 'a', 'tp', 'fk']
+    const canonical =
+      fields.length > 0
+        ? [...new Set(fields)]
+        : fallbackIsVierbeiner
+          ? ['at', 'pa', 'a', 'tp', 'fk']
+          : ['at', 'pa', 'a', 'tp', 'fk', 'gs']
     const toLabel = (x) => (x === 'a' ? 'AW' : x.toUpperCase())
     return canonical.map(toLabel).join(',')
   }
 
-  const normalizeUnfaehigFixedFieldsText = (raw, fallback = '') => {
+  const normalizeUnfaehigFixedFieldsText = (
+    raw,
+    fallback = '',
+    fallbackIsVierbeiner = false
+  ) => {
     const txt = String(raw ?? '')
       .replace(/[;\n\r\t ]+/g, ',')
       .replace(/,+/g, ',')
@@ -3455,7 +3464,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
     const normalized = out.join(',')
     if (normalized) return normalized
-    return String(fallback ?? '').trim()
+    const fallbackTxt = String(fallback ?? '').trim()
+    if (fallbackTxt) return fallbackTxt
+    return fallbackIsVierbeiner ? '' : 'gs=1'
   }
 
   if (heroColorGrid instanceof HTMLElement) {
@@ -3626,10 +3637,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           : Number(heroPending.unfaehigThresholdDefault) || 5
       )
       heroUnfaehigMarkFieldsInp.value = normalizeUnfaehigMarkFieldsText(
-        heroPending.unfaehigMarkFields
+        heroPending.unfaehigMarkFields,
+        heroPending.wappenSource === 'vierbeiner'
       )
       heroUnfaehigFixedFieldsInp.value = normalizeUnfaehigFixedFieldsText(
-        heroPending.unfaehigFixedFields
+        heroPending.unfaehigFixedFields,
+        '',
+        heroPending.wappenSource === 'vierbeiner'
       )
     }
     if (heroSettingsItemId) {
@@ -3778,10 +3792,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       ),
       unfaehigEnabled: String(m?.[HERO_EX_UNFAEHIG_THRESHOLD] ?? '').trim() !== '',
       unfaehigMarkFields: normalizeUnfaehigMarkFieldsText(
-        m?.[HERO_EX_UNFAEHIG_MARK_FIELDS]
+        m?.[HERO_EX_UNFAEHIG_MARK_FIELDS],
+        isVierbeinerDefault
       ),
       unfaehigFixedFields: normalizeUnfaehigFixedFieldsText(
-        m?.[HERO_EX_UNFAEHIG_FIXED_FIELDS]
+        m?.[HERO_EX_UNFAEHIG_FIXED_FIELDS],
+        '',
+        isVierbeinerDefault
       ),
       unfaehigThresholdDefault,
       wappenSource: initialWappenSource,
@@ -4052,7 +4069,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           delete m[HERO_EX_UNFAEHIG_THRESHOLD]
         }
         m[HERO_EX_UNFAEHIG_MARK_FIELDS] = normalizeUnfaehigMarkFieldsText(
-          pend.unfaehigMarkFields
+          pend.unfaehigMarkFields,
+          pend.wappenSource === 'vierbeiner'
         )
         const pendingFixedRaw =
           heroUnfaehigFixedFieldsInp instanceof HTMLInputElement
@@ -4060,7 +4078,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
             : pend.unfaehigFixedFields
         m[HERO_EX_UNFAEHIG_FIXED_FIELDS] = normalizeUnfaehigFixedFieldsText(
           pendingFixedRaw,
-          pend.unfaehigFixedFields
+          pend.unfaehigFixedFields,
+          pend.wappenSource === 'vierbeiner'
         )
         if (pend.wappenSource === 'own' && Array.isArray(pend.wappenOverride)) {
           m[HERO_EX_WAPPEN_OVERRIDE] = normalizeWappenDefs(pend.wappenOverride)
@@ -4354,7 +4373,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     heroUnfaehigMarkFieldsInp.addEventListener('change', () => {
       if (!isGmSync() || !heroPending) return
       heroPending.unfaehigMarkFields = normalizeUnfaehigMarkFieldsText(
-        heroUnfaehigMarkFieldsInp.value
+        heroUnfaehigMarkFieldsInp.value,
+        heroPending.wappenSource === 'vierbeiner'
       )
       heroUnfaehigMarkFieldsInp.value = heroPending.unfaehigMarkFields
     })
@@ -4364,7 +4384,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       if (!isGmSync() || !heroPending) return
       heroPending.unfaehigFixedFields = normalizeUnfaehigFixedFieldsText(
         heroUnfaehigFixedFieldsInp.value,
-        heroPending.unfaehigFixedFields
+        heroPending.unfaehigFixedFields,
+        heroPending.wappenSource === 'vierbeiner'
       )
       if (commitValue) {
         heroUnfaehigFixedFieldsInp.value = heroPending.unfaehigFixedFields
