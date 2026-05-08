@@ -4517,6 +4517,8 @@ export function mountHeroExpandBlock(
     unfaehigThreshold: snap.unfaehigThreshold,
     unfaehigMarkFields: snap.unfaehigMarkFields,
     unfaehigFixedFields: snap.unfaehigFixedFields,
+    deathMode: snap.deathMode,
+    deathAtMinusOnePointFiveKo: snap.deathAtMinusOnePointFiveKo,
     mu: mu.inp.value,
     kl: kl.inp.value,
     inn: inn.inp.value,
@@ -4988,6 +4990,12 @@ export function mountHeroExpandBlock(
       refreshComputedPenaltyHighlights()
       const len = inp.value.trim().length
       const immediateDerivedForLe = isLeRelatedLiveInput(inp)
+      const criticalLeNow =
+        immediateDerivedForLe &&
+        (() => {
+          const leNow = parseIntAllowSignedLocal(le.inp.value)
+          return leNow != null && leNow <= 0
+        })()
       const previewMeta = immediateDerivedForLe ? buildLiveLePreviewMeta() : null
       if (inp === tpInp) {
         if (len >= 2) {
@@ -5003,7 +5011,7 @@ export function mountHeroExpandBlock(
       }
       // Wie LE/MAX: bei mindestens zwei Zeichen sofort ableitende UI; bei
       // einstelliger Eingabe 4 s warten, damit weitere Ziffern folgen können.
-      if (immediateDerivedForLe || len >= 2) {
+      if (immediateDerivedForLe || criticalLeNow || len >= 2) {
         if (liveRefreshTimer != null) {
           clearTimeout(liveRefreshTimer)
           liveRefreshTimer = null
