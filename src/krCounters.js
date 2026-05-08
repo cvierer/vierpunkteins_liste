@@ -290,11 +290,19 @@ export function applyIniNegativePoolShiftForMetaMutation(
     return
   }
 
-  if (!m[KR_INI_NEG_POOL_SHIFT_APPLIED]) return
-  const ang = Math.min(S, rem.ang + 1)
-  m[KR_ACTION_POOL_ANG_REM] = ang
-  m[KR_ACTION_POOL_ABW_REM] = S - ang
+  // INI wieder >= 0: REM und ggf. Schilde/Aktionsobjekte an positiven Split anbinden
+  // (m.initiative wurde vom Aufrufer bereits gesetzt).
+  const splitPos = effectiveHeroPoolSplit(m)
+  m[KR_ACTION_POOL_ANG_REM] = splitPos.ang
+  m[KR_ACTION_POOL_ABW_REM] = splitPos.abw
   delete m[KR_INI_NEG_POOL_SHIFT_APPLIED]
+
+  if (!getCombat().started) return
+
+  const lhMaxActive = Math.max(0, Math.floor(Number(m[LH_MAX])) || 0) > 0
+  if (!lhMaxActive) {
+    rebuildKrActionPoolVisualsFromAngAbw(m, splitPos.ang, splitPos.abw)
+  }
 }
 
 /**
@@ -316,23 +324,27 @@ export function readKrActionPoolRem(meta) {
 }
 
 /**
- * Setzt die Laufzeit-Pools auf die SL-konfigurierten Werte (neue KR / SL-Änderung)
- * und befüllt beim Rundenstart automatisch Aktionsobjekte und Reaktionsschilde
- * entsprechend der Ang./Abw.-Aufteilung des Budgets.
+ * Merkt, dass diese KR mit INI&lt;0-Umverteilung geladen wurde (REM + ggf. Visuals).
  *
  * @param {Record<string, unknown>} m
- * @param {{ skipActionInit?: boolean }} [opts]
- *   skipActionInit: true = Aktionsobjekte / Schilde NICHT neu aufbauen (z. B. bei
- *   laufender L.H., wo Mutter-Ladung und ZAO-Slots separat verwaltet werden).
  */
-export function initKrActionPoolsFromHeroDefaults(m, { skipActionInit = false } = {}) {
-  if (!m || typeof m !== 'object') return
-  delete m[KR_INI_NEG_POOL_SHIFT_APPLIED]
-  const { ang, abw } = effectiveHeroPoolSplit(m)
-  m[KR_ACTION_POOL_ANG_REM] = ang
-  m[KR_ACTION_POOL_ABW_REM] = abw
+function setIniNegPoolShiftAppliedFlagIfNegativeShift(m) {
+  const cfg = readHeroActionPoolPair(m)
+  const eff = effectiveHeroPoolSplit(m)
+  if (isHeroIniBelowZero(m) && cfg.ang >= 1 && eff.ang < cfg.ang) {
+    m[KR_INI_NEG_POOL_SHIFT_APPLIED] = 1
+  }
+}
 
-  if (skipActionInit) return
+/**
+ * Baut Schilde und Aktionsobjekte aus fester ang/abw-Aufteilung (ohne REM).
+ *
+ * @param {Record<string, unknown>} m
+ * @param {number} ang
+ * @param {number} abw
+ */
+export function rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw) {
+  if (!m || typeof m !== 'object') return
 
   // --- Reaktionsschilde aus Abw.-Budget ---
   m[KR_ABW] = chargeValueFromMarks(abw)
@@ -406,6 +418,32 @@ export function initKrActionPoolsFromHeroDefaults(m, { skipActionInit = false } 
       }
     }
   }
+}
+
+/**
+ * Setzt die Laufzeit-Pools auf die SL-konfigurierten Werte (neue KR / SL-Änderung)
+ * und befüllt beim Rundenstart automatisch Aktionsobjekte und Reaktionsschilde
+ * entsprechend der Ang./Abw.-Aufteilung des Budgets.
+ *
+ * @param {Record<string, unknown>} m
+ * @param {{ skipActionInit?: boolean }} [opts]
+ *   skipActionInit: true = Aktionsobjekte / Schilde NICHT neu aufbauen (z. B. bei
+ *   laufender L.H., wo Mutter-Ladung und ZAO-Slots separat verwaltet werden).
+ */
+export function initKrActionPoolsFromHeroDefaults(m, { skipActionInit = false } = {}) {
+  if (!m || typeof m !== 'object') return
+  delete m[KR_INI_NEG_POOL_SHIFT_APPLIED]
+  const { ang, abw } = effectiveHeroPoolSplit(m)
+  m[KR_ACTION_POOL_ANG_REM] = ang
+  m[KR_ACTION_POOL_ABW_REM] = abw
+
+  if (skipActionInit) {
+    setIniNegPoolShiftAppliedFlagIfNegativeShift(m)
+    return
+  }
+
+  rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw)
+  setIniNegPoolShiftAppliedFlagIfNegativeShift(m)
 }
 
 /**

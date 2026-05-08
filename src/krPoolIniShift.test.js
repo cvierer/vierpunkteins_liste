@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import * as combatRoom from './combatRoom.js'
 import {
   applyIniNegativePoolShiftForMetaMutation,
   effectiveHeroPoolSplit,
   HERO_ACTION_POOL_ABW,
   HERO_ACTION_POOL_ANG,
   HERO_ACTION_POOL_MAX,
+  initKrActionPoolsFromHeroDefaults,
+  KR_ABW,
   KR_ACTION_POOL_ABW_REM,
   KR_ACTION_POOL_ANG_REM,
   KR_INI_NEG_POOL_SHIFT_APPLIED,
@@ -92,7 +95,76 @@ describe('applyIniNegativePoolShiftForMetaMutation', () => {
     expect(m[KR_INI_NEG_POOL_SHIFT_APPLIED]).toBeUndefined()
     m.initiative = '8'
     applyIniNegativePoolShiftForMetaMutation(m, true, false)
-    expect(m[KR_ACTION_POOL_ANG_REM]).toBe(0)
-    expect(m[KR_ACTION_POOL_ABW_REM]).toBe(4)
+    expect(m[KR_ACTION_POOL_ANG_REM]).toBe(2)
+    expect(m[KR_ACTION_POOL_ABW_REM]).toBe(2)
+  })
+})
+
+describe('initKrActionPoolsFromHeroDefaults / INI-neg Flag', () => {
+  it('sets KR_INI_NEG_POOL_SHIFT_APPLIED after load when INI < 0 and cfgAng >= 1', () => {
+    const m = {
+      ...poolMeta({ initiative: '-11' }),
+      phases: { links: [], rowPanelOpen: false },
+    }
+    initKrActionPoolsFromHeroDefaults(m)
+    expect(m[KR_INI_NEG_POOL_SHIFT_APPLIED]).toBe(1)
+    expect(m[KR_ACTION_POOL_ANG_REM]).toBe(1)
+    expect(m[KR_ACTION_POOL_ABW_REM]).toBe(3)
+  })
+
+  it('does not set flag when cfgAng is 0 with negative INI', () => {
+    const m = {
+      ...poolMeta({
+        initiative: '-11',
+        [HERO_ACTION_POOL_ANG]: 0,
+        [HERO_ACTION_POOL_ABW]: 4,
+      }),
+      phases: { links: [], rowPanelOpen: false },
+    }
+    initKrActionPoolsFromHeroDefaults(m)
+    expect(m[KR_INI_NEG_POOL_SHIFT_APPLIED]).toBeUndefined()
+  })
+
+  it('updates REM on leave-negative; KR_ABW unchanged if Kampf nicht gestartet', () => {
+    const m = {
+      ...poolMeta({ initiative: '-11' }),
+      phases: { links: [], rowPanelOpen: false },
+    }
+    initKrActionPoolsFromHeroDefaults(m)
+    const marksNeg = m[KR_ABW]
+    m.initiative = '1'
+    applyIniNegativePoolShiftForMetaMutation(m, true, false)
+    expect(effectiveHeroPoolSplit(m)).toEqual({ ang: 2, abw: 2 })
+    expect(m[KR_ACTION_POOL_ANG_REM]).toBe(2)
+    expect(m[KR_ACTION_POOL_ABW_REM]).toBe(2)
+    expect(m[KR_ABW]).toEqual(marksNeg)
+  })
+
+  it('rebuilds KR_ABW when leaving negative with Kampf gestartet', () => {
+    vi.spyOn(combatRoom, 'getCombat').mockReturnValue({
+      started: true,
+      round: 1,
+      currentItemId: null,
+      currentPhaseLinkId: null,
+      roundIntroPending: false,
+      roundIntroPrevRound: null,
+      roundIntroPrevItemId: null,
+      roundIntroPrevPhaseLinkId: null,
+    })
+    try {
+      const m = {
+        ...poolMeta({ initiative: '-11' }),
+        phases: { links: [], rowPanelOpen: false },
+      }
+      initKrActionPoolsFromHeroDefaults(m)
+      const marksNeg = m[KR_ABW]
+      m.initiative = '1'
+      applyIniNegativePoolShiftForMetaMutation(m, true, false)
+      expect(m[KR_ABW]).not.toEqual(marksNeg)
+      expect(m[KR_ACTION_POOL_ANG_REM]).toBe(2)
+      expect(m[KR_ACTION_POOL_ABW_REM]).toBe(2)
+    } finally {
+      vi.restoreAllMocks()
+    }
   })
 })
