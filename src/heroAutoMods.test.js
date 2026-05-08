@@ -6,6 +6,7 @@ import {
   AUTO_MOD_BUNDLE_PREFIX,
   buildHeroAutoModRecords,
   computeAutoTriggerSignature,
+  hasGsZeroPriorityFromSnapshot,
   HERO_EX_AUTO_SUPPRESSED,
   HERO_EX_BUNDLE_ORIGIN,
   HERO_EX_LAST_SAFE_LE,
@@ -270,6 +271,27 @@ describe('buildHeroAutoModRecords', () => {
     expect(kept.some((x) => x.id === 'old1')).toBe(false)
     expect(kept.some((x) => x.bundleId === `${AUTO_MOD_BUNDLE_PREFIX}zone-brust`)).toBe(true)
     expect(kept.some((x) => x.bundleId === 'auto-le-band')).toBe(true)
+  })
+})
+
+describe('hasGsZeroPriorityFromSnapshot', () => {
+  it('liefert true bei KF W3', () => {
+    const zones = { ...emptyZones(), kopf: { rs: '0', w: 3 } }
+    expect(hasGsZeroPriorityFromSnapshot(snap({ hitZones: { notiz: '', zones } }))).toBe(true)
+  })
+
+  it('liefert true bei RU W3 (vierbeiner rumpf)', () => {
+    const zones = { ...emptyZones(), rumpf: { rs: '0', w: 3 } }
+    expect(
+      hasGsZeroPriorityFromSnapshot(
+        snap({ wappenTemplate: 'vierbeiner', hitZones: { notiz: '', zones } })
+      )
+    ).toBe(true)
+  })
+
+  it('liefert false bei nur Arm-W3', () => {
+    const zones = { ...emptyZones(), schildarm: { rs: '0', w: 3 } }
+    expect(hasGsZeroPriorityFromSnapshot(snap({ hitZones: { notiz: '', zones } }))).toBe(false)
   })
 })
 

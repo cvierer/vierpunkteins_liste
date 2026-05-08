@@ -90,6 +90,8 @@ export function hasGsZeroPriorityFromSnapshot(snap) {
     const w = clampWound(snap.hitZones?.zones?.[def.id]?.w ?? 0)
     if (w >= 3) return true
   }
+  const rumpfW = clampWound(snap.hitZones?.zones?.rumpf?.w ?? 0)
+  if (rumpfW >= 3) return true
   const beineW = clampWound(snap.hitZones?.zones?.beine?.w ?? 0)
   if (beineW >= 3) return true
   return false

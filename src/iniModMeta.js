@@ -4078,13 +4078,14 @@ export function mountHeroExpandBlock(
         hasArmWoundNote && !unfaehigLeFixedField && nonArmDelta !== 0
       const fixedValueForField = (() => {
         if (field !== 'gs') return fixedFieldValues[field] ?? 0
+        const hasAnyRelevant3w = hasGsZeroPriorityFromSnapshot(snapForFieldBadges)
+        if (hasAnyRelevant3w) return 0
         const fixedGsRaw = Number(snapForFieldBadges.unfaehigFixedFields?.gs)
         const fixedGs = Number.isFinite(fixedGsRaw)
           ? Math.max(0, Math.floor(Math.abs(fixedGsRaw)))
           : null
         if (unfaehigDisplay.leTriggered) {
-          const hasAnyRelevant3w = hasGsZeroPriorityFromSnapshot(snapForFieldBadges)
-          return hasAnyRelevant3w ? 0 : 1
+          return 1
         }
         if (!unfaehigDisplay.leg3w) return fixedFieldValues[field] ?? 0
         return fixedGs == null ? 0 : Math.min(fixedGs, 0)
