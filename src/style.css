@@ -7874,6 +7874,7 @@ select.init-row-extra-select {
 
 .init-hero-ex__mod-chip-card__sum-arrow--magic {
   color: #2d4a37;
+  transform: translateX(calc(-0.06rem * var(--init-ui-scale)));
 }
 
 .init-hero-ex__mod-chip-card__sum-arrow--magic-empty {

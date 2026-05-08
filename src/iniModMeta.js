@@ -3774,7 +3774,8 @@ export function mountHeroExpandBlock(
       } else if (isAutoLeTawZfw) {
         arrowWrap = document.createElement('span')
         arrowWrap.className =
-          'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--magic-empty'
+          'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--magic'
+        arrowWrap.innerHTML = SVG_MOD_CHIP_MAGIC_STAR
         arrowWrap.title = 'Zauber'
         arrowWrap.setAttribute('aria-hidden', 'true')
       } else {
@@ -3840,7 +3841,7 @@ export function mountHeroExpandBlock(
         if (!canEdit) return
         o.onRemove()
       })
-      if (!canEdit) xBtn.style.display = 'none'
+      if (!canEdit || isAutoLeTawZfw) xBtn.style.display = 'none'
       headActions.append(arrowWrap, xBtn)
       head.appendChild(headActions)
 
@@ -3850,15 +3851,7 @@ export function mountHeroExpandBlock(
       labelLine.title = o.cardTitle
 
       chip.appendChild(head)
-      if (isAutoLeTawZfw) {
-        const magicTop = document.createElement('div')
-        magicTop.className = 'init-hero-ex__mod-chip-card__magic-topline'
-        magicTop.innerHTML = SVG_MOD_CHIP_MAGIC_STAR
-        magicTop.title = o.cardTitle
-        chip.append(magicTop, labelLine)
-      } else {
-        chip.appendChild(labelLine)
-      }
+      chip.appendChild(labelLine)
 
       chip.title = o.cardTitle
       chip.addEventListener('click', (e) => {
