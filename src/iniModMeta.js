@@ -4114,8 +4114,28 @@ export function mountHeroExpandBlock(
       if (hasArmWoundNote && !unfaehigLeFixedField) {
         /** @type {string[]} */
         const armNotes = []
-        if (armSource.hasLa) armNotes.push(`LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`)
-        if (armSource.hasRa) armNotes.push(`RA↓${Math.max(1, Math.abs(armSource.ra) || 0)}`)
+        const armZeroSides =
+          isUnfaehigFixedField && unfaehigDisplay.armOnly
+            ? new Set(
+                Array.isArray(unfaehigDisplay.armSetSides)
+                  ? unfaehigDisplay.armSetSides
+                  : []
+              )
+            : new Set()
+        if (armSource.hasLa) {
+          armNotes.push(
+            armZeroSides.has('LA')
+              ? 'LA:0'
+              : `LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`
+          )
+        }
+        if (armSource.hasRa) {
+          armNotes.push(
+            armZeroSides.has('RA')
+              ? 'RA:0'
+              : `RA↓${Math.max(1, Math.abs(armSource.ra) || 0)}`
+          )
+        }
         if (armNotes.length >= 2) badge.classList.add('init-hero-ex__mod-badge--arm-wound-stack')
         for (const note of armNotes) {
           const srcSpan = document.createElement('span')
