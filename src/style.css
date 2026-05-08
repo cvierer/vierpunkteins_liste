@@ -2966,42 +2966,44 @@ body {
   max-width: 100%;
 }
 
-/* BE: schmales Mod-Band (halbe Spaltenbreite, halbe Schrift) */
+/* BE: schmales Mod-Band (halbe Breite, kleinere Typo). Slot-Höhe wie IB/W6,
+   sonst kürzerer Stack → bei flex-end unten steht das BE-Kästchen höher. */
 .init-hero-ex__mod-sub-slot.init-hero-ex__mod-sub-slot--be-compact {
   width: 50%;
   max-width: 50%;
-  min-height: calc(var(--init-hero-mod-sub-h) * 0.5);
+  min-height: var(--init-hero-mod-sub-h);
   align-self: center;
+  justify-content: center;
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge {
-  min-height: calc(var(--init-hero-mod-sub-h) * 0.5);
-  max-height: calc(var(--init-hero-mod-sub-h) * 0.5);
+  min-height: var(--init-hero-mod-sub-h);
+  max-height: var(--init-hero-mod-sub-h);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__val {
-  font-size: calc(0.54rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.5);
+  font-size: calc(0.54rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__tail {
-  font-size: calc(0.37rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.5);
+  font-size: calc(0.37rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__tail--arm-note {
-  font-size: calc(0.29rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.5);
+  font-size: calc(0.29rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__arrow {
-  margin-right: calc(0.06rem * var(--init-ui-scale) * 0.5);
+  margin-right: calc(0.06rem * var(--init-ui-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge__arrow .init-hero-ex__mod-toggle-sum-svg {
-  width: calc(0.44rem * var(--init-ui-scale) * 0.5);
-  height: calc(0.5rem * var(--init-ui-scale) * 0.5);
+  width: calc(0.44rem * var(--init-ui-scale) * 0.65);
+  height: calc(0.5rem * var(--init-ui-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated {
-  gap: calc(0.012rem * var(--init-ui-scale) * 0.5);
+  gap: calc(0.012rem * var(--init-ui-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated,
@@ -3011,21 +3013,21 @@ body {
 .init-hero-ex__mod-sub-slot--be-compact
   .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
   .init-hero-ex__mod-badge__tail {
-  font-size: calc(0.46rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.5);
+  font-size: calc(0.46rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact
   .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
   .init-hero-ex__mod-badge__arrow {
-  margin-right: calc(0.04rem * var(--init-ui-scale) * 0.5);
+  margin-right: calc(0.04rem * var(--init-ui-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact
   .init-hero-ex__mod-badge.init-hero-ex__mod-badge--integrated
   .init-hero-ex__mod-badge__arrow
   .init-hero-ex__mod-toggle-sum-svg {
-  width: calc(0.36rem * var(--init-ui-scale) * 0.5);
-  height: calc(0.41rem * var(--init-ui-scale) * 0.5);
+  width: calc(0.36rem * var(--init-ui-scale) * 0.65);
+  height: calc(0.41rem * var(--init-ui-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact .init-hero-ex__mod-badge--arm-wound,
@@ -3035,15 +3037,15 @@ body {
 .init-hero-ex__mod-sub-slot--be-compact
   .init-hero-ex__mod-badge--arm-wound
   .init-hero-ex__mod-badge__tail {
-  font-size: calc(0.38rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.5);
+  font-size: calc(0.38rem * var(--init-ui-scale) * var(--init-hero-mod-scale) * 0.65);
 }
 
 .init-hero-ex__mod-sub-slot--be-compact
   .init-hero-ex__mod-badge--arm-wound
   .init-hero-ex__mod-badge__arrow
   .init-hero-ex__mod-toggle-sum-svg {
-  width: calc(0.34rem * var(--init-ui-scale) * 0.5);
-  height: calc(0.38rem * var(--init-ui-scale) * 0.5);
+  width: calc(0.34rem * var(--init-ui-scale) * 0.65);
+  height: calc(0.38rem * var(--init-ui-scale) * 0.65);
 }
 
 /* RS + Wundmarken neben G: gleiche Spaltenbreite/-höhe wie Mikro-Zelle */
