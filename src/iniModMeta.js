@@ -4097,16 +4097,15 @@ export function mountHeroExpandBlock(
       if (hasArmWoundNote || armW3FixedField) {
         /** @type {string[]} */
         const armNotes = []
-        if (armW3FixedField) {
+        if (armSource.hasLa) armNotes.push(`LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`)
+        if (armSource.hasRa) armNotes.push(`RA↓${Math.max(1, Math.abs(armSource.ra) || 0)}`)
+        if (armW3FixedField && armNotes.length === 0) {
+          // Bei reiner Unfaehig-Ueberlagerung nie ":0" anzeigen.
           const sides = Array.isArray(unfaehigDisplay.armSetSides)
             ? unfaehigDisplay.armSetSides
             : []
-          if (sides.includes('LA')) armNotes.push('LA:0')
-          if (sides.includes('RA')) armNotes.push('RA:0')
-          if (armNotes.length === 0) armNotes.push(`${unfaehigDisplay.armSide || 'AR'}:0`)
-        } else {
-          if (armSource.hasLa) armNotes.push(`LA↓${Math.max(1, Math.abs(armSource.la) || 0)}`)
-          if (armSource.hasRa) armNotes.push(`RA↓${Math.max(1, Math.abs(armSource.ra) || 0)}`)
+          if (sides.includes('LA')) armNotes.push('LA↓1')
+          if (sides.includes('RA')) armNotes.push('RA↓1')
         }
         if (armNotes.length >= 2) badge.classList.add('init-hero-ex__mod-badge--arm-wound-stack')
         for (const note of armNotes) {
