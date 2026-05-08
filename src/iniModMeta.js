@@ -44,6 +44,7 @@ import {
   patchHeroExModsWithAutoBundles,
   refreshAutoBundlesForItem,
   removeBundleWithAutoCleanup,
+  UNFAEHIG_FIXED_ZERO_FIELDS,
   updateLastSafeLeIfSafe,
 } from './heroAutoMods.js'
 import { applyHitZoneStrikeFromSpTz } from './hitZoneStrike.js'
@@ -4005,6 +4006,11 @@ export function mountHeroExpandBlock(
         const keyNorm = String(key).toLowerCase()
         if (UNFAEHIG_FIXED_ALLOWED_FIELDS.includes(keyNorm)) marked.add(keyNorm)
       }
+      if (ufSrc.nonArm3w) {
+        for (const field of UNFAEHIG_FIXED_ZERO_FIELDS) {
+          marked.add(field)
+        }
+      }
       if (ufSrc.armSet.length > 0) marked.add('fk')
       if (ufSrc.leg3w) marked.add('gs')
       return {
@@ -4283,11 +4289,24 @@ export function mountHeroExpandBlock(
     const hasActiveLeMaxLossBand = active.some(
       (x) => String(x?.bundleId ?? '') === AUTO_LE_MAXLOSS_BUNDLE_ID
     )
+    const hasThirdWoundAutoZoneChip = active.some((x) => {
+      const bid = String(x?.bundleId ?? '')
+      if (!bid.startsWith(AUTO_ZONE_BUNDLE_PREFIX)) return false
+      const zoneId = bid.slice(AUTO_ZONE_BUNDLE_PREFIX.length)
+      const w = clampWound(readHeroExpandSnapshot(modMeta)?.hitZones?.zones?.[zoneId]?.w ?? 0)
+      return w >= 3
+    })
     const gsZeroPriorityActive = hasGsZeroPriorityFromSnapshot(
       readHeroExpandSnapshot(modMeta)
     )
     for (const modRec of active) {
       if (modRec.bundleId) {
+        if (
+          hasThirdWoundAutoZoneChip &&
+          String(modRec.bundleId ?? '') === AUTO_LE_BAND_BUNDLE_ID
+        ) {
+          continue
+        }
         if (String(modRec.bundleId) === AUTO_LE_MAXLOSS_BUNDLE_ID) continue
         if (seenBundle.has(modRec.bundleId)) continue
         seenBundle.add(modRec.bundleId)

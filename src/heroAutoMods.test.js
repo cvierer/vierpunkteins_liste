@@ -223,6 +223,22 @@ describe('buildHeroAutoModRecords', () => {
     expect(gsRows[0].bundleId).toBe(`${AUTO_MOD_BUNDLE_PREFIX}zone-brust`)
   })
 
+  it('GS-0-Priorität: bei LB W3 bleibt nur ein gs-Delta auf 0', () => {
+    const zones = {
+      ...emptyZones(),
+      lbein: { rs: '0', w: 3 },
+      brust: { rs: '0', w: 1 },
+    }
+    const mods = buildHeroAutoModRecords(
+      snap({ gs: '6', hitZones: { notiz: '', zones } }),
+      ctx
+    )
+    const gsRows = mods.filter((m) => m.field === 'gs')
+    expect(gsRows.length).toBe(1)
+    expect(gsRows[0].delta).toBe(-6)
+    expect(gsRows[0].bundleId).toBe(`${AUTO_MOD_BUNDLE_PREFIX}zone-lbein`)
+  })
+
   it('gemischt: Wunde + LE liefert beide Bündel; patch ersetzt alte auto-*', () => {
     const zones = { ...emptyZones(), brust: { rs: '0', w: 1 } }
     const s = snap({ le: '15', leMax: '40', hitZones: { notiz: '', zones: zones } })
@@ -275,6 +291,17 @@ describe('aggregateHeroAutoPenaltyDeltasFromExpandSnapshot', () => {
     const s = snap({ gs: '7', hitZones: { notiz: '', zones } })
     const agg = aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(s)
     expect(agg.gs).toBe(-7)
+  })
+
+  it('GS-0-Priorität: aggregiert GS bei LB W3 auf genau 0', () => {
+    const zones = {
+      ...emptyZones(),
+      lbein: { rs: '0', w: 3 },
+      brust: { rs: '0', w: 1 },
+    }
+    const s = snap({ gs: '5', hitZones: { notiz: '', zones } })
+    const agg = aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(s)
+    expect(agg.gs).toBe(-5)
   })
 })
 
@@ -370,7 +397,7 @@ describe('patchHeroExModsWithAutoBundles + heroExAutoSuppressed', () => {
       wappenTemplate: 'vierbeiner',
       hitZones: { notiz: '', zones: zones },
     })
-    expect(computeAutoTriggerSignature(s, 'auto-le-unfaehig')).toBe(512)
+    expect(computeAutoTriggerSignature(s, 'auto-le-unfaehig')).toBe(1024)
   })
 })
 

@@ -63,11 +63,21 @@ const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
 const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
 const AUTO_BLUTEND_BUNDLE_ID = 'auto-blutend'
 
-const TORSO_GS0_3W_ZONES = Object.freeze(['kopf', 'brust', 'ruecken', 'bauch'])
+const THREE_WOUND_PRIORITY_ZONE_IDS = Object.freeze([
+  'kopf',
+  'brust',
+  'ruecken',
+  'rumpf',
+  'bauch',
+  'lbein',
+  'rbein',
+  'beine',
+])
 const BLUTEND_TORSO_ZONES = Object.freeze(['kopf', 'brust', 'ruecken', 'bauch'])
+export const UNFAEHIG_FIXED_ZERO_FIELDS = Object.freeze(['at', 'pa', 'a', 'tp', 'fk', 'gs'])
 
 /**
- * GS-Priorisierung: mindestens eine 3. Wunde an KF/BR/RÜ/BA aktiv.
+ * Priorisierung: mindestens eine 3. Wunde an KF/BR/RU/BA/LB/RB aktiv.
  *
  * @param {Record<string, unknown>} snap
  * @returns {boolean}
@@ -76,10 +86,12 @@ export function hasGsZeroPriorityFromSnapshot(snap) {
   const wappenDefs = wappenDefsFromSnap(snap)
   for (const def of wappenDefs) {
     if (!def?.active) continue
-    if (!TORSO_GS0_3W_ZONES.includes(def.id)) continue
+    if (!THREE_WOUND_PRIORITY_ZONE_IDS.includes(def.id)) continue
     const w = clampWound(snap.hitZones?.zones?.[def.id]?.w ?? 0)
     if (w >= 3) return true
   }
+  const beineW = clampWound(snap.hitZones?.zones?.beine?.w ?? 0)
+  if (beineW >= 3) return true
   return false
 }
 
@@ -475,6 +487,7 @@ const UNFAEHIG_NON_ARM_ZONE_IDS = Object.freeze([
   'kopf',
   'brust',
   'ruecken',
+  'rumpf',
   'bauch',
   'lbein',
   'rbein',
@@ -807,7 +820,7 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
     if (w <= 0) continue
     const stage = zoneStageFromWounds(w)
     if (stage <= 0) continue
-    const isGs0Zone3w = w >= 3 && TORSO_GS0_3W_ZONES.includes(def.id)
+    const isGs0Zone3w = w >= 3 && THREE_WOUND_PRIORITY_ZONE_IDS.includes(def.id)
     const deltas = autoModDeltasForWappen(def, w)
     let gsHandled = false
     for (const [field, delta] of Object.entries(deltas)) {
@@ -1046,7 +1059,7 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     }
     /** @type {{ field: string, delta: number }[]} */
     const rows = []
-    const isGs0Zone3w = w >= 3 && TORSO_GS0_3W_ZONES.includes(def.id)
+    const isGs0Zone3w = w >= 3 && THREE_WOUND_PRIORITY_ZONE_IDS.includes(def.id)
     const deltas = autoModDeltasForWappen(def, w)
     let gsHandled = false
     for (const [field, delta] of Object.entries(deltas)) {
