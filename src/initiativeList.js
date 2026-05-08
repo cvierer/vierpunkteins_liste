@@ -123,6 +123,8 @@ import {
   stampLhCompletion,
   undoKrActionStamp,
   undoLastZaoSlotStamp,
+  motherPrimaryActionStamped,
+  lhEndKrConvertArrowGates,
 } from './krCounters.js'
 import {
   getHideForeignHeroColorsForViewer,
@@ -1592,7 +1594,8 @@ function appendKrConvertArrowsCell(
   canEdit,
   phaseRowActive = true,
   convertAllowedByLock = true,
-  combatRound = null
+  combatRound = null,
+  motherPrimaryStamped = false
 ) {
   const wrap = document.createElement('div')
   wrap.className = 'init-kr-convert-cell'
@@ -1650,6 +1653,18 @@ function appendKrConvertArrowsCell(
     (!motherHasCharge || canAppendChainedZao) &&
     !lowerBlockedPendingLoadedZao
 
+  const endKrGates = lhEndKrConvertArrowGates(trackerMeta, combatRound)
+  let allowUpper =
+    canUpperTransfer && !endKrGates.blockUpperLhMotherNoZao
+  let allowLower =
+    canLowerTransfer && !endKrGates.blockLowerPendingZao
+  if (motherPrimaryStamped) {
+    allowUpper = false
+    allowLower = false
+  }
+  const stampLockTip =
+    'Umwandeln gesperrt — am Mutter-Primärfeld liegt ein Aktions-Stempel (Angriff, S.R.A. oder L.H.-Abschluss).'
+
   const upperLabel = firstIsLh
     ? 'L.H.-Ladung ins Abwehr-Schild verschieben'
     : firstIsAng
@@ -1675,6 +1690,10 @@ function appendKrConvertArrowsCell(
   const lhLocked = isLhLockingActions(trackerMeta, combatRound)
   const lhLockTip =
     'Längerfristige Handlung läuft – Umwandeln gesperrt; nur freie Aktionen erlaubt.'
+  const endKrUpperOnlyTip =
+    'In der End-KR der L.H.: zuerst die pendelnde 2.-Aktion mit dem oberen Pfeil ins Abwehr-Schild zurücklegen — die laufende L.H. am Mutterfeld bleibt fix.'
+  const endKrLowerOnlyTip =
+    'In der End-KR der L.H.: zuerst die Reaktions-Ladung mit dem unteren Pfeil zur Aktion schieben — die laufende L.H. am Mutterfeld bleibt fix.'
 
   const toAb = document.createElement('button')
   toAb.type = 'button'
@@ -1682,20 +1701,48 @@ function appendKrConvertArrowsCell(
   toAb.innerHTML = SVG_ARROW_TO_AB
   toAb.title = lhLocked
     ? lhLockTip
-    : lockedByConvertLock
-      ? convertLockTip
-      : upperLabel
-  toAb.setAttribute('aria-label', lhLocked ? lhLockTip : lockedByConvertLock ? convertLockTip : upperLabel)
-  toAb.disabled = !canUpperTransfer || lhLocked || lockedByConvertLock
+    : motherPrimaryStamped
+      ? stampLockTip
+      : lockedByConvertLock
+        ? convertLockTip
+        : upperLabel
+  toAb.setAttribute(
+    'aria-label',
+    lhLocked
+      ? lhLockTip
+      : motherPrimaryStamped
+        ? stampLockTip
+        : lockedByConvertLock
+          ? convertLockTip
+          : upperLabel
+  )
+  toAb.disabled =
+    !allowUpper || lhLocked || lockedByConvertLock || motherPrimaryStamped
   if (lhLocked) toAb.classList.add('init-kr-convert-cell__btn--lh-locked')
   if (lockedByConvertLock) {
     toAb.classList.add('init-kr-convert-cell__btn--convert-locked')
   }
+  if (motherPrimaryStamped) {
+    toAb.classList.add('init-kr-convert-cell__btn--stamp-locked')
+  }
   if (
-    !canUpperTransfer &&
+    !allowUpper &&
     canEdit &&
     !lhLocked &&
+    !motherPrimaryStamped &&
     !lockedByConvertLock &&
+    endKrGates.blockUpperLhMotherNoZao
+  ) {
+    toAb.title = endKrUpperOnlyTip
+    toAb.setAttribute('aria-label', endKrUpperOnlyTip)
+  }
+  if (
+    !allowUpper &&
+    canEdit &&
+    !lhLocked &&
+    !motherPrimaryStamped &&
+    !lockedByConvertLock &&
+    !endKrGates.blockUpperLhMotherNoZao &&
     (motherHasCharge || anyZaoCharged) &&
     !krAbwCanAcceptTransferMark(abwVal)
   ) {
@@ -1705,7 +1752,7 @@ function appendKrConvertArrowsCell(
     toAb.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      if (lhLocked || lockedByConvertLock) return
+      if (lhLocked || lockedByConvertLock || motherPrimaryStamped) return
       void patchKrTransferPrimaryToAbw(ownerItemId)
     })
   }
@@ -1716,28 +1763,47 @@ function appendKrConvertArrowsCell(
   toAng.innerHTML = SVG_ARROW_TO_ANG
   toAng.title = lhLocked
     ? lhLockTip
-    : lockedByConvertLock
-      ? convertLockTip
-      : lowerLabel
+    : motherPrimaryStamped
+      ? stampLockTip
+      : lockedByConvertLock
+        ? convertLockTip
+        : lowerLabel
   toAng.setAttribute(
     'aria-label',
     lhLocked
       ? lhLockTip
-      : lockedByConvertLock
-        ? convertLockTip
-        : firstIsAng
-          ? 'Schild-Ladung verschieben: ins Primärfeld (oder neues 2.AO)'
-          : lowerLabel
+      : motherPrimaryStamped
+        ? stampLockTip
+        : lockedByConvertLock
+          ? convertLockTip
+          : firstIsAng
+            ? 'Schild-Ladung verschieben: ins Primärfeld (oder neues 2.AO)'
+            : lowerLabel
   )
-  toAng.disabled = !canLowerTransfer || lhLocked || lockedByConvertLock
+  toAng.disabled =
+    !allowLower || lhLocked || lockedByConvertLock || motherPrimaryStamped
   if (lhLocked) toAng.classList.add('init-kr-convert-cell__btn--lh-locked')
   if (lockedByConvertLock) {
     toAng.classList.add('init-kr-convert-cell__btn--convert-locked')
   }
+  if (motherPrimaryStamped) {
+    toAng.classList.add('init-kr-convert-cell__btn--stamp-locked')
+  }
   if (
-    !canLowerTransfer &&
+    !allowLower &&
     canEdit &&
     !lhLocked &&
+    !motherPrimaryStamped &&
+    !lockedByConvertLock &&
+    endKrGates.blockLowerPendingZao
+  ) {
+    toAng.title = endKrLowerOnlyTip
+    toAng.setAttribute('aria-label', endKrLowerOnlyTip)
+  } else if (
+    !allowLower &&
+    canEdit &&
+    !lhLocked &&
+    !motherPrimaryStamped &&
     !lockedByConvertLock &&
     lowerBlockedPendingLoadedZao &&
     krTransferMarkPresent(abwVal) &&
@@ -1751,7 +1817,7 @@ function appendKrConvertArrowsCell(
     toAng.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      if (lhLocked || lockedByConvertLock) return
+      if (lhLocked || lockedByConvertLock || motherPrimaryStamped) return
       void patchKrTransferAbwToPrimary(ownerItemId)
     })
   }
@@ -1760,6 +1826,9 @@ function appendKrConvertArrowsCell(
   if (lhLocked) wrap.classList.add('init-kr-convert-cell--lh-locked')
   if (lockedByConvertLock) {
     wrap.classList.add('init-kr-convert-cell--convert-locked')
+  }
+  if (motherPrimaryStamped) {
+    wrap.classList.add('init-kr-convert-cell--stamp-locked')
   }
   container.appendChild(wrap)
 }
@@ -1856,6 +1925,8 @@ function appendKrCounterPair(
     convertReplacement = null,
     zaoSlotOverride = null,
     lhContainer = null,
+    /** Primär-Stempel am Mutterankel — beide Umwandlungspfeile aus. */
+    motherPrimaryStamped = false,
     /** Kampf muss laufen und Runden-Intro bestätigt sein — sonst keine Schild-Stempel. */
     combatStarted = false,
     roundIntroPending = false,
@@ -1913,7 +1984,8 @@ function appendKrCounterPair(
       canEdit,
       phaseRowActive,
       convertAllowedByLock,
-      combatRound
+      combatRound,
+      motherPrimaryStamped
     )
   }
   // Schildplatz: entweder L.H.-Counter-Eingabe (vor Werte-Setzung),
@@ -4863,6 +4935,10 @@ function bindStampContextRemove(el, stamp, items) {
 
         const slotRow = document.createElement('div')
         slotRow.className = 'init-phase-slot-row'
+        const motherPrimaryStampedToken = motherPrimaryActionStamped(
+          stampEntries,
+          row.id
+        )
         appendKrCounterPair(
           slotRow,
           row.id,
@@ -4879,6 +4955,7 @@ function bindStampContextRemove(el, stamp, items) {
             lhContainer: lhCol,
             combatStarted: combat.started,
             roundIntroPending: combat.roundIntroPending,
+            motherPrimaryStamped: motherPrimaryStampedToken,
           }
         )
 

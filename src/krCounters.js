@@ -609,6 +609,56 @@ export function metaHasPendingLoadedNonHeroExtraZao(meta) {
   )
 }
 
+/** Primär-Stempel am Mutteranker (kein Phasen-Link) — für Umwandlungs-Sperre. */
+const MOTHER_PRIMARY_STAMP_FIELDS = new Set([KR_ANG, KR_SRA, KR_LH_ACTION])
+
+/**
+ * @param {unknown[]} entries
+ * @param {string} itemId
+ * @returns {boolean}
+ */
+export function motherPrimaryActionStamped(entries, itemId) {
+  if (!Array.isArray(entries) || typeof itemId !== 'string') return false
+  return entries.some((e) => {
+    if (!e || typeof e !== 'object') return false
+    if (e.itemId !== itemId) return false
+    if (e.paradeExtra) return false
+    if (e.anchorPhaseLinkId != null) return false
+    if (!MOTHER_PRIMARY_STAMP_FIELDS.has(e.field)) return false
+    return true
+  })
+}
+
+/**
+ * KR, in der eine L.H. endet: Tracker noch aktiv, aber keine „mittendrin“-Sperre.
+ *
+ * @param {unknown} meta
+ * @param {number | null | undefined} combatRound
+ * @returns {boolean}
+ */
+export function lhEndKrConvertMode(meta, combatRound) {
+  return isLhActive(meta) && !isLhLockingActions(meta, combatRound)
+}
+
+/**
+ * End-KR-Umwandlung: fixe L.H. am Mutterfeld vs. reguläre 2.A.-Kette — exklusive Pfeile.
+ *
+ * @param {unknown} meta
+ * @param {number | null | undefined} combatRound
+ * @returns {{ blockUpperLhMotherNoZao: boolean, blockLowerPendingZao: boolean }}
+ */
+export function lhEndKrConvertArrowGates(meta, combatRound) {
+  if (!lhEndKrConvertMode(meta, combatRound)) {
+    return { blockUpperLhMotherNoZao: false, blockLowerPendingZao: false }
+  }
+  const anyZao = metaHasPendingLoadedNonHeroExtraZao(meta)
+  const firstKind = readKrFirstSlotKind(meta)
+  return {
+    blockUpperLhMotherNoZao: firstKind === 'lh' && !anyZao,
+    blockLowerPendingZao: anyZao,
+  }
+}
+
 /**
  * @param {string} itemId
  * @param {string} linkId
@@ -1135,6 +1185,11 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  {
+    const roomMeta = await OBR.room.getMetadata()
+    const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
+    if (motherPrimaryActionStamped(stamps.entries, itemId)) return
+  }
   const abw = normalizeKrDigit(meta[KR_ABW])
 
   // 1) Letzter 2.A.-Slot mit Ladung (marks=1) → entladen & entfernen.
@@ -1234,6 +1289,17 @@ export async function patchKrTransferAbwToPrimary(itemId) {
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  if (
+    lhEndKrConvertMode(meta, lhLockRoundFromCombat()) &&
+    metaHasPendingLoadedNonHeroExtraZao(meta)
+  ) {
+    return
+  }
+  {
+    const roomMeta = await OBR.room.getMetadata()
+    const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
+    if (motherPrimaryActionStamped(stamps.entries, itemId)) return
+  }
   const firstKind = readKrFirstSlotKind(meta)
   // Edge-Case 3 (Plan): bei aktiver L.H. (auch in End-KR) NICHT in den
   // L.H.-Stempel-Slot transferieren — das wuerde Pseudo-Ladungen schaffen
