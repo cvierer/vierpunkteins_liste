@@ -57,13 +57,18 @@ export function readModDisplayMode(meta) {
 }
 
 /**
- * LE und IB zeigen Basis+Mods immer als eine Zahl („integriert“), auch wenn die
- * Anzeige der übrigen Felder getrennt ist.
+ * Diese Felder zeigen Basis+Mods immer als eine Zahl („integriert“), auch wenn die
+ * Anzeige der übrigen Felder getrennt ist (LE, IB, BE, MAX/leMax).
  *
  * @param {string} field
  */
 export function heroFieldModsAlwaysIntegratedDisplay(field) {
-  return field === 'le' || field === 'ib'
+  return (
+    field === 'le' ||
+    field === 'ib' ||
+    field === 'be' ||
+    field === 'leMax'
+  )
 }
 
 /**

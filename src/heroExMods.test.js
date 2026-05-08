@@ -205,6 +205,40 @@ describe('basisHeroExpandSnapshotFromDisplayed', () => {
     expect(basis.at).toBe('12')
   })
 
+  it('zieht BE- und MAX-Mod auch im getrennten Anzeigemodus von der Eingabe ab', () => {
+    const meta = {
+      [MOD_DISPLAY_MODE]: 'separate',
+      [HERO_EX_MODS]: [
+        mkMod({
+          id: 'm-be',
+          field: 'be',
+          delta: 2,
+          duration: 5,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+        }),
+        mkMod({
+          id: 'm-max',
+          field: 'leMax',
+          delta: -5,
+          duration: 5,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+        }),
+      ],
+    }
+    const basis = basisHeroExpandSnapshotFromDisplayed(
+      meta,
+      { be: '4', leMax: '35', at: '12' },
+      10,
+      1,
+      Number.POSITIVE_INFINITY
+    )
+    expect(basis.be).toBe('2')
+    expect(basis.leMax).toBe('40')
+    expect(basis.at).toBe('12')
+  })
+
   it('subtracts effective mod delta for integer fields', () => {
     const meta = {
       [MOD_DISPLAY_MODE]: 'integrated',

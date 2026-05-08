@@ -1242,13 +1242,17 @@ export function mountHeroExpandBlock(
     return s
   }
   const mrAbbrLabel = mkChainAbbr('MR', 'Magieresistenz (MR)')
-  const LE_IB_MOD_INTEGRATED_HINT =
+  const HERO_FIELD_MOD_INTEGRATED_HINT =
     ' Modifikatoren sind in der angezeigten Zahl bereits eingerechnet und erscheinen im Mod-Band darunter zusätzlich in Klammern.'
   const ibAbbrLabel = mkChainAbbr(
     'IB',
-    'Ini-Basis + Modifikation (IB).' + LE_IB_MOD_INTEGRATED_HINT.trim()
+    'Ini-Basis + Modifikation (IB).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
-  const ibBeLbl = mkChainAbbr('BE', 'Behinderung (BE)', true)
+  const ibBeLbl = mkChainAbbr(
+    'BE',
+    'Behinderung (BE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim(),
+    true
+  )
   ibBeLbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
   const ibW6Lbl = mkChainAbbr('W6', 'Würfelwurf (W6)', true)
   ibW6Lbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
@@ -1287,14 +1291,14 @@ export function mountHeroExpandBlock(
     microDisplayForModField('ib', snap.ib),
     10,
     false,
-    'Ini-Basis + Modifikation (IB).' + LE_IB_MOD_INTEGRATED_HINT.trim()
+    'Ini-Basis + Modifikation (IB).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
   const beInp = mkChainInp(
     'be',
     microDisplayForModField('be', snap.be),
     3,
     true,
-    'Behinderung (BE)'
+    'Behinderung (BE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
   const w6Inp = mkChainInp('w6', snap.w6, 14, false, 'Würfelwurf (W6)')
 
@@ -1338,9 +1342,6 @@ export function mountHeroExpandBlock(
     'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--mr-r-gap'
   stackMr.appendChild(mrCell)
   const ibCol = mkIbChainCol(ibInp)
-  ibCol
-    .querySelector('.init-hero-ex__ib-chain__inp-cell')
-    ?.classList?.add('init-hero-ex__mods-in-body-shell')
   const beCol = mkIbChainCol(
     beInp,
     'init-hero-ex__ib-chain__col--half-cell'
@@ -1509,22 +1510,25 @@ export function mountHeroExpandBlock(
   const leMaxTitle = 'Lebensenergie Maximum (LE max)'
   const leAbbrLE = mkChainAbbr(
     'LE/',
-    'Lebensenergie (LE).' + LE_IB_MOD_INTEGRATED_HINT.trim()
+    'Lebensenergie (LE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
-  const leAbbrMax = mkChainAbbr('MAX', leMaxTitle)
+  const leAbbrMax = mkChainAbbr(
+    'MAX',
+    `${leMaxTitle}.${HERO_FIELD_MOD_INTEGRATED_HINT.trim()}`
+  )
   const leInp = mkChainInp(
     'le',
     microDisplayForModField('le', snap.le),
     3,
     true,
-    'Lebensenergie (LE).' + LE_IB_MOD_INTEGRATED_HINT.trim()
+    'Lebensenergie (LE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
   const leMaxInp = mkChainInp(
     'lemax',
     microDisplayForModField('leMax', snap.leMax),
     3,
     true,
-    'Lebensenergie Maximum (LE max)'
+    `${leMaxTitle}.${HERO_FIELD_MOD_INTEGRATED_HINT.trim()}`
   )
   /* Manuelles Tippen hier sperren: Bearbeitung nur ueber S-Popover (lePopLeInp /
      lePopLeMaxInp). Mod-Auswahl per Klick auf die Zelle bleibt aktiv (Pick-Modus). */
@@ -1558,9 +1562,6 @@ export function mountHeroExpandBlock(
     return stack
   }
   const leCol = mkLeChainCol(leInp)
-  leCol
-    .querySelector('.init-hero-ex__le-chain__inp-cell')
-    ?.classList?.add('init-hero-ex__mods-in-body-shell')
   const leMaxCol = mkLeChainCol(leMaxInp)
   const stackLe = mkLeChainStack(leAbbrLE, leCol)
   const stackLeMax = mkLeChainStack(leAbbrMax, leMaxCol)
@@ -4058,7 +4059,8 @@ export function mountHeroExpandBlock(
         navIni
       )
       const integratedModBandForField =
-        modBandIntegrated || field === 'le' || field === 'ib'
+        modBandIntegrated ||
+        integratesHeroModsIntoDisplayedValue(modMeta, field)
       const isUnfaehigFixedField =
         unfaehigDisplay.active && unfaehigDisplay.marked.has(field)
       const armSource = (() => {
