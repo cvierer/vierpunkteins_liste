@@ -2763,7 +2763,9 @@ export function mountHeroExpandBlock(
     const baseW = Math.max(96, (right - ibR.left) * 0.8)
     const width = baseW * popWScale
     const extraW = Math.max(0, width - baseW)
-    const leftShift = Math.min(10, extraW * 0.22)
+    /* Wenig nach links ziehen: Breite wächst überwiegend nach rechts; LE/MAX/KO
+       bleiben über labels/stack-Sync ausgerichtet (unten). */
+    const leftShift = Math.min(4, extraW * 0.06)
     const left = Math.max(0, baseLeft - leftShift)
     const height = Math.max(80, bottom - ibR.top)
     lePop.style.left = `${Math.round(left * 1000) / 1000}px`

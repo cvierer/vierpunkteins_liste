@@ -14,7 +14,7 @@
   /* Gesamtskala rem-Basis (Kampfliste + Inhalt), vormals 1.5 jetzt 1.3 */
   --app-rem-base: calc(17px * 1.3);
   /* LE-Popover (Klick auf S): etwas breiter; JS verteilt minimal links, mehr rechts */
-  --init-hero-le-pop-width-scale: 1.42;
+  --init-hero-le-pop-width-scale: 1.54;
   /* Kästchengröße: 0.96 × Basis × UI-Skala */
   --init-box-scale: calc(0.96 * var(--init-ui-scale));
   --init-obj-cell: calc(1.22rem * var(--init-box-scale));
