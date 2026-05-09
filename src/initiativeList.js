@@ -3193,7 +3193,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           })
           .then(() => OBR.scene.items.getItems())
           .then((afterIni) => {
-            renderList(afterIni)
+            safeRenderList(afterIni)
             const els = [
               ...element.querySelectorAll('li.init-row:not(.init-row--phase)'),
             ]
@@ -5094,7 +5094,7 @@ function bindStampContextRemove(el, stamp, items) {
             } else {
               expandedPlayerExtrasIds.add(row.id)
             }
-            renderList(lastItems)
+            safeRenderList(lastItems)
           })
           expandCol.appendChild(expandBtn)
         }
@@ -6410,8 +6410,14 @@ function bindStampContextRemove(el, stamp, items) {
     if (hzOpen) hitZoneOverlay.syncFromItems(items)
   }
 
-  OBR.scene.items.getItems().then(renderList)
-  OBR.scene.items.onChange(renderList)
+  const safeRenderList = (items) => {
+    void renderList(items).catch((err) => {
+      console.warn('[vierpunkteins] renderList failed', err)
+    })
+  }
+
+  OBR.scene.items.getItems().then(safeRenderList)
+  OBR.scene.items.onChange(safeRenderList)
   onCombatChange(() => {
     void (async () => {
       const c = getCombat()
@@ -6431,28 +6437,28 @@ function bindStampContextRemove(el, stamp, items) {
         /* nicht kritisch */
       }
       const fresh = await OBR.scene.items.getItems()
-      renderList(fresh)
+      safeRenderList(fresh)
     })()
   })
-  onIniTieOrderChange(() => renderList(lastItems))
-  const offZaoTie = onZaoRootTieOrderChange(() => renderList(lastItems))
-  const offFullIniTie = onFullIniTieOrderChange(() => renderList(lastItems))
+  onIniTieOrderChange(() => safeRenderList(lastItems))
+  const offZaoTie = onZaoRootTieOrderChange(() => safeRenderList(lastItems))
+  const offFullIniTie = onFullIniTieOrderChange(() => safeRenderList(lastItems))
   const offManualOverrides = onManualIniTieOverridesChange(() =>
-    renderList(lastItems)
+    safeRenderList(lastItems)
   )
   const offRoomSettings = onRoomSettingsChange(() => {
     if (!heroSettingsBackdrop.hidden) syncHeroSettingsCheckboxes()
-    void OBR.scene.items.getItems().then(renderList)
+    void OBR.scene.items.getItems().then(safeRenderList)
   })
   const offStampPref = onShowActionStampsChange(() => {
-    void OBR.scene.items.getItems().then(renderList)
+    void OBR.scene.items.getItems().then(safeRenderList)
   })
   const offForeignHeroPref = onHideForeignHeroColorsForViewerChange(() => {
-    void OBR.scene.items.getItems().then(renderList)
+    void OBR.scene.items.getItems().then(safeRenderList)
   })
   const offPlayer = OBR.player.onChange(() => {
     if (!isGmSync()) closeHeroSettings()
-    void OBR.scene.items.getItems().then(renderList)
+    void OBR.scene.items.getItems().then(safeRenderList)
   })
 
   return () => {
