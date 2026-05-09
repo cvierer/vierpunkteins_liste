@@ -2419,7 +2419,7 @@ body {
 /* „Schwellen:“ über LE/-Zeile, bis zur Balkenkante (nicht im Fluss der Kette) */
 .init-hero-ex__le-pop__schwellen-title {
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 0.1rem);
   left: 0;
   margin-bottom: var(--init-hero-label-input-gap);
   width: calc(
@@ -2430,7 +2430,7 @@ body {
   );
   box-sizing: border-box;
   font-family: var(--font-heading);
-  font-size: calc(0.32rem * var(--init-ui-scale));
+  font-size: calc(0.4rem * var(--init-ui-scale));
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.15;
@@ -2456,11 +2456,16 @@ body {
 }
 
 .init-hero-ex__le-pop__schwellen-rule {
+  display: flex;
+  align-items: flex-end;
+  box-sizing: border-box;
+  min-height: calc(0.52rem * var(--init-ui-scale));
+  padding-top: 0.12rem;
   font-family: var(--font-heading);
-  font-size: calc(0.34rem * var(--init-ui-scale));
+  font-size: calc(0.5rem * var(--init-ui-scale));
   font-weight: 600;
   letter-spacing: 0.02em;
-  line-height: 1.2;
+  line-height: 1.25;
   color: rgba(26, 23, 20, 0.58);
 }
 
