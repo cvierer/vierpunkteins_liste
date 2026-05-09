@@ -1912,10 +1912,10 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0;
-  padding: 0.06rem 0.34rem;
-  border: 1px solid rgba(163, 32, 32, 0.55);
-  border-radius: 999px;
-  background: rgba(205, 44, 28, 0.12);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: rgba(120, 20, 14, 0.96);
   font-family: var(--font-heading);
   font-size: calc(0.5rem * var(--init-ui-scale));
@@ -1926,21 +1926,19 @@ body {
 }
 
 .init-hero-ex__le-pop__wunden[data-zero='true'] {
-  border-color: rgba(163, 32, 32, 0.55);
-  background: rgba(205, 44, 28, 0.12);
   color: rgba(120, 20, 14, 0.96);
 }
 
-/* Summe LE-/Wund-Modifikatoren (gleiche Kapselgröße wie Wunden) */
+/* Summe LE-/Wund-Modifikatoren */
 .init-hero-ex__le-pop__mods {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.1rem;
-  padding: 0.06rem 0.34rem;
-  border: 1px solid rgba(163, 32, 32, 0.55);
-  border-radius: 999px;
-  background: rgba(205, 44, 28, 0.12);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: rgba(120, 20, 14, 0.96);
   font-family: var(--font-heading);
   font-size: calc(0.5rem * var(--init-ui-scale));
@@ -1951,8 +1949,6 @@ body {
 }
 
 .init-hero-ex__le-pop__mods[data-zero='true'] {
-  border-color: rgba(163, 32, 32, 0.55);
-  background: rgba(205, 44, 28, 0.12);
   color: rgba(120, 20, 14, 0.96);
 }
 
@@ -2399,6 +2395,32 @@ body {
 
 .init-hero-ex__le-pop__le-chain-wrap .init-hero-ex__le-chain__labels .init-hero-ex__abbr {
   font-size: var(--le-pop-lemax-abbr);
+}
+
+/* Unter LE/MAX: Überschrift + aktuelle Schwelle (wie LE/-Abkürzung) */
+.init-hero-ex__le-pop__threshold-shelf {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  margin-top: var(--init-hero-label-input-gap);
+  width: 100%;
+  max-width: calc(2 * var(--init-hero-cell));
+  box-sizing: border-box;
+}
+
+.init-hero-ex__le-pop__threshold-head.init-hero-ex__abbr {
+  font-size: var(--le-pop-lemax-abbr);
+  line-height: 1.1;
+}
+
+.init-hero-ex__le-pop__threshold-curr {
+  font-family: var(--font-heading);
+  font-size: var(--le-pop-lemax-abbr);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  color: rgba(26, 23, 20, 0.9);
 }
 
 .init-hero-ex__le-pop__le-chain-wrap .init-hero-ex__le-chain__inputs {

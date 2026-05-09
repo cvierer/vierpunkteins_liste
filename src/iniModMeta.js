@@ -2044,7 +2044,17 @@ export function mountHeroExpandBlock(
   lePopSecondInpSlot.append(lePopMaxInpCell, lePopKoInpCell)
   lePopKoInpCell.style.display = 'none'
   lePopLeMaxInputs.append(mkLePopInpCell(lePopLeInp), lePopSecondInpSlot)
-  lePopLeMaxBlock.append(lePopLeMaxLabels, lePopLeMaxInputs)
+  const lePopThresholdShelf = document.createElement('div')
+  lePopThresholdShelf.className = 'init-hero-ex__le-pop__threshold-shelf'
+  const lePopThresholdHead = document.createElement('div')
+  lePopThresholdHead.className =
+    'init-hero-ex__abbr init-hero-ex__abbr--no-case init-hero-ex__le-pop__threshold-head'
+  lePopThresholdHead.textContent = 'LE Schwellen'
+  const lePopThresholdCurr = document.createElement('div')
+  lePopThresholdCurr.className = 'init-hero-ex__le-pop__threshold-curr'
+  lePopThresholdCurr.setAttribute('aria-live', 'polite')
+  lePopThresholdShelf.append(lePopThresholdHead, lePopThresholdCurr)
+  lePopLeMaxBlock.append(lePopLeMaxLabels, lePopLeMaxInputs, lePopThresholdShelf)
 
   /* Geknickte Leader-Lines: Labels sitzen auf festen Slots (kollisionsfrei),
      die echte Schwellen-Linie im Gauge-Balken wird per SVG-Polyline zum
@@ -2337,6 +2347,54 @@ export function mountHeroExpandBlock(
     else lineEl.dataset.leVal = String(Math.round(n))
   }
 
+  /**
+   * Kurztext zur aktuell maßgebenden LE-Schwelle (Popover unter LE/MAX).
+   * Negativ-LE-Stufen wie die Balkenlinien (−WS, −1·KO, −1,5·KO in LE).
+   */
+  const formatLePopoverActiveThreshold = ({
+    leV,
+    maxV,
+    koV,
+    wsRaw,
+    negLe,
+    dead,
+    customLeThreshold,
+    unfaehigThreshold: ufThresh,
+  }) => {
+    if (negLe && koV != null && koV > 0) {
+      const wsThreshold =
+        wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
+      const wsR = Math.round(wsThreshold)
+      const n15 = Math.round(1.5 * koV)
+      const leAtWs = -wsR
+      const leAtKo = -koV
+      const leAt15 = -n15
+      if (leV == null || !Number.isFinite(leV)) return '—'
+      if (leV > leAtWs) return `LE>−${wsR}`
+      if (leV > leAtKo) return `LE>−${koV} LE≤−${wsR}`
+      if (leV > leAt15) return `LE>−${n15} LE≤−${koV}`
+      return `LE≤−${n15}`
+    }
+    if (dead) return 'LE≤0'
+    if (leV == null || !Number.isFinite(leV)) return '—'
+    const maxOk = maxV != null && maxV > 0
+    if (!maxOk) return '—'
+    if (maxV > ufThresh && leV <= ufThresh) {
+      return `LE≤${ufThresh}`
+    }
+    const b = leBand(leV, maxV, customLeThreshold)
+    if (b === -1) return 'LE≥1/2'
+    if (b === 0 || b === 1 || b === 2) {
+      return `LE${leBandLabelDe(b)}`
+    }
+    if (b === 3 && customLeThreshold != null) {
+      const t = Math.max(0, Math.floor(Number(customLeThreshold)))
+      return `LE≤${t}`
+    }
+    if (b === 4) return 'LE≤0'
+    return '—'
+  }
+
   const updateLePopover = () => {
     const modSum = refreshComputedPenaltyHighlights()
     if (!lePop.isConnected) return
@@ -2461,6 +2519,16 @@ export function mountHeroExpandBlock(
       lePopPct.style.display = 'none'
       lePopPct.textContent = ''
       lePopPct.removeAttribute('title')
+      lePopThresholdCurr.textContent = formatLePopoverActiveThreshold({
+        leV,
+        maxV,
+        koV,
+        wsRaw,
+        negLe: true,
+        dead: false,
+        customLeThreshold,
+        unfaehigThreshold,
+      })
       return
     }
 
@@ -2589,6 +2657,17 @@ export function mountHeroExpandBlock(
       lePopLabUnf.style.display = 'none'
       lePopConnUnf.style.display = 'none'
     }
+
+    lePopThresholdCurr.textContent = formatLePopoverActiveThreshold({
+      leV,
+      maxV,
+      koV,
+      wsRaw,
+      negLe: false,
+      dead,
+      customLeThreshold,
+      unfaehigThreshold,
+    })
   }
 
   /** @type {((e: MouseEvent) => void) | null} */
