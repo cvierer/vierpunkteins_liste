@@ -463,7 +463,7 @@ function defaultHeroAutoModCtx() {
  * @param {HeroAutoModCtx | undefined} ctx
  * @returns {number | null}
  */
-function effectiveLeForThresholds(snap, meta, ctx) {
+export function effectiveLeForThresholds(snap, meta, ctx) {
   const leBase = parseSignedInt(snap.le)
   if (leBase === null) return null
   if (!meta) return leBase
