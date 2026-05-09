@@ -1931,7 +1931,10 @@ export function mountHeroExpandBlock(
   lePopClose.title = 'Schließen'
   lePopClose.setAttribute('aria-label', 'LE-Popover schließen')
 
-  lePopHeader.append(lePopWunden, lePopMods, lePopClose)
+  const lePopHeaderSpacer = document.createElement('div')
+  lePopHeaderSpacer.className = 'init-hero-ex__le-pop__header-spacer'
+  lePopHeaderSpacer.setAttribute('aria-hidden', 'true')
+  lePopHeader.append(lePopHeaderSpacer, lePopWunden, lePopMods, lePopClose)
 
   const lePopBody = document.createElement('div')
   lePopBody.className = 'init-hero-ex__le-pop__body'
@@ -2370,7 +2373,7 @@ export function mountHeroExpandBlock(
     else lineEl.dataset.leVal = String(Math.round(n))
   }
 
-  /** Unterste zutreffende Regel (Index 8→0) markieren; Regeln 6–8 nur bei negLe. */
+  /** Unterste zutreffende Regel (Index 8→0); nur diese eine Zeile sichtbar (wie Balkenlogik). */
   const refreshSchwellenRules = ({
     leV,
     maxV,
@@ -2397,10 +2400,6 @@ export function mountHeroExpandBlock(
     for (let id = 0; id <= 8; id++) {
       const el = lePopSchwellenRules.querySelector(`[data-rule-id="${id}"]`)
       el?.classList.remove('init-hero-ex__le-pop__schwellen-rule--active')
-    }
-    for (let id = 6; id <= 8; id++) {
-      const el = lePopSchwellenRules.querySelector(`[data-rule-id="${id}"]`)
-      if (el) el.style.display = negLe ? '' : 'none'
     }
 
     /** @param {number} id */
@@ -2435,13 +2434,23 @@ export function mountHeroExpandBlock(
       }
     }
 
+    let winner = -1
     for (let id = 8; id >= 0; id--) {
       if (id >= 6 && id <= 8 && !negLe) continue
       if (testRule(id)) {
-        lePopSchwellenRules
-          .querySelector(`[data-rule-id="${id}"]`)
-          ?.classList.add('init-hero-ex__le-pop__schwellen-rule--active')
+        winner = id
         break
+      }
+    }
+
+    for (let id = 0; id <= 8; id++) {
+      const el = lePopSchwellenRules.querySelector(`[data-rule-id="${id}"]`)
+      if (!el) continue
+      if (winner === id) {
+        el.style.display = ''
+        el.classList.add('init-hero-ex__le-pop__schwellen-rule--active')
+      } else {
+        el.style.display = 'none'
       }
     }
   }
@@ -2554,6 +2563,17 @@ export function mountHeroExpandBlock(
       setPopLineLeVal(lePopLine33, -Math.round(wsThreshold))
       setPopLineLeVal(lePopLine25, -koV)
       setPopLineLeVal(lePopLineLe5, -n15)
+      /* Unterste Balkenlinie(n) (physikalisch unten): keine Zahlenbeschriftung */
+      const minBotNeg = Math.min(bWs, b1, b15)
+      const eps = 1e-9
+      for (const [lineEl, bot] of [
+        [lePopLine33, bWs],
+        [lePopLine25, b1],
+        [lePopLineLe5, b15],
+      ]) {
+        if (Math.abs(bot - minBotNeg) < eps)
+          lineEl.removeAttribute('data-le-val')
+      }
       lePopLineUnf.removeAttribute('data-le-val')
 
       setConnPath(lePopConn33, bWs, slotWs, START_X, KINK_33, END_X)
