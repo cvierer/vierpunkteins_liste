@@ -1889,7 +1889,7 @@ body {
     0 10px 28px rgba(40, 26, 10, 0.28);
   font-family: var(--font-body);
   color: var(--color-ink);
-  overflow: hidden;
+  overflow: visible;
   user-select: none;
 }
 
@@ -2172,7 +2172,7 @@ body {
   bottom: calc(100% + 2px);
   transform: translateX(-50%);
   font-family: var(--font-heading);
-  font-size: calc(0.26rem * var(--init-ui-scale));
+  font-size: calc(0.36rem * var(--init-ui-scale));
   font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1;
@@ -2373,6 +2373,7 @@ body {
   pointer-events: auto;
   box-sizing: border-box;
   z-index: 3;
+  overflow: visible;
 }
 
 .init-hero-ex__le-pop__le-chain-wrap .init-hero-ex__le-chain__labels,
@@ -2397,16 +2398,21 @@ body {
   font-size: var(--le-pop-lemax-abbr);
 }
 
-/* Unter LE/MAX: Überschrift + aktuelle Schwelle (wie LE/-Abkürzung) */
+/* Über LE/MAX (nicht im Fluss): Überschrift links, Schwelle darunter bündig */
 .init-hero-ex__le-pop__threshold-shelf {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.1rem;
-  margin-top: var(--init-hero-label-input-gap);
-  width: 100%;
-  max-width: calc(2 * var(--init-hero-cell));
+  gap: 0.12rem;
+  margin-bottom: var(--init-hero-label-input-gap);
+  margin-top: 0;
+  width: max-content;
+  max-width: min(100%, calc(2 * var(--init-hero-cell)));
   box-sizing: border-box;
+  pointer-events: none;
 }
 
 .init-hero-ex__le-pop__threshold-head.init-hero-ex__abbr {

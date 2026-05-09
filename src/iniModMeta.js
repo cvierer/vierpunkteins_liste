@@ -1905,12 +1905,14 @@ export function mountHeroExpandBlock(
 
   const lePopWunden = document.createElement('div')
   lePopWunden.className = 'init-hero-ex__le-pop__wunden'
+  lePopWunden.title = 'Wundanzahl'
   const lePopWundenTxt = document.createElement('span')
   lePopWundenTxt.textContent = 'W: 0'
   lePopWunden.appendChild(lePopWundenTxt)
 
   const lePopMods = document.createElement('div')
   lePopMods.className = 'init-hero-ex__le-pop__mods'
+  lePopMods.title = 'Mod-Summe'
   lePopMods.setAttribute('role', 'img')
   lePopMods.setAttribute('aria-label', 'Modifikatoren: Summe 0')
   const lePopModsArrow = document.createElement('span')
@@ -2054,7 +2056,8 @@ export function mountHeroExpandBlock(
   lePopThresholdCurr.className = 'init-hero-ex__le-pop__threshold-curr'
   lePopThresholdCurr.setAttribute('aria-live', 'polite')
   lePopThresholdShelf.append(lePopThresholdHead, lePopThresholdCurr)
-  lePopLeMaxBlock.append(lePopLeMaxLabels, lePopLeMaxInputs, lePopThresholdShelf)
+  /* Überschrift über LE/MAX; absolut nach oben, LE-Kette bleibt ausgerichtet (positionLePopover). */
+  lePopLeMaxBlock.append(lePopThresholdShelf, lePopLeMaxLabels, lePopLeMaxInputs)
 
   /* Geknickte Leader-Lines: Labels sitzen auf festen Slots (kollisionsfrei),
      die echte Schwellen-Linie im Gauge-Balken wird per SVG-Polyline zum
@@ -2348,8 +2351,8 @@ export function mountHeroExpandBlock(
   }
 
   /**
-   * Kurztext zur aktuell maßgebenden LE-Schwelle (Popover unter LE/MAX).
-   * Negativ-LE-Stufen wie die Balkenlinien (−WS, −1·KO, −1,5·KO in LE).
+   * Letzte unterschrittene Schwelle (gleiche Grenzwerte wie die Balken-Zahlen):
+   * kleinstes T (aufsteigend sortiert) mit LE≤T; sonst LE≥ höchster Schwelle.
    */
   const formatLePopoverActiveThreshold = ({
     leV,
@@ -2361,6 +2364,7 @@ export function mountHeroExpandBlock(
     customLeThreshold,
     unfaehigThreshold: ufThresh,
   }) => {
+    if (dead) return 'LE<0'
     if (negLe && koV != null && koV > 0) {
       const wsThreshold =
         wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
@@ -2369,30 +2373,35 @@ export function mountHeroExpandBlock(
       const leAtWs = -wsR
       const leAtKo = -koV
       const leAt15 = -n15
+      const thresholds = [...new Set([leAt15, leAtKo, leAtWs])].sort(
+        (a, b) => a - b
+      )
       if (leV == null || !Number.isFinite(leV)) return '—'
-      if (leV > leAtWs) return `LE>−${wsR}`
-      if (leV > leAtKo) return `LE>−${koV} LE≤−${wsR}`
-      if (leV > leAt15) return `LE>−${n15} LE≤−${koV}`
-      return `LE≤−${n15}`
+      for (const t of thresholds) {
+        if (leV <= t) return `LE≤${t}`
+      }
+      return `LE≥${thresholds[thresholds.length - 1]}`
     }
-    if (dead) return 'LE≤0'
     if (leV == null || !Number.isFinite(leV)) return '—'
     const maxOk = maxV != null && maxV > 0
     if (!maxOk) return '—'
-    if (maxV > ufThresh && leV <= ufThresh) {
-      return `LE≤${ufThresh}`
+    const n2 = Math.round(maxV / 2)
+    const n3 = Math.round(maxV / 3)
+    const n4 = Math.round(maxV / 4)
+    /** @type {number[]} */
+    const thresholds = [n4, n3, n2]
+    if (
+      customLeThreshold != null &&
+      maxV > customLeThreshold
+    ) {
+      thresholds.push(Math.floor(Number(customLeThreshold)))
     }
-    const b = leBand(leV, maxV, customLeThreshold)
-    if (b === -1) return 'LE≥1/2'
-    if (b === 0 || b === 1 || b === 2) {
-      return `LE${leBandLabelDe(b)}`
+    if (maxV > ufThresh) thresholds.push(ufThresh)
+    const uniq = [...new Set(thresholds)].sort((a, b) => a - b)
+    for (const t of uniq) {
+      if (leV <= t) return `LE≤${t}`
     }
-    if (b === 3 && customLeThreshold != null) {
-      const t = Math.max(0, Math.floor(Number(customLeThreshold)))
-      return `LE≤${t}`
-    }
-    if (b === 4) return 'LE≤0'
-    return '—'
+    return `LE≥${uniq[uniq.length - 1]}`
   }
 
   const updateLePopover = () => {
@@ -2401,10 +2410,8 @@ export function mountHeroExpandBlock(
     const w = totalWunden()
     lePopWundenTxt.textContent = `W: ${w}`
     lePopWunden.dataset.zero = w === 0 ? 'true' : 'false'
-    lePopWunden.removeAttribute('title')
 
     lePopModsVal.textContent = String(modSum.total)
-    lePopMods.removeAttribute('title')
     lePopMods.dataset.zero = modSum.total === 0 ? 'true' : 'false'
     lePopMods.setAttribute(
       'aria-label',
