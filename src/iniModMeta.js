@@ -2002,7 +2002,6 @@ export function mountHeroExpandBlock(
     inp.disabled = !canEdit
     inp.value = source.value
     inp.setAttribute('aria-label', aria)
-    inp.title = aria
     return inp
   }
   const lePopLeInp = mkLeDupInput(leInp, 'Lebensenergie (LE)', 'le', 3)
@@ -2331,6 +2330,13 @@ export function mountHeroExpandBlock(
     poly.setAttribute('points', pts)
   }
 
+  /** LE-Zahl am Balken (`data-le-val` → CSS `::after`); ohne Attribut keine Beschriftung. */
+  const setPopLineLeVal = (lineEl, n) => {
+    if (typeof n !== 'number' || !Number.isFinite(n))
+      lineEl.removeAttribute('data-le-val')
+    else lineEl.dataset.leVal = String(Math.round(n))
+  }
+
   const updateLePopover = () => {
     const modSum = refreshComputedPenaltyHighlights()
     if (!lePop.isConnected) return
@@ -2405,8 +2411,7 @@ export function mountHeroExpandBlock(
       lePopSkull.style.transform = 'translate(-50%, 50%)'
 
       lePopLine50.style.display = 'none'
-      lePopLine50.removeAttribute('data-inline-label')
-      lePopLine50.removeAttribute('title')
+      lePopLine50.removeAttribute('data-le-val')
       lePopConn50.style.display = 'none'
       lePopLab50.style.display = 'none'
 
@@ -2424,36 +2429,32 @@ export function mountHeroExpandBlock(
         'init-hero-ex__le-pop__gauge-line--neg-le-solid'
       )
 
-      lePopLab33.style.display = ''
+      lePopLab33.style.display = 'none'
       const slotWs = dynamicSlotY(bWs)
       const slotB1 = dynamicSlotY(b1)
       const slotB15 = dynamicSlotY(b15)
       lePopLab33.style.bottom = `${slotWs.toFixed(3)}%`
-      lePopLab25.style.display = ''
+      lePopLab25.style.display = 'none'
       lePopLab25.style.bottom = `${slotB1.toFixed(3)}%`
       lePopLabUnf.style.display = 'none'
-      lePopLabLe5.style.display = ''
+      lePopLabLe5.style.display = 'none'
       lePopLabLe5.style.bottom = `${slotB15.toFixed(3)}%`
 
       const n15 = Math.round(1.5 * koV)
-      lePopLab33.textContent = `-WS (${wsThreshold})`
-      lePopLab25.textContent = `−1·KO (${koV})`
-      lePopLabLe5.textContent = `−1,5·KO (${n15})`
-      lePopLine33.removeAttribute('data-inline-label')
-      lePopLine33.removeAttribute('title')
-      lePopLine25.removeAttribute('data-inline-label')
-      lePopLine25.removeAttribute('title')
-      lePopLineLe5.removeAttribute('data-inline-label')
-      lePopLineLe5.removeAttribute('title')
-      lePopLineUnf.removeAttribute('data-inline-label')
-      lePopLineUnf.removeAttribute('title')
+      lePopLab33.textContent = ''
+      lePopLab25.textContent = ''
+      lePopLabLe5.textContent = ''
+      setPopLineLeVal(lePopLine33, -Math.round(wsThreshold))
+      setPopLineLeVal(lePopLine25, -koV)
+      setPopLineLeVal(lePopLineLe5, -n15)
+      lePopLineUnf.removeAttribute('data-le-val')
 
       setConnPath(lePopConn33, bWs, slotWs, START_X, KINK_33, END_X)
       setConnPath(lePopConn25, b1, slotB1, START_X, KINK_25, END_X)
       setConnPath(lePopConnLe5, b15, slotB15, START_X, KINK_LE5, END_X)
-      lePopConn33.style.display = ''
-      lePopConn25.style.display = ''
-      lePopConnLe5.style.display = ''
+      lePopConn33.style.display = 'none'
+      lePopConn25.style.display = 'none'
+      lePopConnLe5.style.display = 'none'
       lePopConnUnf.style.display = 'none'
       lePopLineUnf.style.display = 'none'
 
@@ -2484,10 +2485,8 @@ export function mountHeroExpandBlock(
       'init-hero-ex__le-pop__gauge-line--neg-le-solid'
     )
     lePopLine50.style.display = ''
-      lePopLine50.removeAttribute('data-inline-label')
-      lePopLine50.removeAttribute('title')
-    lePopConn50.style.display = ''
-    lePopLab50.style.display = ''
+    lePopConn50.style.display = 'none'
+    lePopLab50.style.display = 'none'
     lePopLab33.style.bottom = `${SLOT_Y_THIRD}%`
     lePopLab25.style.bottom = `${SLOT_Y_QUARTER}%`
     lePopLabUnf.style.bottom = `${SLOT_Y_UNFAEHIG}%`
@@ -2533,58 +2532,20 @@ export function mountHeroExpandBlock(
     setConnPath(lePopConn25, 25, SLOT_Y_QUARTER, START_X, KINK_25, END_X)
 
     const maxOk = maxV != null && maxV > 0
-    const valSpan = (n, mal) => {
-      const cls = mal
-        ? 'init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal'
-        : 'init-hero-ex__le-pop__gauge-label__val'
-      return `<span class="${cls}">${n}</span>`
-    }
-    if (maxOk && leV != null) {
-      const f = dead ? 0 : Math.max(0, Math.min(1, leV / maxV))
-      lePopLab50.innerHTML = `1/2 = ${valSpan(
-        Math.round(maxV / 2),
-        dead || leV * 2 < maxV
-      )}`
-      lePopLab33.innerHTML = `1/3 = ${valSpan(
-        Math.round(maxV / 3),
-        dead || f < 1 / 3
-      )}`
-      lePopLab25.innerHTML = `1/4 = ${valSpan(
-        Math.round(maxV / 4),
-        dead || f < 0.25
-      )}`
+    lePopLab50.textContent = ''
+    lePopLab33.textContent = ''
+    lePopLab25.textContent = ''
+    if (maxOk) {
       const n2 = Math.round(maxV / 2)
       const n3 = Math.round(maxV / 3)
       const n4 = Math.round(maxV / 4)
-      lePopLine50.removeAttribute('data-inline-label')
-      lePopLine50.removeAttribute('title')
-      lePopLine33.removeAttribute('data-inline-label')
-      lePopLine33.removeAttribute('title')
-      lePopLine25.removeAttribute('data-inline-label')
-      lePopLine25.removeAttribute('title')
-    } else if (maxOk) {
-      const n2 = Math.round(maxV / 2)
-      const n3 = Math.round(maxV / 3)
-      const n4 = Math.round(maxV / 4)
-      lePopLab50.textContent = `1/2 = ${n2}`
-      lePopLab33.textContent = `1/3 = ${n3}`
-      lePopLab25.textContent = `1/4 = ${n4}`
-      lePopLine50.removeAttribute('data-inline-label')
-      lePopLine50.removeAttribute('title')
-      lePopLine33.removeAttribute('data-inline-label')
-      lePopLine33.removeAttribute('title')
-      lePopLine25.removeAttribute('data-inline-label')
-      lePopLine25.removeAttribute('title')
+      setPopLineLeVal(lePopLine50, n2)
+      setPopLineLeVal(lePopLine33, n3)
+      setPopLineLeVal(lePopLine25, n4)
     } else {
-      lePopLab50.textContent = '1/2 = —'
-      lePopLab33.textContent = '1/3 = —'
-      lePopLab25.textContent = '1/4 = —'
-      lePopLine50.removeAttribute('data-inline-label')
-      lePopLine50.removeAttribute('title')
-      lePopLine33.removeAttribute('data-inline-label')
-      lePopLine33.removeAttribute('title')
-      lePopLine25.removeAttribute('data-inline-label')
-      lePopLine25.removeAttribute('title')
+      lePopLine50.removeAttribute('data-le-val')
+      lePopLine33.removeAttribute('data-le-val')
+      lePopLine25.removeAttribute('data-le-val')
     }
 
     if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
@@ -2592,23 +2553,15 @@ export function mountHeroExpandBlock(
       const slotLe5 = dynamicSlotY(pct)
       lePopLineLe5.style.display = ''
       lePopLineLe5.style.bottom = pct.toFixed(3) + '%'
-      lePopLabLe5.style.display = ''
+      lePopLabLe5.style.display = 'none'
       lePopLabLe5.style.bottom = `${slotLe5.toFixed(3)}%`
-      lePopConnLe5.style.display = ''
+      lePopLabLe5.textContent = ''
+      lePopConnLe5.style.display = 'none'
       setConnPath(lePopConnLe5, pct, slotLe5, START_X, KINK_LE5, END_X)
-      const malLe5 = leV != null && (dead || leV <= customLeThreshold)
-      if (malLe5) {
-        lePopLabLe5.innerHTML =
-          `<span class="init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal">${customLeThreshold}</span>`
-      } else {
-        lePopLabLe5.textContent = String(customLeThreshold)
-      }
-      lePopLineLe5.removeAttribute('data-inline-label')
-      lePopLineLe5.removeAttribute('title')
+      setPopLineLeVal(lePopLineLe5, customLeThreshold)
     } else {
       lePopLineLe5.style.display = 'none'
-      lePopLineLe5.removeAttribute('data-inline-label')
-      lePopLineLe5.removeAttribute('title')
+      lePopLineLe5.removeAttribute('data-le-val')
       lePopLabLe5.style.display = 'none'
       lePopConnLe5.style.display = 'none'
     }
@@ -2617,9 +2570,10 @@ export function mountHeroExpandBlock(
       const slotUnf = dynamicSlotY(pctUnf)
       lePopLineUnf.style.display = ''
       lePopLineUnf.style.bottom = pctUnf.toFixed(3) + '%'
-      lePopLabUnf.style.display = ''
+      lePopLabUnf.style.display = 'none'
       lePopLabUnf.style.bottom = `${slotUnf.toFixed(3)}%`
-      lePopConnUnf.style.display = ''
+      lePopLabUnf.textContent = ''
+      lePopConnUnf.style.display = 'none'
       setConnPath(
         lePopConnUnf,
         pctUnf,
@@ -2628,19 +2582,10 @@ export function mountHeroExpandBlock(
         KINK_UNFAEHIG,
         END_X
       )
-      const malUnf = leV != null && (dead || leV <= unfaehigThreshold)
-      if (malUnf) {
-        lePopLabUnf.innerHTML =
-          `unfähig ≤ <span class="init-hero-ex__le-pop__gauge-label__val init-hero-ex__le-pop__gauge-label__val--mal">${unfaehigThreshold}</span>`
-      } else {
-        lePopLabUnf.textContent = `unfähig ≤ ${unfaehigThreshold}`
-      }
-      lePopLineUnf.removeAttribute('data-inline-label')
-      lePopLineUnf.removeAttribute('title')
+      setPopLineLeVal(lePopLineUnf, unfaehigThreshold)
     } else {
       lePopLineUnf.style.display = 'none'
-      lePopLineUnf.removeAttribute('data-inline-label')
-      lePopLineUnf.removeAttribute('title')
+      lePopLineUnf.removeAttribute('data-le-val')
       lePopLabUnf.style.display = 'none'
       lePopConnUnf.style.display = 'none'
     }
