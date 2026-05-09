@@ -7,6 +7,8 @@ import {
   KR_ZAO_SLOTS,
   motherPrimarySelfStamped,
   lhEndKrConvertArrowGates,
+  readZaoSlots,
+  metaHasPendingLoadedNonHeroExtraZao,
 } from './krCounters.js'
 import {
   LH_ACTIONS_PER_KR,
@@ -76,6 +78,52 @@ describe('motherPrimarySelfStamped', () => {
         itemId
       )
     ).toBe(false)
+  })
+
+  describe('readZaoSlots lodgedAbw', () => {
+    const linkId = 'z-root'
+
+    it('liest lodgedAbw aus krZaoSlots', () => {
+      const meta = {
+        phases: {
+          links: [
+            {
+              id: linkId,
+              parentId: null,
+              offset: 8,
+            },
+          ],
+          rowPanelOpen: false,
+        },
+        [KR_ZAO_SLOTS]: {
+          [linkId]: { kind: 'ang', marks: 0, lodgedAbw: true },
+        },
+      }
+      expect(readZaoSlots(meta)[linkId]).toEqual({
+        kind: 'ang',
+        marks: 0,
+        lodgedAbw: true,
+      })
+    })
+
+    it('lodged ohne marks=1 zählt nicht als pending-loaded ZAO', () => {
+      const meta = {
+        phases: {
+          links: [
+            {
+              id: linkId,
+              parentId: null,
+              offset: 8,
+            },
+          ],
+          rowPanelOpen: false,
+        },
+        [KR_ZAO_SLOTS]: {
+          [linkId]: { kind: 'ang', marks: 0, lodgedAbw: true },
+        },
+      }
+      expect(metaHasPendingLoadedNonHeroExtraZao(meta)).toBe(false)
+    })
   })
 
   it('false bei Abwehr-/Parade-Stempel', () => {

@@ -135,7 +135,8 @@ export function readHeroIniNegAngMode(meta) {
 
 /**
  * Zustand der einzelnen 2.A.-Objekt-Slots (Wurzel-Phasen-Links).
- * Jeder Eintrag: `{ kind: 'ang'|'sra'|'lh', marks: 0|1 }`.
+ * Jeder Eintrag: `{ kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true }`.
+ * `lodgedAbw`: Ladung liegt im gemeinsamen `KR_ABW` (Zeile bleibt, Primär leer).
  * Fehlt der Eintrag, wird bei der Anzeige Kind = Mutter-Kind und `marks = 1`
  * angenommen (Kompatibilität mit alten Daten).
  */
@@ -557,19 +558,21 @@ function paradeExtraIndexForField(field) {
 
 /**
  * @param {unknown} meta
- * @returns {Record<string, { kind: 'ang'|'sra'|'lh', marks: 0|1 }>}
+ * @returns {Record<string, { kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true }>}
  */
 export function readZaoSlots(meta) {
   const raw = meta?.[KR_ZAO_SLOTS]
   if (!raw || typeof raw !== 'object') return {}
-  /** @type {Record<string, { kind: 'ang'|'sra'|'lh', marks: 0|1 }>} */
+  /** @type {Record<string, { kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true }>} */
   const out = {}
   for (const key of Object.keys(raw)) {
     const s = raw[key]
     if (!s || typeof s !== 'object') continue
     const kind = s.kind === 'sra' || s.kind === 'lh' ? s.kind : 'ang'
     const marks = s.marks === 1 ? 1 : 0
-    out[key] = { kind, marks }
+    const lodgedAbw =
+      /** @type {{ lodgedAbw?: unknown }} */ (s).lodgedAbw === true
+    out[key] = lodgedAbw ? { kind, marks, lodgedAbw: true } : { kind, marks }
   }
   return out
 }
@@ -580,7 +583,7 @@ export function readZaoSlots(meta) {
  *
  * @param {unknown} meta
  * @param {string} linkId
- * @returns {{ kind: 'ang'|'sra'|'lh', marks: 0|1 } | null}
+ * @returns {{ kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true } | null}
  */
 export function readZaoSlot(meta, linkId) {
   const slots = readZaoSlots(meta)
@@ -683,7 +686,7 @@ export function lhEndKrConvertArrowGates(meta, combatRound) {
 /**
  * @param {string} itemId
  * @param {string} linkId
- * @param {{ kind?: 'ang'|'sra'|'lh', marks?: 0|1 }} patch
+ * @param {{ kind?: 'ang'|'sra'|'lh', marks?: 0|1, lodgedAbw?: boolean }} patch
  */
 export async function patchZaoSlot(itemId, linkId, patch) {
   const items = await OBR.scene.items.getItems()
@@ -698,19 +701,30 @@ export async function patchZaoSlot(itemId, linkId, patch) {
         kind: readKrFirstSlotKind(m),
         marks: 1,
       }
-      const next = {
-        kind:
-          patch.kind === 'ang' ||
-          patch.kind === 'sra' ||
-          patch.kind === 'lh'
-            ? patch.kind
-            : prev.kind,
-        marks:
-          patch.marks === 0 || patch.marks === 1
-            ? patch.marks
-            : prev.marks,
-      }
-      slots[linkId] = next
+      const nextMarks =
+        patch.marks === 0 || patch.marks === 1 ? patch.marks : prev.marks
+      const nextKind =
+        patch.kind === 'ang' ||
+        patch.kind === 'sra' ||
+        patch.kind === 'lh'
+          ? patch.kind
+          : prev.kind
+      let nextLodged =
+        patch.lodgedAbw === true
+          ? true
+          : patch.lodgedAbw === false
+            ? false
+            : nextMarks === 1
+              ? false
+              : prev.lodgedAbw === true
+      const next = /** @type {Record<string, unknown>} */ ({
+        kind: nextKind,
+        marks: nextMarks,
+      })
+      if (nextLodged) next.lodgedAbw = true
+      slots[linkId] = /** @type {{ kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true }} */ (
+        next
+      )
       m[KR_ZAO_SLOTS] = slots
     }
   })
@@ -1299,6 +1313,104 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
 }
 
 /**
+ * Regulärer ZAO-Wurzel-Link ohne heroExtra/lhEnd (spiegelte Umwandlungs-Spalte).
+ * @param {{ parentId?: string | null, heroExtra?: unknown, lhEnd?: boolean } | undefined} link
+ * @returns {boolean}
+ */
+function zaoRootEligibleForLodgedScopedTransfer(link) {
+  return Boolean(
+    link &&
+      link.parentId === null &&
+      !link.heroExtra &&
+      link.lhEnd !== true
+  )
+}
+
+/**
+ * Umwandeln wie an der Zeile selbst („Aktion→Schild“): nur diese ZAO erhält
+ * `lodgedAbw`; Phasen-Link bleibt (keine Lösch-Logik wie `patchKrTransferPrimaryToAbw`).
+ *
+ * @param {string} itemId
+ * @param {string} linkId
+ */
+export async function patchKrTransferZaoPrimaryToAbw(itemId, linkId) {
+  const items = await OBR.scene.items.getItems()
+  const item = items.find((i) => i.id === itemId)
+  if (!item || !canEditSceneItem(item)) return
+  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+  if (!meta) return
+  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  const phases = normalizePhases(meta.phases)
+  const linkRef = phases.links.find((l) => l.id === linkId)
+  if (!zaoRootEligibleForLodgedScopedTransfer(linkRef)) return
+
+  const slot = readZaoSlots(meta)[linkId]
+  if (!slot || slot.marks !== 1 || slot.lodgedAbw) return
+  if (slot.kind === 'lh') return
+
+  const abw = normalizeKrDigit(meta[KR_ABW])
+  const nextAbw = addOneAbwTransferChargeValue(abw)
+  if (nextAbw === abw) return
+
+  await OBR.scene.items.updateItems([itemId], (drafts) => {
+    for (const d of drafts) {
+      const m = d.metadata[TRACKER_ITEM_META_KEY]
+      if (!m) continue
+      m[KR_ABW] = nextAbw
+      const s = readZaoSlots(m)
+      const cur = s[linkId]
+      if (!cur || cur.marks !== 1) continue
+      s[linkId] = {
+        kind: cur.kind,
+        marks: 0,
+        lodgedAbw: true,
+      }
+      m[KR_ZAO_SLOTS] = s
+    }
+  })
+}
+
+/**
+ * Gegenstück zu `patchKrTransferZaoPrimaryToAbw`: Ladung zurück auf Primär dieser ZAO-Zeile.
+ *
+ * @param {string} itemId
+ * @param {string} linkId
+ */
+export async function patchKrTransferAbwToZaoPrimary(itemId, linkId) {
+  const items = await OBR.scene.items.getItems()
+  const item = items.find((i) => i.id === itemId)
+  if (!item || !canEditSceneItem(item)) return
+  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+  if (!meta) return
+  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+
+  const phases = normalizePhases(meta.phases)
+  const linkRef = phases.links.find((l) => l.id === linkId)
+  if (!zaoRootEligibleForLodgedScopedTransfer(linkRef)) return
+
+  const slot = readZaoSlots(meta)[linkId]
+  if (!slot?.lodgedAbw || slot.marks !== 0) return
+
+  const abw = normalizeKrDigit(meta[KR_ABW])
+  if (!krTransferMarkPresent(abw)) return
+  const nextAbw = consumeOneChargeValue(abw)
+  if (nextAbw === abw) return
+
+  await OBR.scene.items.updateItems([itemId], (drafts) => {
+    for (const d of drafts) {
+      const m = d.metadata[TRACKER_ITEM_META_KEY]
+      if (!m) continue
+      m[KR_ABW] = nextAbw
+      const s = readZaoSlots(m)
+      const cur = s[linkId]
+      if (!cur?.lodgedAbw || cur.marks !== 0) continue
+      s[linkId] = { kind: cur.kind, marks: 1 }
+      m[KR_ZAO_SLOTS] = s
+    }
+  })
+}
+
+/**
  * Abwehr-Schild → Primärladung.
  * Ladungs-Erhaltungsgesetz: 1 Ladung pro Objekt. Wenn das Mutter-Primärfeld
  * schon eine Ladung hat, wird ein neuer 2.A.-Slot (Mutter-Kind, marks=1)
@@ -1466,6 +1578,8 @@ export async function patchKrLhChargeBackToAbw(itemId) {
  *   diesen `zaoLinkId` entfernen, Ladung → Abw (+1), Slot + Link weg.
  * - `slot.marks === 0`, `heroExtra`: Stempel(n) entfernen, Slot + Link weg,
  *   Abw unverändert.
+ * - Ladung bereits im gemeinsamen Schild pendelnd (`lodgedAbw`): kein weiteres
+ *   Abw+; Zeile wird entfernt, Schildzahl unverändert.
  *
  * @param {string} itemId
  * @param {string} linkId
@@ -1477,28 +1591,33 @@ export async function patchKrCloseZaoSlotToAbw(itemId, linkId) {
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  const roomMetaEarly = await OBR.room.getMetadata()
+  const stampsEarly = normalizeActionStamps(roomMetaEarly[ACTION_STAMPS_KEY])
+  const hasZaoStampEarly = stampsEarly.entries.some(
+    (e) => e.itemId === itemId && e.zaoLinkId === linkId
+  )
+
   const phasesMeta = normalizePhases(meta.phases)
   const linkRef = phasesMeta.links.find((l) => l.id === linkId)
   const isHeroExtraZao = Boolean(
     linkRef && linkRef.parentId === null && linkRef.heroExtra
   )
   const slot = readZaoSlots(meta)[linkId]
-  // Schritt 1 (konzeptuell): Wenn ein Stempel aktiv ist, ist die Aktion
-  // „zurückgebbar" — wir behandeln den Slot für die Schild-Buchung so, als
-  // hätte er eine volle Ladung (`marks=1`) und entfernen am Ende alle
-  // zugehörigen Stempel. Bilanz dadurch identisch zur Reihenfolge
-  // „erst × dann X".
-  const hadStampedCharge = Boolean(slot) && slot.marks === 0
-  const slotActsAsLoaded =
-    Boolean(slot) && (slot.marks === 1 || hadStampedCharge)
+  const lodgedInAbw = Boolean(slot?.lodgedAbw)
+  // Nur echte Stempel rechtfertigen marks=0 → Abw-Buchung; `lodgedAbw` bereits
+  // in KR_ABW verbucht.
+  const hadStampedCharge = Boolean(slot) && slot.marks === 0 && hasZaoStampEarly
+  const needsAbwOnCloseNonExtra =
+    !isHeroExtraZao &&
+    Boolean(slot) &&
+    !lodgedInAbw &&
+    (slot.marks === 1 || hadStampedCharge)
+
   const abw = normalizeKrDigit(meta[KR_ABW])
   let nextAbw = abw
-  if (!isHeroExtraZao && slotActsAsLoaded) {
+  if (needsAbwOnCloseNonExtra) {
     nextAbw = addOneAbwTransferChargeValue(abw)
-    // Nur blockieren, wenn kein Stempel zurückzubauen ist. Mit aktivem
-    // Stempel würde ein Abbruch hier den Stempel zurücklassen — besser
-    // trotzdem schließen, Schild-Ladung geht dann verloren (konsistent mit
-    // „× dann X", wenn das Schild voll wäre).
+    // Nur blockieren, wenn keine Stempel-Rückerstattung nötig (Schild evtl. voll).
     if (nextAbw === abw && !hadStampedCharge) return
   }
 
@@ -1506,7 +1625,8 @@ export async function patchKrCloseZaoSlotToAbw(itemId, linkId) {
   // heroExtra-'ang'-Slot, geben wir die Mutex-Wahl wieder frei und stellen das
   // schwarze Schild bei aktivem `heroExtraPar` geladen wieder her — analog zum
   // Undo-Pfad. Ohne Stempel (X auf geladenes z.AT) bleibt die Wahl unberuehrt.
-  const releaseMutexAng = isHeroExtraZao && hadStampedCharge && linkRef?.heroExtra === 'ang'
+  const releaseMutexAng =
+    isHeroExtraZao && hadStampedCharge && linkRef?.heroExtra === 'ang'
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]

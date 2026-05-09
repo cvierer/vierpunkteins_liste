@@ -98,7 +98,9 @@ import {
   patchKrStampParadeExtraFromCharge,
   patchKrTransferAbwToLhSecond,
   patchKrTransferAbwToPrimary,
+  patchKrTransferAbwToZaoPrimary,
   patchKrTransferPrimaryToAbw,
+  patchKrTransferZaoPrimaryToAbw,
   patchKrCloseZaoSlotToAbw,
   patchRestoreHeroExtraZao,
   patchZaoSlot,
@@ -1608,7 +1610,8 @@ function appendKrConvertArrowsCell(
   phaseRowActive = true,
   convertAllowedByLock = true,
   combatRound = null,
-  motherPrimaryStamped = false
+  motherPrimaryStamped = false,
+  zaoScopedLinkId = null
 ) {
   const wrap = document.createElement('div')
   wrap.className = 'init-kr-convert-cell'
@@ -1634,6 +1637,19 @@ function appendKrConvertArrowsCell(
     : krTransferMarkPresent(primaryVal)
   const abwVal = normalizeKrDigit(readKrAbw(trackerMeta))
   const abwMaxMarks = krAbwTransferMaxMarks()
+  const scopedLink =
+    typeof zaoScopedLinkId === 'string' && zaoScopedLinkId && trackerMeta
+      ? zaoScopedLinkId
+      : null
+  const scopedSlot =
+    scopedLink && trackerMeta
+      ? readZaoSlot(trackerMeta, scopedLink) || {
+          kind: readKrFirstSlotKind(trackerMeta),
+          marks: 1,
+        }
+      : null
+  const scopedLhKind = scopedSlot?.kind === 'lh'
+
   // Quelle für Primär→Schild: Mutter ODER irgendein „normaler" 2.A.-Slot mit
   // Ladung. Helden-Zusatz-Objekte (`heroExtra`) liefern keine umwandelbare
   // Ladung — ihre einzelne Ladung ist ausdrücklich nur stempelbar.
@@ -1643,9 +1659,14 @@ function appendKrConvertArrowsCell(
   const lowerBlockedPendingLoadedZao =
     !motherHasCharge && anyZaoCharged
   const canUpperTransfer =
-    canEdit &&
-    (motherHasCharge || anyZaoCharged) &&
-    krAbwCanAcceptTransferMark(abwVal)
+    scopedSlot && scopedLink && !scopedLhKind
+      ? canEdit &&
+        scopedSlot.marks === 1 &&
+        !scopedSlot.lodgedAbw &&
+        krAbwCanAcceptTransferMark(abwVal)
+      : canEdit &&
+        (motherHasCharge || anyZaoCharged) &&
+        krAbwCanAcceptTransferMark(abwVal)
   const phaseLinksNorm = trackerMeta
     ? normalizePhases(trackerMeta.phases)
     : { links: [], rowPanelOpen: false }
@@ -1661,16 +1682,25 @@ function appendKrConvertArrowsCell(
   // bekommt Ladung, oder es entsteht ein neuer 2.A.-Slot mit freier INI).
   // Kein Schild→leeres Mutterfeld, solange noch eine geladene 2.A.-Zeile wartet.
   const canLowerTransfer =
-    canEdit &&
-    krTransferMarkPresent(abwVal) &&
-    (!motherHasCharge || canAppendChainedZao) &&
-    !lowerBlockedPendingLoadedZao
+    scopedSlot && scopedLink && !scopedLhKind
+      ? canEdit &&
+        krTransferMarkPresent(abwVal) &&
+        scopedSlot.lodgedAbw === true &&
+        scopedSlot.marks === 0
+      : canEdit &&
+        krTransferMarkPresent(abwVal) &&
+        (!motherHasCharge || canAppendChainedZao) &&
+        !lowerBlockedPendingLoadedZao
 
   const endKrGates = lhEndKrConvertArrowGates(trackerMeta, combatRound)
   let allowUpper =
-    canUpperTransfer && !endKrGates.blockUpperLhMotherNoZao
+    scopedLink && scopedSlot && !scopedLhKind
+      ? canUpperTransfer
+      : canUpperTransfer && !endKrGates.blockUpperLhMotherNoZao
   let allowLower =
-    canLowerTransfer && !endKrGates.blockLowerPendingZao
+    scopedLink && scopedSlot && !scopedLhKind
+      ? canLowerTransfer
+      : canLowerTransfer && !endKrGates.blockLowerPendingZao
   if (motherPrimaryStamped) {
     allowUpper = false
     allowLower = false
@@ -1766,7 +1796,11 @@ function appendKrConvertArrowsCell(
       e.preventDefault()
       e.stopPropagation()
       if (lhLocked || lockedByConvertLock || motherPrimaryStamped) return
-      void patchKrTransferPrimaryToAbw(ownerItemId)
+      if (scopedLink && scopedSlot && !scopedLhKind) {
+        void patchKrTransferZaoPrimaryToAbw(ownerItemId, scopedLink)
+      } else {
+        void patchKrTransferPrimaryToAbw(ownerItemId)
+      }
     })
   }
 
@@ -1831,7 +1865,11 @@ function appendKrConvertArrowsCell(
       e.preventDefault()
       e.stopPropagation()
       if (lhLocked || lockedByConvertLock || motherPrimaryStamped) return
-      void patchKrTransferAbwToPrimary(ownerItemId)
+      if (scopedLink && scopedSlot && !scopedLhKind) {
+        void patchKrTransferAbwToZaoPrimary(ownerItemId, scopedLink)
+      } else {
+        void patchKrTransferAbwToPrimary(ownerItemId)
+      }
     })
   }
 
@@ -2000,7 +2038,10 @@ function appendKrCounterPair(
       phaseRowActive,
       convertAllowedByLock,
       combatRound,
-      motherPrimaryStamped
+      motherPrimaryStamped,
+      abwMirrorLinkUi && zaoSlotOverride?.linkId
+        ? zaoSlotOverride.linkId
+        : null
     )
   }
   // Schildplatz: entweder L.H.-Counter-Eingabe (vor Werte-Setzung),
