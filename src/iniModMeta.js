@@ -2069,7 +2069,7 @@ export function mountHeroExpandBlock(
   lePopSchwellenRules.setAttribute('aria-live', 'polite')
   const lePopRuleRowUnf = mkSchwellenRuleLine(4, '')
   lePopSchwellenRules.append(
-    mkSchwellenRuleLine(0, 'alles ok'),
+    mkSchwellenRuleLine(0, 'TOPFIT'),
     mkSchwellenRuleLine(1, 'LE<LE/2'),
     mkSchwellenRuleLine(2, 'LE<1/3 LE'),
     mkSchwellenRuleLine(3, 'LE<1/4 LE'),
@@ -2385,6 +2385,7 @@ export function mountHeroExpandBlock(
     lePopRuleRowUnf.textContent = `LE≤${ufThresh}`
     const maxOk = maxV != null && maxV > 0
     const n2 = maxOk ? Math.round(maxV / 2) : NaN
+    const n75 = maxOk ? Math.round((3 * maxV) / 4) : NaN
     const n3 = maxOk ? Math.round(maxV / 3) : NaN
     const n4 = maxOk ? Math.round(maxV / 4) : NaN
     let wsR = 0
@@ -2449,6 +2450,14 @@ export function mountHeroExpandBlock(
       if (winner === id) {
         el.style.display = ''
         el.classList.add('init-hero-ex__le-pop__schwellen-rule--active')
+        if (id === 0 && !negLe && maxOk && leOk) {
+          const wunden = totalWunden()
+          let status = 'ES GEHT'
+          if (wunden >= 1 && leV >= n2) status = 'VERLETZT'
+          else if (leV >= maxV) status = 'TOPFIT'
+          else if (leV < maxV && leV >= n75) status = 'ALLES OK'
+          el.textContent = status
+        }
       } else {
         el.style.display = 'none'
       }
