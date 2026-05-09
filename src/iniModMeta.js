@@ -2208,6 +2208,9 @@ export function mountHeroExpandBlock(
   const totalWunden = () =>
     zoneUiMid.reduce((a, u) => a + (u.getWunden() || 0), 0)
 
+  const hasZoneThirdWound = () =>
+    zoneUiMid.some((u) => (u.getWunden?.() ?? 0) >= 3)
+
   const penaltyHighlightTargets = {
     at: { cell: at.cell, inp: at.inp, ab: at.ab },
     pa: { cell: pa.cell, inp: pa.inp, ab: pa.ab },
@@ -2453,7 +2456,8 @@ export function mountHeroExpandBlock(
         if (id === 0 && !negLe && maxOk && leOk) {
           const wunden = totalWunden()
           let status = 'ES GEHT'
-          if (wunden >= 1 && leV >= n2) status = 'VERLETZT'
+          if (leV >= n2 && hasZoneThirdWound()) status = '3.WUNDE!'
+          else if (wunden >= 1 && leV >= n2) status = 'VERLETZT'
           else if (leV >= maxV) status = 'TOPFIT'
           else if (leV < maxV && leV >= n75) status = 'ALLES OK'
           el.textContent = status
