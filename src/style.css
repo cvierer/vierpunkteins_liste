@@ -2267,7 +2267,7 @@ body {
   height: 100%;
   /* Fallback = END_X in iniModMeta.js (LE_POP_CONN_END_X); JS setzt --le-pop-conn-end am Element */
   --le-pop-conn-end: 83;
-  --le-pop-cutout-h: calc(var(--le-pop-chain-h) + 0.26rem);
+  --le-pop-cutout-h: calc(var(--le-pop-chain-h) + 0.62rem);
   padding-top: var(--le-pop-cutout-h);
   box-sizing: border-box;
 }
@@ -2341,8 +2341,8 @@ body {
 
 /* LE/MAX im Popover: kompakter als Hauptzeile; Ziffern wie 1/2=X */
 .init-hero-ex__le-pop__le-chain-wrap {
-  --le-pop-chain-h: max(0.82rem, calc(var(--init-hero-cell) * 0.21));
-  --le-pop-lemax-abbr: max(0.42rem, calc(0.54rem * var(--init-box-scale) * 0.2));
+  --le-pop-chain-h: var(--init-hero-cell);
+  --le-pop-lemax-abbr: calc(0.54rem * var(--init-box-scale));
   position: absolute;
   top: 0;
   left: 0;
@@ -2368,9 +2368,9 @@ body {
 }
 
 .init-hero-ex__le-pop__le-chain-wrap .init-hero-ex__le-chain__labels {
-  min-height: max(0.42rem, calc(var(--le-pop-lemax-abbr) * 1.05));
-  height: max(0.42rem, calc(var(--le-pop-lemax-abbr) * 1.05));
-  max-height: max(0.42rem, calc(var(--le-pop-lemax-abbr) * 1.05));
+  min-height: var(--init-hero-abbr-line-h);
+  height: var(--init-hero-abbr-line-h);
+  max-height: var(--init-hero-abbr-line-h);
 }
 
 .init-hero-ex__le-pop__le-chain-wrap .init-hero-ex__le-chain__labels .init-hero-ex__abbr {
@@ -2410,11 +2410,11 @@ body {
 }
 
 .init-hero-ex__le-pop__le-chain-wrap .init-hero-ex__le-chain__inputs .init-hero-ex__micro--ib-chain-inp {
-  font-family: var(--font-heading);
-  font-size: var(--le-pop-threshold-font);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  line-height: 1.15;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
   text-align: center;
   padding: 0;
   width: 100%;

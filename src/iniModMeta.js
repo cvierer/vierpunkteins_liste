@@ -1554,14 +1554,18 @@ export function mountHeroExpandBlock(
     true,
     `${leMaxTitle}.${HERO_FIELD_MOD_INTEGRATED_HINT.trim()}`
   )
+  const leReadOnlyHint = ' (Bearbeitung im S-Overlay)'
+  const leMaxDirectHint =
+    ' (LE <= 0: direkt hier bearbeitbar, MAX-Klick oeffnet kein S-Overlay)'
+  const baseLeTitle = leInp.title
+  const baseLeMaxTitle = leMaxInp.title
   /* Manuelles Tippen hier sperren: Bearbeitung nur ueber S-Popover (lePopLeInp /
      lePopLeMaxInp). Mod-Auswahl per Klick auf die Zelle bleibt aktiv (Pick-Modus). */
   if (canEdit) {
     leInp.readOnly = true
     leMaxInp.readOnly = true
-    const ROHINT = ' (Bearbeitung im S-Overlay)'
-    leInp.title = `${leInp.title}${ROHINT}`
-    leMaxInp.title = `${leMaxInp.title}${ROHINT}`
+    leInp.title = `${baseLeTitle}${leReadOnlyHint}`
+    leMaxInp.title = `${baseLeMaxTitle}${leReadOnlyHint}`
     leInp.setAttribute('aria-readonly', 'true')
     leMaxInp.setAttribute('aria-readonly', 'true')
   }
@@ -2083,14 +2087,23 @@ export function mountHeroExpandBlock(
     lePopConnUnf
   )
 
-  /* Feste vertikale Slots für die Beschriftungen (y in %-von-unten). Zwischen
-     Mathematik-Position der Schwelle im Balken und Slot liegt die Knick-Linie.
-     Obere ~40% sind für das LE/MAX-Editfeld reserviert. */
-  const SLOT_Y_HALF = 58
-  const SLOT_Y_THIRD = 40
-  const SLOT_Y_QUARTER = 22
-  const SLOT_Y_UNFAEHIG = 12
-  const SLOT_Y_LE5 = 4
+  const MIN_LABEL_Y = 4
+  const MAX_LABEL_Y = 84
+  const LABEL_GAP_Y = 13
+  const dynamicSlotY = (lineY) => {
+    const up = lineY + LABEL_GAP_Y
+    const down = lineY - LABEL_GAP_Y
+    const roomUp = MAX_LABEL_Y - lineY
+    const roomDown = lineY - MIN_LABEL_Y
+    const preferUp = roomUp >= roomDown
+    const y = preferUp ? up : down
+    return Math.max(MIN_LABEL_Y, Math.min(MAX_LABEL_Y, y))
+  }
+  const SLOT_Y_HALF = dynamicSlotY(50)
+  const SLOT_Y_THIRD = dynamicSlotY(33.333)
+  const SLOT_Y_QUARTER = dynamicSlotY(25)
+  const SLOT_Y_UNFAEHIG = dynamicSlotY(14)
+  const SLOT_Y_LE5 = dynamicSlotY(7)
   const mkGaugeLabel = (slotPct, extra) => {
     const l = document.createElement('span')
     l.className =
@@ -2398,21 +2411,24 @@ export function mountHeroExpandBlock(
       )
 
       lePopLab33.style.display = ''
-      lePopLab33.style.bottom = `${bWs.toFixed(3)}%`
+      const slotWs = dynamicSlotY(bWs)
+      const slotB1 = dynamicSlotY(b1)
+      const slotB15 = dynamicSlotY(b15)
+      lePopLab33.style.bottom = `${slotWs.toFixed(3)}%`
       lePopLab25.style.display = ''
-      lePopLab25.style.bottom = `${b1.toFixed(3)}%`
+      lePopLab25.style.bottom = `${slotB1.toFixed(3)}%`
       lePopLabUnf.style.display = 'none'
       lePopLabLe5.style.display = ''
-      lePopLabLe5.style.bottom = `${b15.toFixed(3)}%`
+      lePopLabLe5.style.bottom = `${slotB15.toFixed(3)}%`
 
       const n15 = Math.round(1.5 * koV)
       lePopLab33.textContent = `-WS (${wsThreshold})`
       lePopLab25.textContent = `−1·KO (${koV})`
       lePopLabLe5.textContent = `−1,5·KO (${n15})`
 
-      setConnPath(lePopConn33, bWs, bWs, START_X, KINK_33, END_X)
-      setConnPath(lePopConn25, b1, b1, START_X, KINK_25, END_X)
-      setConnPath(lePopConnLe5, b15, b15, START_X, KINK_LE5, END_X)
+      setConnPath(lePopConn33, bWs, slotWs, START_X, KINK_33, END_X)
+      setConnPath(lePopConn25, b1, slotB1, START_X, KINK_25, END_X)
+      setConnPath(lePopConnLe5, b15, slotB15, START_X, KINK_LE5, END_X)
       lePopConn33.style.display = ''
       lePopConn25.style.display = ''
       lePopConnLe5.style.display = ''
@@ -2530,11 +2546,13 @@ export function mountHeroExpandBlock(
 
     if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
       const pct = (customLeThreshold / maxV) * 100
+      const slotLe5 = dynamicSlotY(pct)
       lePopLineLe5.style.display = ''
       lePopLineLe5.style.bottom = pct.toFixed(3) + '%'
       lePopLabLe5.style.display = ''
+      lePopLabLe5.style.bottom = `${slotLe5.toFixed(3)}%`
       lePopConnLe5.style.display = ''
-      setConnPath(lePopConnLe5, pct, SLOT_Y_LE5, START_X, KINK_LE5, END_X)
+      setConnPath(lePopConnLe5, pct, slotLe5, START_X, KINK_LE5, END_X)
       const malLe5 = leV != null && (dead || leV <= customLeThreshold)
       if (malLe5) {
         lePopLabLe5.innerHTML =
@@ -2549,14 +2567,16 @@ export function mountHeroExpandBlock(
     }
     if (maxV != null && maxV > 0 && maxV > unfaehigThreshold) {
       const pctUnf = (unfaehigThreshold / maxV) * 100
+      const slotUnf = dynamicSlotY(pctUnf)
       lePopLineUnf.style.display = ''
       lePopLineUnf.style.bottom = pctUnf.toFixed(3) + '%'
       lePopLabUnf.style.display = ''
+      lePopLabUnf.style.bottom = `${slotUnf.toFixed(3)}%`
       lePopConnUnf.style.display = ''
       setConnPath(
         lePopConnUnf,
         pctUnf,
-        SLOT_Y_UNFAEHIG,
+        slotUnf,
         START_X,
         KINK_UNFAEHIG,
         END_X
@@ -2611,13 +2631,13 @@ export function mountHeroExpandBlock(
     lePop.style.width = `${Math.round(width * 1000) / 1000}px`
     lePop.style.height = `${Math.round(height * 1000) / 1000}px`
 
-    const popR = lePop.getBoundingClientRect()
+    const labelsR = lePopLabels.getBoundingClientRect()
     const stackLeR = stackLe.getBoundingClientRect()
     const stackLeMaxR = stackLeMax.getBoundingClientRect()
     const chainLeft = Math.min(stackLeR.left, stackLeMaxR.left)
     const chainTop = Math.min(stackLeR.top, stackLeMaxR.top)
-    const leftInPop = Math.max(0, chainLeft - popR.left)
-    const topInPop = Math.max(0, chainTop - popR.top)
+    const leftInPop = Math.max(0, chainLeft - labelsR.left)
+    const topInPop = Math.max(0, chainTop - labelsR.top)
     lePopLeMaxBlock.style.left = `${Math.round(leftInPop * 1000) / 1000}px`
     lePopLeMaxBlock.style.top = `${Math.round(topInPop * 1000) / 1000}px`
   }
@@ -2653,6 +2673,29 @@ export function mountHeroExpandBlock(
       target.focus()
       target.select()
     }
+  }
+
+  const isLeMaxDirectEditMode = () => {
+    if (!canEdit) return false
+    const leNow = parseLeIntSafe(leInp.value)
+    return leNow != null && leNow <= 0
+  }
+
+  const syncLeMaxInputMode = () => {
+    if (!canEdit) return
+    const directMode = isLeMaxDirectEditMode()
+    if (directMode) {
+      leMaxInp.readOnly = false
+      leMaxInp.removeAttribute('aria-readonly')
+      leMaxInp.title = `${baseLeMaxTitle}${leMaxDirectHint}`
+    } else {
+      leMaxInp.readOnly = true
+      leMaxInp.setAttribute('aria-readonly', 'true')
+      leMaxInp.title = `${baseLeMaxTitle}${leReadOnlyHint}`
+    }
+    leInp.readOnly = true
+    leInp.setAttribute('aria-readonly', 'true')
+    leInp.title = `${baseLeTitle}${leReadOnlyHint}`
   }
 
   const openLePopover = (source = 's') => {
@@ -2697,6 +2740,7 @@ export function mountHeroExpandBlock(
   leThreshAbbr.style.cursor = 'pointer'
   leThreshAbbr.addEventListener('click', toggleLePopoverFromClick)
   const openLePopoverFromInputClick = (source) => (e) => {
+    if (source === 'max' && isLeMaxDirectEditMode()) return
     e.preventDefault()
     e.stopPropagation()
     openLePopover(source)
@@ -2707,6 +2751,8 @@ export function mountHeroExpandBlock(
   leInp.addEventListener('input', updateLePopover)
   leMaxInp.addEventListener('input', updateLePopover)
   koAttr.inp.addEventListener('input', updateLePopover)
+  leInp.addEventListener('input', syncLeMaxInputMode)
+  syncLeMaxInputMode()
 
   zoneMidRow.append(spTzPair)
   attrKoTpWrap.append(leChain, leThreshCell)
