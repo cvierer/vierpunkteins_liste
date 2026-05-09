@@ -5512,7 +5512,7 @@ function bindStampContextRemove(el, stamp, items) {
         phaseZaoMeta.className = 'init-phase-zao-meta'
         const iniActLabel = document.createElement('span')
         iniActLabel.className = 'init-phase-zao-ini-label'
-        iniActLabel.textContent = ''
+        iniActLabel.textContent = '2.A.'
         iniActLabel.title = lhPending
           ? `L.H. (${lhProgressLabel ?? '?/?'}) — Fortschritt`
           : 'Längerfristige Handlung abgeschlossen: Zusatz-Aktion'
@@ -5526,7 +5526,7 @@ function bindStampContextRemove(el, stamp, items) {
         nameEl.title = lhPending
           ? 'Längerfristige Handlung — Fortschritt in der INI-Spalte'
           : '2. Aktionsphase · Ziel-INI am Lineal ziehen'
-        phaseZaoMeta.append(nameEl)
+        phaseZaoMeta.append(iniActLabel, nameEl)
 
         const iniInput = document.createElement('input')
         iniInput.className = 'init-row-init'
