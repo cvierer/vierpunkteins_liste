@@ -2363,6 +2363,8 @@ body {
 .init-hero-ex__le-pop__le-chain-wrap {
   --le-pop-chain-h: var(--init-hero-cell);
   --le-pop-lemax-abbr: calc(0.54rem * var(--init-box-scale));
+  --le-pop-track-w: calc(1rem * var(--init-ui-scale));
+  --le-pop-gauge-gap: 0.28rem;
   position: absolute;
   top: 0;
   left: 0;
@@ -2398,35 +2400,63 @@ body {
   font-size: var(--le-pop-lemax-abbr);
 }
 
-/* Über LE/MAX (nicht im Fluss): Überschrift links, Schwelle darunter bündig */
-.init-hero-ex__le-pop__threshold-shelf {
+.init-hero-ex__le-pop__labels-band {
+  position: relative;
+  width: calc(2 * var(--init-hero-cell));
+  box-sizing: border-box;
+}
+
+/* „Schwellen:“ über LE/-Zeile, bis zur Balkenkante (nicht im Fluss der Kette) */
+.init-hero-ex__le-pop__schwellen-title {
   position: absolute;
   bottom: 100%;
   left: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.12rem;
   margin-bottom: var(--init-hero-label-input-gap);
-  margin-top: 0;
-  width: max-content;
-  max-width: min(100%, calc(2 * var(--init-hero-cell)));
+  width: calc(
+    2 * var(--init-hero-cell) + var(--le-pop-gauge-gap) + var(--le-pop-track-w)
+  );
+  max-width: calc(
+    2 * var(--init-hero-cell) + var(--le-pop-gauge-gap) + var(--le-pop-track-w)
+  );
   box-sizing: border-box;
-  pointer-events: none;
-}
-
-.init-hero-ex__le-pop__threshold-head.init-hero-ex__abbr {
-  font-size: var(--le-pop-lemax-abbr);
-  line-height: 1.1;
-}
-
-.init-hero-ex__le-pop__threshold-curr {
   font-family: var(--font-heading);
-  font-size: var(--le-pop-lemax-abbr);
+  font-size: calc(0.32rem * var(--init-ui-scale));
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.15;
-  color: rgba(26, 23, 20, 0.9);
+  color: rgba(26, 23, 20, 0.72);
+  pointer-events: none;
+}
+
+/* Regeln unter den Eingaben, gleiche Breite bis zum Balken */
+.init-hero-ex__le-pop__schwellen-rules {
+  margin-top: var(--init-hero-label-input-gap);
+  width: calc(
+    2 * var(--init-hero-cell) + var(--le-pop-gauge-gap) + var(--le-pop-track-w)
+  );
+  max-width: calc(
+    2 * var(--init-hero-cell) + var(--le-pop-gauge-gap) + var(--le-pop-track-w)
+  );
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.06rem;
+  pointer-events: none;
+}
+
+.init-hero-ex__le-pop__schwellen-rule {
+  font-family: var(--font-heading);
+  font-size: calc(0.34rem * var(--init-ui-scale));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: rgba(26, 23, 20, 0.58);
+}
+
+.init-hero-ex__le-pop__schwellen-rule--active {
+  font-weight: 800;
+  color: rgba(26, 23, 20, 0.94);
 }
 
 .init-hero-ex__le-pop__le-chain-wrap .init-hero-ex__le-chain__inputs {

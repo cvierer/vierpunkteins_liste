@@ -2046,18 +2046,38 @@ export function mountHeroExpandBlock(
   lePopSecondInpSlot.append(lePopMaxInpCell, lePopKoInpCell)
   lePopKoInpCell.style.display = 'none'
   lePopLeMaxInputs.append(mkLePopInpCell(lePopLeInp), lePopSecondInpSlot)
-  const lePopThresholdShelf = document.createElement('div')
-  lePopThresholdShelf.className = 'init-hero-ex__le-pop__threshold-shelf'
-  const lePopThresholdHead = document.createElement('div')
-  lePopThresholdHead.className =
-    'init-hero-ex__abbr init-hero-ex__abbr--no-case init-hero-ex__le-pop__threshold-head'
-  lePopThresholdHead.textContent = 'LE Schwellen'
-  const lePopThresholdCurr = document.createElement('div')
-  lePopThresholdCurr.className = 'init-hero-ex__le-pop__threshold-curr'
-  lePopThresholdCurr.setAttribute('aria-live', 'polite')
-  lePopThresholdShelf.append(lePopThresholdHead, lePopThresholdCurr)
-  /* Überschrift über LE/MAX; absolut nach oben, LE-Kette bleibt ausgerichtet (positionLePopover). */
-  lePopLeMaxBlock.append(lePopThresholdShelf, lePopLeMaxLabels, lePopLeMaxInputs)
+
+  const lePopSchwellenTitle = document.createElement('div')
+  lePopSchwellenTitle.className = 'init-hero-ex__le-pop__schwellen-title'
+  lePopSchwellenTitle.textContent = 'Schwellen:'
+  const lePopLabelsBand = document.createElement('div')
+  lePopLabelsBand.className = 'init-hero-ex__le-pop__labels-band'
+  lePopLabelsBand.append(lePopSchwellenTitle, lePopLeMaxLabels)
+
+  const mkSchwellenRuleLine = (id, text) => {
+    const row = document.createElement('div')
+    row.className = 'init-hero-ex__le-pop__schwellen-rule'
+    row.dataset.ruleId = String(id)
+    row.textContent = text
+    return row
+  }
+  const lePopSchwellenRules = document.createElement('div')
+  lePopSchwellenRules.className = 'init-hero-ex__le-pop__schwellen-rules'
+  lePopSchwellenRules.setAttribute('aria-live', 'polite')
+  const lePopRuleRowUnf = mkSchwellenRuleLine(4, '')
+  lePopSchwellenRules.append(
+    mkSchwellenRuleLine(0, 'alles ok'),
+    mkSchwellenRuleLine(1, 'LE<LE/2'),
+    mkSchwellenRuleLine(2, 'LE<1/3 LE'),
+    mkSchwellenRuleLine(3, 'LE<1/4 LE'),
+    lePopRuleRowUnf,
+    mkSchwellenRuleLine(5, 'LE≤0'),
+    mkSchwellenRuleLine(6, 'LE<WS'),
+    mkSchwellenRuleLine(7, 'LE<KO'),
+    mkSchwellenRuleLine(8, 'LE<1,5 KO')
+  )
+
+  lePopLeMaxBlock.append(lePopLabelsBand, lePopLeMaxInputs, lePopSchwellenRules)
 
   /* Geknickte Leader-Lines: Labels sitzen auf festen Slots (kollisionsfrei),
      die echte Schwellen-Linie im Gauge-Balken wird per SVG-Polyline zum
@@ -2350,58 +2370,80 @@ export function mountHeroExpandBlock(
     else lineEl.dataset.leVal = String(Math.round(n))
   }
 
-  /**
-   * Letzte unterschrittene Schwelle (gleiche Grenzwerte wie die Balken-Zahlen):
-   * kleinstes T (aufsteigend sortiert) mit LE≤T; sonst LE≥ höchster Schwelle.
-   */
-  const formatLePopoverActiveThreshold = ({
+  /** Unterste zutreffende Regel (Index 8→0) markieren; Regeln 6–8 nur bei negLe. */
+  const refreshSchwellenRules = ({
     leV,
     maxV,
     koV,
     wsRaw,
     negLe,
-    dead,
-    customLeThreshold,
     unfaehigThreshold: ufThresh,
   }) => {
-    if (dead) return 'LE<0'
+    lePopRuleRowUnf.textContent = `LE≤${ufThresh}`
+    const maxOk = maxV != null && maxV > 0
+    const n2 = maxOk ? Math.round(maxV / 2) : NaN
+    const n3 = maxOk ? Math.round(maxV / 3) : NaN
+    const n4 = maxOk ? Math.round(maxV / 4) : NaN
+    let wsR = 0
+    let n15Neg = 0
     if (negLe && koV != null && koV > 0) {
       const wsThreshold =
         wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
-      const wsR = Math.round(wsThreshold)
-      const n15 = Math.round(1.5 * koV)
-      const leAtWs = -wsR
-      const leAtKo = -koV
-      const leAt15 = -n15
-      const thresholds = [...new Set([leAt15, leAtKo, leAtWs])].sort(
-        (a, b) => a - b
-      )
-      if (leV == null || !Number.isFinite(leV)) return '—'
-      for (const t of thresholds) {
-        if (leV <= t) return `LE≤${t}`
+      wsR = Math.round(wsThreshold)
+      n15Neg = Math.round(1.5 * koV)
+    }
+    const leOk = leV != null && Number.isFinite(leV)
+
+    for (let id = 0; id <= 8; id++) {
+      const el = lePopSchwellenRules.querySelector(`[data-rule-id="${id}"]`)
+      el?.classList.remove('init-hero-ex__le-pop__schwellen-rule--active')
+    }
+    for (let id = 6; id <= 8; id++) {
+      const el = lePopSchwellenRules.querySelector(`[data-rule-id="${id}"]`)
+      if (el) el.style.display = negLe ? '' : 'none'
+    }
+
+    /** @param {number} id */
+    const testRule = (id) => {
+      switch (id) {
+        case 8:
+          return (
+            negLe &&
+            koV != null &&
+            koV > 0 &&
+            leOk &&
+            leV < -n15Neg
+          )
+        case 7:
+          return negLe && koV != null && koV > 0 && leOk && leV < -koV
+        case 6:
+          return negLe && koV != null && koV > 0 && leOk && leV < -wsR
+        case 5:
+          return leOk && leV <= 0
+        case 4:
+          return maxOk && maxV > ufThresh && leOk && leV <= ufThresh
+        case 3:
+          return maxOk && leOk && leV < n4
+        case 2:
+          return maxOk && leOk && leV < n3
+        case 1:
+          return maxOk && leOk && leV < n2
+        case 0:
+          return maxOk && leOk && leV > n2
+        default:
+          return false
       }
-      return `LE≥${thresholds[thresholds.length - 1]}`
     }
-    if (leV == null || !Number.isFinite(leV)) return '—'
-    const maxOk = maxV != null && maxV > 0
-    if (!maxOk) return '—'
-    const n2 = Math.round(maxV / 2)
-    const n3 = Math.round(maxV / 3)
-    const n4 = Math.round(maxV / 4)
-    /** @type {number[]} */
-    const thresholds = [n4, n3, n2]
-    if (
-      customLeThreshold != null &&
-      maxV > customLeThreshold
-    ) {
-      thresholds.push(Math.floor(Number(customLeThreshold)))
+
+    for (let id = 8; id >= 0; id--) {
+      if (id >= 6 && id <= 8 && !negLe) continue
+      if (testRule(id)) {
+        lePopSchwellenRules
+          .querySelector(`[data-rule-id="${id}"]`)
+          ?.classList.add('init-hero-ex__le-pop__schwellen-rule--active')
+        break
+      }
     }
-    if (maxV > ufThresh) thresholds.push(ufThresh)
-    const uniq = [...new Set(thresholds)].sort((a, b) => a - b)
-    for (const t of uniq) {
-      if (leV <= t) return `LE≤${t}`
-    }
-    return `LE≥${uniq[uniq.length - 1]}`
   }
 
   const updateLePopover = () => {
@@ -2526,14 +2568,12 @@ export function mountHeroExpandBlock(
       lePopPct.style.display = 'none'
       lePopPct.textContent = ''
       lePopPct.removeAttribute('title')
-      lePopThresholdCurr.textContent = formatLePopoverActiveThreshold({
+      refreshSchwellenRules({
         leV,
         maxV,
         koV,
         wsRaw,
         negLe: true,
-        dead: false,
-        customLeThreshold,
         unfaehigThreshold,
       })
       return
@@ -2665,14 +2705,12 @@ export function mountHeroExpandBlock(
       lePopConnUnf.style.display = 'none'
     }
 
-    lePopThresholdCurr.textContent = formatLePopoverActiveThreshold({
+    refreshSchwellenRules({
       leV,
       maxV,
       koV,
       wsRaw,
       negLe: false,
-      dead,
-      customLeThreshold,
       unfaehigThreshold,
     })
   }
