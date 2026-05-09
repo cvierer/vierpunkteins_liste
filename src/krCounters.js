@@ -656,8 +656,10 @@ function isConvertAnytimeEnabled(meta) {
   return (
     typeof meta === 'object' &&
     meta !== null &&
-    /** @type {{ convertAnytimeEnabled?: unknown }} */ (meta)
-      .convertAnytimeEnabled === true
+    (/** @type {{ convertAnytimeEnabled?: unknown }} */ (meta)
+      .convertAnytimeEnabled === true ||
+      /** @type {{ convertAllowEntireRound?: unknown }} */ (meta)
+        .convertAllowEntireRound === true)
   )
 }
 

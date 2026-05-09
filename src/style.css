@@ -5248,7 +5248,7 @@ select.init-row-extra-select {
   padding-left: var(--init-obj-cell);
   font-size: calc(0.75rem * var(--init-ui-scale));
   font-weight: 500;
-  color: rgba(140, 140, 140, 0.9);
+  color: rgba(255, 245, 225, 0.95);
   white-space: nowrap;
 }
 

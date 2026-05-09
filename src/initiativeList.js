@@ -411,7 +411,7 @@ function createRoundRowConvertLockButton() {
  * - Schloss „offen“: immer erlaubt.
  * - Schloss „geschlossen“: nie erlaubt.
  * - Schloss „Automatik“:
- *   - `convertAnytimeEnabled` auf dem Tracker → erlaubt (wie offen, aber nur dieser Held).
+ *   - Heldenmodus „Gesamte Kampfrunde“ (inkl. Legacy `convertAnytimeEnabled`) → erlaubt.
  *   - Navigation steht auf Beginn/Ende der Kampfrunde → erlaubt.
  *   - Sonst greifen die Helden-Ansageoptionen:
  *     · `convertAllowEntireRound` → erlaubt (gesamte KR).
@@ -424,8 +424,14 @@ function createRoundRowConvertLockButton() {
 function convertAnnounceModeFromHeroMeta(m) {
   if (!m) return 'none'
   if (m.convertAllowEntireRound) return 'entireRound'
+  if (m.convertAnytimeEnabled) return 'entireRound'
   if (m.convertAllowFirstPhase) return 'firstPhase'
   return 'none'
+}
+
+function isHeroConvertAnytimeMode(m) {
+  if (!m || typeof m !== 'object') return false
+  return m.convertAllowEntireRound === true || m.convertAnytimeEnabled === true
 }
 
 function isHeroConvertAllowedForViewer(
@@ -437,7 +443,7 @@ function isHeroConvertAllowedForViewer(
   if (isGmSync()) return true
   const lock = getRoomSettings().convertLockState
   if (lock === 'closed') return false
-  if (trackerMeta?.convertAnytimeEnabled === true) return true
+  if (isHeroConvertAnytimeMode(trackerMeta)) return true
   if (lock === 'open') return true
   const atRoundBoundary =
     !rowActivePhaseLinkId &&
@@ -3339,15 +3345,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         </label>
         <label class="kampf-settings-radio-label">
           <input type="radio" name="kampf-hero-convert-announce" value="entireRound" />
-          <span><strong>Gesamte Kampfrunde:</strong> Der Spieler darf die Umwandlungs-Pfeile in jeder Navigations-Position der Kampfrunde nutzen.</span>
+          <span><strong>Gesamte Kampfrunde:</strong> Der Spieler darf die Umwandlungs-Pfeile in jeder Navigations-Position der Kampfrunde nutzen; dabei gilt automatisch auch der frühere „Umwandeln jederzeit“-Effekt (inkl. Spiegelanzeige an regulären 2.-Aktionszeilen, ohne Zusatzladungen).</span>
         </label>
       </fieldset>
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-hero-convert-anytime />
-        <span><strong>Umwandeln jederzeit möglich:</strong> Umwandlungspfeile unabhängig von der Listen-Navigation (vorbehaltlich SL-Schloss „geschlossen“). Bei aktiv gesetzt können an regulären 2.-Aktionszeilen dieselben Pfeile und eine Schildanzeige als Spiegel des Mutterobjekts erscheinen — keine zusätzlichen Ladungen.</span>
-      </label>
     </div>
     <div class="kampf-settings-panel__section">
       <label class="init-row-extra-label">Hintergrundfarbe (Hauptzeile)</label>
@@ -3477,9 +3477,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   )
   const heroConvertAnnounceFieldset = heroSettingsPanel.querySelector(
     'fieldset.kampf-settings-convert-announce'
-  )
-  const heroConvertAnytimeCb = heroSettingsPanel.querySelector(
-    '[data-kampf-hero-convert-anytime]'
   )
   const heroHideForeignCb = heroSettingsPanel.querySelector(
     '[data-kampf-hero-hide-foreign-colors]'
@@ -3897,11 +3894,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               )
         if (toCheck instanceof HTMLInputElement) toCheck.checked = true
       }
-      if (heroConvertAnytimeCb instanceof HTMLInputElement) {
-        const ca = heroPending?.convertAnytimeEnabled === true
-        heroConvertAnytimeCb.checked = ca
-        heroConvertAnytimeCb.disabled = !heroSettingsGmMode
-      }
     }
     if (heroColorGrid instanceof HTMLElement && heroSettingsItemId) {
       const it = lastItems.find((i) => i.id === heroSettingsItemId)
@@ -3986,7 +3978,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       wappenOverride: hasWappenOverride
         ? normalizeWappenDefs(wappenOverrideRaw)
         : null,
-      convertAnytimeEnabled: m?.convertAnytimeEnabled === true,
     }
     if (titleHeroEl) {
       titleHeroEl.textContent = gm
@@ -4222,7 +4213,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         const mode = pend.convertAnnounceMode ?? 'none'
         if (mode === 'firstPhase') m.convertAllowFirstPhase = true
         else if (mode === 'entireRound') m.convertAllowEntireRound = true
-        if (pend.convertAnytimeEnabled) m.convertAnytimeEnabled = true
+        if (mode === 'entireRound') m.convertAnytimeEnabled = true
         else delete m.convertAnytimeEnabled
         m[HERO_ACTION_POOL_MAX] = pend.heroActionPoolMax
         m[HERO_ACTION_POOL_ANG] = pend.heroActionPoolAng
@@ -4438,13 +4429,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const v = t.value
     heroPending.convertAnnounceMode =
       v === 'firstPhase' || v === 'entireRound' ? v : 'none'
-  })
-
-  heroConvertAnytimeCb?.addEventListener('change', (e) => {
-    if (!isGmSync() || !heroPending) return
-    const t = e.target
-    if (!(t instanceof HTMLInputElement)) return
-    heroPending.convertAnytimeEnabled = t.checked
   })
 
   heroSettingsPanel.addEventListener('change', (e) => {
@@ -5770,7 +5754,7 @@ function bindStampContextRemove(el, stamp, items) {
 
         const zaoMotherMirrorUi =
           isZaoRoot &&
-          Boolean(ownerTrackerMeta?.convertAnytimeEnabled) &&
+          isHeroConvertAnytimeMode(ownerTrackerMeta) &&
           !isHeroExtraZao &&
           !isLhEndLink &&
           zaoOverrideKind !== 'lh'
@@ -5815,7 +5799,7 @@ function bindStampContextRemove(el, stamp, items) {
                   hideLh: true,
                   hideConvert: false,
                   abwMirrorLinkUi: true,
-                  motherPrimaryStamped: ownerTrackerMeta?.convertAnytimeEnabled
+                  motherPrimaryStamped: isHeroConvertAnytimeMode(ownerTrackerMeta)
                     ? false
                     : zaoMotherStamped,
                   zaoSlotOverride: zaoSlot
