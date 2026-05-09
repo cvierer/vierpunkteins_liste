@@ -4573,6 +4573,8 @@ export function mountHeroExpandBlock(
     })
     const unfaehigIgnoreTooltip =
       'Unfähigkeit ignorieren: durch Vorteil oder Selbstbeherrschung +12, dann Zauber- und Talentproben ↓9 und Eigenschaftsproben und Kampfwerte zusätzlich ↓3'
+    const woundEffectsIgnoreSelbstbehTooltip =
+      'Auswirkungen von Wunde(n) (für Standard = 5 KR) ignorieren: mit Probe auf Selbstbeherrschung um 4 Punkte erschwert pro Wunde.'
     const sterbendTooltipExtra =
       'Erste Hilfe und Rettung mit Frist von W6×Konstitution (KO) Kampfrunden (KR) notwendig'
     const permanentLossTooltip =
@@ -4734,6 +4736,11 @@ export function mountHeroExpandBlock(
         const cardTitle = keepTitleClean
           ? cardTitleBase
           : `${cardTitleBase}${!isAutoBundle && canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''}`
+        const cardTitleFinal =
+          bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX) &&
+          (wZoneForChip === 1 || wZoneForChip === 2)
+            ? `${cardTitle} \u00B7 ${woundEffectsIgnoreSelbstbehTooltip}`
+            : cardTitle
         let netSum = 0
         if (String(modRec.bundleId ?? '') !== AUTO_LE_UNFAEHIG_BUNDLE_ID) {
           for (const bm of visibleBundleMods) {
@@ -4758,7 +4765,7 @@ export function mountHeroExpandBlock(
               : '',
           shortSummary,
           netSum,
-          cardTitle,
+          cardTitle: cardTitleFinal,
           removeTitle: isAutoBundle
             ? 'Automatik-Modifikator entfernen'
             : 'Mod-Paket entfernen',
