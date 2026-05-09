@@ -849,6 +849,16 @@ html:not(.v4-is-gm) .kampf-settings-gear-host {
   margin-top: 0;
 }
 
+/*
+ * Vierbeiner: weniger Mini-Wappen → SP/TZ-Paar steht weiter links. Mit vollem
+ * --init-hero-ex-r2-r3-lift überdeckt Zeile 3 (.init-hero-ex__zone-mid, z-index 8)
+ * optisch die erste Kästchenreihe (TP, MR in der IB-Kette), obwohl die Werte
+ * in den Feldern erhalten bleiben.
+ */
+.init-hero-ex--vierbeiner {
+  --init-hero-ex-r2-r3-lift: calc(-0.22 * var(--init-hero-cell));
+}
+
 .init-hero-ex__lead-spacer {
   grid-column: 1;
   grid-row: 1 / span 2;

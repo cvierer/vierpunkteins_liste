@@ -907,7 +907,10 @@ export function mountHeroExpandBlock(
   container.replaceChildren()
 
   const root = document.createElement('div')
-  root.className = 'init-hero-ex' + (canEdit ? '' : ' init-hero-ex--view')
+  root.className =
+    'init-hero-ex' +
+    (canEdit ? '' : ' init-hero-ex--view') +
+    (isVierbeinerTemplateMeta(meta) ? ' init-hero-ex--vierbeiner' : '')
 
   const leadSpacer = document.createElement('div')
   leadSpacer.className = 'init-hero-ex__lead-spacer'
