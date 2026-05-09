@@ -2115,12 +2115,12 @@ export function mountHeroExpandBlock(
     lePopLabUnf,
     lePopLabLe5
   )
-  lePopGauge.append(lePopTrack, lePopLabels)
+  lePopGauge.append(lePopLabels, lePopTrack)
   lePopBody.append(lePopGauge)
   lePop.append(lePopHeader, lePopBody)
 
-  /* Muss zu END_X in updateLePopover passen (Beschriftung direkt nach Linienende). */
-  const LE_POP_CONN_END_X = 17
+  /* Muss zu END_X in updateLePopover passen (Beschriftung links, direkt vor Linienende). */
+  const LE_POP_CONN_END_X = 83
   lePopLabels.style.setProperty('--le-pop-conn-end', String(LE_POP_CONN_END_X))
 
   /* Zwei-Wege-Sync zwischen Haupt-Eingaben (leInp / leMaxInp) und den
@@ -2297,10 +2297,10 @@ export function mountHeroExpandBlock(
      Labels-Container (Anschluss an die Gauge-Linie) waagerecht bis zu einem
      Knick-Punkt, dann senkrecht auf die Slot-Höhe des Labels, dann waagerecht
      zum Text. Koordinaten in Prozent des SVG-ViewBox (0..100). */
-  const setConnPath = (poly, lineY, slotY, kinkX, endX) => {
+  const setConnPath = (poly, lineY, slotY, startX, kinkX, endX) => {
     const lyV = 100 - lineY
     const syV = 100 - slotY
-    const pts = `0,${lyV.toFixed(2)} ${kinkX.toFixed(2)},${lyV.toFixed(2)} ${kinkX.toFixed(2)},${syV.toFixed(2)} ${endX.toFixed(2)},${syV.toFixed(2)}`
+    const pts = `${startX.toFixed(2)},${lyV.toFixed(2)} ${kinkX.toFixed(2)},${lyV.toFixed(2)} ${kinkX.toFixed(2)},${syV.toFixed(2)} ${endX.toFixed(2)},${syV.toFixed(2)}`
     poly.setAttribute('points', pts)
   }
 
@@ -2342,11 +2342,12 @@ export function mountHeroExpandBlock(
     lePop.dataset.leDead = dead ? 'true' : 'false'
 
     /* Knick-Positionen (%-SVG): ~50 % der vorigen horizontalen Ausdehnung (END 34→17). */
-    const KINK_50 = 11
-    const KINK_33 = 8
-    const KINK_25 = 4
-    const KINK_UNFAEHIG = 14
-    const KINK_LE5 = 14
+    const START_X = 100
+    const KINK_50 = 89
+    const KINK_33 = 92
+    const KINK_25 = 96
+    const KINK_UNFAEHIG = 86
+    const KINK_LE5 = 86
     const END_X = LE_POP_CONN_END_X
 
     if (negLe) {
@@ -2409,9 +2410,9 @@ export function mountHeroExpandBlock(
       lePopLab25.textContent = `−1·KO (${koV})`
       lePopLabLe5.textContent = `−1,5·KO (${n15})`
 
-      setConnPath(lePopConn33, bWs, bWs, KINK_33, END_X)
-      setConnPath(lePopConn25, b1, b1, KINK_25, END_X)
-      setConnPath(lePopConnLe5, b15, b15, KINK_LE5, END_X)
+      setConnPath(lePopConn33, bWs, bWs, START_X, KINK_33, END_X)
+      setConnPath(lePopConn25, b1, b1, START_X, KINK_25, END_X)
+      setConnPath(lePopConnLe5, b15, b15, START_X, KINK_LE5, END_X)
       lePopConn33.style.display = ''
       lePopConn25.style.display = ''
       lePopConnLe5.style.display = ''
@@ -2489,9 +2490,9 @@ export function mountHeroExpandBlock(
       lePopPct.title = 'LE und LE max erforderlich für Prozentangabe'
     }
 
-    setConnPath(lePopConn50, 50, SLOT_Y_HALF, KINK_50, END_X)
-    setConnPath(lePopConn33, 33.333, SLOT_Y_THIRD, KINK_33, END_X)
-    setConnPath(lePopConn25, 25, SLOT_Y_QUARTER, KINK_25, END_X)
+    setConnPath(lePopConn50, 50, SLOT_Y_HALF, START_X, KINK_50, END_X)
+    setConnPath(lePopConn33, 33.333, SLOT_Y_THIRD, START_X, KINK_33, END_X)
+    setConnPath(lePopConn25, 25, SLOT_Y_QUARTER, START_X, KINK_25, END_X)
 
     const maxOk = maxV != null && maxV > 0
     const valSpan = (n, mal) => {
@@ -2533,7 +2534,7 @@ export function mountHeroExpandBlock(
       lePopLineLe5.style.bottom = pct.toFixed(3) + '%'
       lePopLabLe5.style.display = ''
       lePopConnLe5.style.display = ''
-      setConnPath(lePopConnLe5, pct, SLOT_Y_LE5, KINK_LE5, END_X)
+      setConnPath(lePopConnLe5, pct, SLOT_Y_LE5, START_X, KINK_LE5, END_X)
       const malLe5 = leV != null && (dead || leV <= customLeThreshold)
       if (malLe5) {
         lePopLabLe5.innerHTML =
@@ -2552,7 +2553,14 @@ export function mountHeroExpandBlock(
       lePopLineUnf.style.bottom = pctUnf.toFixed(3) + '%'
       lePopLabUnf.style.display = ''
       lePopConnUnf.style.display = ''
-      setConnPath(lePopConnUnf, pctUnf, SLOT_Y_UNFAEHIG, KINK_UNFAEHIG, END_X)
+      setConnPath(
+        lePopConnUnf,
+        pctUnf,
+        SLOT_Y_UNFAEHIG,
+        START_X,
+        KINK_UNFAEHIG,
+        END_X
+      )
       const malUnf = leV != null && (dead || leV <= unfaehigThreshold)
       if (malUnf) {
         lePopLabUnf.innerHTML =
@@ -2602,6 +2610,16 @@ export function mountHeroExpandBlock(
     lePop.style.top = `${Math.round(top * 1000) / 1000}px`
     lePop.style.width = `${Math.round(width * 1000) / 1000}px`
     lePop.style.height = `${Math.round(height * 1000) / 1000}px`
+
+    const popR = lePop.getBoundingClientRect()
+    const stackLeR = stackLe.getBoundingClientRect()
+    const stackLeMaxR = stackLeMax.getBoundingClientRect()
+    const chainLeft = Math.min(stackLeR.left, stackLeMaxR.left)
+    const chainTop = Math.min(stackLeR.top, stackLeMaxR.top)
+    const leftInPop = Math.max(0, chainLeft - popR.left)
+    const topInPop = Math.max(0, chainTop - popR.top)
+    lePopLeMaxBlock.style.left = `${Math.round(leftInPop * 1000) / 1000}px`
+    lePopLeMaxBlock.style.top = `${Math.round(topInPop * 1000) / 1000}px`
   }
 
   const closeLePopover = () => {
@@ -2622,15 +2640,30 @@ export function mountHeroExpandBlock(
     }
   }
 
-  const openLePopover = () => {
-    if (lePop.isConnected) {
-      closeLePopover()
+  const focusLePopoverFromSource = (source = 's') => {
+    if (source === 'le') {
+      lePopLeInp.focus()
+      lePopLeInp.select()
       return
     }
-    root.appendChild(lePop)
-    leThreshCell.classList.add('init-hero-ex__le-threshold--open')
-    positionLePopover()
+    if (source === 'max') {
+      const leNow = parseLeIntSafe(leInp.value)
+      const focusKo = leNow != null && leNow <= 0
+      const target = focusKo ? lePopKoInp : lePopLeMaxInp
+      target.focus()
+      target.select()
+    }
+  }
+
+  const openLePopover = (source = 's') => {
+    if (!lePop.isConnected) {
+      root.appendChild(lePop)
+      leThreshCell.classList.add('init-hero-ex__le-threshold--open')
+    }
     updateLePopover()
+    positionLePopover()
+    focusLePopoverFromSource(source)
+    if (lePopOutsideHandler || lePopKeyHandler) return
     /* Close on outside click (in der ausklappbaren Fläche) */
     lePopOutsideHandler = (e) => {
       const tgt = e.target
@@ -2658,11 +2691,18 @@ export function mountHeroExpandBlock(
     e.preventDefault()
     e.stopPropagation()
     if (lePop.isConnected) closeLePopover()
-    else openLePopover()
+    else openLePopover('s')
   }
   leThreshBox.addEventListener('click', toggleLePopoverFromClick)
   leThreshAbbr.style.cursor = 'pointer'
   leThreshAbbr.addEventListener('click', toggleLePopoverFromClick)
+  const openLePopoverFromInputClick = (source) => (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    openLePopover(source)
+  }
+  leInp.addEventListener('click', openLePopoverFromInputClick('le'))
+  leMaxInp.addEventListener('click', openLePopoverFromInputClick('max'))
 
   leInp.addEventListener('input', updateLePopover)
   leMaxInp.addEventListener('input', updateLePopover)
