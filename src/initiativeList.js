@@ -5285,29 +5285,32 @@ function bindStampContextRemove(el, stamp, items) {
           extraPanel.hidden = canEdit ? !extrasOpen : false
           const body = document.createElement('div')
           body.className = 'init-row-extra-panel__body'
-          const infoHit = document.createElement('button')
-          infoHit.type = 'button'
-          infoHit.className = 'init-row-extra-info'
-          infoHit.innerHTML = HIT_ZONE_INFO_ICON_SVG
-          infoHit.title =
-            'Kampfprotokoll: Rechenwege und Trefferauswertung für diese Figur'
-          infoHit.setAttribute(
-            'aria-label',
-            `Kampfprotokoll für ${row.name}`
-          )
-          infoHit.addEventListener('click', (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            hitZoneOverlay.setFocusReturn(infoHit)
-            hitZoneOverlay.open(
-              row.id,
-              row.name,
-              tokenSceneItem?.metadata?.[TRACKER_ITEM_META_KEY],
-              canEdit
-            )
-          })
           /** @type {HTMLElement[]} */
-          const leadButtons = [infoHit]
+          const leadButtons = []
+          if (isGmSync()) {
+            const infoHit = document.createElement('button')
+            infoHit.type = 'button'
+            infoHit.className = 'init-row-extra-info'
+            infoHit.innerHTML = HIT_ZONE_INFO_ICON_SVG
+            infoHit.title =
+              'Kampfprotokoll: Rechenwege und Trefferauswertung für diese Figur'
+            infoHit.setAttribute(
+              'aria-label',
+              `Kampfprotokoll für ${row.name}`
+            )
+            infoHit.addEventListener('click', (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              hitZoneOverlay.setFocusReturn(infoHit)
+              hitZoneOverlay.open(
+                row.id,
+                row.name,
+                tokenSceneItem?.metadata?.[TRACKER_ITEM_META_KEY],
+                canEdit
+              )
+            })
+            leadButtons.push(infoHit)
+          }
           if (isGmSync() || canEdit) {
             const gearHero = document.createElement('button')
             gearHero.type = 'button'

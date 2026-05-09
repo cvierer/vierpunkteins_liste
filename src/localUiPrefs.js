@@ -1,7 +1,5 @@
-import { getRoomSettings } from './roomSettings.js'
-
 const SHOW_ACTION_STAMPS_KEY = 'vierp_show_action_stamps_v1'
-/** Persönlich: Fremde Helden-Hintergrundfarben ausblenden. Fehlt der Eintrag, gilt der Raum-Standard. */
+/** Persönlich: Fremde Helden-Hintergrundfarben ausblenden. Fehlt der Eintrag, Standard an. */
 const HIDE_FOREIGN_HERO_COLORS_KEY = 'vierp_hide_foreign_hero_colors_v1'
 
 const listeners = new Set()
@@ -39,7 +37,7 @@ export function onShowActionStampsChange(fn) {
 
 /**
  * Ob **auf diesem Gerät** fremde Helden-Zeilenfarben ausgeblendet werden.
- * Ohne lokalen Eintrag: wie `getRoomSettings().hideForeignHeroColors`.
+ * Ohne lokalen Eintrag: Standard **an** (wie Aktionsstempel).
  */
 export function getHideForeignHeroColorsForViewer() {
   try {
@@ -49,7 +47,8 @@ export function getHideForeignHeroColorsForViewer() {
   } catch {
     /* ignore */
   }
-  return Boolean(getRoomSettings().hideForeignHeroColors)
+  /* Ohne lokale Wahl: Standard wie Aktionsstempel — „fremde Farben ausblenden“ an. */
+  return true
 }
 
 /**

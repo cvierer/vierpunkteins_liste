@@ -548,6 +548,11 @@ body {
   line-height: 0;
 }
 
+/* Spieler: globales Kampf-Einstellungszahnrad nicht anzeigen */
+html:not(.v4-is-gm) .kampf-settings-gear-host {
+  display: none;
+}
+
 .kampf-build-version {
   flex: 1;
   text-align: center;

@@ -1,7 +1,7 @@
 import './style.css'
 import { BUILD_VERSION } from './buildVersion.js'
 import OBR from '@owlbear-rodeo/sdk'
-import { initEditAccess } from './editAccess.js'
+import { initEditAccess, isGmSync } from './editAccess.js'
 import { initCombatRoom } from './combatRoom.js'
 import { setupCombatControls } from './combatControls.js'
 
@@ -86,6 +86,13 @@ if (OBR.isAvailable) {
   OBR.onReady(async () => {
     await initCombatRoom()
     await initEditAccess()
+    const syncViewerChrome = () => {
+      const gm = isGmSync()
+      document.documentElement.classList.toggle('v4-is-gm', gm)
+      if (buildVerEl) buildVerEl.hidden = !gm
+    }
+    syncViewerChrome()
+    OBR.player.onChange(() => syncViewerChrome())
     void import('./turnMarkerCleanup.js').then((m) => m.cleanupLegacyTurnMarkers())
 
     const combatRoot = document.querySelector('[data-combat-root]')
