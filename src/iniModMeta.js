@@ -2156,6 +2156,20 @@ export function mountHeroExpandBlock(
   syncInputPair(leMaxInp, lePopLeMaxInp)
   syncInputPair(koAttr.inp, lePopKoInp)
 
+  const syncLePopInputTypography = () => {
+    const copyTypography = (src, dst) => {
+      const cs = getComputedStyle(src)
+      dst.style.fontFamily = cs.fontFamily
+      dst.style.fontSize = cs.fontSize
+      dst.style.fontWeight = cs.fontWeight
+      dst.style.letterSpacing = cs.letterSpacing
+      dst.style.lineHeight = cs.lineHeight
+    }
+    copyTypography(leInp, lePopLeInp)
+    copyTypography(leMaxInp, lePopLeMaxInp)
+    copyTypography(koAttr.inp, lePopKoInp)
+  }
+
   const totalWunden = () =>
     zoneUiMid.reduce((a, u) => a + (u.getWunden() || 0), 0)
 
@@ -2393,6 +2407,8 @@ export function mountHeroExpandBlock(
       lePopSkull.style.transform = 'translate(-50%, 50%)'
 
       lePopLine50.style.display = 'none'
+      lePopLine50.removeAttribute('data-inline-label')
+      lePopLine50.removeAttribute('title')
       lePopConn50.style.display = 'none'
       lePopLab50.style.display = 'none'
 
@@ -2425,6 +2441,14 @@ export function mountHeroExpandBlock(
       lePopLab33.textContent = `-WS (${wsThreshold})`
       lePopLab25.textContent = `−1·KO (${koV})`
       lePopLabLe5.textContent = `−1,5·KO (${n15})`
+      lePopLine33.dataset.inlineLabel = `-WS ${wsThreshold}`
+      lePopLine33.title = `Schwelle -WS (${wsThreshold})`
+      lePopLine25.dataset.inlineLabel = `-1KO ${koV}`
+      lePopLine25.title = `Schwelle -1·KO (${koV})`
+      lePopLineLe5.dataset.inlineLabel = `-1,5KO ${n15}`
+      lePopLineLe5.title = `Schwelle -1,5·KO (${n15})`
+      lePopLineUnf.removeAttribute('data-inline-label')
+      lePopLineUnf.removeAttribute('title')
 
       setConnPath(lePopConn33, bWs, slotWs, START_X, KINK_33, END_X)
       setConnPath(lePopConn25, b1, slotB1, START_X, KINK_25, END_X)
@@ -2464,6 +2488,8 @@ export function mountHeroExpandBlock(
       'init-hero-ex__le-pop__gauge-line--neg-le-solid'
     )
     lePopLine50.style.display = ''
+      lePopLine50.removeAttribute('data-inline-label')
+      lePopLine50.removeAttribute('title')
     lePopConn50.style.display = ''
     lePopLab50.style.display = ''
     lePopLab33.style.bottom = `${SLOT_Y_THIRD}%`
@@ -2531,6 +2557,15 @@ export function mountHeroExpandBlock(
         Math.round(maxV / 4),
         dead || f < 0.25
       )}`
+      const n2 = Math.round(maxV / 2)
+      const n3 = Math.round(maxV / 3)
+      const n4 = Math.round(maxV / 4)
+      lePopLine50.dataset.inlineLabel = `1/2 ${n2}`
+      lePopLine50.title = `Schwelle 1/2 LE (${n2})`
+      lePopLine33.dataset.inlineLabel = `1/3 ${n3}`
+      lePopLine33.title = `Schwelle 1/3 LE (${n3})`
+      lePopLine25.dataset.inlineLabel = `1/4 ${n4}`
+      lePopLine25.title = `Schwelle 1/4 LE (${n4})`
     } else if (maxOk) {
       const n2 = Math.round(maxV / 2)
       const n3 = Math.round(maxV / 3)
@@ -2538,10 +2573,22 @@ export function mountHeroExpandBlock(
       lePopLab50.textContent = `1/2 = ${n2}`
       lePopLab33.textContent = `1/3 = ${n3}`
       lePopLab25.textContent = `1/4 = ${n4}`
+      lePopLine50.dataset.inlineLabel = `1/2 ${n2}`
+      lePopLine50.title = `Schwelle 1/2 LE (${n2})`
+      lePopLine33.dataset.inlineLabel = `1/3 ${n3}`
+      lePopLine33.title = `Schwelle 1/3 LE (${n3})`
+      lePopLine25.dataset.inlineLabel = `1/4 ${n4}`
+      lePopLine25.title = `Schwelle 1/4 LE (${n4})`
     } else {
       lePopLab50.textContent = '1/2 = —'
       lePopLab33.textContent = '1/3 = —'
       lePopLab25.textContent = '1/4 = —'
+      lePopLine50.dataset.inlineLabel = '1/2'
+      lePopLine50.title = 'Schwelle 1/2 LE'
+      lePopLine33.dataset.inlineLabel = '1/3'
+      lePopLine33.title = 'Schwelle 1/3 LE'
+      lePopLine25.dataset.inlineLabel = '1/4'
+      lePopLine25.title = 'Schwelle 1/4 LE'
     }
 
     if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
@@ -2560,8 +2607,12 @@ export function mountHeroExpandBlock(
       } else {
         lePopLabLe5.textContent = String(customLeThreshold)
       }
+      lePopLineLe5.dataset.inlineLabel = `LE ${customLeThreshold}`
+      lePopLineLe5.title = `Schwelle LE ${customLeThreshold}`
     } else {
       lePopLineLe5.style.display = 'none'
+      lePopLineLe5.removeAttribute('data-inline-label')
+      lePopLineLe5.removeAttribute('title')
       lePopLabLe5.style.display = 'none'
       lePopConnLe5.style.display = 'none'
     }
@@ -2588,8 +2639,12 @@ export function mountHeroExpandBlock(
       } else {
         lePopLabUnf.textContent = `unfähig ≤ ${unfaehigThreshold}`
       }
+      lePopLineUnf.dataset.inlineLabel = `U ${unfaehigThreshold}`
+      lePopLineUnf.title = `Schwelle unfähig ≤ ${unfaehigThreshold}`
     } else {
       lePopLineUnf.style.display = 'none'
+      lePopLineUnf.removeAttribute('data-inline-label')
+      lePopLineUnf.removeAttribute('title')
       lePopLabUnf.style.display = 'none'
       lePopConnUnf.style.display = 'none'
     }
@@ -2640,6 +2695,7 @@ export function mountHeroExpandBlock(
     const topInPop = Math.max(0, chainTop - labelsR.top)
     lePopLeMaxBlock.style.left = `${Math.round(leftInPop * 1000) / 1000}px`
     lePopLeMaxBlock.style.top = `${Math.round(topInPop * 1000) / 1000}px`
+    syncLePopInputTypography()
   }
 
   const closeLePopover = () => {

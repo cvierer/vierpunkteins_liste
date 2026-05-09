@@ -2167,6 +2167,23 @@ body {
   pointer-events: none;
 }
 
+.init-hero-ex__le-pop__gauge-line::after {
+  content: attr(data-inline-label);
+  position: absolute;
+  right: 0.08rem;
+  top: 50%;
+  transform: translateY(-54%);
+  font-family: var(--font-heading);
+  font-size: calc(0.27rem * var(--init-ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: rgba(26, 23, 20, 0.82);
+  text-shadow: 0 0 2px rgba(255, 253, 248, 0.92);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .init-hero-ex__le-pop__gauge-line--50 {
   border-top-color: rgba(26, 23, 20, 0.72);
 }
@@ -2284,6 +2301,11 @@ body {
   pointer-events: none;
   color: rgba(26, 23, 20, 0.6);
   overflow: visible;
+}
+
+.init-hero-ex__le-pop__conn-svg,
+.init-hero-ex__le-pop__gauge-label {
+  display: none;
 }
 
 .init-hero-ex__le-pop__conn-line {
@@ -2410,11 +2432,6 @@ body {
 }
 
 .init-hero-ex__le-pop__le-chain-wrap .init-hero-ex__le-chain__inputs .init-hero-ex__micro--ib-chain-inp {
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-  line-height: inherit;
   text-align: center;
   padding: 0;
   width: 100%;
