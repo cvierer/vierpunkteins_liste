@@ -1913,8 +1913,7 @@ export function mountHeroExpandBlock(
   const lePopMods = document.createElement('div')
   lePopMods.className = 'init-hero-ex__le-pop__mods'
   lePopMods.title = 'Mod-Summe'
-  lePopMods.setAttribute('role', 'img')
-  lePopMods.setAttribute('aria-label', 'Modifikatoren: Summe 0')
+  lePopMods.setAttribute('aria-hidden', 'true')
   const lePopModsArrow = document.createElement('span')
   lePopModsArrow.className = 'init-hero-ex__le-pop__mods__arrow'
   lePopModsArrow.textContent = '\u2193'
@@ -2477,10 +2476,6 @@ export function mountHeroExpandBlock(
 
     lePopModsVal.textContent = String(modSum.total)
     lePopMods.dataset.zero = modSum.total === 0 ? 'true' : 'false'
-    lePopMods.setAttribute(
-      'aria-label',
-      `Modifikatoren: Summe ${modSum.total} (Details im Mouseover)`
-    )
 
     const leV = parseLeIntSafe(leInp.value)
     const maxV = parseLeIntSafe(leMaxInp.value)

@@ -1934,9 +1934,9 @@ body {
   color: rgba(120, 20, 14, 0.96);
 }
 
-/* Summe LE-/Wund-Modifikatoren */
+/* Summe LE-/Wund-Modifikatoren (S-Overlay: nicht anzeigen) */
 .init-hero-ex__le-pop__mods {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   gap: 0.1rem;
@@ -2419,7 +2419,7 @@ body {
 /* „Schwellen:“ über LE/-Zeile, bis zur Balkenkante (nicht im Fluss der Kette) */
 .init-hero-ex__le-pop__schwellen-title {
   position: absolute;
-  bottom: calc(100% + 0.1rem);
+  bottom: calc(100% + 0.22rem);
   left: 0;
   margin-bottom: var(--init-hero-label-input-gap);
   width: calc(
