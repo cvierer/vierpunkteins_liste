@@ -4,6 +4,7 @@ import {
   LH_REM,
   lhAwaitingCompletionStamp,
   lhDisplayStepFromNav,
+  lhEndsInRound,
   lhPieFraction,
 } from './lhMeta.js'
 
@@ -134,5 +135,26 @@ describe('lhDisplayStepFromNav', () => {
       priorFrozen
     )
     expect(frac).toBeCloseTo(2 / 3, 6)
+  })
+})
+
+describe('lhEndsInRound', () => {
+  it('2.A.-Start mit priorSpend: Ende in KR2 auf 2.A.-INI', () => {
+    const rKr1 = lhEndsInRound(3, 1, 1, 8, 2, -8, 0, 1)
+    expect(rKr1.endsInThisRound).toBe(false)
+
+    const rKr2 = lhEndsInRound(3, 1, 2, 8, 2, -8, 0, 1)
+    expect(rKr2).toEqual({
+      endsInThisRound: true,
+      endIni: 0,
+    })
+  })
+
+  it('2.A.-Start ohne restliche Commit-Ticks und max=1 endet auf commitIni', () => {
+    const r = lhEndsInRound(1, 1, 1, 8, 2, -8, 0, 1)
+    expect(r).toEqual({
+      endsInThisRound: true,
+      endIni: 0,
+    })
   })
 })

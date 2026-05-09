@@ -489,19 +489,32 @@ export function lhEndsInRound(
   const commitOffset = commitOffsetFromIni(owner, apN, stepN, commitRef)
   const priorCapped = clampPriorKrSpendForCommitKr(priorKrSpend, effAp, commitOffset)
   const ticksInCommitKr = Math.max(0, effAp - commitOffset - priorCapped)
+  const carryTicks = implicitLhZaoCommitCarryTicks(
+    ticksInCommitKr,
+    commitRef,
+    owner
+  )
+  const ticksAfterCommitKr = ticksInCommitKr + carryTicks
 
-  if (max <= ticksInCommitKr) {
+  if (max <= ticksAfterCommitKr) {
     const lastKr = cmtR
     if (cr !== lastKr) return { endsInThisRound: false, endIni: null }
-    const k = commitOffset + priorCapped + max - 1
-    let endIni = owner + k * stepN
-    if (!Number.isFinite(endIni)) {
-      return { endsInThisRound: false, endIni: null }
+    // Sonderfall: Start auf 2.A. ohne verbleibenden Trigger-Slot in der
+    // Commit-KR (`ticksInCommitKr === 0`) wird als impliziter Tick gutgeschrieben.
+    // Dann endet die L.H. am Commit-INI-Schritt selbst.
+    if (max > ticksInCommitKr) {
+      if (!Number.isFinite(commitRef)) {
+        return { endsInThisRound: false, endIni: null }
+      }
+      return { endsInThisRound: true, endIni: commitRef }
     }
+    const k = commitOffset + priorCapped + max - 1
+    const endIni = owner + k * stepN
+    if (!Number.isFinite(endIni)) return { endsInThisRound: false, endIni: null }
     return { endsInThisRound: true, endIni }
   }
 
-  const remaining = max - ticksInCommitKr
+  const remaining = max - ticksAfterCommitKr
   const extraKrs = Math.ceil(remaining / effAp)
   const lastKr = cmtR + extraKrs
   if (cr !== lastKr) return { endsInThisRound: false, endIni: null }
