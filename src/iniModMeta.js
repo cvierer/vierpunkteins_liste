@@ -2337,12 +2337,10 @@ export function mountHeroExpandBlock(
     const w = totalWunden()
     lePopWundenTxt.textContent = `W: ${w}`
     lePopWunden.dataset.zero = w === 0 ? 'true' : 'false'
-    lePopWunden.title = buildWundenZonesTitle(zoneUiMid, {
-      wappenDefs: snap.wappenDefs,
-    })
+    lePopWunden.removeAttribute('title')
 
     lePopModsVal.textContent = String(modSum.total)
-    lePopMods.title = modSum.title
+    lePopMods.removeAttribute('title')
     lePopMods.dataset.zero = modSum.total === 0 ? 'true' : 'false'
     lePopMods.setAttribute(
       'aria-label',
@@ -2441,12 +2439,12 @@ export function mountHeroExpandBlock(
       lePopLab33.textContent = `-WS (${wsThreshold})`
       lePopLab25.textContent = `−1·KO (${koV})`
       lePopLabLe5.textContent = `−1,5·KO (${n15})`
-      lePopLine33.dataset.inlineLabel = `-WS ${wsThreshold}`
-      lePopLine33.title = `Schwelle -WS (${wsThreshold})`
-      lePopLine25.dataset.inlineLabel = `-1KO ${koV}`
-      lePopLine25.title = `Schwelle -1·KO (${koV})`
-      lePopLineLe5.dataset.inlineLabel = `-1,5KO ${n15}`
-      lePopLineLe5.title = `Schwelle -1,5·KO (${n15})`
+      lePopLine33.removeAttribute('data-inline-label')
+      lePopLine33.removeAttribute('title')
+      lePopLine25.removeAttribute('data-inline-label')
+      lePopLine25.removeAttribute('title')
+      lePopLineLe5.removeAttribute('data-inline-label')
+      lePopLineLe5.removeAttribute('title')
       lePopLineUnf.removeAttribute('data-inline-label')
       lePopLineUnf.removeAttribute('title')
 
@@ -2461,9 +2459,7 @@ export function mountHeroExpandBlock(
 
       lePopPct.style.display = 'none'
       lePopPct.textContent = ''
-      lePopPct.title = `LE: ${leV} (Skala 0 … −${Math.round(
-        NEG_LE_KO_RANGE * koV
-      )} LE)`
+      lePopPct.removeAttribute('title')
       return
     }
 
@@ -2472,7 +2468,7 @@ export function mountHeroExpandBlock(
     lePopSkull.style.removeProperty('bottom')
     lePopSkull.style.removeProperty('top')
     lePopSkull.style.removeProperty('transform')
-    lePopPct.style.display = ''
+    lePopPct.style.display = 'none'
 
     lePopFill.classList.remove('init-hero-ex__le-pop__gauge-fill--from-top')
     lePopFill.style.removeProperty('top')
@@ -2521,7 +2517,7 @@ export function mountHeroExpandBlock(
         Math.round((leNonNeg / maxV) * 100)
       )
       const malPct = Boolean(dead || (band && band !== 'std'))
-      lePopPct.title = `Verbleibende LE: ${pctNum} % von LE max (${leNonNeg} / ${maxV})`
+      lePopPct.removeAttribute('title')
       if (malPct) {
         lePopPct.innerHTML = `<span class="init-hero-ex__le-pop__gauge-pct__num init-hero-ex__le-pop__gauge-pct__num--mal">${pctNum}</span>%`
       } else {
@@ -2529,7 +2525,7 @@ export function mountHeroExpandBlock(
       }
     } else {
       lePopPct.textContent = '—'
-      lePopPct.title = 'LE und LE max erforderlich für Prozentangabe'
+      lePopPct.removeAttribute('title')
     }
 
     setConnPath(lePopConn50, 50, SLOT_Y_HALF, START_X, KINK_50, END_X)
@@ -2560,12 +2556,12 @@ export function mountHeroExpandBlock(
       const n2 = Math.round(maxV / 2)
       const n3 = Math.round(maxV / 3)
       const n4 = Math.round(maxV / 4)
-      lePopLine50.dataset.inlineLabel = `1/2 ${n2}`
-      lePopLine50.title = `Schwelle 1/2 LE (${n2})`
-      lePopLine33.dataset.inlineLabel = `1/3 ${n3}`
-      lePopLine33.title = `Schwelle 1/3 LE (${n3})`
-      lePopLine25.dataset.inlineLabel = `1/4 ${n4}`
-      lePopLine25.title = `Schwelle 1/4 LE (${n4})`
+      lePopLine50.removeAttribute('data-inline-label')
+      lePopLine50.removeAttribute('title')
+      lePopLine33.removeAttribute('data-inline-label')
+      lePopLine33.removeAttribute('title')
+      lePopLine25.removeAttribute('data-inline-label')
+      lePopLine25.removeAttribute('title')
     } else if (maxOk) {
       const n2 = Math.round(maxV / 2)
       const n3 = Math.round(maxV / 3)
@@ -2573,22 +2569,22 @@ export function mountHeroExpandBlock(
       lePopLab50.textContent = `1/2 = ${n2}`
       lePopLab33.textContent = `1/3 = ${n3}`
       lePopLab25.textContent = `1/4 = ${n4}`
-      lePopLine50.dataset.inlineLabel = `1/2 ${n2}`
-      lePopLine50.title = `Schwelle 1/2 LE (${n2})`
-      lePopLine33.dataset.inlineLabel = `1/3 ${n3}`
-      lePopLine33.title = `Schwelle 1/3 LE (${n3})`
-      lePopLine25.dataset.inlineLabel = `1/4 ${n4}`
-      lePopLine25.title = `Schwelle 1/4 LE (${n4})`
+      lePopLine50.removeAttribute('data-inline-label')
+      lePopLine50.removeAttribute('title')
+      lePopLine33.removeAttribute('data-inline-label')
+      lePopLine33.removeAttribute('title')
+      lePopLine25.removeAttribute('data-inline-label')
+      lePopLine25.removeAttribute('title')
     } else {
       lePopLab50.textContent = '1/2 = —'
       lePopLab33.textContent = '1/3 = —'
       lePopLab25.textContent = '1/4 = —'
-      lePopLine50.dataset.inlineLabel = '1/2'
-      lePopLine50.title = 'Schwelle 1/2 LE'
-      lePopLine33.dataset.inlineLabel = '1/3'
-      lePopLine33.title = 'Schwelle 1/3 LE'
-      lePopLine25.dataset.inlineLabel = '1/4'
-      lePopLine25.title = 'Schwelle 1/4 LE'
+      lePopLine50.removeAttribute('data-inline-label')
+      lePopLine50.removeAttribute('title')
+      lePopLine33.removeAttribute('data-inline-label')
+      lePopLine33.removeAttribute('title')
+      lePopLine25.removeAttribute('data-inline-label')
+      lePopLine25.removeAttribute('title')
     }
 
     if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
@@ -2607,8 +2603,8 @@ export function mountHeroExpandBlock(
       } else {
         lePopLabLe5.textContent = String(customLeThreshold)
       }
-      lePopLineLe5.dataset.inlineLabel = `LE ${customLeThreshold}`
-      lePopLineLe5.title = `Schwelle LE ${customLeThreshold}`
+      lePopLineLe5.removeAttribute('data-inline-label')
+      lePopLineLe5.removeAttribute('title')
     } else {
       lePopLineLe5.style.display = 'none'
       lePopLineLe5.removeAttribute('data-inline-label')
@@ -2639,8 +2635,8 @@ export function mountHeroExpandBlock(
       } else {
         lePopLabUnf.textContent = `unfähig ≤ ${unfaehigThreshold}`
       }
-      lePopLineUnf.dataset.inlineLabel = `U ${unfaehigThreshold}`
-      lePopLineUnf.title = `Schwelle unfähig ≤ ${unfaehigThreshold}`
+      lePopLineUnf.removeAttribute('data-inline-label')
+      lePopLineUnf.removeAttribute('title')
     } else {
       lePopLineUnf.style.display = 'none'
       lePopLineUnf.removeAttribute('data-inline-label')

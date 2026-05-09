@@ -2062,6 +2062,7 @@ body {
   text-shadow:
     0 0 2px rgba(255, 253, 248, 0.95),
     0 0 4px rgba(255, 253, 248, 0.75);
+  display: none;
 }
 
 .init-hero-ex__le-pop__gauge-pct__num--mal {
@@ -2168,7 +2169,7 @@ body {
 }
 
 .init-hero-ex__le-pop__gauge-line::after {
-  content: attr(data-inline-label);
+  content: '';
   position: absolute;
   right: 0.08rem;
   top: 50%;
