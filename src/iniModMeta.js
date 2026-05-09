@@ -5377,6 +5377,7 @@ export function mountHeroExpandBlock(
 
   /** Vor Listen-Remount: Debounce abbrechen, Szene-Meta einlesen, Kästchen sofort persistieren. */
   const flushHeroExpandBeforeListRemount = async () => {
+    if (!(container instanceof HTMLElement) || !container.isConnected) return
     cancelPendingPersistHeroExpand()
     let metaForBasis = meta
     try {
@@ -5386,23 +5387,31 @@ export function mountHeroExpandBlock(
     } catch (_) {
       /* Szene kurz nicht lesbar — Mount-meta nutzen */
     }
-    const cFlush = getCombat()
-    const roundFlush =
-      cFlush?.started && Number.isFinite(Number(cFlush.round))
-        ? Number(cFlush.round)
-        : null
-    const navIniFlush = readCurrentNavIniGlobal()
-    const ownerIniFresh = readOwnerIniReferenceForMods(metaForBasis)
-    const gFlush = gather()
-    const snapFlush = basisHeroExpandSnapshotFromDisplayed(
-      metaForBasis,
-      gFlush,
-      ownerIniFresh,
-      roundFlush,
-      navIniFlush
-    )
-    await applyHeroExpandFields(itemId, snapFlush)
-    await refreshModStripFromScene()
+    try {
+      const cFlush = getCombat()
+      const roundFlush =
+        cFlush?.started && Number.isFinite(Number(cFlush.round))
+          ? Number(cFlush.round)
+          : null
+      const navIniFlush = readCurrentNavIniGlobal()
+      const ownerIniFresh = readOwnerIniReferenceForMods(metaForBasis)
+      const gFlush = gather()
+      const snapFlush = basisHeroExpandSnapshotFromDisplayed(
+        metaForBasis,
+        gFlush,
+        ownerIniFresh,
+        roundFlush,
+        navIniFlush
+      )
+      await applyHeroExpandFields(itemId, snapFlush)
+      await refreshModStripFromScene()
+    } catch (err) {
+      console.warn(
+        '[vierpunkteins] flushHeroExpandBeforeListRemount failed',
+        itemId,
+        err
+      )
+    }
   }
   /** @type {HTMLElement} */
   const containerFlushHost = /** @type {HTMLElement} */ (container)

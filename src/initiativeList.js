@@ -4861,7 +4861,16 @@ function bindStampContextRemove(el, stamp, items) {
       const fn = body[HERO_EXPAND_BODY_FLUSH]
       if (typeof fn === 'function') tasks.push(fn())
     }
-    if (tasks.length > 0) await Promise.all(tasks)
+    if (tasks.length === 0) return
+    const settled = await Promise.allSettled(tasks)
+    for (const r of settled) {
+      if (r.status === 'rejected') {
+        console.warn(
+          '[vierpunkteins] hero expand flush before renderList failed',
+          r.reason
+        )
+      }
+    }
   }
 
   const renderList = async (items) => {
