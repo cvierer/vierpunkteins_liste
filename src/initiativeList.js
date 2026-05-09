@@ -185,6 +185,7 @@ import {
   HERO_EX_UNFAEHIG_MARK_FIELDS,
   HERO_EX_UNFAEHIG_THRESHOLD,
   defaultUnfaehigThresholdForTemplate,
+  HERO_EXPAND_BODY_FLUSH,
   mountHeroExpandBlock,
 } from './iniModMeta.js'
 import { purgeKrMarksBeforeRound } from './krCombatMarks.js'
@@ -4849,7 +4850,21 @@ function bindStampContextRemove(el, stamp, items) {
   })
 }
 
-  const renderList = (items) => {
+  /** Vor jedem Listen-Neuaufbau: offene Heldenblöcke persistieren (sonst gehen uncommitted Eingaben verloren). */
+  const flushOpenHeroExpandPanelsBeforeRemount = async () => {
+    const host = document.getElementById('initiative-list-host')
+    if (!host) return
+    const bodies = host.querySelectorAll('.init-row-extra-panel__body')
+    /** @type {Promise<void>[]} */
+    const tasks = []
+    for (const body of bodies) {
+      const fn = body[HERO_EXPAND_BODY_FLUSH]
+      if (typeof fn === 'function') tasks.push(fn())
+    }
+    if (tasks.length > 0) await Promise.all(tasks)
+  }
+
+  const renderList = async (items) => {
     // Defensiver Schutz: ein transient leerer Items-Snapshot (kann während
     // kaskadierender setMetadata/updateItems-Aufrufe nach einem LH-Ende mit
     // synthetischer Done-Zeile auftreten) darf NICHT die ganze Liste leeren
@@ -4861,6 +4876,7 @@ function bindStampContextRemove(el, stamp, items) {
     if ((!items || items.length === 0) && lastItems && lastItems.length > 0) {
       return
     }
+    await flushOpenHeroExpandPanelsBeforeRemount()
     lastItems = items
     const tokenRows = collectSortedParticipants(
       items,

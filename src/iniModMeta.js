@@ -255,6 +255,9 @@ export const HERO_EX_WUNDEN_LEGACY = 'heroExWunden'
 /** @deprecated Zusatzfeld derzeit nicht in der ausklappbaren Zeile */
 export const HERO_EX_ZUSATZ = 'heroExZusatz'
 
+/** Auf dem Container von `mountHeroExpandBlock`: vor Listen-Remount flushen. */
+export const HERO_EXPAND_BODY_FLUSH = Symbol('vierpunkteinsHeroExpandFlush')
+
 function strOrEmpty(v) {
   if (v === undefined || v === null) return ''
   return String(v)
@@ -5371,6 +5374,39 @@ export function mountHeroExpandBlock(
     persistQueued = false
     persistNextSnapshot = null
   }
+
+  /** Vor Listen-Remount: Debounce abbrechen, Szene-Meta einlesen, Kästchen sofort persistieren. */
+  const flushHeroExpandBeforeListRemount = async () => {
+    cancelPendingPersistHeroExpand()
+    let metaForBasis = meta
+    try {
+      const freshItems = await OBR.scene.items.getItems([itemId])
+      const fm = freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+      if (fm && typeof fm === 'object') metaForBasis = fm
+    } catch (_) {
+      /* Szene kurz nicht lesbar — Mount-meta nutzen */
+    }
+    const cFlush = getCombat()
+    const roundFlush =
+      cFlush?.started && Number.isFinite(Number(cFlush.round))
+        ? Number(cFlush.round)
+        : null
+    const navIniFlush = readCurrentNavIniGlobal()
+    const ownerIniFresh = readOwnerIniReferenceForMods(metaForBasis)
+    const gFlush = gather()
+    const snapFlush = basisHeroExpandSnapshotFromDisplayed(
+      metaForBasis,
+      gFlush,
+      ownerIniFresh,
+      roundFlush,
+      navIniFlush
+    )
+    await applyHeroExpandFields(itemId, snapFlush)
+    await refreshModStripFromScene()
+  }
+  /** @type {HTMLElement} */
+  const containerFlushHost = /** @type {HTMLElement} */ (container)
+  containerFlushHost[HERO_EXPAND_BODY_FLUSH] = flushHeroExpandBeforeListRemount
 
   const clearTpTypingPersistTimer = () => {}
 
