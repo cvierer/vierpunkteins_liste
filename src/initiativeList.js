@@ -3407,8 +3407,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       </fieldset>
     </div>
     <div class="kampf-settings-panel__section">
-      <label class="init-row-extra-label">Hintergrundfarbe (Hauptzeile)</label>
-      <p class="kampf-settings-panel__microhint">Für alle in der Szene sichtbar (SL und Spieler). Klick setzt die Farbe sofort; „×“ entfernt sie.</p>
+      <label class="init-row-extra-label" data-kampf-hero-color-field-label>Hintergrundfarbe (Hauptzeile)</label>
+      <p class="kampf-settings-panel__microhint" id="kampf-hero-color-microhint">Für alle in der Szene sichtbar (SL und Spieler). Klick setzt die Farbe sofort; „×“ entfernt sie.</p>
       <div class="kampf-hero-color-grid" data-kampf-hero-color-grid></div>
     </div>
     <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
@@ -3551,6 +3551,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const heroSettingsHintEl = heroSettingsPanel.querySelector(
     '#kampf-hero-settings-hint'
   )
+  const heroColorMicrohintEl = heroSettingsPanel.querySelector(
+    '#kampf-hero-color-microhint'
+  )
+  const heroColorFieldLabelEl = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-color-field-label]'
+  )
   const heroGmOnlySections = heroSettingsPanel.querySelectorAll(
     '[data-kampf-hero-gm-only]'
   )
@@ -3614,9 +3620,24 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       }
     }
     if (heroSettingsHintEl instanceof HTMLElement) {
-      heroSettingsHintEl.textContent = gm
-        ? 'Spielleitung: Werte gelten für dieses Token in der Szene. Die Zeilen-Hintergrundfarbe ist für alle sichtbar.'
-        : 'Nur für deinen Helden: Zeilenfarbe wird im Token gespeichert. Ob andere deine Farbe sehen, steuern sie unter Kampf-Einstellungen (Zahnrad unten).'
+      if (gm) {
+        heroSettingsHintEl.hidden = false
+        heroSettingsHintEl.style.display = ''
+        heroSettingsHintEl.textContent =
+          'Spielleitung: Werte gelten für dieses Token in der Szene. Die Zeilen-Hintergrundfarbe ist für alle sichtbar.'
+      } else {
+        heroSettingsHintEl.textContent = ''
+        heroSettingsHintEl.hidden = true
+        heroSettingsHintEl.style.display = 'none'
+      }
+    }
+    if (heroColorMicrohintEl instanceof HTMLElement) {
+      heroColorMicrohintEl.hidden = !gm
+      heroColorMicrohintEl.style.display = gm ? '' : 'none'
+    }
+    if (heroColorFieldLabelEl instanceof HTMLElement) {
+      heroColorFieldLabelEl.hidden = !gm
+      heroColorFieldLabelEl.style.display = gm ? '' : 'none'
     }
     if (saveHeroBtn instanceof HTMLElement) {
       saveHeroBtn.textContent = gm ? 'Speichern und schließen' : 'Schließen'
