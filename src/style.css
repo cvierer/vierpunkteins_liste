@@ -5485,6 +5485,12 @@ select.init-row-extra-select {
   filter: saturate(0.38) brightness(0.98);
 }
 
+/* 2.-Akt Mutterspiegel: nur Anzeige (button disabled), aber nicht ausgegraut */
+.init-kr-abw-split-shell--mirror-link .init-kr-abw-split-shell__exec:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 .init-kr-abw-shield__svg {
   display: block;
   width: 100%;

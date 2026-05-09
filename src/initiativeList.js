@@ -1372,13 +1372,17 @@ function appendKrAbwSplitCell(
     'init-kr-abw-split-shell--four-shields',
     shieldLayoutSlots === 4
   )
+  /* 2.-Akt-Spiegel: volle Farbe solange eine Schildladung (oder Parade) angezeigt wird */
+  const dimAbwByNav =
+    !phaseRowActive &&
+    !(mirrorLinkUi && (shieldCount >= 1 || paradeLoaded))
   shell.classList.toggle(
     'init-kr-abw-split-shell--inactive-charged',
-    !phaseRowActive && (shieldCount >= 1 || paradeLoaded)
+    dimAbwByNav && (shieldCount >= 1 || paradeLoaded)
   )
   shell.classList.toggle(
     'init-kr-abw-split-shell--inactive-empty',
-    !phaseRowActive && shieldCount < 1 && !paradeLoaded
+    dimAbwByNav && shieldCount < 1 && !paradeLoaded
   )
   // Optik an KR-Grenzen: Schild-Icons werden hier nicht gedimmt; mechanisch
   // bleibt das Stempeln an KR-Grenzen weiterhin gesperrt (siehe exec.disabled
