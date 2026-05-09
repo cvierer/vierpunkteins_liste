@@ -1043,6 +1043,10 @@ function appendKrPrimarySplitCell(
     'init-kr-primary-main--stamp-hi',
     Boolean(primaryStampHighlight)
   )
+  main.classList.toggle(
+    'init-kr-primary-main--stampable-now',
+    Boolean(primaryStampHighlight)
+  )
   if (canEdit) {
     exec.addEventListener('click', (e) => {
       e.preventDefault()
@@ -1318,6 +1322,17 @@ function findLatestParadeExtraStampId(ownerItemId) {
   return null
 }
 
+function setLinkedShieldHover(ownerItemId, on) {
+  if (!ownerItemId) return
+  const nodes = document.querySelectorAll(
+    `.init-kr-abw-split-shell[data-shield-link-group="${ownerItemId}"]`
+  )
+  for (const n of nodes) {
+    if (!(n instanceof HTMLElement)) continue
+    n.classList.toggle('is-linked-hover', on)
+  }
+}
+
 /**
  * Abwehr: nur Schild-Icons ohne AB-Kopfzeile.
  * Gesperrt nur bei Navigation auf „Beginn/Ende der Kampfrunde“.
@@ -1363,6 +1378,7 @@ function appendKrAbwSplitCell(
 
   const shell = document.createElement('div')
   shell.className = 'init-kr-abw-split-shell'
+  shell.dataset.shieldLinkGroup = ownerItemId
   shell.style.setProperty(
     '--init-abw-shield-slots',
     String(Math.max(1, shieldLayoutSlots || 1))
@@ -1461,9 +1477,28 @@ function appendKrAbwSplitCell(
   applySplitLadungVisual(shell, chargeRow, exec, v, 'abw')
   const abwMaxMarks = krAbwTransferMaxMarks()
   const abwCombatAllowsStamp = Boolean(combatStarted && !roundIntroPending)
+  const abwLhLocked = isLhLockingActions(trackerMeta, combatRound)
+  const canStampAbwNow =
+    canEdit && !abwLhLocked && abwLadungAllowed && shieldCount >= 1
+  const canStampParadeNow =
+    canEdit && !abwLhLocked && abwLadungAllowed && paradeLoaded
+  const canStampAnyShieldNow = canStampAbwNow || canStampParadeNow
+  shell.classList.toggle(
+    'init-kr-abw-split-shell--stampable-now',
+    canStampAnyShieldNow
+  )
+
+  shell.addEventListener('pointerenter', () => {
+    if (!canStampAnyShieldNow) return
+    setLinkedShieldHover(ownerItemId, true)
+  })
+  shell.addEventListener('pointerleave', () => {
+    setLinkedShieldHover(ownerItemId, false)
+  })
+
   exec.title = mirrorLinkUi
     ? canEdit
-      ? 'Reaktion (Spiegel): gleiche Schildladungen wie am Mutterobjekt — Stempeln und Parade nur am Mutterobjekt; Umwandlung über die Pfeile wirkt auf dieselben Ladungen.'
+      ? 'Reaktion (Spiegel): gleiche Schildladungen wie am Mutterobjekt — Stempeln nutzt denselben gemeinsamen Schild-Pool; Umwandlung über die Pfeile wirkt auf dieselben Ladungen.'
       : 'Reaktion (Spiegel): Anzeige der Mutter-Schildladungen.'
     : canEdit
       ? shieldCount >= 2
@@ -1484,7 +1519,6 @@ function appendKrAbwSplitCell(
       `Zusatz-Parade (schwarzes Schild): ${paradeLoadedSlots.length} verfügbar. Klick auf das schwarze Schild stempelt eine Ladung (nicht umwandelbar). Rechtsklick aufs schwarze Schild oder die Schildfläche hebt den letzten Parade-Stempel auf.`
   }
   exec.setAttribute('aria-label', abwLadungAria(v, abwLadungAllowed))
-  const abwLhLocked = isLhLockingActions(trackerMeta, combatRound)
   if (abwLhLocked) {
     shell.classList.add('init-kr-abw-split-shell--lh-locked')
     exec.classList.add('init-kr-abw-split-shell__exec--lh-locked')
@@ -1492,11 +1526,10 @@ function appendKrAbwSplitCell(
       'Längerfristige Handlung läuft – Schild/Parade gesperrt; nur freie Aktionen erlaubt.'
   }
   exec.disabled =
-    mirrorLinkUi ||
     !canEdit ||
     abwLhLocked ||
     ((shieldCount >= 1 || paradeLoaded) && !abwLadungAllowed)
-  if (canEdit && !mirrorLinkUi) {
+  if (canEdit) {
     exec.addEventListener('click', (e) => {
       e.preventDefault()
       if (abwLhLocked) return
@@ -1521,7 +1554,6 @@ function appendKrAbwSplitCell(
     })
     shell.addEventListener('contextmenu', (e) => {
       e.preventDefault()
-      if (mirrorLinkUi) return
       if (abwLhLocked) return
       if (!abwLadungAllowed) return
       const t = e.target instanceof Element ? e.target : null
@@ -1913,6 +1945,10 @@ function appendFaCounter(
   wrap.className = 'init-fa-cell init-fa-cell--active'
   wrap.classList.toggle('init-fa-cell--inactive-charged', !phaseRowActive && avail > 0)
   wrap.classList.toggle('init-fa-cell--inactive-empty', !phaseRowActive && avail <= 0)
+  wrap.classList.toggle(
+    'init-fa-cell--stampable-now',
+    Boolean(canEdit && faLadungAllowed && avail > 0)
+  )
 
   const bolts = document.createElement('span')
   bolts.className = 'init-fa-cell__bolts'
@@ -2167,7 +2203,7 @@ function appendKrCounterPair(
       ownerItemId,
       trackerMeta,
       canEdit,
-      abwMirrorLinkUi ? false : abwLadungAllowed,
+      abwLadungAllowed,
       phaseRowActive,
       abwRoundBoundaryShell,
       atRoundBoundaryNav,
