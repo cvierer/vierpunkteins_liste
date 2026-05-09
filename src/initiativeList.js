@@ -1333,6 +1333,17 @@ function setLinkedShieldHover(ownerItemId, on) {
   }
 }
 
+function setLinkedFaHover(ownerItemId, on) {
+  if (!ownerItemId) return
+  const nodes = document.querySelectorAll(
+    `.init-fa-cell[data-fa-link-group="${ownerItemId}"]`
+  )
+  for (const n of nodes) {
+    if (!(n instanceof HTMLElement)) continue
+    n.classList.toggle('is-linked-hover', on)
+  }
+}
+
 /**
  * Abwehr: nur Schild-Icons ohne AB-Kopfzeile.
  * Gesperrt nur bei Navigation auf „Beginn/Ende der Kampfrunde“.
@@ -1943,12 +1954,22 @@ function appendFaCounter(
 
   const wrap = document.createElement('div')
   wrap.className = 'init-fa-cell init-fa-cell--active'
+  wrap.dataset.faLinkGroup = ownerItemId
   wrap.classList.toggle('init-fa-cell--inactive-charged', !phaseRowActive && avail > 0)
   wrap.classList.toggle('init-fa-cell--inactive-empty', !phaseRowActive && avail <= 0)
   wrap.classList.toggle(
     'init-fa-cell--stampable-now',
     Boolean(canEdit && faLadungAllowed && avail > 0)
   )
+  const canStampFaNow = Boolean(canEdit && faLadungAllowed && avail > 0)
+
+  wrap.addEventListener('pointerenter', () => {
+    if (!canStampFaNow) return
+    setLinkedFaHover(ownerItemId, true)
+  })
+  wrap.addEventListener('pointerleave', () => {
+    setLinkedFaHover(ownerItemId, false)
+  })
 
   const bolts = document.createElement('span')
   bolts.className = 'init-fa-cell__bolts'
@@ -5491,7 +5512,7 @@ function bindStampContextRemove(el, stamp, items) {
         phaseZaoMeta.className = 'init-phase-zao-meta'
         const iniActLabel = document.createElement('span')
         iniActLabel.className = 'init-phase-zao-ini-label'
-        iniActLabel.textContent = '2.A.'
+        iniActLabel.textContent = ''
         iniActLabel.title = lhPending
           ? `L.H. (${lhProgressLabel ?? '?/?'}) — Fortschritt`
           : 'Längerfristige Handlung abgeschlossen: Zusatz-Aktion'
@@ -5505,7 +5526,7 @@ function bindStampContextRemove(el, stamp, items) {
         nameEl.title = lhPending
           ? 'Längerfristige Handlung — Fortschritt in der INI-Spalte'
           : '2. Aktionsphase · Ziel-INI am Lineal ziehen'
-        phaseZaoMeta.append(iniActLabel, nameEl)
+        phaseZaoMeta.append(nameEl)
 
         const iniInput = document.createElement('input')
         iniInput.className = 'init-row-init'
@@ -5767,6 +5788,24 @@ function bindStampContextRemove(el, stamp, items) {
         if (isHeroExtraZao) {
           zaoTextReplacement.textContent = 'z. AT'
           zaoTextReplacement.title = 'zusätzliche Angriffsaktion'
+        } else if (!isZaoRoot) {
+          if (zaoOverrideKind === 'lh') {
+            const lhStZao = readLhState(ownerTrackerMeta)
+            const lhFracZao = lhFractionFromNavForMeta(
+              ownerTrackerMeta,
+              lhStZao.max,
+              combatRoundForLhUi
+            )
+            const lhStepRaw = lhActionStepLabelFromNavFraction(
+              lhFracZao,
+              lhStZao.max
+            )
+            zaoTextReplacement.textContent = 'LH'
+            zaoTextReplacement.title = `Längerfristige Handlung: Aktion ${lhStepRaw}`
+          } else {
+            zaoTextReplacement.textContent = `${zaoPhaseNum}. Akt.`
+            zaoTextReplacement.title = `${zaoPhaseNum}. Aktionsphase`
+          }
         } else if (zaoOverrideKind === 'lh') {
           const lhStZao = readLhState(ownerTrackerMeta)
           const lhFracZao = lhFractionFromNavForMeta(
@@ -5778,10 +5817,10 @@ function bindStampContextRemove(el, stamp, items) {
             lhFracZao,
             lhStZao.max
           )
-          zaoTextReplacement.textContent = 'LH'
+          zaoTextReplacement.textContent = ''
           zaoTextReplacement.title = `Längerfristige Handlung: Aktion ${lhStepRaw}`
         } else {
-          zaoTextReplacement.textContent = `${zaoPhaseNum}. Akt.`
+          zaoTextReplacement.textContent = ''
           zaoTextReplacement.title = `${zaoPhaseNum}. Aktionsphase`
         }
 
@@ -5795,11 +5834,7 @@ function bindStampContextRemove(el, stamp, items) {
           !isLhEndLink &&
           zaoOverrideKind !== 'lh'
 
-        // Offset-Kästchen vor Primär/Umwandeln (wie Spiegel-Zeile bei Ang/S.R.A.),
-        // nicht in der Umwandel-Spalte — sonst wirkt die Phasen-„8“ bei L.H.-2.A. anders.
-        if (isZaoRoot) {
-          btnCol.appendChild(zaoOffsetSlot)
-        }
+        const showFaOnNRoot = isZaoRoot && !isHeroExtraZao && !isLhEndLink
         const zaoConvertSlotPlaceholder =
           isZaoRoot && !zaoMotherMirrorUi
             ? (() => {
@@ -5831,7 +5866,7 @@ function bindStampContextRemove(el, stamp, items) {
             ? zaoMotherMirrorUi
               ? {
                   hideAbw: false,
-                  hideFa: true,
+                  hideFa: !showFaOnNRoot,
                   hideLh: true,
                   hideConvert: false,
                   abwMirrorLinkUi: true,
@@ -5852,7 +5887,7 @@ function bindStampContextRemove(el, stamp, items) {
                 }
               : {
                   hideAbw: true,
-                  hideFa: true,
+                  hideFa: !showFaOnNRoot,
                   hideLh: true,
                   hideConvert: true,
                   convertReplacement: zaoConvertSlotPlaceholder,
@@ -6074,6 +6109,7 @@ function bindStampContextRemove(el, stamp, items) {
           main.append(
             phaseExpandCell,
             btnCol,
+            zaoOffsetSlot,
             phaseZaoMeta,
             lhCol,
             iniInput,
