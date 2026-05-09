@@ -7,6 +7,7 @@ import { HIT_ZONE_DEFS } from './hitZoneMeta.js'
 import {
   autoModDeltasForWappen,
   autoModMultiplier,
+  buildTrefferzoneInputTooltip,
   cleanupOrphanHitZoneKeys,
   cloneDefaultWappenDefs,
   cloneVierbeinerWappenDefs,
@@ -14,9 +15,11 @@ import {
   DEFAULT_WAPPEN_DEFS,
   effectiveWappenForHero,
   findWappenById,
+  formatWappenW20RangeText,
   HERO_EX_WAPPEN_OVERRIDE,
   HERO_EX_WAPPEN_TEMPLATE,
   normalizeWappenDefs,
+  TZ_ZONE_INPUT_TOOLTIP_FOOTER,
   validateW20Coverage,
 } from './wappenDefs.js'
 
@@ -235,6 +238,70 @@ describe('effectiveWappenForHero', () => {
     const eff = effectiveWappenForHero(meta, undefined)
     expect(eff.length).toBe(1)
     expect(eff[0].id).toBe('solo')
+  })
+})
+
+describe('formatWappenW20RangeText', () => {
+  it('formatiert Ungerade-Spanne', () => {
+    expect(
+      formatWappenW20RangeText({
+        from: 9,
+        to: 14,
+        parity: 'odd',
+        frontalSplit: null,
+      })
+    ).toBe('9, 11, 13')
+  })
+})
+
+describe('buildTrefferzoneInputTooltip', () => {
+  it('vierbeiner: Profil + Kopf-W20-Bereich + Footer', () => {
+    const t = buildTrefferzoneInputTooltip(
+      { [HERO_EX_WAPPEN_TEMPLATE]: 'vierbeiner' },
+      {}
+    )
+    expect(t).toContain('Vierbeiner')
+    expect(t).toMatch(/17[–-]19/)
+    expect(t).toContain(TZ_ZONE_INPUT_TOOLTIP_FOOTER)
+  })
+
+  it('Default Mensch ohne Abweichung: kein Trefferprofil, aber Kopf/Zahl', () => {
+    const t = buildTrefferzoneInputTooltip({}, undefined)
+    expect(t).not.toContain('Vierbeiner')
+    expect(t).not.toContain('individuelle')
+    expect(t).not.toContain('Raum-Vorgabe')
+    expect(t).toContain('KF')
+    expect(t).toMatch(/19[–-]20/)
+    expect(t).toContain(TZ_ZONE_INPUT_TOOLTIP_FOOTER)
+  })
+
+  it('Held-Override: Profil Hinweis', () => {
+    const t = buildTrefferzoneInputTooltip(
+      {
+        [HERO_EX_WAPPEN_OVERRIDE]: [
+          {
+            id: 'solo',
+            slot: 1,
+            abbr: 'SO',
+            label: 'Solo',
+            tooltip: '',
+            woundTooltip: '',
+            active: true,
+            w20Range: {
+              from: 20,
+              to: 20,
+              parity: 'all',
+              frontalSplit: null,
+            },
+            autoMods: [],
+          },
+        ],
+      },
+      {}
+    )
+    expect(t).toContain('individuelle')
+    expect(t).toContain('SO')
+    expect(t).toContain('20')
   })
 })
 

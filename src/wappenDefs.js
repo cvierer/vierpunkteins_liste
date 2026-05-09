@@ -486,6 +486,106 @@ export const HERO_EX_WAPPEN_OVERRIDE = 'heroExWappenOverride'
 export const HERO_EX_WAPPEN_TEMPLATE = 'heroExWappenTemplate'
 
 /**
+ * Fußteil für das TZ-Eingabefeld: Kurzliste bekannter Kürzel / Direktwurf.
+ */
+export const TZ_ZONE_INPUT_TOOLTIP_FOOTER =
+  'Kürzel u. a.: KF, BR, RÜ, LA, RA, BA, LB, RB — oder Zahl 1–20.'
+
+/**
+ * Formatiert eine W20-Spanne als kurzen Tooltip-Text („19–20", „9, 11, 13").
+ * @param {WappenDef['w20Range']} range
+ * @returns {string}
+ */
+export function formatWappenW20RangeText(range) {
+  if (!range) return ''
+  const { from, to, parity } = range
+  if (parity === 'odd' || parity === 'even') {
+    const nums = []
+    for (let n = from; n <= to; n++) {
+      if (parity === 'odd' && n % 2 === 0) continue
+      if (parity === 'even' && n % 2 === 1) continue
+      nums.push(n)
+    }
+    return nums.join(', ')
+  }
+  return from === to ? String(from) : `${from}–${to}`
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} meta
+ * @param {{ wappenDefs?: unknown } | null | undefined} room
+ * @returns {string}
+ */
+function hitZoneProfileBadgeLine(meta, room) {
+  const ov = meta?.[HERO_EX_WAPPEN_OVERRIDE]
+  if (Array.isArray(ov) && ov.length > 0) {
+    return 'Trefferprofil: individuelle Zonendefinition (Held).'
+  }
+  if (
+    String(meta?.[HERO_EX_WAPPEN_TEMPLATE] ?? '').trim().toLowerCase() ===
+    'vierbeiner'
+  ) {
+    return 'Trefferprofil: Vierbeiner (Tier).'
+  }
+  const raw = room?.wappenDefs
+  if (!Array.isArray(raw) || raw.length === 0) return ''
+  try {
+    const a = normalizeWappenDefs(raw)
+    const b = normalizeWappenDefs(cloneDefaultWappenDefs())
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
+      return 'Trefferprofil: angepasste Raum-Vorgabe (SL).'
+    }
+  } catch {
+    return 'Trefferprofil: angepasste Raum-Vorgabe (SL).'
+  }
+  return ''
+}
+
+/**
+ * Dynamischer Tooltip fürs TZ-Eingabefeld: effektive W20 aus den aktiven Zonen +
+ * optional Profil-Hinweis + Kurzliste Kürzel.
+ *
+ * @param {Record<string, unknown> | null | undefined} meta
+ * @param {{ wappenDefs?: unknown } | null | undefined} room
+ * @returns {string}
+ */
+export function buildTrefferzoneInputTooltip(meta, room) {
+  const defs = effectiveWappenForHero(meta, room).filter((d) => d.active)
+  defs.sort((a, b) => a.slot - b.slot)
+  const brustDef = defs.find((d) => d.id === 'brust')
+
+  /** @type {string[]} */
+  const zoneLines = []
+  for (const def of defs) {
+    if (def.id === 'ruecken' && !def.w20Range && brustDef?.w20Range) {
+      zoneLines.push(
+        `${def.abbr}${def.label ? ` – ${def.label}` : ''} · gleicher W20-Bereich wie ${brustDef.abbr}${brustDef.label ? ` (${brustDef.label})` : ''}, wenn Ausrichtung „aus“`
+      )
+      continue
+    }
+    if (!def.w20Range) continue
+    const span = formatWappenW20RangeText(def.w20Range)
+    let suffix = ''
+    if (def.w20Range.frontalSplit === 'ruecken') {
+      suffix =
+        ' — bei Ausrichtung „an“ = Brust, „aus“ = Rücken (gleiche W20-Spanne)'
+    }
+    zoneLines.push(
+      `${def.abbr}${def.label ? ` – ${def.label}` : ''} · W20 ${span}${suffix}`
+    )
+  }
+
+  const profile = hitZoneProfileBadgeLine(meta, room)
+  /** @type {string[]} */
+  const parts = []
+  if (profile) parts.push(profile)
+  parts.push('Trefferzone (TZ), Würfelbereiche:')
+  if (zoneLines.length > 0) parts.push(zoneLines.join('\n'))
+  parts.push(TZ_ZONE_INPUT_TOOLTIP_FOOTER)
+  return parts.join('\n')
+}
+
+/**
  * @param {WappenDef['w20Range']} range
  * @returns {Set<number>}
  */

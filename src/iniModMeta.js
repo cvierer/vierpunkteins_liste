@@ -29,9 +29,11 @@ import {
 } from './participants.js'
 import { getRoomSettings } from './roomSettings.js'
 import {
+  buildTrefferzoneInputTooltip,
   cleanupOrphanHitZoneKeys,
   effectiveWappenForHero,
   HERO_EX_WAPPEN_TEMPLATE,
+  TZ_ZONE_INPUT_TOOLTIP_FOOTER,
 } from './wappenDefs.js'
 import {
   AUTO_MOD_BUNDLE_PREFIX,
@@ -90,9 +92,10 @@ import {
   removeHeroExModsByBundleId,
 } from './heroExMods.js'
 
+/** Statischer Referenztext (Mensch-Standard); UI nutzt `buildTrefferzoneInputTooltip`. */
 export const TZ_TOOLTIP =
   'Trefferzone TZ: W20 19–20 = Kopf · 15–18 = Brust (Frontal F an) oder Rücken (F aus) · 9–14 = Arme (ungerade Schildarm, gerade Schwertarm) · 7–8 = Bauch · 1–6 = Beine (ungerade links, gerade rechts). ' +
-  'Kürzel u. a.: KF, BR, RÜ, LA, RA, BA, LB, RB — oder Zahl 1–20.'
+  TZ_ZONE_INPUT_TOOLTIP_FOOTER
 
 /** Tooltip WS-Feld (Mouseover). */
 export const WS_RULES_TOOLTIP =
@@ -828,6 +831,7 @@ export function mountHeroExpandBlock(
   { itemId, meta, canEdit, leadButtons, displayName }
 ) {
   const snap = readHeroExpandSnapshot(meta)
+  const tzFieldTooltip = buildTrefferzoneInputTooltip(meta, getRoomSettings())
   const energyFieldLabel =
     snap.energyMode === 'ke' ? 'Karmaenergie (KE)' : 'Astralenergie (AE)'
   const energyFieldAbbr = snap.energyMode === 'ke' ? 'KE' : 'AE'
@@ -1080,7 +1084,7 @@ export function mountHeroExpandBlock(
   const tzAbbr = document.createElement('span')
   tzAbbr.className = 'init-hero-ex__abbr'
   tzAbbr.textContent = 'TZ'
-  tzAbbr.title = TZ_TOOLTIP
+  tzAbbr.title = tzFieldTooltip
   spTzLabelRow.append(spAbbr, spTzLabelTools, tzAbbr)
 
   const spInp = document.createElement('input')
@@ -1117,7 +1121,7 @@ export function mountHeroExpandBlock(
   tzInp.disabled = !canEdit
   tzInp.value = snap.tz
   tzInp.maxLength = 12
-  tzInp.title = TZ_TOOLTIP
+  tzInp.title = tzFieldTooltip
   tzInp.setAttribute('aria-label', 'Trefferzone (TZ)')
 
   const frontalCol = document.createElement('div')
