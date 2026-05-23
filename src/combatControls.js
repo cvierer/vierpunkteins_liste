@@ -201,7 +201,7 @@ export async function setupCombatControls(root) {
     } catch {
       /* ignore */
     }
-    await resetAllTrackerStateForCombatStart()
+    await resetAllTrackerStateForCombatStart({ restoreHeroExtraZat: true })
     clearCombatStartHeroSessionVisuals()
     clearCombatLog()
     const freshSteps = await combatTurnSteps()

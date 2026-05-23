@@ -748,11 +748,10 @@ function linksWithoutHeroExtraRoots(phases) {
 }
 
 /**
- * Nach Kampf-Start/-Ende (`resetAllTrackerStateForCombatStart`): z.AT-
- * Phasenwurzeln und zugehörige ZAO-Slots entfernen, **ohne** sie sofort neu
- * anzulegen — das 2.A.-Panel bleibt zu; `heroExtraZaoAvailableForRestore`
- * zeigt das rote „+", solange noch nicht alle konfigurierten z.AT wieder
- * hereingeholt sind (`patchRestoreHeroExtraZao`).
+ * Nach Kampfende (`resetAllTrackerStateForCombatStart` ohne restoreHeroExtraZat):
+ * z.AT-Phasenwurzeln und zugehörige ZAO-Slots entfernen — Spieler holt sie
+ * beim nächsten Kampfstart automatisch wieder (restoreHeroExtraZat) oder mid-
+ * Kampf per rotes „+" (`patchRestoreHeroExtraZao`).
  *
  * @param {Record<string, unknown>} m Token-Tracker-Meta (Mutationsziel)
  */
@@ -3163,8 +3162,13 @@ export async function resetAllKrCountersInScene(opts = {}) {
  *
  * Die 2.A.-Wurzel-Phasen-Links werden separat über
  * `clearAllRootPhaseLinksInScene` aus `phaseLinks.js` geleert.
+ *
+ * @param {{ restoreHeroExtraZat?: boolean }} [opts]
+ *   `restoreHeroExtraZat: true` beim Kampfstart — legt konfigurierte z.AT an.
  */
-export async function resetAllTrackerStateForCombatStart() {
+export async function resetAllTrackerStateForCombatStart(
+  { restoreHeroExtraZat = false } = {}
+) {
   const items = await OBR.scene.items.getItems((item) =>
     Boolean(item.metadata?.[TRACKER_ITEM_META_KEY])
   )
@@ -3195,9 +3199,11 @@ export async function resetAllTrackerStateForCombatStart() {
         // Mutex z.AT vs schwarzes Schild: Voll-Reset gibt die Wahl wieder
         // vollstaendig frei.
         delete m.krExtraChoiceUsed
-        // z.AT: Wurzeln entfernen, Panel zu — Spieler holt sie per „+“ herein
-        // (nicht sofort alle aufklappen wie beim KR-internen Neuaufbau).
-        stripHeroExtraZatAfterCombatFullReset(m)
+        if (restoreHeroExtraZat) {
+          rebuildHeroExtraAttackRootAndSlot(m)
+        } else {
+          stripHeroExtraZatAfterCombatFullReset(m)
+        }
         const parCount = readHeroExtraParCount(m)
         if (parCount > 0) {
           for (let i = 0; i < parCount; i++) {

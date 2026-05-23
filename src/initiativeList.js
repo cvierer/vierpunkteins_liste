@@ -4154,10 +4154,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    * Zusätzliche Parade: schwarzes Schild (`krParadeExtra`) und Stempel-Einträge
    * mit `paradeExtra`; bei deaktiviertem Haken werden sie entfernt.
    *
-   * Ein neues ZAO wird beim Speichern **nicht** automatisch erzeugt — pro
-   * Kampfrunde holt der Spieler das ZAO über das rote „+" am Mutter-Primärfeld
-   * manuell herein (`patchRestoreHeroExtraZao`). Der Haken steuert nur noch
-   * die Sichtbarkeit des „+"-Buttons.
+   * Ein neues ZAO wird beim Speichern **nicht** automatisch erzeugt — beim
+   * **Kampfstart** legt `resetAllTrackerStateForCombatStart` alle konfigurierten
+   * z.AT wieder an; das rote „+" am Mutter-Primärfeld erscheint nur noch,
+   * wenn mid-Kampf Wurzeln fehlen (`patchRestoreHeroExtraZao`).
    */
   async function applyHeroExtraCounts(itemId, angCountRaw, parCountRaw) {
     const angCount = Math.max(0, Math.min(10, Math.floor(Number(angCountRaw)) || 0))
