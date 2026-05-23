@@ -6883,6 +6883,7 @@ select.init-row-extra-select {
 .init-row-main--phase .init-col-lh,
 .init-row-main--phase-zao .init-col-lh {
   flex-shrink: 0;
+  padding-right: calc(0.28rem * var(--init-ui-scale));
 }
 
 .init-row-init {
