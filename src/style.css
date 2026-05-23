@@ -5517,28 +5517,6 @@ select.init-row-extra-select {
   margin: 0 -2.5px;
 }
 
-.init-kr-reaction-store .init-fa-cell {
-  width: calc(var(--init-obj-cell) * 1.12);
-  min-width: 0;
-  flex-shrink: 1;
-}
-
-.init-kr-reaction-store .init-fa-cell__bolt {
-  height: min(72px, calc(var(--init-obj-cell) * 2.55));
-  max-width: 26%;
-  margin: 0 -1.5px;
-}
-
-.init-kr-reaction-store:has(.init-fa-cell__bolt:nth-child(4)) .init-fa-cell {
-  width: calc(var(--init-obj-cell) * 1.05);
-}
-
-.init-kr-reaction-store:has(.init-fa-cell__bolt:nth-child(4)) .init-fa-cell__bolt {
-  height: min(64px, calc(var(--init-obj-cell) * 2.25));
-  max-width: 24%;
-  margin: 0 -2px;
-}
-
 .init-kr-abw-split-shell {
   flex-shrink: 0;
   width: calc(var(--init-obj-cell) * 1.48);
@@ -7136,6 +7114,7 @@ select.init-row-extra-select {
   min-width: 0;
   line-height: 0;
   box-sizing: border-box;
+  margin: 0 -3px;
 }
 
 .init-fa-cell--inactive-charged {
