@@ -5572,7 +5572,6 @@ function bindStampContextRemove(el, stamp, items) {
           zaoOverrideKind !== 'lh'
 
         const showFaOnNRoot = isZaoRoot && !isHeroExtraZao && !isLhEndLink
-        const showFaOnNRoot = isZaoRoot && !isHeroExtraZao && !isLhEndLink
 
         appendKrCounterPair(
           btnCol,
