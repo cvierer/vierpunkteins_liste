@@ -15,6 +15,9 @@ import {
   metaHasPendingLoadedNonHeroExtraZao,
   rebuildKrActionPoolVisualsFromAngAbw,
   krTransferMarkPresent,
+  motherHasChargedAng,
+  hasChargedRegularZaoAng,
+  syncReactionShieldForDualAng,
 } from './krCounters.js'
 import { normalizePhases } from './phaseLinks.js'
 import {
@@ -277,6 +280,75 @@ describe('rebuildKrActionPoolVisualsFromAngAbw nAO roots', () => {
     const m = baseMeta()
     rebuildKrActionPoolVisualsFromAngAbw(m, 0, 2)
     expect(regularRootCount(m)).toBe(0)
+  })
+})
+
+describe('dualAng mother and 2AO', () => {
+  function baseMeta() {
+    return {
+      initiative: '10',
+      phases: { links: [], rowPanelOpen: false },
+      [KR_ZAO_SLOTS]: {},
+      [KR_FIRST_SLOT_KIND]: 'ang',
+    }
+  }
+
+  function regularRootId(m) {
+    return normalizePhases(m.phases).links.find(
+      (l) => l.parentId === null && !l.heroExtra
+    )?.id
+  }
+
+  it('Dual-Schwert: sync leert Speicher wenn Mutter und 2AO ang geladen', () => {
+    const m = baseMeta()
+    rebuildKrActionPoolVisualsFromAngAbw(m, 1, 1)
+    const rootId = regularRootId(m)
+    expect(rootId).toBeTruthy()
+    m[KR_ABW] = 1
+    const s = readZaoSlots(m)
+    s[rootId] = { kind: 'ang', marks: 1 }
+    m[KR_ZAO_SLOTS] = s
+    syncReactionShieldForDualAng(m)
+    expect(motherHasChargedAng(m)).toBe(true)
+    expect(hasChargedRegularZaoAng(m)).toBe(true)
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(false)
+  })
+
+  it('Mutter uo + 2AO ang: nach Mutter-ang bleibt Speicher leer', () => {
+    const m = baseMeta()
+    rebuildKrActionPoolVisualsFromAngAbw(m, 1, 1)
+    const rootId = regularRootId(m)
+    expect(rootId).toBeTruthy()
+    m[KR_FIRST_SLOT_KIND] = 'uo'
+    m[KR_ANG] = 1
+    m[KR_ABW] = 1
+    const s = readZaoSlots(m)
+    s[rootId] = { kind: 'ang', marks: 1 }
+    m[KR_ZAO_SLOTS] = s
+    m[KR_FIRST_SLOT_KIND] = 'ang'
+    m[KR_ANG] = 0
+    syncReactionShieldForDualAng(m)
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(false)
+  })
+
+  it('2AO ang → UO: Speicher-Mark wieder da, Phasen-Zeile bleibt', () => {
+    const m = baseMeta()
+    rebuildKrActionPoolVisualsFromAngAbw(m, 1, 1)
+    const rootId = regularRootId(m)
+    expect(rootId).toBeTruthy()
+    const s = readZaoSlots(m)
+    s[rootId] = { kind: 'ang', marks: 1 }
+    m[KR_ZAO_SLOTS] = s
+    m[KR_ABW] = 1
+    syncReactionShieldForDualAng(m)
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(false)
+    m[KR_ABW] = 0
+    s[rootId] = { kind: 'uo', marks: 0, lodgedAbw: true }
+    m[KR_ZAO_SLOTS] = s
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(true)
+    expect(
+      normalizePhases(m.phases).links.some((l) => l.id === rootId)
+    ).toBe(true)
   })
 })
 

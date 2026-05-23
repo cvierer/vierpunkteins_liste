@@ -641,6 +641,57 @@ export function readZaoSlot(meta, linkId) {
 }
 
 /**
+ * Mutter-Primärfeld: Angriff (ang) mit geladener Ladung.
+ *
+ * @param {unknown} meta
+ * @returns {boolean}
+ */
+export function motherHasChargedAng(meta) {
+  if (!meta || typeof meta !== 'object') return false
+  if (readKrFirstSlotKind(meta) !== 'ang') return false
+  return krTransferMarkPresent(normalizeKrDigit(meta[KR_ANG]))
+}
+
+/**
+ * Reguläre 2.A.-Wurzel mit geladenem Schwert (nicht UO/lodgedAbw).
+ *
+ * @param {unknown} meta
+ * @returns {boolean}
+ */
+export function hasChargedRegularZaoAng(meta) {
+  if (!meta || typeof meta !== 'object') return false
+  const zaoSlotsMap = readZaoSlots(meta)
+  const phaseLinks = normalizePhases(meta.phases).links
+  const heroExtraLinkIds = new Set(
+    phaseLinks
+      .filter((l) => l.parentId === null && l.heroExtra)
+      .map((l) => l.id)
+  )
+  const lhEndLinkIds = new Set(
+    phaseLinks.filter((l) => l.lhEnd === true).map((l) => l.id)
+  )
+  return Object.entries(zaoSlotsMap).some(([linkId, s]) => {
+    if (!s || s.marks !== 1) return false
+    if (heroExtraLinkIds.has(linkId)) return false
+    if (lhEndLinkIds.has(linkId)) return false
+    if (s.lodgedAbw === true) return false
+    return s.kind === 'ang'
+  })
+}
+
+/**
+ * Dual-Schwert (Mutter + 2.AO): Speicher-Schild ausblenden (kein Abw.-Transfer-Mark).
+ *
+ * @param {Record<string, unknown>} m
+ */
+export function syncReactionShieldForDualAng(m) {
+  if (!m || typeof m !== 'object') return
+  if (motherHasChargedAng(m) && hasChargedRegularZaoAng(m)) {
+    m[KR_ABW] = chargeValueFromMarks(0)
+  }
+}
+
+/**
  * Mindestens eine reguläre (nicht `heroExtra`) 2.A.-Wurzel mit voller Ladung
  * (`marks === 1`). Wird genutzt, um Abwehr→leeres Mutterfeld zu sperren, solange
  * noch eine zweite Aktion abgearbeitet werden soll.
@@ -784,6 +835,7 @@ export async function patchZaoSlot(itemId, linkId, patch) {
         next
       )
       m[KR_ZAO_SLOTS] = slots
+      syncReactionShieldForDualAng(m)
     }
   })
 }
@@ -1263,6 +1315,9 @@ export async function patchKrFirstSlotKind(itemId, kind) {
         m[newPF] = newCounter
       }
       m[KR_PRIMARY_LADUNG] = newCounter
+      if (kind === 'ang') {
+        syncReactionShieldForDualAng(m)
+      }
     }
   })
 }
@@ -1379,6 +1434,7 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
   for (let i = roots.length - 1; i >= 0; i--) {
     const slot = slots[roots[i].id]
     if (slot && slot.marks === 1) {
+      if (slot.kind === 'ang' && !slot.lodgedAbw) continue
       sourceZaoId = roots[i].id
       break
     }
@@ -1560,6 +1616,7 @@ export async function patchKrTransferAbwToZaoPrimary(
         targetKind === 'sra' || targetKind === 'lh' ? targetKind : 'ang'
       s[linkId] = { kind, marks: 1 }
       m[KR_ZAO_SLOTS] = s
+      syncReactionShieldForDualAng(m)
     }
   })
 }
@@ -1622,6 +1679,27 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
   const iniStr = meta?.initiative
   const phaseOffset = phaseOffsetFromHeroSecondAoMeta(meta)
 
+  const dualAngFromAbw =
+  (targetKind === 'ang' ||
+    (targetKind == null && exitingUo && transferKind === 'ang')) &&
+  hasChargedRegularZaoAng(meta)
+
+  if (!krTransferMarkPresent(abw) && dualAngFromAbw) {
+    await OBR.scene.items.updateItems([itemId], (drafts) => {
+      for (const d of drafts) {
+        const m = d.metadata[TRACKER_ITEM_META_KEY]
+        if (!m) continue
+        m[KR_FIRST_SLOT_KIND] = 'ang'
+        m[KR_PAIR_MODE] = 'ang_abw'
+        m[KR_ANG] = 0
+        delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+        syncKrPrimaryLadungFromPrimaryField(m)
+        syncReactionShieldForDualAng(m)
+      }
+    })
+    return
+  }
+
   if (!krTransferMarkPresent(abw)) return
   const nextAbw = consumeOneChargeValue(abw)
   if (nextAbw === abw) return
@@ -1655,6 +1733,7 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
         }
         delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
         syncKrPrimaryLadungFromPrimaryField(m)
+        syncReactionShieldForDualAng(m)
       }
     })
     return
