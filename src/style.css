@@ -6278,7 +6278,7 @@ select.init-row-extra-select {
   );
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-phase-gutter-inner)
-    minmax(0, 1fr) auto var(--init-col-ini) var(--init-col-swap);
+    minmax(0, 1fr) auto var(--init-obj-cell) var(--init-col-ini) var(--init-col-swap);
 }
 
 .init-col-btn--phase {
@@ -6294,8 +6294,8 @@ select.init-row-extra-select {
     5.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
   );
   grid-template-columns:
-    var(--init-col-expand) var(--init-col-btn) var(--init-obj-cell) minmax(0, 1fr)
-    auto var(--init-col-ini) var(--init-col-swap);
+    var(--init-col-expand) var(--init-col-btn) minmax(0, 1fr) auto
+    var(--init-obj-cell) var(--init-col-ini) var(--init-col-swap);
 }
 
 .init-phase-zao-meta {

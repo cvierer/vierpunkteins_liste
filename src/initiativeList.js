@@ -5515,7 +5515,6 @@ function bindStampContextRemove(el, stamp, items) {
             hideFa: true,
             hideLh: true,
             hideConvert: true,
-            abwReplacement: zaoOffsetSlot,
             combatStarted: combat.started,
             roundIntroPending: combat.roundIntroPending,
           }
@@ -5548,11 +5547,12 @@ function bindStampContextRemove(el, stamp, items) {
         const offsetInput = document.createElement('input')
         offsetInput.type = 'text'
         offsetInput.inputMode = 'numeric'
-        offsetInput.className = 'phase-offset-input phase-offset-input--zao-inline'
+        offsetInput.className =
+          'phase-offset-input phase-offset-input--zao-inline'
         offsetInput.value = offsetDisplay
-        offsetInput.setAttribute('aria-label', 'Phasen später')
+        offsetInput.setAttribute('aria-label', 'INI verzögert')
         offsetInput.title =
-          'Abstand Helden-INI zur Ziel-INI (Anzeige; L.H.-Zeile)'
+          'INI verzögert — Abstand Helden-INI zur Ziel-INI (L.H.-Zeile)'
         offsetInput.readOnly = true
         offsetInput.tabIndex = -1
         zaoOffsetSlot.appendChild(offsetInput)
@@ -5711,6 +5711,7 @@ function bindStampContextRemove(el, stamp, items) {
           btnCol,
           phaseZaoMeta,
           lhCol,
+          zaoOffsetSlot,
           iniInput,
           zaoSwapCol
         )
@@ -5980,17 +5981,21 @@ function bindStampContextRemove(el, stamp, items) {
         const offsetInput = document.createElement('input')
         offsetInput.type = 'text'
         offsetInput.inputMode = 'numeric'
-        offsetInput.className = isZaoRoot
-          ? 'phase-offset-input phase-offset-input--zao-inline'
-          : 'phase-offset-input'
+        offsetInput.className =
+          'phase-offset-input phase-offset-input--zao-inline'
         offsetInput.value = String(link.offset)
-        offsetInput.setAttribute('aria-label', 'Phasen später')
+        offsetInput.setAttribute('aria-label', 'INI verzögert')
         offsetInput.title = canEdit
-          ? 'INI-Phasen später'
+          ? 'INI verzögert — Abstand zur Basis-INI dieser Phase'
           : 'Nur Besitzer dieses Tokens oder Spielleitung'
         offsetInput.readOnly = !canEdit
+
+        const phaseOffsetSlot = document.createElement('div')
+        phaseOffsetSlot.className = 'init-kr-abw-offset-slot'
         if (isZaoRoot) {
           zaoOffsetSlot.appendChild(offsetInput)
+        } else {
+          phaseOffsetSlot.appendChild(offsetInput)
         }
 
         let phaseZaoMeta = null
@@ -6016,7 +6021,7 @@ function bindStampContextRemove(el, stamp, items) {
           phaseGutter.className = 'init-phase-gutter'
           const spine = document.createElement('div')
           spine.className = 'phase-spine'
-          phaseGutter.append(spine, offsetInput)
+          phaseGutter.append(spine)
           phaseNameCol = document.createElement('div')
           phaseNameCol.className = 'init-row-name-col'
           const nameEl = document.createElement('span')
@@ -6158,9 +6163,9 @@ function bindStampContextRemove(el, stamp, items) {
           main.append(
             phaseExpandCell,
             btnCol,
-            zaoOffsetSlot,
             phaseZaoMeta,
             lhCol,
+            zaoOffsetSlot,
             iniInput,
             zaoSwapCol
           )
@@ -6171,6 +6176,7 @@ function bindStampContextRemove(el, stamp, items) {
             phaseGutter,
             phaseNameCol,
             lhCol,
+            phaseOffsetSlot,
             iniInput,
             swapSpacer
           )
