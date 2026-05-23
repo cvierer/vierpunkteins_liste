@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   KR_ANG,
+  KR_ABW,
   KR_FIRST_SLOT_KIND,
   KR_LH_ACTION,
   KR_SRA,
@@ -9,9 +10,11 @@ import {
   lhEndKrConvertArrowGates,
   readZaoSlots,
   readEffectiveZaoSlotKind,
+  readKrFirstSlotKind,
   defaultZaoSlotForPhaseNum,
   metaHasPendingLoadedNonHeroExtraZao,
   rebuildKrActionPoolVisualsFromAngAbw,
+  krTransferMarkPresent,
 } from './krCounters.js'
 import { normalizePhases } from './phaseLinks.js'
 import {
@@ -219,6 +222,43 @@ describe('rebuildKrActionPoolVisualsFromAngAbw nAO roots', () => {
       marks: 0,
       lodgedAbw: true,
     })
+  })
+
+  it('ang=1 abw=1: Mutter-Schwert und genau ein Speicher-Schild (kein Doppel-Count)', () => {
+    const m = baseMeta()
+    rebuildKrActionPoolVisualsFromAngAbw(m, 1, 1)
+    expect(readKrFirstSlotKind(m)).toBe('ang')
+    expect(krTransferMarkPresent(m[KR_ANG])).toBe(true)
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(true)
+    expect(m[KR_ABW]).toBe(0)
+  })
+
+  it('ang=3 abw=1: nur erste UO-Wurzel mit lodgedAbw', () => {
+    const m = { ...baseMeta(), initiative: '20' }
+    rebuildKrActionPoolVisualsFromAngAbw(m, 3, 1)
+    const roots = normalizePhases(m.phases).links.filter(
+      (l) => l.parentId === null && !l.heroExtra && l.lhEnd !== true
+    )
+    const slots = readZaoSlots(m)
+    const lodgedCount = roots.filter((l) => slots[l.id]?.lodgedAbw).length
+    expect(lodgedCount).toBe(1)
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(true)
+  })
+
+  it('UO→Ang auf ZAO entfernt Speicher-Ladung', () => {
+    const m = baseMeta()
+    rebuildKrActionPoolVisualsFromAngAbw(m, 1, 1)
+    const rootId = normalizePhases(m.phases).links.find(
+      (l) => l.parentId === null && !l.heroExtra
+    )?.id
+    expect(rootId).toBeTruthy()
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(true)
+    m[KR_ABW] = 1
+    const s = readZaoSlots(m)
+    s[rootId] = { kind: 'ang', marks: 1 }
+    m[KR_ZAO_SLOTS] = s
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(false)
+    expect(readZaoSlots(m)[rootId]).toEqual({ kind: 'ang', marks: 1 })
   })
 
   it('ang=2 legt eine Wurzel an (Regression)', () => {

@@ -4627,7 +4627,7 @@ select.init-row-extra-select {
   color: #3949ab;
 }
 
-.init-kr-primary-main--uo .init-kr-abw-shield__svg {
+.init-kr-primary-main--uo .init-kr-uo-convert-icon .init-kr-abw-shield__svg--uo {
   display: block;
   width: min(
     calc(33.85px * var(--init-combat-icon-scale)),
@@ -4638,6 +4638,18 @@ select.init-row-extra-select {
     calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
   );
   margin: 0 auto;
+}
+
+.init-kr-uo-convert-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.init-kr-uo-convert-icon .init-kr-uo-convert-arrow {
+  filter: drop-shadow(0 0 1px rgba(26, 35, 126, 0.85));
 }
 
 .init-kr-primary-main--lh-voided {

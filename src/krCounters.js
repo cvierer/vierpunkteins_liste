@@ -410,6 +410,7 @@ export function rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw) {
     const newSlots = readZaoSlots(m)
     if (typeof iniStr === 'string') {
       let phasesAcc = { ...p2, links: [...p2.links], rowPanelOpen: true }
+      let lodgedUoAssigned = 0
       for (let i = 1; i < Math.max(ang, 2); i++) {
         phasesAcc = finalizePhasesWithOrderedRoots(m, phasesAcc)
         const next = nextChainedZaoParentForTransfer(
@@ -431,9 +432,13 @@ export function rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw) {
           ],
         }
         const phaseNum = i + 1
-        const slot = defaultZaoSlotForPhaseNum(phaseNum)
+        let slot = defaultZaoSlotForPhaseNum(phaseNum)
+        if (slot.kind === 'uo' && slot.lodgedAbw && lodgedUoAssigned >= abw) {
+          slot = { kind: 'uo', marks: 0 }
+        } else if (slot.kind === 'uo' && slot.lodgedAbw) {
+          lodgedUoAssigned++
+        }
         newSlots[newLinkId] = slot
-        applyUoDefaultAbwChargeIfNeeded(m, slot)
       }
       phasesAcc = finalizePhasesWithOrderedRoots(m, {
         ...phasesAcc,
@@ -1337,7 +1342,6 @@ export async function patchEnsureZaoSlotForLink(itemId, linkId, phaseNum) {
       if (s[linkId]) continue
       const slot = defaultZaoSlotForPhaseNum(phaseNum)
       s[linkId] = slot
-      applyUoDefaultAbwChargeIfNeeded(m, slot)
       m[KR_ZAO_SLOTS] = s
       const p = normalizePhases(m.phases)
       if (p.links.length > 0) {
