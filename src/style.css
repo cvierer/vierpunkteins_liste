@@ -5469,14 +5469,14 @@ select.init-row-extra-select {
   justify-content: flex-end;
 }
 
-/* ↓N + INI in einer Spalte — kein Extra-Grid-Spalt */
-.init-col-ini-combo {
+/* x-n: eigene schmale Spalte vor L.H. / Ziel-INI */
+.init-col-phase-offset {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: calc(0.22rem * var(--init-ui-scale));
-  width: var(--init-col-ini);
+  flex-shrink: 0;
   min-width: 0;
+  max-width: max-content;
   box-sizing: border-box;
 }
 
@@ -5511,8 +5511,11 @@ select.init-row-extra-select {
   pointer-events: none;
 }
 
-.init-col-ini-combo .init-row-init {
-  flex-shrink: 0;
+/* Abstand x-n ↔ L.H.-Kästchen, kein Überlappen */
+.init-row-main--phase.init-row-main--has-lh-col .init-col-phase-offset,
+.init-row-main--phase-zao.init-row-main--has-lh-col .init-col-phase-offset {
+  padding-right: calc(0.32rem * var(--init-ui-scale));
+  margin-right: calc(0.08rem * var(--init-ui-scale));
 }
 
 .init-kr-abw-split-shell__exec {
@@ -6325,7 +6328,7 @@ select.init-row-extra-select {
   );
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-phase-gutter-inner)
-    minmax(0, 1fr) auto var(--init-col-ini) var(--init-col-swap);
+    minmax(0, 1fr) max-content auto var(--init-col-ini) var(--init-col-swap);
 }
 
 .init-col-btn--phase {
@@ -6341,7 +6344,7 @@ select.init-row-extra-select {
     5.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
   );
   grid-template-columns:
-    var(--init-col-expand) var(--init-col-btn) minmax(0, 1fr) auto
+    var(--init-col-expand) var(--init-col-btn) minmax(0, 1fr) max-content auto
     var(--init-col-ini) var(--init-col-swap);
 }
 
@@ -6945,7 +6948,12 @@ select.init-row-extra-select {
   justify-content: flex-end;
   gap: var(--init-grid-gap);
   width: auto;
-  margin-right: calc(var(--init-grid-gap) * 1.5);
+  margin-right: calc(var(--init-grid-gap) * 0.55);
+}
+
+.init-row-main--phase .init-col-lh,
+.init-row-main--phase-zao .init-col-lh {
+  flex-shrink: 0;
 }
 
 .init-row-init {

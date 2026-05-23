@@ -572,7 +572,7 @@ function fitIniVerzoegertInputWidth(input) {
 }
 
 /**
- * INI verzögert als x↓n: x = Mutter-INI (fest), n = Verzögerung (editierbar).
+ * INI verzögert als x-n: x = Mutter-INI (fest), n = Verzögerung (editierbar).
  */
 function createIniVerzoegertOffsetField(
   baseIniDisplay,
@@ -590,7 +590,7 @@ function createIniVerzoegertOffsetField(
       : '—'
   const sep = document.createElement('span')
   sep.className = 'init-phase-offset-field__sep'
-  sep.textContent = '↓'
+  sep.textContent = '-'
   sep.setAttribute('aria-hidden', 'true')
   const input = document.createElement('input')
   input.type = 'text'
@@ -603,7 +603,7 @@ function createIniVerzoegertOffsetField(
   )
   input.title =
     title ||
-    `Mutter-INI ${baseEl.textContent} (fest) — nur die Zahl nach ↓ (Verzögerung n) ändern`
+    `Mutter-INI ${baseEl.textContent} (fest) — nur n nach dem Minus ändern`
   input.readOnly = readOnly
   if (tabIndex !== undefined) input.tabIndex = tabIndex
   fitIniVerzoegertInputWidth(input)
@@ -614,21 +614,20 @@ function createIniVerzoegertOffsetField(
   return { wrap, input, baseEl }
 }
 
-/** x↓n unmittelbar links neben dem Ziel-INI-Feld (eine Grid-Spalte). */
-function createIniColCombo(
-  iniInput,
+/** Eigene Grid-Spalte für x-n (vor L.H. und Ziel-INI, kein Überlappen). */
+function mountIniVerzoegertOffsetColumn(
   baseIniDisplay,
   offsetValue,
   offsetOptions = {}
 ) {
   const col = document.createElement('div')
-  col.className = 'init-col-ini-combo'
+  col.className = 'init-col-phase-offset'
   const { wrap, input: offsetInput } = createIniVerzoegertOffsetField(
     baseIniDisplay,
     offsetValue,
     offsetOptions
   )
-  col.append(wrap, iniInput)
+  col.appendChild(wrap)
   return { col, offsetInput }
 }
 
@@ -5688,8 +5687,7 @@ function bindStampContextRemove(el, stamp, items) {
         })
 
         const lhBaseDisplay = formatHookDisplay(heroNum)
-        const { col: iniCol } = createIniColCombo(
-          iniInput,
+        const { col: offsetCol } = mountIniVerzoegertOffsetColumn(
           lhBaseDisplay,
           offsetDisplay,
           {
@@ -5775,8 +5773,9 @@ function bindStampContextRemove(el, stamp, items) {
           createInitExpandSpacerCell(),
           btnCol,
           phaseZaoMeta,
+          offsetCol,
           lhCol,
-          iniCol,
+          iniInput,
           zaoSwapCol
         )
         // Stempel-Panel (absolut rechts, kein INI-Shift)
@@ -6140,14 +6139,13 @@ function bindStampContextRemove(el, stamp, items) {
         const phaseBaseDisplay = formatHookDisplay(
           baseIniBeforeLink(link.id, ownerIniStr, ownerPhasesNorm.links)
         )
-        const { col: iniCol, offsetInput } = createIniColCombo(
-          iniInput,
+        const { col: offsetCol, offsetInput } = mountIniVerzoegertOffsetColumn(
           phaseBaseDisplay,
           String(link.offset),
           {
             readOnly: !canEdit,
             title: canEdit
-              ? `Mutter-INI ${phaseBaseDisplay} fest — nur n nach ↓ (Verzögerung) ändern`
+              ? `Mutter-INI ${phaseBaseDisplay} fest — nur n nach dem Minus ändern`
               : 'Nur Besitzer dieses Tokens oder Spielleitung',
           }
         )
@@ -6216,13 +6214,17 @@ function bindStampContextRemove(el, stamp, items) {
               },
             })
           : createInitExpandSpacerCell()
+        if (lhCol.childElementCount > 0) {
+          main.classList.add('init-row-main--has-lh-col')
+        }
         if (isZaoRoot) {
           main.append(
             phaseExpandCell,
             btnCol,
             phaseZaoMeta,
+            offsetCol,
             lhCol,
-            iniCol,
+            iniInput,
             zaoSwapCol
           )
         } else {
@@ -6231,8 +6233,9 @@ function bindStampContextRemove(el, stamp, items) {
             btnCol,
             phaseGutter,
             phaseNameCol,
+            offsetCol,
             lhCol,
-            iniCol,
+            iniInput,
             swapSpacer
           )
         }
