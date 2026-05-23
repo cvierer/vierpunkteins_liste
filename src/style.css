@@ -5425,10 +5425,11 @@ select.init-row-extra-select {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: calc(var(--init-grid-gap) * 0.35);
+  gap: 0;
   box-sizing: border-box;
-  padding: calc(0.04rem * var(--init-ui-scale));
+  padding: calc(0.04rem * var(--init-ui-scale)) 3px;
   min-height: var(--init-obj-cell);
+  min-width: 0;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 3px;
@@ -5438,6 +5439,104 @@ select.init-row-extra-select {
 .init-kr-reaction-store .init-fa-cell {
   background: transparent;
   box-shadow: none;
+}
+
+.init-kr-reaction-store .init-kr-abw-split-shell {
+  width: calc(
+    var(--init-obj-cell) * (0.42 + var(--init-abw-shield-slots, 1) * 0.36)
+  );
+  max-width: calc(var(--init-obj-cell) * 1.55);
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.init-kr-reaction-store .init-kr-abw-split-shell[data-shield-count='1'] {
+  min-width: calc(var(--init-obj-cell) * 0.88);
+}
+
+.init-kr-reaction-store .init-kr-abw-shields {
+  justify-content: center;
+  padding-inline: 1px;
+  box-sizing: border-box;
+}
+
+.init-kr-reaction-store
+  .init-kr-abw-split-shell[data-shield-count='2']
+  .init-kr-abw-shield {
+  height: min(
+    calc(28px * var(--init-combat-icon-scale)),
+    calc(var(--init-obj-cell) * 1.05 * var(--init-combat-icon-scale))
+  );
+  width: calc(
+    min(
+        calc(28px * var(--init-combat-icon-scale)),
+        calc(var(--init-obj-cell) * 1.05 * var(--init-combat-icon-scale))
+      ) * 6 /
+      8.5
+  );
+  margin: 0 -1.5px;
+}
+
+.init-kr-reaction-store
+  .init-kr-abw-split-shell[data-shield-count='3']
+  .init-kr-abw-shield,
+.init-kr-reaction-store
+  .init-kr-abw-split-shell--three-shields[data-shield-count='3']
+  .init-kr-abw-shield {
+  height: min(
+    calc(22px * var(--init-combat-icon-scale)),
+    calc(var(--init-obj-cell) * 0.82 * var(--init-combat-icon-scale))
+  );
+  width: calc(
+    min(
+        calc(22px * var(--init-combat-icon-scale)),
+        calc(var(--init-obj-cell) * 0.82 * var(--init-combat-icon-scale))
+      ) * 6 /
+      8.5
+  );
+  margin: 0 -2.25px;
+}
+
+.init-kr-reaction-store
+  .init-kr-abw-split-shell[data-shield-count='4']
+  .init-kr-abw-shield,
+.init-kr-reaction-store
+  .init-kr-abw-split-shell--four-shields[data-shield-count='4']
+  .init-kr-abw-shield {
+  height: min(
+    calc(19px * var(--init-combat-icon-scale)),
+    calc(var(--init-obj-cell) * 0.72 * var(--init-combat-icon-scale))
+  );
+  width: calc(
+    min(
+        calc(19px * var(--init-combat-icon-scale)),
+        calc(var(--init-obj-cell) * 0.72 * var(--init-combat-icon-scale))
+      ) * 6 /
+      8.5
+  );
+  margin: 0 -2.5px;
+}
+
+.init-kr-reaction-store .init-fa-cell {
+  width: calc(var(--init-obj-cell) * 1.12);
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.init-kr-reaction-store .init-fa-cell__bolt {
+  height: min(72px, calc(var(--init-obj-cell) * 2.55));
+  max-width: 26%;
+  margin: 0 -1.5px;
+}
+
+.init-kr-reaction-store:has(.init-fa-cell__bolt:nth-child(4)) .init-fa-cell {
+  width: calc(var(--init-obj-cell) * 1.05);
+}
+
+.init-kr-reaction-store:has(.init-fa-cell__bolt:nth-child(4)) .init-fa-cell__bolt {
+  height: min(64px, calc(var(--init-obj-cell) * 2.25));
+  max-width: 24%;
+  margin: 0 -2px;
 }
 
 .init-kr-abw-split-shell {
