@@ -5807,7 +5807,7 @@ function bindStampContextRemove(el, stamp, items) {
         }
         
         if (isHeroExtraZao) {
-          zaoTextReplacement.textContent = 'z. AT'
+          zaoTextReplacement.textContent = ''
           zaoTextReplacement.title = 'zusätzliche Angriffsaktion'
         } else if (!isZaoRoot) {
           if (zaoOverrideKind === 'lh') {
