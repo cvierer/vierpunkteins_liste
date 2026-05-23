@@ -5333,14 +5333,8 @@ function bindStampContextRemove(el, stamp, items) {
 
         btnCol.append(lhRemove)
 
-        const phaseZaoMeta = document.createElement('div')
-        phaseZaoMeta.className = 'init-phase-zao-meta'
-        const iniActLabel = document.createElement('span')
-        iniActLabel.className = 'init-phase-zao-ini-label'
-        iniActLabel.textContent = '2.A.'
-        iniActLabel.title = lhPending
-          ? `L.H. (${lhProgressLabel ?? '?/?'}) — Fortschritt`
-          : 'Längerfristige Handlung abgeschlossen: Zusatz-Aktion'
+        const phaseNameCol = document.createElement('div')
+        phaseNameCol.className = 'init-row-name-col'
         const nameEl = document.createElement('span')
         nameEl.className = 'init-row-name'
         if (!lhPending && canEdit) {
@@ -5349,9 +5343,9 @@ function bindStampContextRemove(el, stamp, items) {
         }
         nameEl.textContent = ownerName
         nameEl.title = lhPending
-          ? 'Längerfristige Handlung — Fortschritt in der INI-Spalte'
-          : '2. Aktionsphase · Ziel-INI am Lineal ziehen'
-        phaseZaoMeta.append(iniActLabel, nameEl)
+          ? `L.H. (${lhProgressLabel ?? '?/?'}) — Fortschritt · ${ownerName}`
+          : `2. Aktionsphase · Ziel-INI am Lineal ziehen · ${ownerName}`
+        phaseNameCol.appendChild(nameEl)
 
         const iniInput = document.createElement('input')
         iniInput.className = 'init-row-init'
@@ -5487,7 +5481,7 @@ function bindStampContextRemove(el, stamp, items) {
         main.append(
           createInitExpandSpacerCell(),
           btnCol,
-          phaseZaoMeta,
+          phaseNameCol,
           lhCol,
           iniTailCol,
           zaoSwapCol
@@ -5657,8 +5651,6 @@ function bindStampContextRemove(el, stamp, items) {
           !isLhEndLink &&
           zaoOverrideKind !== 'lh'
 
-        const showFaOnNRoot = isZaoRoot && !isHeroExtraZao && !isLhEndLink
-
         appendKrCounterPair(
           btnCol,
           ownerId,
@@ -5675,7 +5667,7 @@ function bindStampContextRemove(el, stamp, items) {
             ? zaoMotherMirrorUi
               ? {
                   hideAbw: false,
-                  hideFa: !showFaOnNRoot,
+                  hideFa: true,
                   hideLh: true,
                   abwMirrorLinkUi: true,
                   zaoSlotOverride: zaoSlot
@@ -5692,7 +5684,7 @@ function bindStampContextRemove(el, stamp, items) {
                 }
               : {
                   hideAbw: true,
-                  hideFa: !showFaOnNRoot,
+                  hideFa: true,
                   hideLh: true,
                   abwReplacement: zaoTextReplacement,
                   zaoSlotOverride: zaoSlot
@@ -5708,6 +5700,7 @@ function bindStampContextRemove(el, stamp, items) {
                   roundIntroPending: combat.roundIntroPending,
                 }
             : {
+                hideFa: true,
                 lhContainer: lhCol,
                 combatStarted: combat.started,
                 roundIntroPending: combat.roundIntroPending,
@@ -5732,14 +5725,12 @@ function bindStampContextRemove(el, stamp, items) {
           btnCol.append(phaseMinus)
         }
 
-        let phaseZaoMeta = null
-        let phaseGutter = null
         let phaseNameCol = null
         /** @type {HTMLSpanElement | null} */
         let zaoIniDragNameEl = null
         if (isZaoRoot) {
-          phaseZaoMeta = document.createElement('div')
-          phaseZaoMeta.className = 'init-phase-zao-meta'
+          phaseNameCol = document.createElement('div')
+          phaseNameCol.className = 'init-row-name-col'
           const nameEl = document.createElement('span')
           nameEl.className = 'init-row-name'
           if (canEdit) {
@@ -5749,15 +5740,14 @@ function bindStampContextRemove(el, stamp, items) {
           nameEl.textContent = ownerName
           nameEl.title = `${zaoPhaseNum}. Aktionsphase · ${ownerName}`
           zaoIniDragNameEl = nameEl
-          phaseZaoMeta.append(nameEl)
+          phaseNameCol.appendChild(nameEl)
         } else {
-          phaseGutter = document.createElement('div')
-          phaseGutter.className = 'init-phase-gutter'
+          phaseNameCol = document.createElement('div')
+          phaseNameCol.className =
+            'init-row-name-col init-row-name-col--phase-link'
           const spine = document.createElement('div')
           spine.className = 'phase-spine'
-          phaseGutter.append(spine)
-          phaseNameCol = document.createElement('div')
-          phaseNameCol.className = 'init-row-name-col'
+          phaseNameCol.appendChild(spine)
           const nameEl = document.createElement('span')
           nameEl.className = 'init-row-name'
           nameEl.textContent = ownerName
@@ -5847,7 +5837,7 @@ function bindStampContextRemove(el, stamp, items) {
           main.append(
             phaseExpandCell,
             btnCol,
-            phaseZaoMeta,
+            phaseNameCol,
             lhCol,
             iniTailCol,
             zaoSwapCol
@@ -5856,7 +5846,6 @@ function bindStampContextRemove(el, stamp, items) {
           main.append(
             phaseExpandCell,
             btnCol,
-            phaseGutter,
             phaseNameCol,
             lhCol,
             iniTailCol,

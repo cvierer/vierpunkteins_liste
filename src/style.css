@@ -6459,30 +6459,9 @@ select.init-row-extra-select {
   border-color: rgba(200, 100, 100, 0.55);
 }
 
-.init-row-main--phase {
-  position: relative;
-  /* Phasen-Zeile: Abstand zur Namensspalte wie Token-Zeile schmaler */
-  --init-phase-gutter-inner: calc(1.64rem * var(--init-ui-scale));
-  --init-col-btn: calc(
-    4.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
-  );
-  grid-template-columns:
-    var(--init-col-expand) var(--init-col-btn) var(--init-phase-gutter-inner)
-    minmax(0, 1fr) auto max-content var(--init-col-swap);
-}
-
-.init-col-btn--phase {
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: calc(var(--init-grid-gap) * 0.45);
-}
-
+.init-row-main--phase,
 .init-row-main--phase-zao {
-  --init-col-btn: calc(
-    4.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
-  );
+  position: relative;
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) minmax(0, 1fr) auto max-content
     var(--init-col-swap);
@@ -7015,6 +6994,14 @@ select.init-row-extra-select {
   min-width: 0;
   display: flex;
   align-items: center;
+}
+
+.init-row-name-col--phase-link {
+  position: relative;
+}
+
+.init-row-name-col--phase-link .phase-spine {
+  left: calc(-0.85rem * var(--init-ui-scale));
 }
 
 .init-row-name {
