@@ -402,15 +402,15 @@ export function rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw) {
     syncKrPrimaryLadungFromPrimaryField(m)
   }
 
-  // 3. ZAO-Objekte für jede zusätzliche Aktionsladung (ang > 1) anlegen.
-  if (ang > 1) {
+  // 3. Mindestens eine 2.AO-Wurzel (UO) ab ang >= 1; weitere nur bei ang > 1.
+  if (ang >= 1) {
     const iniStr = m?.initiative
     const phaseOffset = phaseOffsetFromHeroSecondAoMeta(m)
     const p2 = normalizePhases(m.phases)
     const newSlots = readZaoSlots(m)
     if (typeof iniStr === 'string') {
       let phasesAcc = { ...p2, links: [...p2.links], rowPanelOpen: true }
-      for (let i = 1; i < ang; i++) {
+      for (let i = 1; i < Math.max(ang, 2); i++) {
         phasesAcc = finalizePhasesWithOrderedRoots(m, phasesAcc)
         const next = nextChainedZaoParentForTransfer(
           iniStr,

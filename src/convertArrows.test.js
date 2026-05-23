@@ -11,7 +11,9 @@ import {
   readEffectiveZaoSlotKind,
   defaultZaoSlotForPhaseNum,
   metaHasPendingLoadedNonHeroExtraZao,
+  rebuildKrActionPoolVisualsFromAngAbw,
 } from './krCounters.js'
+import { normalizePhases } from './phaseLinks.js'
 import {
   LH_ACTIONS_PER_KR,
   LH_COMMIT_ROUND,
@@ -184,6 +186,57 @@ describe('defaultZaoSlotForPhaseNum', () => {
       marks: 0,
       lodgedAbw: true,
     })
+  })
+})
+
+describe('rebuildKrActionPoolVisualsFromAngAbw nAO roots', () => {
+  function regularRootCount(m) {
+    return normalizePhases(m.phases).links.filter(
+      (l) => l.parentId === null && !l.heroExtra && l.lhEnd !== true
+    ).length
+  }
+
+  function baseMeta() {
+    return {
+      initiative: '10',
+      phases: { links: [], rowPanelOpen: false },
+      [KR_ZAO_SLOTS]: {},
+      [KR_FIRST_SLOT_KIND]: 'ang',
+    }
+  }
+
+  it('ang=1 legt mindestens eine 2.AO-Wurzel mit UO an', () => {
+    const m = baseMeta()
+    rebuildKrActionPoolVisualsFromAngAbw(m, 1, 1)
+    expect(regularRootCount(m)).toBe(1)
+    expect(m.phases.rowPanelOpen).toBe(true)
+    const rootId = normalizePhases(m.phases).links.find(
+      (l) => l.parentId === null && !l.heroExtra
+    )?.id
+    expect(rootId).toBeTruthy()
+    expect(readZaoSlots(m)[rootId]).toEqual({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
+  })
+
+  it('ang=2 legt eine Wurzel an (Regression)', () => {
+    const m = baseMeta()
+    rebuildKrActionPoolVisualsFromAngAbw(m, 2, 0)
+    expect(regularRootCount(m)).toBe(1)
+  })
+
+  it('ang=3 legt zwei Wurzeln an (Regression)', () => {
+    const m = { ...baseMeta(), initiative: '20' }
+    rebuildKrActionPoolVisualsFromAngAbw(m, 3, 0)
+    expect(regularRootCount(m)).toBe(2)
+  })
+
+  it('ang=0 legt keine Wurzel an', () => {
+    const m = baseMeta()
+    rebuildKrActionPoolVisualsFromAngAbw(m, 0, 2)
+    expect(regularRootCount(m)).toBe(0)
   })
 })
 
