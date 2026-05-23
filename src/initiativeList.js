@@ -2206,9 +2206,12 @@ function appendKrCounterPair(
         )
       }
       counter.classList.add('init-lh-counter--at-abw')
-      if (motherKindIsLh && lhSt.max === 0 && canEdit && primaryLadungAllowed) {
+      const lhOverlayEligible =
+        motherKindIsLh ||
+        (zaoSlotOverride?.kind === 'lh' && lhAtAbwActive)
+      if (lhOverlayEligible && lhSt.max === 0 && canEdit && primaryLadungAllowed) {
         appendLhPlayOverlay(counter)
-      } else if (motherKindIsLh && lhSt.max > 0 && canEdit) {
+      } else if (lhOverlayEligible && lhSt.max > 0 && canEdit) {
         appendLhAbortOverlay(counter, ownerItemId)
       }
       lhContainer.appendChild(counter)
