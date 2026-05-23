@@ -564,25 +564,41 @@ function createInitExpandCloseCell({ title, ariaLabel, canEdit, onClick }) {
   return col
 }
 
-/** Präfix -n + Ziel-INI-Feld in einer Spalte (nach L.H.). */
-function createIniColCombo(iniInput, offsetValue) {
+function formatIniOffsetDisplay(offsetValue) {
+  return offsetValue != null && String(offsetValue) !== ''
+    ? String(offsetValue)
+    : '—'
+}
+
+function createIniOffsetPrefixCol(offsetValue) {
+  const offStr = formatIniOffsetDisplay(offsetValue)
   const col = document.createElement('div')
-  col.className = 'init-col-ini-combo'
-  const offStr =
-    offsetValue != null && String(offsetValue) !== ''
-      ? String(offsetValue)
-      : '—'
+  col.className = 'init-col-phase-offset'
   const prefix = document.createElement('span')
   prefix.className = 'init-phase-offset-prefix'
   prefix.textContent = `-${offStr}`
   prefix.setAttribute('aria-hidden', 'true')
+  col.appendChild(prefix)
+  return { col, offStr }
+}
+
+function createIniTargetCol(iniInput, offStr) {
+  const col = document.createElement('div')
+  col.className = 'init-col-ini-target'
   const baseLabel = iniInput.getAttribute('aria-label') || 'Ziel-INI'
   iniInput.setAttribute(
     'aria-label',
     `${baseLabel} (INI Phasen später −${offStr})`
   )
-  col.append(prefix, iniInput)
-  return { col }
+  col.appendChild(iniInput)
+  return col
+}
+
+/** -n-Spalte + Ziel-INI-Spalte (nach L.H.). */
+function mountPhaseIniTail(iniInput, offsetValue) {
+  const { col: prefixCol, offStr } = createIniOffsetPrefixCol(offsetValue)
+  const iniCol = createIniTargetCol(iniInput, offStr)
+  return { prefixCol, iniCol }
 }
 
 const ACTION_STAMP_LABEL = Object.freeze({
@@ -5640,7 +5656,7 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
-        const { col: iniCol } = createIniColCombo(iniInput, offsetDisplay)
+        const { prefixCol, iniCol } = mountPhaseIniTail(iniInput, offsetDisplay)
 
         const zaoSwapCol = document.createElement('div')
         zaoSwapCol.className = 'init-col-swap'
@@ -5718,6 +5734,7 @@ function bindStampContextRemove(el, stamp, items) {
           btnCol,
           phaseZaoMeta,
           lhCol,
+          prefixCol,
           iniCol,
           zaoSwapCol
         )
@@ -6079,7 +6096,7 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
-        const { col: iniCol } = createIniColCombo(
+        const { prefixCol, iniCol } = mountPhaseIniTail(
           iniInput,
           String(link.offset)
         )
@@ -6107,12 +6124,16 @@ function bindStampContextRemove(el, stamp, items) {
               },
             })
           : createInitExpandSpacerCell()
+        if (lhCol.childElementCount > 0) {
+          main.classList.add('init-row-main--has-lh-col')
+        }
         if (isZaoRoot) {
           main.append(
             phaseExpandCell,
             btnCol,
             phaseZaoMeta,
             lhCol,
+            prefixCol,
             iniCol,
             zaoSwapCol
           )
@@ -6123,6 +6144,7 @@ function bindStampContextRemove(el, stamp, items) {
             phaseGutter,
             phaseNameCol,
             lhCol,
+            prefixCol,
             iniCol,
             swapSpacer
           )
