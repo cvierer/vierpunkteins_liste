@@ -89,18 +89,15 @@ import {
   krTransferMarkPresent,
   normalizeKrDigit,
   patchKrCounterByDelta,
-  patchKrFirstSlotKind,
+  patchKrCyclePrimarySlotKind,
+  patchEnsureZaoSlotForLink,
   patchKrLhChargeBackToAbw,
   ensureParadeExtraShield,
   patchKrStampAbwFromCharge,
   patchKrStampParadeExtraFromCharge,
-  patchKrTransferAbwToLhSecond,
-  patchKrTransferAbwToPrimary,
-  patchKrTransferAbwToZaoPrimary,
-  patchKrTransferPrimaryToAbw,
-  patchKrTransferZaoPrimaryToAbw,
   patchRestoreHeroExtraZao,
-  patchZaoSlot,
+  defaultZaoSlotForPhaseNum,
+  readEffectiveZaoSlotKind,
   patchZaoSlotStampPrimary,
   readHeroActionPoolMax,
   readHeroActionPoolPair,
@@ -122,8 +119,6 @@ import {
   stampLhCompletion,
   undoKrActionStamp,
   undoLastZaoSlotStamp,
-  motherPrimarySelfStamped,
-  lhEndKrConvertArrowGates,
 } from './krCounters.js'
 import {
   getHideForeignHeroColorsForViewer,
@@ -652,8 +647,6 @@ function abwShieldCount(vRaw) {
   return v
 }
 
-const SVG_ARROW_TO_AB = `<svg class="init-kr-convert-cell__svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 12" width="18" height="11" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2 6h11M11 2l4 4-4 4"/></svg>`
-const SVG_ARROW_TO_ANG = `<svg class="init-kr-convert-cell__svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 12" width="18" height="11" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M18 6H7M9 10L5 6l4-4"/></svg>`
 const SVG_FA_BOLT = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 28" aria-hidden="true"><ellipse cx="9" cy="14" rx="4.4" ry="11.6" fill="#7e57c2" opacity="0.28"/><path fill="#311b92" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/><path fill="#7e57c2" d="M9 3.4 Q10.6 8.7 11.6 14 Q10.6 19.3 9 24.6 Q7.4 19.3 6.4 14 Q7.4 8.7 9 3.4 Z"/><path fill="#ffd54f" opacity="0.95" d="M9 6.6 Q9.7 10.3 10.05 14 Q9.7 17.7 9 21.4 Q8.3 17.7 7.95 14 Q8.3 10.3 9 6.6 Z"/><path fill="#fffde7" opacity="0.85" d="M9 9.6 Q9.25 11.6 9.35 14 Q9.25 16.4 9 18.4 Q8.75 16.4 8.65 14 Q8.75 11.6 9 9.6 Z"/><path fill="none" stroke="#b8860b" stroke-width="0.5" stroke-linejoin="round" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/></svg>`
 const SVG_PRIMARY_LH_STAR = `<svg class="init-kr-primary-kind__svg init-kr-primary-kind__svg--lh" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 34" aria-hidden="true"><path fill="#5d4037" d="M12 5l3.35 6.95 7.55.55-5.75 4.95 1.8 7.4L12 21.05 5.05 24.85l1.8-7.4L1.1 12.5l7.55-.55z"/><path fill="#0c2e24" d="M12 6.45 14.85 12.4l6.55.5-4.95 4.25 1.55 6.45L12 20.2 5.95 23.6l1.55-6.45L2.6 12.9l6.55-.5z"/><path fill="#1f6b4a" d="M12 8 14.45 13l5.65.45-4.3 3.7 1.35 5.55L12 19.5l-5.15 3.2 1.35-5.55-4.3-3.7 5.65-.45z"/><path fill="#3a9d6e" d="M12 9.65 13.95 13.7l4.6.35-3.55 3.05 1.1 4.55L12 19l-4.1 2.6 1.1-4.55-3.55-3.05 4.6-.35z"/><circle cx="12" cy="14.95" r="1.55" fill="#b8860b"/><circle cx="12" cy="14.95" r="0.85" fill="#fffde7"/><path fill="none" stroke="#3e2723" stroke-width="0.45" stroke-linejoin="round" d="M12 5l3.35 6.95 7.55.55-5.75 4.95 1.8 7.4L12 21.05 5.05 24.85l1.8-7.4L1.1 12.5l7.55-.55z"/></svg>`
 const SVG_PRIMARY_ATTACK = `<svg class="init-kr-primary-kind__svg init-kr-primary-kind__svg--ang" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 34" aria-hidden="true"><ellipse cx="12" cy="30.6" rx="2.5" ry="2.3" fill="#5d4037"/><circle cx="12" cy="30.6" r="1.85" fill="#b8860b"/><circle cx="12" cy="30.6" r="0.85" fill="#7e1010"/><path fill="#3e2723" d="M10.4 22.4 H13.6 V29.8 H10.4 Z"/><path fill="#5d4037" d="M10.55 22.6 H13.45 V23.5 H10.55 Z M10.55 24.4 H13.45 V25.3 H10.55 Z M10.55 26.2 H13.45 V27.1 H10.55 Z M10.55 28.0 H13.45 V28.9 H10.55 Z"/><path fill="#4f4643" d="M3.4 18.9 H20.6 L18.6 22.4 H5.4 Z"/><path fill="#6d615d" d="M4.2 19.3 H19.8 L18.0 22.0 H6.0 Z"/><ellipse cx="12" cy="20.7" rx="1.7" ry="1.0" fill="#584e4a"/><path fill="#5d4037" d="M9.6 18.9 L11.4 1.4 L12.6 1.4 L14.4 18.9 Z"/><path fill="#7e1010" d="M10.2 18.5 L11.6 2.5 L12.4 2.5 L13.8 18.5 Z"/><path fill="#c62828" d="M10.65 18.3 L11.7 3.4 L12.3 3.4 L13.35 18.3 Z"/><path fill="#ef9a9a" opacity="0.85" d="M11.85 4 L12.15 4 L12.0 17.6 Z"/><path fill="none" stroke="#3e2723" stroke-width="0.45" stroke-linejoin="round" d="M9.6 18.9 L11.4 1.4 L12.6 1.4 L14.4 18.9 H20.6 L18.6 22.4 H13.6 V29.8 A1.6 1.6 0 1 1 10.4 29.8 V22.4 H5.4 L3.4 18.9 Z"/></svg>`
@@ -664,34 +657,31 @@ const SVG_ABW_SHIELD = `<svg class="init-kr-abw-shield__svg" xmlns="http://www.w
 /** Wie blaues Schild, aber dunkel schwarz-grau — Zusatz-Parade (nicht umwandelbar). */
 const SVG_ABW_SHIELD_DARK = `<svg class="init-kr-abw-shield__svg init-kr-abw-shield__svg--parade" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 34" aria-hidden="true"><path fill="#3e2723" d="M12 2l8 3v8.4c0 6.9-3.2 13-8 15.8-4.8-2.8-8-8.9-8-15.8V5l8-3z"/><path fill="#0d1117" d="M12 4.25 6 6.45v7.1c0 5.4 2.45 10.3 6 12.7 3.55-2.4 6-7.3 6-12.7v-7.1L12 4.25z"/><path fill="#263238" d="M12 5.55 7.15 7.25v6.45c0 4.2 1.85 8.1 4.85 10.2 3-2.1 4.85-6 4.85-10.2V7.25L12 5.55z"/><path fill="#6d4c41" d="M12 2.75 19.05 4.85 18.85 5.45 12 3.75 5.15 5.45 4.95 4.85 12 2.75z"/><path fill="#78909c" opacity="0.35" d="M8.65 9.1c1.05 2.5 1.55 5.15 1.55 7.95 0 3.45-.75 6.75-2.1 9.75 1.85-1.7 3.05-4.55 3.05-7.75 0-3.25-.85-6.3-2.5-8.95z"/><path fill="none" stroke="#212121" stroke-width="0.45" d="M12 4.25 6 6.45v7.1c0 5.4 2.45 10.3 6 12.7 3.55-2.4 6-7.3 6-12.7v-7.1L12 4.25z"/></svg>`
 
-/** @param {'ang' | 'sra' | 'lh'} k */
+/** @param {'ang' | 'sra' | 'lh' | 'uo'} k */
 function nextKrPrimarySlotKind(k) {
   if (k === 'ang') return 'sra'
   if (k === 'sra') return 'lh'
+  if (k === 'lh') return 'uo'
   return 'ang'
 }
 
-/** @param {'ang' | 'sra' | 'lh'} k */
+/** @param {'ang' | 'sra' | 'lh' | 'uo'} k */
 function prevKrPrimarySlotKind(k) {
-  if (k === 'ang') return 'lh'
+  if (k === 'ang') return 'uo'
   if (k === 'sra') return 'ang'
-  return 'sra'
+  if (k === 'lh') return 'sra'
+  return 'lh'
 }
 
 /**
- * Zyklus der Mutter-Primäraktion (AN → A → L.H. → AN …).
+ * Zyklus der Mutter-Primäraktion (AN → A → L.H. → UO → AN …).
  *
- * Bei INI < 0 (`iniLocked`) wird das Schwert (`'ang'`) aus der Auswahl
- * ausgeblendet: der Zyklus springt nur zwischen `'sra'` und `'lh'`. Das
- * passt zu `applyIniLockCharges`, das bei INI < 0 die Gesamtzahl der
- * Ladungen auf 1 begrenzt (Priorität A vor B) und bei INI ≥ 0 wieder
- * herstellt. Die vorhandene Ladung bleibt über die Umwandelpfeile voll
- * zwischen Schild und Primärseite austauschbar.
+ * Bei INI < 0 (`iniLocked`) wird das Schwert (`'ang'`) ausgeblendet.
  *
- * @param {'ang' | 'sra' | 'lh'} k
+ * @param {'ang' | 'sra' | 'lh' | 'uo'} k
  * @param {'next' | 'prev'} dir
  * @param {boolean} [iniLocked]
- * @returns {'ang' | 'sra' | 'lh'}
+ * @returns {'ang' | 'sra' | 'lh' | 'uo'}
  */
 function cycleKrPrimarySlotKind(k, dir, iniLocked = false) {
   let next =
@@ -723,12 +713,14 @@ function appendKrPrimarySplitCell(
   phaseRowActive = true,
   combatRound = null,
   zaoSlotOverride = null,
-  boundaryAsActiveVisual = false
+  boundaryAsActiveVisual = false,
+  convertAllowedByLock = true
 ) {
   const isZaoSlot = Boolean(zaoSlotOverride)
   const kind = isZaoSlot
-    ? zaoSlotOverride.kind
+    ? readEffectiveZaoSlotKind(zaoSlotOverride)
     : readKrFirstSlotKind(trackerMeta)
+  const isUoKind = kind === 'uo'
   // INI < 0 greift nur am Mutter-Primärslot, nicht an 2.A.O.-Slots.
   // Bei angMode 'yes' bleibt das Schwert erlaubt, auch bei INI < 0.
   const iniLocked =
@@ -752,15 +744,19 @@ function appendKrPrimarySplitCell(
       : 1
     : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
   const kindLabelLong =
-    kind === 'sra'
-      ? 'Sonstige reg. Aktion (A) — z. B. Atem holen, Bewegen, Position, Taktik'
-      : kind === 'lh'
-        ? 'Längerfristige Handlung (L.H.)'
-        : 'Angriff (AN)'
+    kind === 'uo'
+      ? 'Umwandel-Objekt (UO) — Ladung im Abwehr-Schild'
+      : kind === 'sra'
+        ? 'Sonstige reg. Aktion (A) — z. B. Atem holen, Bewegen, Position, Taktik'
+        : kind === 'lh'
+          ? 'Längerfristige Handlung (L.H.)'
+          : 'Angriff (AN)'
   const primaryTooltipLabel =
-    kind === 'sra'
-      ? `${labelDe}: Sonstige reguläre Aktion wie Atem holen, Bewegen, Position und Taktik`
-      : labelDe
+    kind === 'uo'
+      ? 'Umwandel-Objekt (UO)'
+      : kind === 'sra'
+        ? `${labelDe}: Sonstige reguläre Aktion wie Atem holen, Bewegen, Position und Taktik`
+        : labelDe
   const switchCol = document.createElement('div')
   switchCol.className = 'init-kr-primary-switch'
   const prevBtn = document.createElement('button')
@@ -788,10 +784,13 @@ function appendKrPrimarySplitCell(
       e.preventDefault()
       e.stopPropagation()
       const next = cycleKrPrimarySlotKind(kind, 'prev', iniLocked)
+      if ((kind === 'uo' || next === 'uo') && !convertAllowedByLock) return
       if (isZaoSlot) {
-        void patchZaoSlot(ownerItemId, zaoSlotOverride.linkId, { kind: next })
+        void patchKrCyclePrimarySlotKind(ownerItemId, next, {
+          linkId: zaoSlotOverride.linkId,
+        })
       } else {
-        void patchKrFirstSlotKind(ownerItemId, next)
+        void patchKrCyclePrimarySlotKind(ownerItemId, next)
       }
     })
   }
@@ -811,10 +810,13 @@ function appendKrPrimarySplitCell(
       e.preventDefault()
       e.stopPropagation()
       const next = cycleKrPrimarySlotKind(kind, 'next', iniLocked)
+      if ((kind === 'uo' || next === 'uo') && !convertAllowedByLock) return
       if (isZaoSlot) {
-        void patchZaoSlot(ownerItemId, zaoSlotOverride.linkId, { kind: next })
+        void patchKrCyclePrimarySlotKind(ownerItemId, next, {
+          linkId: zaoSlotOverride.linkId,
+        })
       } else {
-        void patchKrFirstSlotKind(ownerItemId, next)
+        void patchKrCyclePrimarySlotKind(ownerItemId, next)
       }
     })
   }
@@ -838,7 +840,13 @@ function appendKrPrimarySplitCell(
   const main = document.createElement('div')
   main.className =
     'init-kr-primary-main init-kr-primary-main--' +
-    (kind === 'sra' ? 'sra' : kind === 'lh' ? 'lh' : 'ang')
+    (kind === 'uo'
+      ? 'uo'
+      : kind === 'sra'
+        ? 'sra'
+        : kind === 'lh'
+          ? 'lh'
+          : 'ang')
   if (lhNeedsSecond) {
     main.classList.add('init-kr-primary-main--lh-wait-second')
   }
@@ -902,7 +910,9 @@ function appendKrPrimarySplitCell(
       lhPieFullyFilled = lhPieFracValue >= 1
     }
   }
-  if (kind === 'sra') {
+  if (kind === 'uo') {
+    icon.innerHTML = SVG_ABW_SHIELD
+  } else if (kind === 'sra') {
     icon.innerHTML = SVG_PRIMARY_ACTION
   } else if (kind === 'lh') {
     if (lhVoided) {
@@ -931,6 +941,7 @@ function appendKrPrimarySplitCell(
     icon.innerHTML = SVG_PRIMARY_ATTACK
   }
   if (
+    !isUoKind &&
     !isZaoSlot &&
     (lhVoided ||
       ((kind === 'ang' || kind === 'sra') &&
@@ -939,8 +950,8 @@ function appendKrPrimarySplitCell(
     icon.classList.add('init-kr-primary-main__icon--hidden-by-abw-transfer')
   }
   exec.append(icon)
-  const hasPrimaryCharge = krTransferMarkPresent(v)
-  const primarySpentVisual = !hasPrimaryCharge && !lhVoided
+  const hasPrimaryCharge = isUoKind ? false : krTransferMarkPresent(v)
+  const primarySpentVisual = !isUoKind && !hasPrimaryCharge && !lhVoided
   exec.classList.toggle(
     'init-kr-primary-main__exec--spent',
     primarySpentVisual && phaseRowActive
@@ -951,7 +962,7 @@ function appendKrPrimarySplitCell(
   )
   shell.classList.toggle(
     'init-kr-primary-shell--inactive-charged',
-    !phaseRowActive && hasPrimaryCharge && !lhVoided
+    !phaseRowActive && (hasPrimaryCharge || isUoKind) && !lhVoided
   )
   const inactiveEmpty =
     !phaseRowActive && !hasPrimaryCharge && !lhVoided
@@ -967,7 +978,8 @@ function appendKrPrimarySplitCell(
      im Schild — Stern/Pie trotzdem sichtbar lassen. */
   shell.classList.toggle(
     'init-kr-primary-shell--no-charge',
-    !hasPrimaryCharge &&
+    !isUoKind &&
+      !hasPrimaryCharge &&
       !lhVoided &&
       !(kind === 'lh' && lhStatePrimary.max > 0)
   )
@@ -989,10 +1001,12 @@ function appendKrPrimarySplitCell(
     (primaryLadungAllowed && !(kind === 'lh' && lhNeedsSecond))
   const lhSecondHint =
     kind === 'lh' && lhNeedsSecond
-      ? `${labelDe}: Zuerst eine Abwehr-Schildladung über den unteren Pfeil im Umwandlungsfeld hierher umwandeln.`
+      ? `${labelDe}: Zuerst eine Abwehr-Schildladung per UO (Umwandel-Objekt) ins Schild legen.`
       : ''
   exec.title = canEdit
-    ? hasPrimaryCharge
+    ? isUoKind
+      ? 'Umwandel-Objekt (UO): Ladung liegt im Abwehr-Schild — nicht stempelbar; Pfeile wählen andere Aktion.'
+      : hasPrimaryCharge
       ? !primaryLadungAllowed
         ? `${primaryTooltipLabel}: Ladung stempeln erst, wenn die Navigation auf dieser Zeile steht (aktuell anderer Zug).`
         : lhSecondHint ||
@@ -1004,7 +1018,7 @@ function appendKrPrimarySplitCell(
   exec.setAttribute(
     'aria-label',
     canEdit && kind === 'lh' && lhNeedsSecond
-      ? `${labelDe}: Zweite Ladung fehlt — eine Abwehr-Schildladung über den unteren Pfeil im Umwandlungsfeld zu L.H. umwandeln.`
+      ? `${labelDe}: Zweite Ladung fehlt — eine Abwehr-Schildladung per UO ins Schild legen.`
       : canEdit && kind === 'lh' && lhVoided
         ? `${labelDe}: Feld geleert ins Abwehr-Schild — unten Schild zurückladen; Rechtsklick macht die Leerung rückgängig.`
         : primaryLadungAria(v, primaryTooltipLabel, stampOk)
@@ -1027,6 +1041,7 @@ function appendKrPrimarySplitCell(
     kind === 'lh' && lhPieFullyFilled && primaryLadungAllowed
   exec.disabled =
     !canEdit ||
+    isUoKind ||
     lhLockActive ||
     (kind === 'lh' && hasPrimaryCharge && lhNeedsSecond) ||
     (hasPrimaryCharge && !primaryLadungAllowed) ||
@@ -1653,290 +1668,6 @@ function appendLhAbortOverlay(counterEl, ownerItemId) {
   counterEl.appendChild(btn)
 }
 
-/**
- * Umwandeln: Angriff → Abwehr (oben) / Abwehr → Angriff (unten).
- */
-function appendKrConvertArrowsCell(
-  container,
-  ownerItemId,
-  trackerMeta,
-  canEdit,
-  phaseRowActive = true,
-  convertAllowedByLock = true,
-  combatRound = null,
-  motherPrimaryStamped = false,
-  zaoScopedLinkId = null
-) {
-  const wrap = document.createElement('div')
-  wrap.className = 'init-kr-convert-cell'
-  wrap.classList.toggle('init-kr-convert-cell--inactive', !phaseRowActive)
-  // Gesperrt durch globales Schloss / Helden-Ansageoptionen (nicht-SL).
-  const lockedByConvertLock = canEdit && !convertAllowedByLock
-  const convertLockTip =
-    'Umwandeln gesperrt – das Umwandlungs-Schloss der Spielleitung lässt diese Aktion gerade nicht zu (oder die Helden-Ansageoptionen greifen nicht mehr).'
-
-  const firstKind = readKrFirstSlotKind(trackerMeta)
-  const firstIsAng = firstKind === 'ang'
-  const firstIsLh = firstKind === 'lh'
-  const firstIsSra = firstKind === 'sra'
-  const primaryVal = normalizeKrDigit(
-    firstIsSra
-      ? readKrSra(trackerMeta)
-      : firstIsLh
-        ? readKrLhAction(trackerMeta)
-        : readKrAng(trackerMeta)
-  )
-  const motherHasCharge = firstIsLh
-    ? primaryVal === 0 && !trackerMeta?.[KR_LH_VOID_BY_TRANSFER]
-    : krTransferMarkPresent(primaryVal)
-  const abwVal = normalizeKrDigit(readKrAbw(trackerMeta))
-  const abwMaxMarks = krAbwTransferMaxMarks()
-  const scopedLink =
-    typeof zaoScopedLinkId === 'string' && zaoScopedLinkId && trackerMeta
-      ? zaoScopedLinkId
-      : null
-  const scopedSlot =
-    scopedLink && trackerMeta
-      ? readZaoSlot(trackerMeta, scopedLink) || {
-          kind: readKrFirstSlotKind(trackerMeta),
-          marks: 1,
-        }
-      : null
-  const scopedLhKind = scopedSlot?.kind === 'lh'
-
-  // Quelle für Primär→Schild: Mutter ODER irgendein „normaler" 2.A.-Slot mit
-  // Ladung. Helden-Zusatz-Objekte (`heroExtra`) liefern keine umwandelbare
-  // Ladung — ihre einzelne Ladung ist ausdrücklich nur stempelbar.
-  const anyZaoCharged = Boolean(
-    trackerMeta && metaHasPendingLoadedNonHeroExtraZao(trackerMeta)
-  )
-  const lowerBlockedPendingLoadedZao =
-    !motherHasCharge && anyZaoCharged
-  const canUpperTransfer =
-    scopedSlot && scopedLink && !scopedLhKind
-      ? canEdit &&
-        scopedSlot.marks === 1 &&
-        !scopedSlot.lodgedAbw &&
-        krAbwCanAcceptTransferMark(abwVal)
-      : canEdit &&
-        (motherHasCharge || anyZaoCharged) &&
-        krAbwCanAcceptTransferMark(abwVal)
-  const phaseLinksNorm = trackerMeta
-    ? normalizePhases(trackerMeta.phases)
-    : { links: [], rowPanelOpen: false }
-  const phaseOffLower = phaseOffsetFromHeroSecondAoMeta(trackerMeta)
-  const canAppendChainedZao =
-    typeof trackerMeta?.initiative === 'string' &&
-    nextChainedZaoParentForTransfer(
-      trackerMeta.initiative,
-      phaseLinksNorm,
-      phaseOffLower
-    ) != null
-  // Schild→Primär: läuft, solange das Schild eine Ladung hat (Mutter
-  // bekommt Ladung, oder es entsteht ein neuer 2.A.-Slot mit freier INI).
-  // Kein Schild→leeres Mutterfeld, solange noch eine geladene 2.A.-Zeile wartet.
-  const canLowerTransfer =
-    scopedSlot && scopedLink && !scopedLhKind
-      ? canEdit &&
-        krTransferMarkPresent(abwVal) &&
-        scopedSlot.lodgedAbw === true &&
-        scopedSlot.marks === 0
-      : canEdit &&
-        krTransferMarkPresent(abwVal) &&
-        (!motherHasCharge || canAppendChainedZao) &&
-        !lowerBlockedPendingLoadedZao
-
-  const endKrGates = lhEndKrConvertArrowGates(trackerMeta, combatRound)
-  let allowUpper =
-    scopedLink && scopedSlot && !scopedLhKind
-      ? canUpperTransfer
-      : canUpperTransfer && !endKrGates.blockUpperLhMotherNoZao
-  let allowLower =
-    scopedLink && scopedSlot && !scopedLhKind
-      ? canLowerTransfer
-      : canLowerTransfer && !endKrGates.blockLowerPendingZao
-  if (motherPrimaryStamped) {
-    allowUpper = false
-    allowLower = false
-  }
-  const stampLockTip =
-    'Umwandeln gesperrt — am Mutter-Primärfeld liegt ein Aktions-Stempel von der eigenen Heldenzeile (Angriff, S.R.A. oder L.H.-Abschluss).'
-
-  const upperLabel = firstIsLh
-    ? 'L.H.-Ladung ins Abwehr-Schild verschieben'
-    : firstIsAng
-      ? 'Aktion → Reaktion — eine Ladung ins Abwehr-Schild verschieben'
-      : 'S.R.A.-Ladung als Abwehr-Schild verschieben'
-  /* INI < 0: unterer Pfeil landet nur bei angMode 'yes' noch auf Angriff */
-  const iniLocked =
-    isHeroIniBelowZero(trackerMeta) && readHeroIniNegAngMode(trackerMeta) !== 'yes'
-  const transferTargetKind =
-    iniLocked && firstKind === 'ang' ? 'sra' : firstKind
-  const lowerLabel =
-    transferTargetKind === 'lh'
-      ? 'Schild-Ladung ins L.H.-Feld verschieben (oder neues 2.A.-Objekt)'
-      : transferTargetKind === 'ang'
-        ? firstIsAng
-          ? 'Reaktion → Aktion — Schild-Ladung verschieben; bei voller Mutter neues 2.AO (Phasen-Offset „2.AO / Parade→Angriff“)'
-          : 'Schild-Ladung in Angriff verschieben (oder neues 2.A.-Objekt)'
-        : 'Schild-Ladung in S.R.A. verschieben (oder neues 2.A.-Objekt)'
-
-  // In der End-KR (`isLhLockingActions === false`) sind Umwandeln-Pfeile
-  // wieder frei — der Held darf Schild aufladen / 2.A. anlegen, waehrend der
-  // L.H.-Stempel-Slot ueber die Slot-Konflikt-Logik geschuetzt bleibt.
-  const lhLocked = isLhLockingActions(trackerMeta, combatRound)
-  const lhLockTip =
-    'Längerfristige Handlung läuft – Umwandeln gesperrt; nur freie Aktionen erlaubt.'
-  const endKrUpperOnlyTip =
-    'In der End-KR der L.H.: zuerst die pendelnde 2.-Aktion mit dem oberen Pfeil ins Abwehr-Schild zurücklegen — die laufende L.H. am Mutterfeld bleibt fix.'
-  const endKrLowerOnlyTip =
-    'In der End-KR der L.H.: zuerst die Reaktions-Ladung mit dem unteren Pfeil zur Aktion schieben — die laufende L.H. am Mutterfeld bleibt fix.'
-
-  const toAb = document.createElement('button')
-  toAb.type = 'button'
-  toAb.className = 'init-kr-convert-cell__btn init-kr-convert-cell__btn--to-ab'
-  toAb.innerHTML = SVG_ARROW_TO_AB
-  toAb.title = lhLocked
-    ? lhLockTip
-    : motherPrimaryStamped
-      ? stampLockTip
-      : lockedByConvertLock
-        ? convertLockTip
-        : upperLabel
-  toAb.setAttribute(
-    'aria-label',
-    lhLocked
-      ? lhLockTip
-      : motherPrimaryStamped
-        ? stampLockTip
-        : lockedByConvertLock
-          ? convertLockTip
-          : upperLabel
-  )
-  toAb.disabled =
-    !allowUpper || lhLocked || lockedByConvertLock || motherPrimaryStamped
-  if (lhLocked) toAb.classList.add('init-kr-convert-cell__btn--lh-locked')
-  if (lockedByConvertLock) {
-    toAb.classList.add('init-kr-convert-cell__btn--convert-locked')
-  }
-  if (motherPrimaryStamped) {
-    toAb.classList.add('init-kr-convert-cell__btn--stamp-locked')
-  }
-  if (
-    !allowUpper &&
-    canEdit &&
-    !lhLocked &&
-    !motherPrimaryStamped &&
-    !lockedByConvertLock &&
-    endKrGates.blockUpperLhMotherNoZao
-  ) {
-    toAb.title = endKrUpperOnlyTip
-    toAb.setAttribute('aria-label', endKrUpperOnlyTip)
-  }
-  if (
-    !allowUpper &&
-    canEdit &&
-    !lhLocked &&
-    !motherPrimaryStamped &&
-    !lockedByConvertLock &&
-    !endKrGates.blockUpperLhMotherNoZao &&
-    (motherHasCharge || anyZaoCharged) &&
-    !krAbwCanAcceptTransferMark(abwVal)
-  ) {
-    toAb.title = `${upperLabel} – maximal ${abwMaxMarks} Abwehr-Schildladungen.`
-  }
-  if (canEdit) {
-    toAb.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (lhLocked || lockedByConvertLock || motherPrimaryStamped) return
-      if (scopedLink && scopedSlot && !scopedLhKind) {
-        void patchKrTransferZaoPrimaryToAbw(ownerItemId, scopedLink)
-      } else {
-        void patchKrTransferPrimaryToAbw(ownerItemId)
-      }
-    })
-  }
-
-  const toAng = document.createElement('button')
-  toAng.type = 'button'
-  toAng.className = 'init-kr-convert-cell__btn init-kr-convert-cell__btn--to-ang'
-  toAng.innerHTML = SVG_ARROW_TO_ANG
-  toAng.title = lhLocked
-    ? lhLockTip
-    : motherPrimaryStamped
-      ? stampLockTip
-      : lockedByConvertLock
-        ? convertLockTip
-        : lowerLabel
-  toAng.setAttribute(
-    'aria-label',
-    lhLocked
-      ? lhLockTip
-      : motherPrimaryStamped
-        ? stampLockTip
-        : lockedByConvertLock
-          ? convertLockTip
-          : firstIsAng
-            ? 'Schild-Ladung verschieben: ins Primärfeld (oder neues 2.AO)'
-            : lowerLabel
-  )
-  toAng.disabled =
-    !allowLower || lhLocked || lockedByConvertLock || motherPrimaryStamped
-  if (lhLocked) toAng.classList.add('init-kr-convert-cell__btn--lh-locked')
-  if (lockedByConvertLock) {
-    toAng.classList.add('init-kr-convert-cell__btn--convert-locked')
-  }
-  if (motherPrimaryStamped) {
-    toAng.classList.add('init-kr-convert-cell__btn--stamp-locked')
-  }
-  if (
-    !allowLower &&
-    canEdit &&
-    !lhLocked &&
-    !motherPrimaryStamped &&
-    !lockedByConvertLock &&
-    endKrGates.blockLowerPendingZao
-  ) {
-    toAng.title = endKrLowerOnlyTip
-    toAng.setAttribute('aria-label', endKrLowerOnlyTip)
-  } else if (
-    !allowLower &&
-    canEdit &&
-    !lhLocked &&
-    !motherPrimaryStamped &&
-    !lockedByConvertLock &&
-    lowerBlockedPendingLoadedZao &&
-    krTransferMarkPresent(abwVal) &&
-    (!motherHasCharge || canAppendChainedZao)
-  ) {
-    toAng.title =
-      'Zuerst die ausstehende 2.-Aktion an der Phasenzeile nutzen (oder den Slot schließen) — Schild nicht erneut ins leere Mutterfeld.'
-    toAng.setAttribute('aria-label', toAng.title)
-  }
-  if (canEdit) {
-    toAng.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (lhLocked || lockedByConvertLock || motherPrimaryStamped) return
-      if (scopedLink && scopedSlot && !scopedLhKind) {
-        void patchKrTransferAbwToZaoPrimary(ownerItemId, scopedLink)
-      } else {
-        void patchKrTransferAbwToPrimary(ownerItemId)
-      }
-    })
-  }
-
-  wrap.append(toAb, toAng)
-  if (lhLocked) wrap.classList.add('init-kr-convert-cell--lh-locked')
-  if (lockedByConvertLock) {
-    wrap.classList.add('init-kr-convert-cell--convert-locked')
-  }
-  if (motherPrimaryStamped) {
-    wrap.classList.add('init-kr-convert-cell--stamp-locked')
-  }
-  container.appendChild(wrap)
-}
 
 function appendFaCounter(
   container,
@@ -2039,13 +1770,9 @@ function appendKrCounterPair(
     hideAbw = false,
     hideFa = false,
     hideLh = true,
-    hideConvert = false,
     abwReplacement = null,
-    convertReplacement = null,
     zaoSlotOverride = null,
     lhContainer = null,
-    /** Primär-Stempel am Mutterankel — beide Umwandlungspfeile aus. */
-    motherPrimaryStamped = false,
     /** Kampf muss laufen und Runden-Intro bestätigt sein — sonst keine Schild-Stempel. */
     combatStarted = false,
     roundIntroPending = false,
@@ -2085,33 +1812,14 @@ function appendKrCounterPair(
     phaseRowActive,
     combatRound,
     zaoSlotOverride,
-    atRoundBoundaryNav
-  )
-  if (hideConvert) {
-    if (convertReplacement instanceof HTMLElement) {
-      container.appendChild(convertReplacement)
-    }
-  } else {
-    const convertAllowedByLock = isHeroConvertAllowedForViewer(
+    atRoundBoundaryNav,
+    isHeroConvertAllowedForViewer(
       trackerMeta,
       rowActiveId,
       rowActivePhaseLinkId,
       currentNavIniForRender
     )
-    appendKrConvertArrowsCell(
-      container,
-      ownerItemId,
-      trackerMeta,
-      canEdit,
-      phaseRowActive,
-      convertAllowedByLock,
-      combatRound,
-      motherPrimaryStamped,
-      abwMirrorLinkUi && zaoSlotOverride?.linkId
-        ? zaoSlotOverride.linkId
-        : null
-    )
-  }
+  )
   // Schildplatz: entweder L.H.-Counter-Eingabe (vor Werte-Setzung),
   // L.H.-Fortschritts-Kuchen (nach Werte-Setzung), Schilde oder Replacement.
   // Die L.H. kann in Mutter ODER in einem 2.A.O. beginnen.
@@ -5110,10 +4818,6 @@ function bindStampContextRemove(el, stamp, items) {
 
         const slotRow = document.createElement('div')
         slotRow.className = 'init-phase-slot-row'
-        const motherPrimaryStampedToken = motherPrimarySelfStamped(
-          stampEntries,
-          row.id
-        )
         appendKrCounterPair(
           slotRow,
           row.id,
@@ -5130,7 +4834,6 @@ function bindStampContextRemove(el, stamp, items) {
             lhContainer: lhCol,
             combatStarted: combat.started,
             roundIntroPending: combat.roundIntroPending,
-            motherPrimaryStamped: motherPrimaryStampedToken,
           }
         )
 
@@ -5515,7 +5218,6 @@ function bindStampContextRemove(el, stamp, items) {
             hideAbw: true,
             hideFa: true,
             hideLh: true,
-            hideConvert: true,
             combatStarted: combat.started,
             roundIntroPending: combat.roundIntroPending,
           }
@@ -5766,10 +5468,6 @@ function bindStampContextRemove(el, stamp, items) {
           }
         }
         const isLhEndLink = isZaoRoot && link.lhEnd === true
-        const zaoSlot = isZaoRoot
-          ? readZaoSlot(ownerTrackerMeta || {}, link.id) ||
-            (isLhEndLink ? { kind: 'lh', marks: 1 } : null)
-          : null
         const isHeroExtraZao = isZaoRoot && Boolean(link.heroExtra)
         const ownerPhasesNorm = normalizePhases(ownerTrackerMeta?.phases)
         // Einheitliche Nummerierung über alle Wurzel-Typen (regulär + z.AT):
@@ -5788,6 +5486,23 @@ function bindStampContextRemove(el, stamp, items) {
                 return ix >= 0 ? ix + 2 : 2
               })()
             : 2
+        const zaoSlot = isZaoRoot
+          ? readZaoSlot(ownerTrackerMeta || {}, link.id) ||
+            (isLhEndLink
+              ? { kind: 'lh', marks: 1 }
+              : !isHeroExtraZao
+                ? defaultZaoSlotForPhaseNum(zaoPhaseNum)
+                : null)
+          : null
+        if (
+          canEdit &&
+          isZaoRoot &&
+          !isLhEndLink &&
+          !isHeroExtraZao &&
+          !readZaoSlot(ownerTrackerMeta || {}, link.id)
+        ) {
+          void patchEnsureZaoSlotForLink(ownerId, link.id, zaoPhaseNum)
+        }
 
         let zaoBadgeUi = null
         if (isZaoRoot) {
@@ -5803,10 +5518,8 @@ function bindStampContextRemove(el, stamp, items) {
         zaoTextReplacement.className = 'init-zao-text-replacement'
         
         let zaoOverrideKind = 'ang'
-        if (isZaoRoot) {
-          if (zaoSlot) {
-            zaoOverrideKind = zaoSlot.kind || 'ang'
-          }
+        if (isZaoRoot && zaoSlot) {
+          zaoOverrideKind = readEffectiveZaoSlotKind(zaoSlot)
         }
         
         if (isHeroExtraZao) {
@@ -5859,20 +5572,7 @@ function bindStampContextRemove(el, stamp, items) {
           zaoOverrideKind !== 'lh'
 
         const showFaOnNRoot = isZaoRoot && !isHeroExtraZao && !isLhEndLink
-        const zaoConvertSlotPlaceholder =
-          isZaoRoot && !zaoMotherMirrorUi
-            ? (() => {
-                const el = document.createElement('div')
-                el.className = 'init-kr-convert-cell'
-                el.setAttribute('aria-hidden', 'true')
-                return el
-              })()
-            : null
-
-        const zaoMotherStamped = motherPrimarySelfStamped(
-          stampEntries,
-          ownerId
-        )
+        const showFaOnNRoot = isZaoRoot && !isHeroExtraZao && !isLhEndLink
 
         appendKrCounterPair(
           btnCol,
@@ -5892,11 +5592,7 @@ function bindStampContextRemove(el, stamp, items) {
                   hideAbw: false,
                   hideFa: !showFaOnNRoot,
                   hideLh: true,
-                  hideConvert: false,
                   abwMirrorLinkUi: true,
-                  motherPrimaryStamped: isHeroConvertAnytimeMode(ownerTrackerMeta)
-                    ? false
-                    : zaoMotherStamped,
                   zaoSlotOverride: zaoSlot
                     ? {
                         linkId: link.id,
@@ -5913,8 +5609,6 @@ function bindStampContextRemove(el, stamp, items) {
                   hideAbw: true,
                   hideFa: !showFaOnNRoot,
                   hideLh: true,
-                  hideConvert: true,
-                  convertReplacement: zaoConvertSlotPlaceholder,
                   abwReplacement: zaoTextReplacement,
                   zaoSlotOverride: zaoSlot
                     ? {
@@ -5934,6 +5628,7 @@ function bindStampContextRemove(el, stamp, items) {
                 roundIntroPending: combat.roundIntroPending,
               }
         )
+
 
         if (!isZaoRoot) {
           const phaseMinus = document.createElement('button')

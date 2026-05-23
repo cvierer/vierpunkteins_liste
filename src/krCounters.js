@@ -135,7 +135,8 @@ export function readHeroIniNegAngMode(meta) {
 
 /**
  * Zustand der einzelnen 2.A.-Objekt-Slots (Wurzel-Phasen-Links).
- * Jeder Eintrag: `{ kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true }`.
+ * Jeder Eintrag: `{ kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }`.
+ * `kind:'uo'` (Umwandel-Objekt): Ladung liegt im gemeinsamen `KR_ABW`, Primär zeigt Schild.
  * `lodgedAbw`: Ladung liegt im gemeinsamen `KR_ABW` (Zeile bleibt, Primär leer).
  * Fehlt der Eintrag, wird bei der Anzeige Kind = Mutter-Kind und `marks = 1`
  * angenommen (Kompatibilität mit alten Daten).
@@ -405,8 +406,6 @@ export function rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw) {
   if (ang > 1) {
     const iniStr = m?.initiative
     const phaseOffset = phaseOffsetFromHeroSecondAoMeta(m)
-    const firstKind = readKrFirstSlotKind(m)
-    const zaoKind = firstKind === 'sra' || firstKind === 'lh' ? firstKind : 'ang'
     const p2 = normalizePhases(m.phases)
     const newSlots = readZaoSlots(m)
     if (typeof iniStr === 'string') {
@@ -431,7 +430,10 @@ export function rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw) {
             },
           ],
         }
-        newSlots[newLinkId] = { kind: zaoKind, marks: 1 }
+        const phaseNum = i + 1
+        const slot = defaultZaoSlotForPhaseNum(phaseNum)
+        newSlots[newLinkId] = slot
+        applyUoDefaultAbwChargeIfNeeded(m, slot)
       }
       phasesAcc = finalizePhasesWithOrderedRoots(m, phasesAcc)
       if (phasesAcc.links.length > p2.links.length) {
@@ -558,17 +560,22 @@ function paradeExtraIndexForField(field) {
 
 /**
  * @param {unknown} meta
- * @returns {Record<string, { kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true }>}
+ * @returns {Record<string, { kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }>}
  */
 export function readZaoSlots(meta) {
   const raw = meta?.[KR_ZAO_SLOTS]
   if (!raw || typeof raw !== 'object') return {}
-  /** @type {Record<string, { kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true }>} */
+  /** @type {Record<string, { kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }>} */
   const out = {}
   for (const key of Object.keys(raw)) {
     const s = raw[key]
     if (!s || typeof s !== 'object') continue
-    const kind = s.kind === 'sra' || s.kind === 'lh' ? s.kind : 'ang'
+    const kind =
+      s.kind === 'uo'
+        ? 'uo'
+        : s.kind === 'sra' || s.kind === 'lh'
+          ? s.kind
+          : 'ang'
     const marks = s.marks === 1 ? 1 : 0
     const lodgedAbw =
       /** @type {{ lodgedAbw?: unknown }} */ (s).lodgedAbw === true
@@ -578,12 +585,47 @@ export function readZaoSlots(meta) {
 }
 
 /**
+ * @param {{ kind?: string, marks?: number, lodgedAbw?: boolean } | null | undefined} slot
+ * @returns {'ang' | 'sra' | 'lh' | 'uo'}
+ */
+export function readEffectiveZaoSlotKind(slot) {
+  if (!slot) return 'ang'
+  if (slot.kind === 'uo' || slot.lodgedAbw === true) return 'uo'
+  if (slot.kind === 'sra' || slot.kind === 'lh') return slot.kind
+  return 'ang'
+}
+
+/**
+ * Standard-Slot für eine n.Akt.-Wurzel (Mutter = 1, erste Wurzel = 2).
+ *
+ * @param {number} phaseNum
+ * @returns {{ kind: 'ang' | 'uo', marks: 0 | 1, lodgedAbw?: true }}
+ */
+export function defaultZaoSlotForPhaseNum(phaseNum) {
+  if (phaseNum === 2) {
+    return { kind: 'uo', marks: 0, lodgedAbw: true }
+  }
+  return { kind: 'ang', marks: 1 }
+}
+
+/**
+ * @param {Record<string, unknown>} m
+ * @param {{ kind?: string, lodgedAbw?: boolean } | null | undefined} slot
+ */
+export function applyUoDefaultAbwChargeIfNeeded(m, slot) {
+  if (!m || slot?.kind !== 'uo' || slot.lodgedAbw !== true) return
+  const abw = normalizeKrDigit(m[KR_ABW])
+  const next = addOneAbwTransferChargeValue(abw)
+  if (next !== abw) m[KR_ABW] = next
+}
+
+/**
  * Liefert den expliziten Slot-Zustand zu einem 2.A.-Link – oder `null`,
  * falls kein Eintrag im Meta vorhanden ist (z. B. L.H.-Counter-ZAO).
  *
  * @param {unknown} meta
  * @param {string} linkId
- * @returns {{ kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true } | null}
+ * @returns {{ kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true } | null}
  */
 export function readZaoSlot(meta, linkId) {
   const slots = readZaoSlots(meta)
@@ -688,7 +730,7 @@ export function lhEndKrConvertArrowGates(meta, combatRound) {
 /**
  * @param {string} itemId
  * @param {string} linkId
- * @param {{ kind?: 'ang'|'sra'|'lh', marks?: 0|1, lodgedAbw?: boolean }} patch
+ * @param {{ kind?: 'ang'|'sra'|'lh'|'uo', marks?: 0|1, lodgedAbw?: boolean }} patch
  */
 export async function patchZaoSlot(itemId, linkId, patch) {
   const items = await OBR.scene.items.getItems()
@@ -703,28 +745,34 @@ export async function patchZaoSlot(itemId, linkId, patch) {
         kind: readKrFirstSlotKind(m),
         marks: 1,
       }
-      const nextMarks =
-        patch.marks === 0 || patch.marks === 1 ? patch.marks : prev.marks
       const nextKind =
         patch.kind === 'ang' ||
         patch.kind === 'sra' ||
-        patch.kind === 'lh'
+        patch.kind === 'lh' ||
+        patch.kind === 'uo'
           ? patch.kind
           : prev.kind
+      let nextMarks =
+        patch.marks === 0 || patch.marks === 1 ? patch.marks : prev.marks
+      if (nextKind === 'uo') {
+        nextMarks = 0
+      }
       let nextLodged =
-        patch.lodgedAbw === true
+        nextKind === 'uo'
           ? true
-          : patch.lodgedAbw === false
-            ? false
-            : nextMarks === 1
+          : patch.lodgedAbw === true
+            ? true
+            : patch.lodgedAbw === false
               ? false
-              : prev.lodgedAbw === true
+              : nextMarks === 1
+                ? false
+                : prev.lodgedAbw === true
       const next = /** @type {Record<string, unknown>} */ ({
         kind: nextKind,
         marks: nextMarks,
       })
       if (nextLodged) next.lodgedAbw = true
-      slots[linkId] = /** @type {{ kind: 'ang'|'sra'|'lh', marks: 0|1, lodgedAbw?: true }} */ (
+      slots[linkId] = /** @type {{ kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }} */ (
         next
       )
       m[KR_ZAO_SLOTS] = slots
@@ -1118,11 +1166,13 @@ export async function patchKrPairMode(itemId, mode) {
 
 /**
  * @param {unknown} meta
- * @returns {'ang' | 'sra' | 'lh'}
+ * @returns {'ang' | 'sra' | 'lh' | 'uo'}
  */
 export function readKrFirstSlotKind(meta) {
   const v = meta?.[KR_FIRST_SLOT_KIND]
+  if (v === 'uo') return 'uo'
   if (v === 'sra' || v === 'ang' || v === 'lh') return v
+  if (meta?.[KR_PRIMARY_VOID_BY_ABW_TRANSFER]) return 'uo'
   const mode = readKrPairMode(meta)
   return krPairModeFieldForSlot(mode, 0) === KR_SRA ? 'sra' : 'ang'
 }
@@ -1160,6 +1210,7 @@ export async function patchKrFirstSlotKind(itemId, kind) {
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   const prevKind = readKrFirstSlotKind(meta || {})
   if (prevKind === kind) return
+  if (prevKind === 'uo') return
 
   const oldPF = primaryFieldForKind(meta || {})
   const newPF =
@@ -1204,6 +1255,87 @@ export async function patchKrFirstSlotKind(itemId, kind) {
         m[newPF] = newCounter
       }
       m[KR_PRIMARY_LADUNG] = newCounter
+    }
+  })
+}
+
+/**
+ * Primär-Aktionsmodus zyklisch wechseln inkl. UO (Umwandel-Objekt).
+ *
+ * @param {string} itemId
+ * @param {'ang' | 'sra' | 'lh' | 'uo'} nextKind
+ * @param {{ linkId?: string | null }} [opts]
+ */
+export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
+  if (
+    nextKind !== 'ang' &&
+    nextKind !== 'sra' &&
+    nextKind !== 'lh' &&
+    nextKind !== 'uo'
+  ) {
+    return
+  }
+  const linkId = opts.linkId ?? null
+  const isZao = typeof linkId === 'string' && linkId.length > 0
+
+  const items = await OBR.scene.items.getItems()
+  const item = items.find((i) => i.id === itemId)
+  if (!item || !canEditSceneItem(item)) return
+  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+  if (!meta) return
+
+  if (isZao) {
+    const slot = readZaoSlot(meta, linkId)
+    const prev = readEffectiveZaoSlotKind(slot)
+    if (prev === nextKind) return
+
+    if (nextKind === 'uo') {
+      await patchKrTransferZaoPrimaryToAbw(itemId, linkId)
+      return
+    }
+    if (prev === 'uo') {
+      await patchKrTransferAbwToZaoPrimary(itemId, linkId, nextKind)
+      return
+    }
+    await patchZaoSlot(itemId, linkId, { kind: nextKind })
+    return
+  }
+
+  const prev = readKrFirstSlotKind(meta)
+  if (prev === nextKind) return
+
+  if (nextKind === 'uo') {
+    await patchKrTransferPrimaryToAbw(itemId)
+    return
+  }
+  if (prev === 'uo') {
+    await patchKrTransferAbwToPrimary(itemId, nextKind)
+    return
+  }
+  await patchKrFirstSlotKind(itemId, nextKind)
+}
+
+/**
+ * Legt fehlenden ZAO-Slot-Metadaten-Eintrag an (z. B. nach neuem Phasen-Link).
+ *
+ * @param {string} itemId
+ * @param {string} linkId
+ * @param {number} phaseNum Mutter = 1, erste Wurzel = 2, …
+ */
+export async function patchEnsureZaoSlotForLink(itemId, linkId, phaseNum) {
+  const items = await OBR.scene.items.getItems()
+  const item = items.find((i) => i.id === itemId)
+  if (!item || !canEditSceneItem(item)) return
+  await OBR.scene.items.updateItems([itemId], (drafts) => {
+    for (const d of drafts) {
+      const m = d.metadata[TRACKER_ITEM_META_KEY]
+      if (!m) continue
+      const s = readZaoSlots(m)
+      if (s[linkId]) continue
+      const slot = defaultZaoSlotForPhaseNum(phaseNum)
+      s[linkId] = slot
+      applyUoDefaultAbwChargeIfNeeded(m, slot)
+      m[KR_ZAO_SLOTS] = s
     }
   })
 }
@@ -1292,6 +1424,7 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
         m[KR_LH_ACTION] = 1
         m[KR_LH_SECOND] = 0
         m[KR_LH_VOID_BY_TRANSFER] = true
+        m[KR_FIRST_SLOT_KIND] = 'uo'
         delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
         syncKrPrimaryLadungFromPrimaryField(m)
       }
@@ -1308,6 +1441,7 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
       m[field] = nextPrimary
       m[KR_ABW] = nextAbw
       m[KR_PRIMARY_VOID_BY_ABW_TRANSFER] = true
+      m[KR_FIRST_SLOT_KIND] = 'uo'
       syncKrPrimaryLadungFromPrimaryField(m)
     }
   })
@@ -1347,7 +1481,6 @@ export async function patchKrTransferZaoPrimaryToAbw(itemId, linkId) {
 
   const slot = readZaoSlots(meta)[linkId]
   if (!slot || slot.marks !== 1 || slot.lodgedAbw) return
-  if (slot.kind === 'lh') return
 
   const abw = normalizeKrDigit(meta[KR_ABW])
   const nextAbw = addOneAbwTransferChargeValue(abw)
@@ -1362,7 +1495,7 @@ export async function patchKrTransferZaoPrimaryToAbw(itemId, linkId) {
       const cur = s[linkId]
       if (!cur || cur.marks !== 1) continue
       s[linkId] = {
-        kind: cur.kind,
+        kind: 'uo',
         marks: 0,
         lodgedAbw: true,
       }
@@ -1377,7 +1510,11 @@ export async function patchKrTransferZaoPrimaryToAbw(itemId, linkId) {
  * @param {string} itemId
  * @param {string} linkId
  */
-export async function patchKrTransferAbwToZaoPrimary(itemId, linkId) {
+export async function patchKrTransferAbwToZaoPrimary(
+  itemId,
+  linkId,
+  targetKind = 'ang'
+) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
   if (!item || !canEditSceneItem(item)) return
@@ -1405,7 +1542,9 @@ export async function patchKrTransferAbwToZaoPrimary(itemId, linkId) {
       const s = readZaoSlots(m)
       const cur = s[linkId]
       if (!cur?.lodgedAbw || cur.marks !== 0) continue
-      s[linkId] = { kind: cur.kind, marks: 1 }
+      const kind =
+        targetKind === 'sra' || targetKind === 'lh' ? targetKind : 'ang'
+      s[linkId] = { kind, marks: 1 }
       m[KR_ZAO_SLOTS] = s
     }
   })
@@ -1417,7 +1556,7 @@ export async function patchKrTransferAbwToZaoPrimary(itemId, linkId) {
  * schon eine Ladung hat, wird ein neuer 2.A.-Slot (Mutter-Kind, marks=1)
  * erzeugt. Gilt für Ang., S.R.A. und L.H.
  */
-export async function patchKrTransferAbwToPrimary(itemId) {
+export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
   if (!item || !canEditSceneItem(item)) return
@@ -1437,7 +1576,14 @@ export async function patchKrTransferAbwToPrimary(itemId) {
     const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
     if (motherPrimarySelfStamped(stamps.entries, itemId)) return
   }
-  const firstKind = readKrFirstSlotKind(meta)
+  const rawFirstKind = readKrFirstSlotKind(meta)
+  const exitingUo = rawFirstKind === 'uo'
+  const firstKind =
+    exitingUo && targetKind && (targetKind === 'ang' || targetKind === 'sra' || targetKind === 'lh')
+      ? targetKind
+      : rawFirstKind === 'uo'
+        ? 'ang'
+        : rawFirstKind
   // Edge-Case 3: Schild → L.H.-Stempel-Slot nur solange die „mittendrin“-
   // Sperre gilt; in der End-KR (`lhEndKrConvertMode`) ist Umwandeln erlaubt.
   if (
@@ -1453,8 +1599,9 @@ export async function patchKrTransferAbwToPrimary(itemId) {
   const field = primaryFieldForKind(meta)
   const abw = normalizeKrDigit(meta[KR_ABW])
 
-  const motherHasCharge =
-    firstKind === 'lh'
+  const motherHasCharge = exitingUo
+    ? false
+    : firstKind === 'lh'
       ? normalizeKrDigit(meta[KR_LH_ACTION]) === 0 &&
         !meta[KR_LH_VOID_BY_TRANSFER]
       : krTransferMarkPresent(normalizeKrDigit(meta[field]))
@@ -1482,14 +1629,14 @@ export async function patchKrTransferAbwToPrimary(itemId) {
           m[KR_LH_SECOND] = 0
           delete m[KR_LH_VOID_BY_TRANSFER]
           delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+          m[KR_FIRST_SLOT_KIND] = 'lh'
         } else if (transferKind === 'sra') {
-          if (firstKind === 'ang') {
-            m[KR_FIRST_SLOT_KIND] = 'sra'
-            m[KR_PAIR_MODE] = 'sra_ang'
-            m[KR_ANG] = 1
-          }
+          m[KR_FIRST_SLOT_KIND] = 'sra'
+          m[KR_PAIR_MODE] = 'sra_ang'
+          m[KR_ANG] = 1
           m[KR_SRA] = 0
         } else {
+          m[KR_FIRST_SLOT_KIND] = 'ang'
           m[KR_ANG] = 0
         }
         delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
@@ -1528,7 +1675,7 @@ export async function patchKrTransferAbwToPrimary(itemId) {
         links: nextLinks,
       })
       const s = readZaoSlots(m)
-      // Standard für neu erzeugtes 2.A.-Objekt aus Schild-Umwandlung: Schwert.
+      // Aus Schild-Umwandlung: Ladung landet als stempelbare Primärladung am neuen Slot.
       s[newLinkId] = { kind: 'ang', marks: 1 }
       m[KR_ZAO_SLOTS] = s
     }
@@ -1858,6 +2005,7 @@ function chargeValueFromMarks(marksRaw) {
 
 function primaryFieldForKind(meta) {
   const kind = readKrFirstSlotKind(meta)
+  if (kind === 'uo') return KR_ANG
   if (kind === 'sra') return KR_SRA
   if (kind === 'lh') return KR_LH_ACTION
   return KR_ANG

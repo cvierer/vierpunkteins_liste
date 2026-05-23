@@ -329,7 +329,7 @@ body {
   --init-strip-h-gap: calc(0.7 * var(--init-obj-gap));
   --init-col-expand: var(--init-obj-cell);
   /* Ang., Umwandlung, Abwehr-Schilde, Freie Aktion (L.H. entfällt in dieser Spalte) */
-  --init-col-btn: calc(5.48 * var(--init-obj-cell) + 3 * var(--init-strip-h-gap));
+  --init-col-btn: calc(4.48 * var(--init-obj-cell) + 3 * var(--init-strip-h-gap));
   /* Kein zusätzlicher Gutter: Name beginnt direkt hinter der F.A.-Spalte */
   --init-col-gutter: 0px;
   /* Listenrand rechts etwas kleiner: nutzbare Breite nach rechts (INI + Rundenzeilen gleich verschoben) */
@@ -4622,6 +4622,24 @@ select.init-row-extra-select {
   color: #1f6b4a;
 }
 
+.init-kr-primary-main--uo {
+  background: transparent;
+  color: #3949ab;
+}
+
+.init-kr-primary-main--uo .init-kr-abw-shield__svg {
+  display: block;
+  width: min(
+    calc(33.85px * var(--init-combat-icon-scale)),
+    calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
+  );
+  height: min(
+    calc(33.85px * var(--init-combat-icon-scale)),
+    calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
+  );
+  margin: 0 auto;
+}
+
 .init-kr-primary-main--lh-voided {
   background: transparent;
   opacity: 1;
@@ -6303,7 +6321,7 @@ select.init-row-extra-select {
   /* Phasen-Zeile: Abstand zur Namensspalte wie Token-Zeile schmaler */
   --init-phase-gutter-inner: calc(1.64rem * var(--init-ui-scale));
   --init-col-btn: calc(
-    5.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
+    4.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
   );
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-phase-gutter-inner)
@@ -6320,7 +6338,7 @@ select.init-row-extra-select {
 
 .init-row-main--phase-zao {
   --init-col-btn: calc(
-    5.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
+    4.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
   );
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) minmax(0, 1fr) auto max-content

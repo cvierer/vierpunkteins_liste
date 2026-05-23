@@ -8,6 +8,8 @@ import {
   motherPrimarySelfStamped,
   lhEndKrConvertArrowGates,
   readZaoSlots,
+  readEffectiveZaoSlotKind,
+  defaultZaoSlotForPhaseNum,
   metaHasPendingLoadedNonHeroExtraZao,
 } from './krCounters.js'
 import {
@@ -80,7 +82,7 @@ describe('motherPrimarySelfStamped', () => {
     ).toBe(false)
   })
 
-  describe('readZaoSlots lodgedAbw', () => {
+  describe('readZaoSlots lodgedAbw / uo', () => {
     const linkId = 'z-root'
 
     it('liest lodgedAbw aus krZaoSlots', () => {
@@ -101,6 +103,20 @@ describe('motherPrimarySelfStamped', () => {
       }
       expect(readZaoSlots(meta)[linkId]).toEqual({
         kind: 'ang',
+        marks: 0,
+        lodgedAbw: true,
+      })
+      expect(readEffectiveZaoSlotKind(readZaoSlots(meta)[linkId])).toBe('uo')
+    })
+
+    it('liest kind uo aus krZaoSlots', () => {
+      const meta = {
+        [KR_ZAO_SLOTS]: {
+          [linkId]: { kind: 'uo', marks: 0, lodgedAbw: true },
+        },
+      }
+      expect(readZaoSlots(meta)[linkId]).toEqual({
+        kind: 'uo',
         marks: 0,
         lodgedAbw: true,
       })
@@ -142,6 +158,20 @@ describe('motherPrimarySelfStamped', () => {
         itemId
       )
     ).toBe(false)
+  })
+})
+
+describe('defaultZaoSlotForPhaseNum', () => {
+  it('2.Akt. startet mit UO (Schild-Ladung)', () => {
+    expect(defaultZaoSlotForPhaseNum(2)).toEqual({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
+  })
+
+  it('3.Akt.+ startet mit Angriff', () => {
+    expect(defaultZaoSlotForPhaseNum(3)).toEqual({ kind: 'ang', marks: 1 })
   })
 })
 
