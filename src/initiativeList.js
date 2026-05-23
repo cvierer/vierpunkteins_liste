@@ -1362,6 +1362,35 @@ function setLinkedFaHover(ownerItemId, on) {
   }
 }
 
+/** Speicher: Hover nur auf dem einzelnen Schild/Blitz, nicht auf der ganzen Gruppe. */
+function wireReactionStoreItemHover(el, enabled) {
+  if (!(el instanceof HTMLElement) || !enabled) return
+  el.addEventListener('pointerenter', () => {
+    el.classList.add('is-item-hover')
+  })
+  el.addEventListener('pointerleave', () => {
+    el.classList.remove('is-item-hover')
+  })
+}
+
+function wireReactionStoreFaBoltHover(wrap, enabled) {
+  if (!(wrap instanceof HTMLElement) || !enabled) return
+  const clear = () => {
+    wrap.querySelectorAll('.init-fa-cell__bolt').forEach((b) => {
+      b.classList.remove('is-item-hover')
+    })
+  }
+  wrap.addEventListener('pointermove', (e) => {
+    clear()
+    const hit = document.elementFromPoint(e.clientX, e.clientY)
+    const bolt = hit instanceof Element ? hit.closest('.init-fa-cell__bolt') : null
+    if (bolt && wrap.contains(bolt)) {
+      bolt.classList.add('is-item-hover')
+    }
+  })
+  wrap.addEventListener('pointerleave', clear)
+}
+
 /**
  * Abwehr: nur Schild-Icons ohne AB-Kopfzeile.
  * Gesperrt nur bei Navigation auf „Beginn/Ende der Kampfrunde“.
@@ -1378,7 +1407,8 @@ function appendKrAbwSplitCell(
   combatRound = null,
   combatStarted = false,
   roundIntroPending = false,
-  mirrorLinkUi = false
+  mirrorLinkUi = false,
+  inReactionStore = false
 ) {
   const value = readKrAbw(trackerMeta)
   const v = normalizeKrDigit(value)
@@ -1518,12 +1548,26 @@ function appendKrAbwSplitCell(
   )
 
   shell.addEventListener('pointerenter', () => {
-    if (!canStampAnyShieldNow) return
+    if (!canStampAnyShieldNow || inReactionStore) return
     setLinkedShieldHover(ownerItemId, true)
   })
   shell.addEventListener('pointerleave', () => {
+    if (inReactionStore) return
     setLinkedShieldHover(ownerItemId, false)
   })
+
+  if (inReactionStore) {
+    for (const icon of shields.querySelectorAll(
+      '.init-kr-abw-shield:not(.init-kr-abw-shield--parade-extra)'
+    )) {
+      if (canStampAbwNow) wireReactionStoreItemHover(icon, true)
+    }
+    for (const icon of shields.querySelectorAll(
+      '.init-kr-abw-shield--parade-extra'
+    )) {
+      if (canStampParadeNow) wireReactionStoreItemHover(icon, true)
+    }
+  }
 
   exec.title = mirrorLinkUi
     ? canEdit
@@ -1679,7 +1723,8 @@ function appendFaCounter(
   ownerIniStr,
   phaseRowActive = true,
   faLadungAllowed = true,
-  combatStarted = false
+  combatStarted = false,
+  inReactionStore = false
 ) {
   const settings = getRoomSettings()
   const faMax = readHeroFaMax(trackerMeta, ownerIniStr, settings)
@@ -1698,12 +1743,16 @@ function appendFaCounter(
   const canStampFaNow = Boolean(canEdit && faLadungAllowed && avail > 0)
 
   wrap.addEventListener('pointerenter', () => {
-    if (!canStampFaNow) return
+    if (!canStampFaNow || inReactionStore) return
     setLinkedFaHover(ownerItemId, true)
   })
   wrap.addEventListener('pointerleave', () => {
+    if (inReactionStore) return
     setLinkedFaHover(ownerItemId, false)
   })
+  if (inReactionStore && canStampFaNow) {
+    wireReactionStoreFaBoltHover(wrap, true)
+  }
 
   const bolts = document.createElement('span')
   bolts.className = 'init-fa-cell__bolts'
@@ -1968,14 +2017,6 @@ function appendKrCounterPair(
       'aria-label',
       'Reaktionsspeicher: Abwehr-Schildladungen und Freie Aktionen'
     )
-    reactionStore.addEventListener('pointerenter', () => {
-      setLinkedShieldHover(ownerItemId, true)
-      setLinkedFaHover(ownerItemId, true)
-    })
-    reactionStore.addEventListener('pointerleave', () => {
-      setLinkedShieldHover(ownerItemId, false)
-      setLinkedFaHover(ownerItemId, false)
-    })
     appendKrAbwSplitCell(
       reactionStore,
       ownerItemId,
@@ -1988,7 +2029,8 @@ function appendKrCounterPair(
       combatRound,
       combatStarted,
       roundIntroPending,
-      abwMirrorLinkUi
+      abwMirrorLinkUi,
+      true
     )
     appendFaCounter(
       reactionStore,
@@ -1998,7 +2040,8 @@ function appendKrCounterPair(
       ownerIniStr,
       phaseRowActive,
       faLadungAllowed,
-      combatStarted
+      combatStarted,
+      true
     )
     container.appendChild(reactionStore)
   }

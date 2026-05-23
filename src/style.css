@@ -5517,6 +5517,39 @@ select.init-row-extra-select {
   margin: 0 -2.5px;
 }
 
+/* Speicher: pro Schild/Blitz einzeln hervorheben (kein Gruppen-Hover) */
+.init-kr-reaction-store
+  .init-kr-abw-split-shell--stampable-now:hover
+  .init-kr-abw-shields,
+.init-kr-reaction-store
+  .init-kr-abw-split-shell.is-linked-hover
+  .init-kr-abw-shields {
+  filter: none;
+  text-shadow: none;
+}
+
+.init-kr-reaction-store
+  .init-fa-cell--stampable-now:hover
+  .init-fa-cell__bolt,
+.init-kr-reaction-store
+  .init-fa-cell.is-linked-hover
+  .init-fa-cell__bolt {
+  filter: none;
+  text-shadow: none;
+}
+
+.init-kr-reaction-store .init-kr-abw-shield.is-item-hover .init-kr-abw-shield__svg {
+  filter: saturate(1.24) brightness(1.16);
+  text-shadow: 0 0 calc(8px * var(--init-combat-icon-scale))
+    rgba(100, 190, 255, 0.68);
+}
+
+.init-kr-reaction-store .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
+  filter: saturate(1.24) brightness(1.16);
+  text-shadow: 0 0 calc(7px * var(--init-combat-icon-scale))
+    rgba(155, 214, 255, 0.64);
+}
+
 .init-kr-abw-split-shell {
   flex-shrink: 0;
   width: calc(var(--init-obj-cell) * 1.48);
@@ -7114,7 +7147,7 @@ select.init-row-extra-select {
   min-width: 0;
   line-height: 0;
   box-sizing: border-box;
-  margin: 0 -3px;
+  margin: 0 -1.5px;
 }
 
 .init-fa-cell--inactive-charged {
