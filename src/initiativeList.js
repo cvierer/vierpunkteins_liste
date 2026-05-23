@@ -786,7 +786,7 @@ function appendKrPrimarySplitCell(
       e.preventDefault()
       e.stopPropagation()
       const next = cycleKrPrimarySlotKind(kind, 'prev', iniLocked)
-      if ((kind === 'uo' || next === 'uo') && !convertAllowedByLock) return
+      if (next === 'uo' && !convertAllowedByLock) return
       if (isZaoSlot) {
         void patchKrCyclePrimarySlotKind(ownerItemId, next, {
           linkId: zaoSlotOverride.linkId,
@@ -812,7 +812,7 @@ function appendKrPrimarySplitCell(
       e.preventDefault()
       e.stopPropagation()
       const next = cycleKrPrimarySlotKind(kind, 'next', iniLocked)
-      if ((kind === 'uo' || next === 'uo') && !convertAllowedByLock) return
+      if (next === 'uo' && !convertAllowedByLock) return
       if (isZaoSlot) {
         void patchKrCyclePrimarySlotKind(ownerItemId, next, {
           linkId: zaoSlotOverride.linkId,

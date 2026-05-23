@@ -1679,22 +1679,47 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
   const iniStr = meta?.initiative
   const phaseOffset = phaseOffsetFromHeroSecondAoMeta(meta)
 
-  const dualAngFromAbw =
-  (targetKind === 'ang' ||
-    (targetKind == null && exitingUo && transferKind === 'ang')) &&
-  hasChargedRegularZaoAng(meta)
+  const zaoHoldsChargedAng = hasChargedRegularZaoAng(meta)
+  const exitTarget =
+    targetKind === 'ang' || targetKind === 'sra' || targetKind === 'lh'
+      ? targetKind
+      : exitingUo
+        ? 'ang'
+        : null
+  const exitTransferKind =
+    exitTarget === 'ang' && isHeroIniBelowZero(meta) ? 'sra' : exitTarget
 
-  if (!krTransferMarkPresent(abw) && dualAngFromAbw) {
+  if (
+    !krTransferMarkPresent(abw) &&
+    exitingUo &&
+    zaoHoldsChargedAng &&
+    exitTarget
+  ) {
     await OBR.scene.items.updateItems([itemId], (drafts) => {
       for (const d of drafts) {
         const m = d.metadata[TRACKER_ITEM_META_KEY]
         if (!m) continue
-        m[KR_FIRST_SLOT_KIND] = 'ang'
-        m[KR_PAIR_MODE] = 'ang_abw'
-        m[KR_ANG] = 0
+        if (exitTransferKind === 'lh') {
+          m[KR_LH_ACTION] = 0
+          m[KR_LH_SECOND] = 0
+          delete m[KR_LH_VOID_BY_TRANSFER]
+          delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+          m[KR_FIRST_SLOT_KIND] = 'lh'
+        } else if (exitTransferKind === 'sra') {
+          m[KR_FIRST_SLOT_KIND] = 'sra'
+          m[KR_PAIR_MODE] = 'sra_ang'
+          m[KR_ANG] = 1
+          m[KR_SRA] = 0
+        } else {
+          m[KR_FIRST_SLOT_KIND] = 'ang'
+          m[KR_PAIR_MODE] = 'ang_abw'
+          m[KR_ANG] = 0
+        }
         delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
         syncKrPrimaryLadungFromPrimaryField(m)
-        syncReactionShieldForDualAng(m)
+        if (exitTransferKind === 'ang') {
+          syncReactionShieldForDualAng(m)
+        }
       }
     })
     return

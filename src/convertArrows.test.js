@@ -4,6 +4,8 @@ import {
   KR_ABW,
   KR_FIRST_SLOT_KIND,
   KR_LH_ACTION,
+  KR_LH_SECOND,
+  KR_PAIR_MODE,
   KR_SRA,
   KR_ZAO_SLOTS,
   motherPrimarySelfStamped,
@@ -299,6 +301,37 @@ describe('dualAng mother and 2AO', () => {
     )?.id
   }
 
+  /** Simuliert UO-Ausstieg wenn 2.AO-Schwert geladen (wie patchKrTransferAbwToPrimary). */
+  function applyExitUoWhenZaoAng(m, targetKind) {
+    if (targetKind === 'lh') {
+      m[KR_LH_ACTION] = 0
+      m[KR_LH_SECOND] = 0
+      m[KR_FIRST_SLOT_KIND] = 'lh'
+    } else if (targetKind === 'sra') {
+      m[KR_FIRST_SLOT_KIND] = 'sra'
+      m[KR_PAIR_MODE] = 'sra_ang'
+      m[KR_ANG] = 1
+      m[KR_SRA] = 0
+    } else {
+      m[KR_FIRST_SLOT_KIND] = 'ang'
+      m[KR_PAIR_MODE] = 'ang_abw'
+      m[KR_ANG] = 0
+      syncReactionShieldForDualAng(m)
+    }
+  }
+
+  function setupMotherUoWithZaoAng(m) {
+    rebuildKrActionPoolVisualsFromAngAbw(m, 1, 1)
+    const rootId = regularRootId(m)
+    expect(rootId).toBeTruthy()
+    m[KR_FIRST_SLOT_KIND] = 'uo'
+    m[KR_ABW] = 1
+    const s = readZaoSlots(m)
+    s[rootId] = { kind: 'ang', marks: 1 }
+    m[KR_ZAO_SLOTS] = s
+    return rootId
+  }
+
   it('Dual-Schwert: sync leert Speicher wenn Mutter und 2AO ang geladen', () => {
     const m = baseMeta()
     rebuildKrActionPoolVisualsFromAngAbw(m, 1, 1)
@@ -329,6 +362,24 @@ describe('dualAng mother and 2AO', () => {
     m[KR_ANG] = 0
     syncReactionShieldForDualAng(m)
     expect(krTransferMarkPresent(m[KR_ABW])).toBe(false)
+  })
+
+  it('UO → sra mit geladenem 2AO-Schwert und leerem Speicher', () => {
+    const m = baseMeta()
+    const rootId = setupMotherUoWithZaoAng(m)
+    applyExitUoWhenZaoAng(m, 'sra')
+    expect(readKrFirstSlotKind(m)).toBe('sra')
+    expect(krTransferMarkPresent(m[KR_SRA])).toBe(true)
+    expect(readZaoSlots(m)[rootId]).toEqual({ kind: 'ang', marks: 1 })
+  })
+
+  it('UO → lh mit geladenem 2AO-Schwert und leerem Speicher', () => {
+    const m = baseMeta()
+    const rootId = setupMotherUoWithZaoAng(m)
+    applyExitUoWhenZaoAng(m, 'lh')
+    expect(readKrFirstSlotKind(m)).toBe('lh')
+    expect(krTransferMarkPresent(m[KR_LH_ACTION])).toBe(true)
+    expect(readZaoSlots(m)[rootId]).toEqual({ kind: 'ang', marks: 1 })
   })
 
   it('2AO ang → UO: Speicher-Mark wieder da, Phasen-Zeile bleibt', () => {
