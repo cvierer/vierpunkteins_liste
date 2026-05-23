@@ -1,15 +1,15 @@
 ---
-description: Jede abgeschlossene Repo-Änderung committen, mit V###-Präfix (ab V444), sofort auf GitHub (cvierer/vierpunkteins_liste) pushen.
+description: Jede abgeschlossene Repo-Änderung committen, mit V###-Präfix (fortlaufend ab letztem V### in git log), sofort auf GitHub (cvierer/vierpunkteins_liste) pushen.
 alwaysApply: true
 ---
 
-# Git: immer committen und pushen (V444+)
+# Git: immer committen und pushen
 
 **Remote:** `github.com/cvierer/vierpunkteins_liste` — nach einer erledigten Änderung **keine** nur-lokalen Commits zurücklassen: **immer** zeitnah **`git push`** zum passenden Upstream (typisch `origin main`).
 
 - Wenn du in diesem Repository **Code, Konfiguration oder diese Regel** geändert hast und die Aufgabe abgeschlossen ist: **`git status`** → sinnvoll stagen (`git add`, **keine** Secrets, kein `dist/`, kein `node_modules/`).
 - **Commit-Betreff** mit Präfix **`V###:`** (drei Ziffern nach V), dazu eine kurze Beschreibung.
-- **Versionsreihe (neu, ab V444):** Der **nächste** Push nach dieser Regel nutzt **`V444:`**. Jeder **weitere** abgeschlossene Push erhöht die Nummer **um 1** (`V445:`, `V446:`, …), solange in dieser Session bzw. logisch fortlaufend gearbeitet wird. Wurde seit dem letzten eigenen Commit bereits ein Push mit `V###:` von woanders auf `main` erwartet, vor dem Commit kurz `git log -1 --oneline` prüfen und ggf. die nächst höhere Nummer wählen, mindestens aber die zuletzt in dieser Reihe vereinbarte (nicht rückwärts). Ältere Historie kann noch `V421:` o.ä. enthalten; die **neue** Kennfolge startet bei **444**.
-- **Einheitliche Bezeichnung in Antworten:** Immer **beide Kennungen gemeinsam** nennen: `V###` (Commit-Präfix) **und** `Deploy to GitHub Pages #<Run>` (Actions-Run-ID), falls verfügbar. Format: `V### ↔ Run #NNN`. So ist klar, welcher Commit welchem Actions-Lauf entspricht.
+- **Versionsreihe:** Vor jedem Commit `git log -1 --oneline` prüfen und die **nächsthöhere** `V###`-Nummer gegenüber dem letzten Commit mit `V###:`-Präfix wählen (aktuell fortlaufend ab **V958**). Niemals rückwärts nummerieren. Wurde zwischenzeitlich woanders auf `main` gepusht, die höchste vorhandene Nummer + 1 nutzen.
+- **Einheitliche Bezeichnung in Antworten:** Immer **beide Kennungen** nennen, soweit verfügbar: `V###` (Commit-Präfix) **und** `Deploy to GitHub Pages #<Run>` (Actions-Run-ID). Format: `V### ↔ Run #NNN`. Run-ID nach Push z. B. mit `gh run list --workflow=pages.yml -L 1` oder im [Actions-Tab](https://github.com/cvierer/vierpunkteins_liste/actions).
 - **`git push origin main`** (oder den aktuellen Branch zum passenden **Upstream**) **immer und unmittelbar** ausführen, sobald sinnvoll getrennte Commits für die erledigte Änderung fertig sind — nicht „optional weglassen“, nicht auf später verschieben.
 - Bei Fehlern (Konflikte, abgelehntes Push) nicht aufgeben: kurz melden und beheben bzw. den Nutzer informieren.
