@@ -5469,29 +5469,18 @@ select.init-row-extra-select {
   justify-content: flex-end;
 }
 
-/* ↓n + Ziel-INI in einer Spalte (nach L.H.) */
+/* -n + Ziel-INI in einer Spalte (nach L.H.) */
 .init-col-ini-combo {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: calc(0.2rem * var(--init-ui-scale));
+  gap: calc(0.12rem * var(--init-ui-scale));
   width: var(--init-col-ini);
   min-width: 0;
   box-sizing: border-box;
 }
 
-.init-phase-offset-field {
-  display: inline-flex;
-  align-items: baseline;
-  flex-shrink: 0;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.init-phase-offset-field__arrow {
+.init-phase-offset-prefix {
   flex-shrink: 0;
   font-size: calc(0.86rem * var(--init-ui-scale));
   font-weight: 400;
@@ -5499,6 +5488,7 @@ select.init-row-extra-select {
   color: var(--color-ink-muted);
   user-select: none;
   pointer-events: none;
+  white-space: nowrap;
 }
 
 .init-col-ini-combo .init-row-init {
@@ -6351,50 +6341,6 @@ select.init-row-extra-select {
   white-space: nowrap;
 }
 
-/* INI verzögert: schlichter Zahl-Text auf Zeilenhintergrund */
-.phase-offset-input--plain {
-  display: inline-block;
-  vertical-align: baseline;
-  box-sizing: content-box;
-  flex-shrink: 0;
-  min-width: 0;
-  max-width: none;
-  height: auto;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  appearance: none;
-  -webkit-appearance: none;
-  font: inherit;
-  font-size: calc(0.86rem * var(--init-ui-scale));
-  font-weight: 400;
-  line-height: 1.2;
-  letter-spacing: inherit;
-  text-align: left;
-  color: inherit;
-  field-sizing: content;
-  cursor: text;
-}
-
-.phase-offset-input--plain:read-only {
-  cursor: default;
-  pointer-events: none;
-}
-
-.phase-offset-input--plain:focus {
-  outline: none;
-  text-decoration: underline;
-  text-decoration-color: rgba(var(--rgb-gold), 0.75);
-  text-underline-offset: 2px;
-}
-
-.phase-offset-input--plain.phase-offset-input--error {
-  font-size: calc(0.58rem * var(--init-ui-scale));
-}
-
 .init-phase-zao-meta .init-row-name {
   flex: 1;
   min-width: 0;
@@ -6436,12 +6382,6 @@ select.init-row-extra-select {
 .init-row--phase-zao.init-row--phase-draggable .init-row-kr-counter:not(:disabled),
 .init-row--phase:not(.init-row--phase-zao) .init-row-kr-counter:not(:disabled) {
   cursor: pointer;
-}
-
-.init-row--phase-zao.init-row--phase-draggable .phase-offset-input--plain:not(
-    :read-only
-  ) {
-  cursor: text;
 }
 
 .init-row--dragging {

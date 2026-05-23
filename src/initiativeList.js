@@ -54,7 +54,6 @@ import {
   ROUND_END_STEP_ID,
   ROUND_START_STEP_ID,
   swapAdjacentMergedIniDiscriminators,
-  tryCommitPhaseOffset,
   tryCommitPhaseTargetIni,
   zaoRootKey,
 } from './phaseLinks.js'
@@ -565,47 +564,25 @@ function createInitExpandCloseCell({ title, ariaLabel, canEdit, onClick }) {
   return col
 }
 
-function fitIniVerzoegertInputWidth(input) {
-  const len = Math.max(1, String(input.value ?? '').length)
-  input.style.width = `${len}ch`
-}
-
-/** INI Phasen später: ↓ + n (n editierbar). */
-function createIniVerzoegertOffsetField(offsetValue, options = {}) {
-  const { readOnly = false, title = '', tabIndex } = options
-  const wrap = document.createElement('span')
-  wrap.className = 'init-phase-offset-field'
-  const arrow = document.createElement('span')
-  arrow.className = 'init-phase-offset-field__arrow'
-  arrow.textContent = '↓'
-  arrow.setAttribute('aria-hidden', 'true')
-  const input = document.createElement('input')
-  input.type = 'text'
-  input.inputMode = 'numeric'
-  input.className = 'phase-offset-input phase-offset-input--plain'
-  input.value = offsetValue
-  input.setAttribute('aria-label', 'INI Phasen später — Verzögerung n')
-  input.title = title || 'INI Phasen später — nur n ändern'
-  input.readOnly = readOnly
-  if (tabIndex !== undefined) input.tabIndex = tabIndex
-  fitIniVerzoegertInputWidth(input)
-  if (!readOnly) {
-    input.addEventListener('input', () => fitIniVerzoegertInputWidth(input))
-  }
-  wrap.append(arrow, input)
-  return { wrap, input }
-}
-
-/** ↓n in INI-Spalte, unmittelbar vor dem Ziel-INI-Feld (nach L.H.). */
-function createIniColCombo(iniInput, offsetValue, offsetOptions = {}) {
+/** Präfix -n + Ziel-INI-Feld in einer Spalte (nach L.H.). */
+function createIniColCombo(iniInput, offsetValue) {
   const col = document.createElement('div')
   col.className = 'init-col-ini-combo'
-  const { wrap, input: offsetInput } = createIniVerzoegertOffsetField(
-    offsetValue,
-    offsetOptions
+  const offStr =
+    offsetValue != null && String(offsetValue) !== ''
+      ? String(offsetValue)
+      : '—'
+  const prefix = document.createElement('span')
+  prefix.className = 'init-phase-offset-prefix'
+  prefix.textContent = `-${offStr}`
+  prefix.setAttribute('aria-hidden', 'true')
+  const baseLabel = iniInput.getAttribute('aria-label') || 'Ziel-INI'
+  iniInput.setAttribute(
+    'aria-label',
+    `${baseLabel} (INI Phasen später −${offStr})`
   )
-  col.append(wrap, iniInput)
-  return { col, offsetInput }
+  col.append(prefix, iniInput)
+  return { col }
 }
 
 const ACTION_STAMP_LABEL = Object.freeze({
@@ -5663,11 +5640,7 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
-        const { col: iniCol } = createIniColCombo(iniInput, offsetDisplay, {
-          readOnly: true,
-          tabIndex: -1,
-          title: 'INI Phasen später — Abstand zur Ziel-INI (L.H.-Zeile)',
-        })
+        const { col: iniCol } = createIniColCombo(iniInput, offsetDisplay)
 
         const zaoSwapCol = document.createElement('div')
         zaoSwapCol.className = 'init-col-swap'
@@ -6106,57 +6079,10 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
-        const { col: iniCol, offsetInput } = createIniColCombo(
+        const { col: iniCol } = createIniColCombo(
           iniInput,
-          String(link.offset),
-          {
-            readOnly: !canEdit,
-            title: canEdit
-              ? 'INI Phasen später — nur n ändern'
-              : 'Nur Besitzer dieses Tokens oder Spielleitung',
-          }
+          String(link.offset)
         )
-
-        const runRemoveAfterOffsetError = async () => {
-          offsetInput.value = 'Offset < 0'
-          offsetInput.classList.add('phase-offset-input--error')
-          fitIniVerzoegertInputWidth(offsetInput)
-          await new Promise((r) => setTimeout(r, 420))
-          void removePhaseLink(ownerId, link.id)
-        }
-
-        offsetInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            offsetInput.blur()
-          }
-        })
-        offsetInput.addEventListener('blur', () => {
-          if (!canEdit) return
-          void OBR.scene.items.getItems().then((freshItems) => {
-            const ownerRow = collectSortedParticipants(
-              freshItems,
-              getIniTieOrder(),
-              getManualIniTieOverridePairs()
-            ).find((r) => r.id === ownerId)
-            const ownerIni = ownerRow?.initiative ?? ownerIniStr
-            const it = freshItems.find((i) => i.id === ownerId)
-            const links = normalizePhases(
-              it?.metadata?.[TRACKER_ITEM_META_KEY]?.phases
-            ).links
-            const trimmed = offsetInput.value.trim()
-            return tryCommitPhaseOffset(
-              ownerId,
-              link.id,
-              trimmed,
-              ownerIni,
-              links
-            ).then(async (res) => {
-              if (!res.ok && res.reason === 'NEG_INI')
-                await runRemoveAfterOffsetError()
-            })
-          })
-        })
 
         const swapSpacer = document.createElement('div')
         swapSpacer.className = 'init-col-swap init-col-swap--phase'
