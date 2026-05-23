@@ -451,7 +451,7 @@ export function normalizePhases(raw) {
   )
   return {
     links: pruned,
-    rowPanelOpen: Boolean(raw.rowPanelOpen),
+    rowPanelOpen: pruned.length > 0,
   }
 }
 
@@ -758,32 +758,30 @@ export function ensureExtraAttackPhaseRoot(itemId, ownerIniStr) {
   })
 }
 
-export function onNamePhasePlusClick(itemId, { shiftKey }, ownerIniStr) {
+export function onNamePhasePlusClick(itemId, _evt, ownerIniStr) {
   return patchItemPhases(itemId, (p, meta) => {
-    if (shiftKey) {
-      return { ...p, rowPanelOpen: false }
-    }
     const norm = normalizePhases(p)
     const off = phaseOffsetFromHeroSecondAoMeta(meta)
     const next = nextChainedZaoParentForTransfer(ownerIniStr, norm, off)
     if (!next) {
       return p
     }
-    if (!p.rowPanelOpen) {
-      const nextLinks =
-        p.links.length === 0
-          ? [
-              {
-                id: uuid(),
-                parentId: next.parentId,
-                offset: next.offset,
-              },
-            ]
-          : p.links
-      return { ...p, rowPanelOpen: true, links: nextLinks }
+    if (p.links.length === 0) {
+      return {
+        ...p,
+        rowPanelOpen: true,
+        links: [
+          {
+            id: uuid(),
+            parentId: next.parentId,
+            offset: next.offset,
+          },
+        ],
+      }
     }
     return {
       ...p,
+      rowPanelOpen: true,
       links: [
         ...p.links,
         {
@@ -829,7 +827,7 @@ export function removePhaseLink(itemId, linkId) {
     return {
       ...p,
       links: nextLinks,
-      rowPanelOpen: nextLinks.length === 0 ? false : p.rowPanelOpen,
+      rowPanelOpen: nextLinks.length > 0,
     }
   })
 }
@@ -855,7 +853,7 @@ export function removeLastZaoRoot(itemId) {
     return {
       ...p,
       links: nextLinks,
-      rowPanelOpen: nextLinks.length === 0 ? false : p.rowPanelOpen,
+      rowPanelOpen: nextLinks.length > 0,
     }
   })
 }
@@ -909,7 +907,7 @@ export async function clearEphemeralExtraIniRows() {
       phases: {
         ...p,
         links: nextLinks,
-        rowPanelOpen: nextLinks.length === 0 ? false : p.rowPanelOpen,
+        rowPanelOpen: nextLinks.length > 0,
       },
     })
   }
@@ -965,7 +963,7 @@ export async function clearAllRootPhaseLinksInScene() {
         m.phases = normalizePhases({
           ...p,
           links: nextLinks,
-          rowPanelOpen: nextLinks.length > 0 ? p.rowPanelOpen : false,
+          rowPanelOpen: nextLinks.length > 0,
         })
       }
     }
@@ -1278,7 +1276,7 @@ export function buildMergedDisplayRows(
       new Map(roots.map((l, i) => [l.id, i]))
     )
 
-    if (phases.rowPanelOpen && phases.links.length > 0) {
+    if (phases.links.length > 0) {
       const ownerIniN = iniNumeric(row.initiative)
       const angModeOwner = meta?.['heroIniNegAngMode']
       for (const link of visibleLinks) {

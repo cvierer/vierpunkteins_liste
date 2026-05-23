@@ -44,7 +44,6 @@ import {
   nextChainedZaoParentForTransfer,
   normalizePhases,
   onFullIniTieOrderChange,
-  onNamePhasePlusClick,
   onZaoRootTieOrderChange,
   orderedAllZaoRootIdsForBadge,
   orderedZaoRootIdsForBadge,
@@ -100,7 +99,6 @@ import {
   patchKrTransferAbwToZaoPrimary,
   patchKrTransferPrimaryToAbw,
   patchKrTransferZaoPrimaryToAbw,
-  patchKrCloseZaoSlotToAbw,
   patchRestoreHeroExtraZao,
   patchZaoSlot,
   patchZaoSlotStampPrimary,
@@ -540,27 +538,6 @@ function createInitExpandSpacerCell() {
   const col = document.createElement('div')
   col.className = 'init-col-expand'
   col.setAttribute('aria-hidden', 'true')
-  return col
-}
-
-function createInitExpandCloseCell({ title, ariaLabel, canEdit, onClick }) {
-  const col = document.createElement('div')
-  col.className = 'init-col-expand init-col-expand--close'
-  const btn = document.createElement('button')
-  btn.type = 'button'
-  btn.className = 'init-row-expand-close'
-  btn.textContent = '×'
-  btn.title = title
-  btn.setAttribute('aria-label', ariaLabel || title)
-  btn.disabled = !canEdit
-  if (canEdit && typeof onClick === 'function') {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      onClick()
-    })
-  }
-  col.appendChild(btn)
   return col
 }
 
@@ -5791,18 +5768,6 @@ function bindStampContextRemove(el, stamp, items) {
             (isLhEndLink ? { kind: 'lh', marks: 1 } : null)
           : null
         const isHeroExtraZao = isZaoRoot && Boolean(link.heroExtra)
-        // Regulär 2.A.: Schließen nur, wenn die Schildspalte die Ladung
-        // aufnehmen kann oder der Slot bereits leer ist.
-        // ZAO (heroExtra): Schließen **immer** erlaubt — es wird weder ein
-        // Schild erzeugt noch eine Ladung verschoben.
-        const zaoCanCloseToShield = isZaoRoot
-          ? isHeroExtraZao
-            ? true
-            : zaoSlot
-              ? krAbwCanAcceptTransferMark(readKrAbw(ownerTrackerMeta)) ||
-                zaoSlot.marks === 0
-              : true
-          : false
         const ownerPhasesNorm = normalizePhases(ownerTrackerMeta?.phases)
         // Einheitliche Nummerierung über alle Wurzel-Typen (regulär + z.AT):
         // Mutter = 1, erste Zusatz-Zeile (höchste Ziel-INI) = 2, usw.
@@ -6094,22 +6059,7 @@ function bindStampContextRemove(el, stamp, items) {
         const zaoSwapCol = document.createElement('div')
         zaoSwapCol.className = 'init-col-swap'
 
-        const phaseExpandCell = isZaoRoot
-          ? createInitExpandCloseCell({
-              canEdit: canEdit && zaoCanCloseToShield,
-              title: isHeroExtraZao
-                ? 'Zusätzliches Angriffsaktions-Objekt (ZAO) entfernen — die Ladung verfällt, es entsteht kein Schild'
-                : zaoCanCloseToShield
-                  ? '2. Aktionsphase schließen — eine vorhandene Ladung wandert ins Schild zurück'
-                  : 'Schließen nicht möglich: Schildspalte voll',
-              ariaLabel: isHeroExtraZao
-                ? 'ZAO entfernen'
-                : '2. Aktionsphase schließen',
-              onClick: () => {
-                void patchKrCloseZaoSlotToAbw(ownerId, link.id)
-              },
-            })
-          : createInitExpandSpacerCell()
+        const phaseExpandCell = createInitExpandSpacerCell()
         if (isZaoRoot) {
           main.append(
             phaseExpandCell,

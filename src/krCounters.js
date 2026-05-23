@@ -3056,9 +3056,7 @@ export async function resetAllKrCountersInScene(opts = {}) {
           Math.max(0, Math.floor(Number(m[LH_MAX])) || 0) > 0
         const phasesSnap = normalizePhases(m.phases)
         const keepPhasePanelOpen =
-          lhMaxActive &&
-          phasesSnap.rowPanelOpen &&
-          phasesSnap.links.length > 0
+          lhMaxActive && phasesSnap.links.length > 0
         const commitIniN = Number(m[LH_COMMIT_INI])
         const ownerIniN = Number(
           String(m.initiative ?? '')
