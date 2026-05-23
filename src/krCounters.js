@@ -713,6 +713,42 @@ export function metaHasPendingLoadedNonHeroExtraZao(meta) {
   )
 }
 
+/**
+ * Sperre „Abwehr → leeres Mutterfeld“, solange eine reguläre 2.A.-Ladung offen ist.
+ * Beim UO-Ausstieg (`exitingUo`) gilt die Sperre nicht — die Ladung kommt aus dem Speicher.
+ *
+ * @param {unknown} meta
+ * @param {{ exitingUo?: boolean }} [opts]
+ * @returns {boolean}
+ */
+export function abwToPrimaryBlockedByPendingZao(meta, opts = {}) {
+  const exitingUo = opts.exitingUo === true
+  return (
+    !exitingUo &&
+    !isConvertAnytimeEnabled(meta) &&
+    metaHasPendingLoadedNonHeroExtraZao(meta)
+  )
+}
+
+/**
+ * End-KR: Abwehr→Primär blockieren, solange eine reguläre 2.A.-Ladung offen ist.
+ * UO-Ausstieg ist ausgenommen.
+ *
+ * @param {unknown} meta
+ * @param {number | null | undefined} combatRound
+ * @param {{ exitingUo?: boolean }} [opts]
+ * @returns {boolean}
+ */
+export function abwToPrimaryBlockedByEndKrPendingZao(meta, combatRound, opts = {}) {
+  const exitingUo = opts.exitingUo === true
+  return (
+    !exitingUo &&
+    !isConvertAnytimeEnabled(meta) &&
+    lhEndKrConvertMode(meta, combatRound) &&
+    metaHasPendingLoadedNonHeroExtraZao(meta)
+  )
+}
+
 /** Primär-Stempel am Mutteranker (kein Phasen-Link) — für Umwandlungs-Sperre. */
 const MOTHER_PRIMARY_STAMP_FIELDS = new Set([KR_ANG, KR_SRA, KR_LH_ACTION])
 
@@ -1635,11 +1671,9 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
   if (!meta) return
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
   const roundForLh = lhLockRoundFromCombat()
-  if (
-    !isConvertAnytimeEnabled(meta) &&
-    lhEndKrConvertMode(meta, roundForLh) &&
-    metaHasPendingLoadedNonHeroExtraZao(meta)
-  ) {
+  const rawFirstKind = readKrFirstSlotKind(meta)
+  const exitingUo = rawFirstKind === 'uo'
+  if (abwToPrimaryBlockedByEndKrPendingZao(meta, roundForLh, { exitingUo })) {
     return
   }
   if (!isConvertAnytimeEnabled(meta)) {
@@ -1647,8 +1681,6 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
     const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
     if (motherPrimarySelfStamped(stamps.entries, itemId)) return
   }
-  const rawFirstKind = readKrFirstSlotKind(meta)
-  const exitingUo = rawFirstKind === 'uo'
   const firstKind =
     exitingUo && targetKind && (targetKind === 'ang' || targetKind === 'sra' || targetKind === 'lh')
       ? targetKind
@@ -1730,10 +1762,7 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
   if (nextAbw === abw) return
 
   if (!motherHasCharge) {
-    if (
-      !isConvertAnytimeEnabled(meta) &&
-      metaHasPendingLoadedNonHeroExtraZao(meta)
-    ) {
+    if (abwToPrimaryBlockedByPendingZao(meta, { exitingUo })) {
       return
     }
     await OBR.scene.items.updateItems([itemId], (drafts) => {

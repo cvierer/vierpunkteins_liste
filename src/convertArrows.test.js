@@ -15,6 +15,8 @@ import {
   readKrFirstSlotKind,
   defaultZaoSlotForPhaseNum,
   metaHasPendingLoadedNonHeroExtraZao,
+  abwToPrimaryBlockedByPendingZao,
+  abwToPrimaryBlockedByEndKrPendingZao,
   rebuildKrActionPoolVisualsFromAngAbw,
   krTransferMarkPresent,
   motherHasChargedAng,
@@ -400,6 +402,86 @@ describe('dualAng mother and 2AO', () => {
     expect(
       normalizePhases(m.phases).links.some((l) => l.id === rootId)
     ).toBe(true)
+  })
+})
+
+describe('abwToPrimaryBlockedByPendingZao', () => {
+  const linkId = 'zao-root'
+
+  function metaWithZaoAng(overrides = {}) {
+    return {
+      initiative: '10',
+      phases: {
+        links: [{ id: linkId, parentId: null, offset: 8 }],
+        rowPanelOpen: false,
+      },
+      [KR_ZAO_SLOTS]: { [linkId]: { kind: 'ang', marks: 1 } },
+      [KR_FIRST_SLOT_KIND]: 'ang',
+      [KR_ANG]: 1,
+      [KR_ABW]: 1,
+      ...overrides,
+    }
+  }
+
+  it('UO + 2AO ang + Speicher-Mark: UO-Ausstieg nicht blockiert', () => {
+    const m = metaWithZaoAng({
+      [KR_FIRST_SLOT_KIND]: 'uo',
+      [KR_ABW]: 0,
+      [KR_ANG]: 1,
+    })
+    expect(metaHasPendingLoadedNonHeroExtraZao(m)).toBe(true)
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(true)
+    expect(
+      abwToPrimaryBlockedByPendingZao(m, { exitingUo: true })
+    ).toBe(false)
+  })
+
+  it('UO + 2AO ang + leerer Speicher: UO-Ausstieg nicht blockiert', () => {
+    const m = metaWithZaoAng({
+      [KR_FIRST_SLOT_KIND]: 'uo',
+      [KR_ABW]: 1,
+      [KR_ANG]: 1,
+    })
+    expect(krTransferMarkPresent(m[KR_ABW])).toBe(false)
+    expect(
+      abwToPrimaryBlockedByPendingZao(m, { exitingUo: true })
+    ).toBe(false)
+  })
+
+  it('leeres Mutter-ang + 2AO ang: weiterhin blockiert (Regression)', () => {
+    const m = metaWithZaoAng({
+      [KR_FIRST_SLOT_KIND]: 'ang',
+      [KR_ANG]: 1,
+    })
+    expect(krTransferMarkPresent(m[KR_ANG])).toBe(false)
+    expect(
+      abwToPrimaryBlockedByPendingZao(m, { exitingUo: false })
+    ).toBe(true)
+  })
+
+  it('End-KR + UO + pending ZAO: UO-Ausstieg nicht blockiert', () => {
+    const m = {
+      [LH_MAX]: 3,
+      [LH_REM]: 1,
+      [LH_COMMIT_ROUND]: 1,
+      [LH_ACTIONS_PER_KR]: 2,
+      [LH_TRIGGER_INI_STEP]: -8,
+      [KR_FIRST_SLOT_KIND]: 'uo',
+      [KR_ABW]: 0,
+      phases: {
+        links: [{ id: linkId, parentId: null, offset: 8 }],
+        rowPanelOpen: false,
+      },
+      [KR_ZAO_SLOTS]: { [linkId]: { kind: 'ang', marks: 1 } },
+      initiative: '8',
+      [LH_COMMIT_INI]: '8',
+    }
+    expect(
+      abwToPrimaryBlockedByEndKrPendingZao(m, 2, { exitingUo: false })
+    ).toBe(true)
+    expect(
+      abwToPrimaryBlockedByEndKrPendingZao(m, 2, { exitingUo: true })
+    ).toBe(false)
   })
 })
 
