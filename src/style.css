@@ -5491,13 +5491,24 @@ select.init-row-extra-select {
   white-space: nowrap;
 }
 
-.init-phase-offset-field__arrow {
+.init-phase-offset-field__base {
+  flex-shrink: 0;
+  font-size: calc(0.86rem * var(--init-ui-scale));
+  font-weight: 400;
+  line-height: 1.2;
+  color: inherit;
+  user-select: none;
+  pointer-events: none;
+}
+
+.init-phase-offset-field__sep {
   flex-shrink: 0;
   font-size: calc(0.86rem * var(--init-ui-scale));
   font-weight: 400;
   line-height: 1.2;
   color: var(--color-ink-muted);
   user-select: none;
+  pointer-events: none;
 }
 
 .init-col-ini-combo .init-row-init {

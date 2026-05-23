@@ -36,6 +36,7 @@ import {
   finalizePhasesWithOrderedRoots,
   findCombatStepIndex,
   formatIniForSort,
+  baseIniBeforeLink,
   hookIniForLink,
   iniNumeric,
   shouldShowHeroExtraLink,
@@ -570,37 +571,60 @@ function fitIniVerzoegertInputWidth(input) {
   input.style.width = `${len}ch`
 }
 
-/** INI verzögert: schlicht ↓N auf Zeilenhintergrund (Wert weiter editierbar). */
-function createIniVerzoegertOffsetField(value, options = {}) {
+/**
+ * INI verzögert als x↓n: x = Mutter-INI (fest), n = Verzögerung (editierbar).
+ */
+function createIniVerzoegertOffsetField(
+  baseIniDisplay,
+  offsetValue,
+  options = {}
+) {
   const { readOnly = false, title = '', tabIndex } = options
   const wrap = document.createElement('span')
   wrap.className = 'init-phase-offset-field'
-  const arrow = document.createElement('span')
-  arrow.className = 'init-phase-offset-field__arrow'
-  arrow.textContent = '↓'
-  arrow.setAttribute('aria-hidden', 'true')
+  const baseEl = document.createElement('span')
+  baseEl.className = 'init-phase-offset-field__base'
+  baseEl.textContent =
+    baseIniDisplay != null && String(baseIniDisplay) !== ''
+      ? String(baseIniDisplay)
+      : '—'
+  const sep = document.createElement('span')
+  sep.className = 'init-phase-offset-field__sep'
+  sep.textContent = '↓'
+  sep.setAttribute('aria-hidden', 'true')
   const input = document.createElement('input')
   input.type = 'text'
   input.inputMode = 'numeric'
   input.className = 'phase-offset-input phase-offset-input--plain'
-  input.value = value
-  input.setAttribute('aria-label', 'INI verzögert')
-  if (title) input.title = title
+  input.value = offsetValue
+  input.setAttribute(
+    'aria-label',
+    `INI verzögert: Mutter-INI ${baseEl.textContent}, Verzögerung`
+  )
+  input.title =
+    title ||
+    `Mutter-INI ${baseEl.textContent} (fest) — nur die Zahl nach ↓ (Verzögerung n) ändern`
   input.readOnly = readOnly
   if (tabIndex !== undefined) input.tabIndex = tabIndex
   fitIniVerzoegertInputWidth(input)
   if (!readOnly) {
     input.addEventListener('input', () => fitIniVerzoegertInputWidth(input))
   }
-  wrap.append(arrow, input)
-  return { wrap, input }
+  wrap.append(baseEl, sep, input)
+  return { wrap, input, baseEl }
 }
 
-/** ↓N unmittelbar links neben dem INI-Feld (eine Grid-Spalte). */
-function createIniColCombo(iniInput, offsetValue, offsetOptions = {}) {
+/** x↓n unmittelbar links neben dem Ziel-INI-Feld (eine Grid-Spalte). */
+function createIniColCombo(
+  iniInput,
+  baseIniDisplay,
+  offsetValue,
+  offsetOptions = {}
+) {
   const col = document.createElement('div')
   col.className = 'init-col-ini-combo'
   const { wrap, input: offsetInput } = createIniVerzoegertOffsetField(
+    baseIniDisplay,
     offsetValue,
     offsetOptions
   )
@@ -5663,12 +5687,18 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
-        const { col: iniCol } = createIniColCombo(iniInput, offsetDisplay, {
-          readOnly: true,
-          tabIndex: -1,
-          title:
-            'INI verzögert — Abstand Helden-INI zur Ziel-INI (L.H.-Zeile)',
-        })
+        const lhBaseDisplay = formatHookDisplay(heroNum)
+        const { col: iniCol } = createIniColCombo(
+          iniInput,
+          lhBaseDisplay,
+          offsetDisplay,
+          {
+            readOnly: true,
+            tabIndex: -1,
+            title:
+              'INI verzögert — Mutter-INI fest, n = Abstand zur Ziel-INI (L.H.-Zeile)',
+          }
+        )
 
         const zaoSwapCol = document.createElement('div')
         zaoSwapCol.className = 'init-col-swap'
@@ -6107,13 +6137,17 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
+        const phaseBaseDisplay = formatHookDisplay(
+          baseIniBeforeLink(link.id, ownerIniStr, ownerPhasesNorm.links)
+        )
         const { col: iniCol, offsetInput } = createIniColCombo(
           iniInput,
+          phaseBaseDisplay,
           String(link.offset),
           {
             readOnly: !canEdit,
             title: canEdit
-              ? 'INI verzögert — Abstand zur Basis-INI dieser Phase'
+              ? `Mutter-INI ${phaseBaseDisplay} fest — nur n nach ↓ (Verzögerung) ändern`
               : 'Nur Besitzer dieses Tokens oder Spielleitung',
           }
         )
