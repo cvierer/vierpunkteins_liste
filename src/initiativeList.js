@@ -570,35 +570,22 @@ function formatIniOffsetDisplay(offsetValue) {
     : '—'
 }
 
-function createIniOffsetPrefixCol(offsetValue) {
+/** -n + Ziel-INI in einer Zelle (fester kurzer Abstand). */
+function mountPhaseIniTail(iniInput, offsetValue) {
   const offStr = formatIniOffsetDisplay(offsetValue)
-  const col = document.createElement('div')
-  col.className = 'init-col-phase-offset'
+  const tailCol = document.createElement('div')
+  tailCol.className = 'init-col-ini-tail'
   const prefix = document.createElement('span')
   prefix.className = 'init-phase-offset-prefix'
   prefix.textContent = `-${offStr}`
   prefix.setAttribute('aria-hidden', 'true')
-  col.appendChild(prefix)
-  return { col, offStr }
-}
-
-function createIniTargetCol(iniInput, offStr) {
-  const col = document.createElement('div')
-  col.className = 'init-col-ini-target'
   const baseLabel = iniInput.getAttribute('aria-label') || 'Ziel-INI'
   iniInput.setAttribute(
     'aria-label',
     `${baseLabel} (INI Phasen später −${offStr})`
   )
-  col.appendChild(iniInput)
-  return col
-}
-
-/** -n-Spalte + Ziel-INI-Spalte (nach L.H.). */
-function mountPhaseIniTail(iniInput, offsetValue) {
-  const { col: prefixCol, offStr } = createIniOffsetPrefixCol(offsetValue)
-  const iniCol = createIniTargetCol(iniInput, offStr)
-  return { prefixCol, iniCol }
+  tailCol.append(prefix, iniInput)
+  return { iniTailCol: tailCol }
 }
 
 const ACTION_STAMP_LABEL = Object.freeze({
@@ -5656,7 +5643,7 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
-        const { prefixCol, iniCol } = mountPhaseIniTail(iniInput, offsetDisplay)
+        const { iniTailCol } = mountPhaseIniTail(iniInput, offsetDisplay)
 
         const zaoSwapCol = document.createElement('div')
         zaoSwapCol.className = 'init-col-swap'
@@ -5734,8 +5721,7 @@ function bindStampContextRemove(el, stamp, items) {
           btnCol,
           phaseZaoMeta,
           lhCol,
-          prefixCol,
-          iniCol,
+          iniTailCol,
           zaoSwapCol
         )
         // Stempel-Panel (absolut rechts, kein INI-Shift)
@@ -6096,7 +6082,7 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
-        const { prefixCol, iniCol } = mountPhaseIniTail(
+        const { iniTailCol } = mountPhaseIniTail(
           iniInput,
           String(link.offset)
         )
@@ -6124,17 +6110,13 @@ function bindStampContextRemove(el, stamp, items) {
               },
             })
           : createInitExpandSpacerCell()
-        if (lhCol.childElementCount > 0) {
-          main.classList.add('init-row-main--has-lh-col')
-        }
         if (isZaoRoot) {
           main.append(
             phaseExpandCell,
             btnCol,
             phaseZaoMeta,
             lhCol,
-            prefixCol,
-            iniCol,
+            iniTailCol,
             zaoSwapCol
           )
         } else {
@@ -6144,8 +6126,7 @@ function bindStampContextRemove(el, stamp, items) {
             phaseGutter,
             phaseNameCol,
             lhCol,
-            prefixCol,
-            iniCol,
+            iniTailCol,
             swapSpacer
           )
         }
