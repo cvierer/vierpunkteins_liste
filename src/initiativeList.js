@@ -565,6 +565,28 @@ function createInitExpandCloseCell({ title, ariaLabel, canEdit, onClick }) {
   return col
 }
 
+/** INI verzögert: Pfeil ↓ + Wert ohne Kästchen. */
+function createIniVerzoegertOffsetField(value, options = {}) {
+  const { readOnly = false, title = '', tabIndex } = options
+  const wrap = document.createElement('div')
+  wrap.className = 'init-phase-offset-field'
+  const arrow = document.createElement('span')
+  arrow.className = 'init-phase-offset-field__arrow'
+  arrow.textContent = '↓'
+  arrow.setAttribute('aria-hidden', 'true')
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.inputMode = 'numeric'
+  input.className = 'phase-offset-input phase-offset-input--zao-inline'
+  input.value = value
+  input.setAttribute('aria-label', 'INI verzögert')
+  if (title) input.title = title
+  input.readOnly = readOnly
+  if (tabIndex !== undefined) input.tabIndex = tabIndex
+  wrap.append(arrow, input)
+  return { wrap, input }
+}
+
 const ACTION_STAMP_LABEL = Object.freeze({
   [KR_ANG]: 'Angriff',
   [KR_ABW]: 'Abwehr',
@@ -5544,18 +5566,14 @@ function bindStampContextRemove(el, stamp, items) {
 
         btnCol.append(lhRemove)
 
-        const offsetInput = document.createElement('input')
-        offsetInput.type = 'text'
-        offsetInput.inputMode = 'numeric'
-        offsetInput.className =
-          'phase-offset-input phase-offset-input--zao-inline'
-        offsetInput.value = offsetDisplay
-        offsetInput.setAttribute('aria-label', 'INI verzögert')
-        offsetInput.title =
-          'INI verzögert — Abstand Helden-INI zur Ziel-INI (L.H.-Zeile)'
-        offsetInput.readOnly = true
-        offsetInput.tabIndex = -1
-        zaoOffsetSlot.appendChild(offsetInput)
+        const { wrap: lhOffsetWrap, input: offsetInput } =
+          createIniVerzoegertOffsetField(offsetDisplay, {
+            readOnly: true,
+            tabIndex: -1,
+            title:
+              'INI verzögert — Abstand Helden-INI zur Ziel-INI (L.H.-Zeile)',
+          })
+        zaoOffsetSlot.appendChild(lhOffsetWrap)
 
         const phaseZaoMeta = document.createElement('div')
         phaseZaoMeta.className = 'init-phase-zao-meta'
@@ -5978,24 +5996,20 @@ function bindStampContextRemove(el, stamp, items) {
           btnCol.append(phaseMinus)
         }
 
-        const offsetInput = document.createElement('input')
-        offsetInput.type = 'text'
-        offsetInput.inputMode = 'numeric'
-        offsetInput.className =
-          'phase-offset-input phase-offset-input--zao-inline'
-        offsetInput.value = String(link.offset)
-        offsetInput.setAttribute('aria-label', 'INI verzögert')
-        offsetInput.title = canEdit
-          ? 'INI verzögert — Abstand zur Basis-INI dieser Phase'
-          : 'Nur Besitzer dieses Tokens oder Spielleitung'
-        offsetInput.readOnly = !canEdit
+        const { wrap: offsetWrap, input: offsetInput } =
+          createIniVerzoegertOffsetField(String(link.offset), {
+            readOnly: !canEdit,
+            title: canEdit
+              ? 'INI verzögert — Abstand zur Basis-INI dieser Phase'
+              : 'Nur Besitzer dieses Tokens oder Spielleitung',
+          })
 
         const phaseOffsetSlot = document.createElement('div')
         phaseOffsetSlot.className = 'init-kr-abw-offset-slot'
         if (isZaoRoot) {
-          zaoOffsetSlot.appendChild(offsetInput)
+          zaoOffsetSlot.appendChild(offsetWrap)
         } else {
-          phaseOffsetSlot.appendChild(offsetInput)
+          phaseOffsetSlot.appendChild(offsetWrap)
         }
 
         let phaseZaoMeta = null

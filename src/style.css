@@ -5461,11 +5461,28 @@ select.init-row-extra-select {
 
 .init-kr-abw-offset-slot {
   flex-shrink: 0;
-  width: var(--init-obj-cell);
+  width: auto;
+  min-width: 0;
   height: var(--init-obj-cell);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+}
+
+.init-phase-offset-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.1rem;
+  min-height: var(--init-obj-cell);
+}
+
+.init-phase-offset-field__arrow {
+  flex-shrink: 0;
+  font-size: calc(0.82rem * var(--init-ui-scale));
+  line-height: 1;
+  color: var(--color-ink-muted);
+  user-select: none;
 }
 
 .init-kr-abw-split-shell__exec {
@@ -6278,7 +6295,7 @@ select.init-row-extra-select {
   );
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-phase-gutter-inner)
-    minmax(0, 1fr) auto var(--init-obj-cell) var(--init-col-ini) var(--init-col-swap);
+    minmax(0, 1fr) auto max-content var(--init-col-ini) var(--init-col-swap);
 }
 
 .init-col-btn--phase {
@@ -6294,8 +6311,8 @@ select.init-row-extra-select {
     5.48 * var(--init-obj-cell) + 3 * var(--init-grid-gap) * 0.45
   );
   grid-template-columns:
-    var(--init-col-expand) var(--init-col-btn) minmax(0, 1fr) auto
-    var(--init-obj-cell) var(--init-col-ini) var(--init-col-swap);
+    var(--init-col-expand) var(--init-col-btn) minmax(0, 1fr) auto max-content
+    var(--init-col-ini) var(--init-col-swap);
 }
 
 .init-phase-zao-meta {
@@ -6314,7 +6331,7 @@ select.init-row-extra-select {
   white-space: nowrap;
 }
 
-/* 2.A.-Zeile: Offset wie L.H.-Kästchen (1.22rem, gleicher Rahmen) */
+/* 2.A.-Zeile: INI verzögert — ↓ + Wert ohne Kästchen */
 .phase-offset-input--zao-inline {
   position: relative;
   left: auto;
@@ -6322,26 +6339,26 @@ select.init-row-extra-select {
   transform: none;
   flex-shrink: 0;
   z-index: auto;
-  width: var(--init-obj-cell);
-  min-width: var(--init-obj-cell);
-  max-width: var(--init-obj-cell);
-  height: var(--init-obj-cell);
-  min-height: var(--init-obj-cell);
+  box-sizing: border-box;
+  width: auto;
+  min-width: 1.15em;
+  max-width: 2.75rem;
+  height: auto;
+  min-height: 0;
   padding: 0;
-  border-radius: 4px;
-  border: 1px solid rgba(var(--rgb-gold), 0.45);
-  background: #ffffff;
-  /* wie .init-row-init */
+  border: none;
+  border-radius: 0;
+  background: transparent;
   font-size: calc(0.86rem * var(--init-ui-scale));
   font-weight: 400;
-  line-height: calc(var(--init-obj-cell) - 2px);
-  text-align: center;
+  line-height: 1.2;
+  text-align: right;
+  color: inherit;
 }
 
 .phase-offset-input--zao-inline:focus {
-  outline: 2px solid rgba(var(--rgb-gold), 0.55);
-  outline-offset: 0;
-  border-color: var(--color-accent);
+  outline: none;
+  box-shadow: 0 1px 0 rgba(var(--rgb-gold), 0.65);
 }
 
 .phase-offset-input--zao-inline.phase-offset-input--error {
