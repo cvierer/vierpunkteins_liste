@@ -435,9 +435,12 @@ export function rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw) {
         newSlots[newLinkId] = slot
         applyUoDefaultAbwChargeIfNeeded(m, slot)
       }
-      phasesAcc = finalizePhasesWithOrderedRoots(m, phasesAcc)
+      phasesAcc = finalizePhasesWithOrderedRoots(m, {
+        ...phasesAcc,
+        rowPanelOpen: true,
+      })
       if (phasesAcc.links.length > p2.links.length) {
-        m.phases = phasesAcc
+        m.phases = { ...phasesAcc, rowPanelOpen: true }
         m[KR_ZAO_SLOTS] = newSlots
       }
     }
@@ -602,7 +605,7 @@ export function readEffectiveZaoSlotKind(slot) {
  * @returns {{ kind: 'ang' | 'uo', marks: 0 | 1, lodgedAbw?: true }}
  */
 export function defaultZaoSlotForPhaseNum(phaseNum) {
-  if (phaseNum === 2) {
+  if (phaseNum >= 2) {
     return { kind: 'uo', marks: 0, lodgedAbw: true }
   }
   return { kind: 'ang', marks: 1 }
@@ -1336,6 +1339,13 @@ export async function patchEnsureZaoSlotForLink(itemId, linkId, phaseNum) {
       s[linkId] = slot
       applyUoDefaultAbwChargeIfNeeded(m, slot)
       m[KR_ZAO_SLOTS] = s
+      const p = normalizePhases(m.phases)
+      if (p.links.length > 0) {
+        m.phases = finalizePhasesWithOrderedRoots(m, {
+          ...p,
+          rowPanelOpen: true,
+        })
+      }
     }
   })
 }

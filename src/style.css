@@ -5407,6 +5407,27 @@ select.init-row-extra-select {
       rgba(255, 235, 140, 0.6);
 }
 
+/* Mutterzeile: gemeinsamer weißer Speicher für Reaktion (Schilde) + Freie Aktionen */
+.init-kr-reaction-store {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(var(--init-grid-gap) * 0.35);
+  box-sizing: border-box;
+  padding: calc(0.04rem * var(--init-ui-scale));
+  min-height: var(--init-obj-cell);
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+.init-kr-reaction-store .init-kr-abw-split-shell,
+.init-kr-reaction-store .init-fa-cell {
+  background: transparent;
+  box-shadow: none;
+}
+
 .init-kr-abw-split-shell {
   flex-shrink: 0;
   width: calc(var(--init-obj-cell) * 1.48);

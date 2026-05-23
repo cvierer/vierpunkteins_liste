@@ -451,6 +451,7 @@ export function normalizePhases(raw) {
   )
   return {
     links: pruned,
+    // nAO/2.AO: Panel immer offen, sobald mindestens ein Phasen-Link existiert.
     rowPanelOpen: pruned.length > 0,
   }
 }

@@ -1930,7 +1930,19 @@ function appendKrCounterPair(
     if (abwReplacement instanceof HTMLElement) {
       container.appendChild(abwReplacement)
     }
-  } else {
+    if (!hideFa) {
+      appendFaCounter(
+        container,
+        ownerItemId,
+        trackerMeta,
+        canEdit,
+        ownerIniStr,
+        phaseRowActive,
+        faLadungAllowed,
+        combatStarted
+      )
+    }
+  } else if (hideFa) {
     appendKrAbwSplitCell(
       container,
       ownerItemId,
@@ -1945,11 +1957,39 @@ function appendKrCounterPair(
       roundIntroPending,
       abwMirrorLinkUi
     )
-  }
-
-  if (!hideFa) {
+  } else {
+    const reactionStore = document.createElement('div')
+    reactionStore.className = 'init-kr-reaction-store'
+    reactionStore.dataset.reactionStoreGroup = ownerItemId
+    reactionStore.setAttribute('role', 'group')
+    reactionStore.setAttribute(
+      'aria-label',
+      'Reaktionsspeicher: Abwehr-Schildladungen und Freie Aktionen'
+    )
+    reactionStore.addEventListener('pointerenter', () => {
+      setLinkedShieldHover(ownerItemId, true)
+      setLinkedFaHover(ownerItemId, true)
+    })
+    reactionStore.addEventListener('pointerleave', () => {
+      setLinkedShieldHover(ownerItemId, false)
+      setLinkedFaHover(ownerItemId, false)
+    })
+    appendKrAbwSplitCell(
+      reactionStore,
+      ownerItemId,
+      trackerMeta,
+      canEdit,
+      abwLadungAllowed,
+      phaseRowActive,
+      abwRoundBoundaryShell,
+      atRoundBoundaryNav,
+      combatRound,
+      combatStarted,
+      roundIntroPending,
+      abwMirrorLinkUi
+    )
     appendFaCounter(
-      container,
+      reactionStore,
       ownerItemId,
       trackerMeta,
       canEdit,
@@ -1958,6 +1998,7 @@ function appendKrCounterPair(
       faLadungAllowed,
       combatStarted
     )
+    container.appendChild(reactionStore)
   }
   if (!hideLh) {
     appendLhCell(

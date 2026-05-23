@@ -170,8 +170,20 @@ describe('defaultZaoSlotForPhaseNum', () => {
     })
   })
 
-  it('3.Akt.+ startet mit Angriff', () => {
-    expect(defaultZaoSlotForPhaseNum(3)).toEqual({ kind: 'ang', marks: 1 })
+  it('3.Akt.+ startet mit UO (Schild-Ladung)', () => {
+    expect(defaultZaoSlotForPhaseNum(3)).toEqual({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
+  })
+
+  it('4.Akt.+ startet ebenfalls mit UO', () => {
+    expect(defaultZaoSlotForPhaseNum(4)).toEqual({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
   })
 })
 
