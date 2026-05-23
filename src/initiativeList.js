@@ -565,10 +565,15 @@ function createInitExpandCloseCell({ title, ariaLabel, canEdit, onClick }) {
   return col
 }
 
-/** INI verzögert: Pfeil ↓ + Wert ohne Kästchen. */
+function fitIniVerzoegertInputWidth(input) {
+  const len = Math.max(1, String(input.value ?? '').length)
+  input.style.width = `${len}ch`
+}
+
+/** INI verzögert: schlicht ↓N auf Zeilenhintergrund (Wert weiter editierbar). */
 function createIniVerzoegertOffsetField(value, options = {}) {
   const { readOnly = false, title = '', tabIndex } = options
-  const wrap = document.createElement('div')
+  const wrap = document.createElement('span')
   wrap.className = 'init-phase-offset-field'
   const arrow = document.createElement('span')
   arrow.className = 'init-phase-offset-field__arrow'
@@ -577,14 +582,30 @@ function createIniVerzoegertOffsetField(value, options = {}) {
   const input = document.createElement('input')
   input.type = 'text'
   input.inputMode = 'numeric'
-  input.className = 'phase-offset-input phase-offset-input--zao-inline'
+  input.className = 'phase-offset-input phase-offset-input--plain'
   input.value = value
   input.setAttribute('aria-label', 'INI verzögert')
   if (title) input.title = title
   input.readOnly = readOnly
   if (tabIndex !== undefined) input.tabIndex = tabIndex
+  fitIniVerzoegertInputWidth(input)
+  if (!readOnly) {
+    input.addEventListener('input', () => fitIniVerzoegertInputWidth(input))
+  }
   wrap.append(arrow, input)
   return { wrap, input }
+}
+
+/** ↓N unmittelbar links neben dem INI-Feld (eine Grid-Spalte). */
+function createIniColCombo(iniInput, offsetValue, offsetOptions = {}) {
+  const col = document.createElement('div')
+  col.className = 'init-col-ini-combo'
+  const { wrap, input: offsetInput } = createIniVerzoegertOffsetField(
+    offsetValue,
+    offsetOptions
+  )
+  col.append(wrap, iniInput)
+  return { col, offsetInput }
 }
 
 const ACTION_STAMP_LABEL = Object.freeze({
@@ -5518,8 +5539,6 @@ function bindStampContextRemove(el, stamp, items) {
 
         const btnCol = document.createElement('div')
         btnCol.className = 'init-col-btn init-col-btn--phase init-col-btn--zao'
-        const zaoOffsetSlot = document.createElement('div')
-        zaoOffsetSlot.className = 'init-kr-abw-offset-slot'
         appendKrCounterPair(
           btnCol,
           ownerId,
@@ -5565,15 +5584,6 @@ function bindStampContextRemove(el, stamp, items) {
         lhRemove.disabled = !canEdit
 
         btnCol.append(lhRemove)
-
-        const { wrap: lhOffsetWrap, input: offsetInput } =
-          createIniVerzoegertOffsetField(offsetDisplay, {
-            readOnly: true,
-            tabIndex: -1,
-            title:
-              'INI verzögert — Abstand Helden-INI zur Ziel-INI (L.H.-Zeile)',
-          })
-        zaoOffsetSlot.appendChild(lhOffsetWrap)
 
         const phaseZaoMeta = document.createElement('div')
         phaseZaoMeta.className = 'init-phase-zao-meta'
@@ -5653,6 +5663,13 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
+        const { col: iniCol } = createIniColCombo(iniInput, offsetDisplay, {
+          readOnly: true,
+          tabIndex: -1,
+          title:
+            'INI verzögert — Abstand Helden-INI zur Ziel-INI (L.H.-Zeile)',
+        })
+
         const zaoSwapCol = document.createElement('div')
         zaoSwapCol.className = 'init-col-swap'
 
@@ -5729,8 +5746,7 @@ function bindStampContextRemove(el, stamp, items) {
           btnCol,
           phaseZaoMeta,
           lhCol,
-          zaoOffsetSlot,
-          iniInput,
+          iniCol,
           zaoSwapCol
         )
         // Stempel-Panel (absolut rechts, kein INI-Shift)
@@ -5812,9 +5828,6 @@ function bindStampContextRemove(el, stamp, items) {
                 zaoSlot.marks === 0
               : true
           : false
-        const zaoOffsetSlot = document.createElement('div')
-        zaoOffsetSlot.className = 'init-kr-abw-offset-slot'
-
         const ownerPhasesNorm = normalizePhases(ownerTrackerMeta?.phases)
         // Einheitliche Nummerierung über alle Wurzel-Typen (regulär + z.AT):
         // Mutter = 1, erste Zusatz-Zeile (höchste Ziel-INI) = 2, usw.
@@ -5996,22 +6009,6 @@ function bindStampContextRemove(el, stamp, items) {
           btnCol.append(phaseMinus)
         }
 
-        const { wrap: offsetWrap, input: offsetInput } =
-          createIniVerzoegertOffsetField(String(link.offset), {
-            readOnly: !canEdit,
-            title: canEdit
-              ? 'INI verzögert — Abstand zur Basis-INI dieser Phase'
-              : 'Nur Besitzer dieses Tokens oder Spielleitung',
-          })
-
-        const phaseOffsetSlot = document.createElement('div')
-        phaseOffsetSlot.className = 'init-kr-abw-offset-slot'
-        if (isZaoRoot) {
-          zaoOffsetSlot.appendChild(offsetWrap)
-        } else {
-          phaseOffsetSlot.appendChild(offsetWrap)
-        }
-
         let phaseZaoMeta = null
         let phaseGutter = null
         let phaseNameCol = null
@@ -6110,9 +6107,21 @@ function bindStampContextRemove(el, stamp, items) {
           })
         })
 
+        const { col: iniCol, offsetInput } = createIniColCombo(
+          iniInput,
+          String(link.offset),
+          {
+            readOnly: !canEdit,
+            title: canEdit
+              ? 'INI verzögert — Abstand zur Basis-INI dieser Phase'
+              : 'Nur Besitzer dieses Tokens oder Spielleitung',
+          }
+        )
+
         const runRemoveAfterOffsetError = async () => {
           offsetInput.value = 'Offset < 0'
           offsetInput.classList.add('phase-offset-input--error')
+          fitIniVerzoegertInputWidth(offsetInput)
           await new Promise((r) => setTimeout(r, 420))
           void removePhaseLink(ownerId, link.id)
         }
@@ -6179,8 +6188,7 @@ function bindStampContextRemove(el, stamp, items) {
             btnCol,
             phaseZaoMeta,
             lhCol,
-            zaoOffsetSlot,
-            iniInput,
+            iniCol,
             zaoSwapCol
           )
         } else {
@@ -6190,8 +6198,7 @@ function bindStampContextRemove(el, stamp, items) {
             phaseGutter,
             phaseNameCol,
             lhCol,
-            phaseOffsetSlot,
-            iniInput,
+            iniCol,
             swapSpacer
           )
         }
