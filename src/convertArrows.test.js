@@ -22,6 +22,7 @@ import {
   motherHasChargedAng,
   hasChargedRegularZaoAng,
   syncReactionShieldForDualAng,
+  motherHasTransferablePrimaryCharge,
 } from './krCounters.js'
 import { normalizePhases } from './phaseLinks.js'
 import {
@@ -613,5 +614,34 @@ describe('lhEndKrConvertArrowGates', () => {
       blockUpperLhMotherNoZao: false,
       blockLowerPendingZao: false,
     })
+  })
+})
+
+describe('motherHasTransferablePrimaryCharge', () => {
+  it('true bei geladenem Mutter-Ang', () => {
+    expect(
+      motherHasTransferablePrimaryCharge({
+        [KR_FIRST_SLOT_KIND]: 'ang',
+        [KR_ANG]: 0,
+      })
+    ).toBe(true)
+  })
+
+  it('false bei leerer Mutter-SRA', () => {
+    expect(
+      motherHasTransferablePrimaryCharge({
+        [KR_FIRST_SLOT_KIND]: 'sra',
+        [KR_SRA]: 1,
+      })
+    ).toBe(false)
+  })
+
+  it('false bei UO-Mutter', () => {
+    expect(
+      motherHasTransferablePrimaryCharge({
+        [KR_FIRST_SLOT_KIND]: 'uo',
+        [KR_ANG]: 0,
+      })
+    ).toBe(false)
   })
 })

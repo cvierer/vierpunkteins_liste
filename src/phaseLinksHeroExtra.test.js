@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { shouldShowHeroExtraLink } from './phaseLinks.js'
+import {
+  shouldShowHeroExtraLink,
+  shouldShowPhaseLinkInList,
+} from './phaseLinks.js'
 
 const zatLink = { id: 'zat-1', parentId: null, heroExtra: 'ang' }
 
@@ -12,16 +15,16 @@ describe('shouldShowHeroExtraLink', () => {
     ).toBe(true)
   })
 
-  it('zeigt z.AT bei Mutter sra und leerem Schild (Regression Mutter-Umtausch)', () => {
+  it('blendet z.AT bei Mutter sra und leerem Schild aus', () => {
     expect(
       shouldShowHeroExtraLink({ ...baseMeta, krFirstSlotKind: 'sra' }, zatLink)
-    ).toBe(true)
+    ).toBe(false)
   })
 
-  it('zeigt z.AT bei Mutter lh und leerem Schild', () => {
+  it('blendet z.AT bei Mutter lh und leerem Schild aus', () => {
     expect(
       shouldShowHeroExtraLink({ ...baseMeta, krFirstSlotKind: 'lh' }, zatLink)
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('blendet z.AT bei Mutter uo und leerem Schild aus', () => {
@@ -68,10 +71,24 @@ describe('shouldShowHeroExtraLink', () => {
       )
     ).toBe(true)
   })
+})
 
-  it('gibt für nicht-heroExtra-Links immer true zurück', () => {
+describe('shouldShowPhaseLinkInList', () => {
+  const baseMeta = { heroExtraAngCount: 1, krAbw: 1, krFirstSlotKind: 'sra' }
+
+  it('zeigt reguläre 2.AO-Links immer', () => {
     expect(
-      shouldShowHeroExtraLink(baseMeta, { id: 'reg', parentId: null })
+      shouldShowPhaseLinkInList(baseMeta, { id: 'reg', parentId: null })
     ).toBe(true)
+  })
+
+  it('wendet z.AT-Regeln nur auf heroExtra an', () => {
+    expect(
+      shouldShowPhaseLinkInList(baseMeta, {
+        id: 'zat',
+        parentId: null,
+        heroExtra: 'ang',
+      })
+    ).toBe(false)
   })
 })

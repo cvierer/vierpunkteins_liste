@@ -43,7 +43,7 @@ import {
   formatIniForSort,
   hookIniForLink,
   iniNumeric,
-  shouldShowHeroExtraLink,
+  shouldShowPhaseLinkInList,
   sortedLinksForLayout,
   mergedEntryDiscriminator,
   nextChainedZaoParentForTransfer,
@@ -931,13 +931,15 @@ function appendKrPrimarySplitCell(
     inactiveEmpty && kind === 'ang'
   )
   /* A-Spalte: Aktions-Objekte ohne Ladung generell ausblenden (Mutter und
-     2.A.O.-Slots). L.H.-Void (Ladung temporär im Schild) bleibt sichtbar;
+     z.AT). Regulaere 2.AO-Zeilen bleiben sichtbar. L.H.-Void bleibt sichtbar;
      Ausnahme für ZAO-Restore-„+“ greift per :has() in der CSS-Regel.
      Laufende L.H. (Ziel gesetzt): Primärfeld oft ohne KR-Markierung, Counter
      im Schild — Stern/Pie trotzdem sichtbar lassen. */
+  const isRegularZaoSlot = isZaoSlot && !isHeroExtraSlot && !isLhEndSlot
   shell.classList.toggle(
     'init-kr-primary-shell--no-charge',
-    !isUoKind &&
+    !isRegularZaoSlot &&
+      !isUoKind &&
       !hasPrimaryCharge &&
       !lhVoided &&
       !(kind === 'lh' && lhStatePrimary.max > 0)
@@ -4828,7 +4830,7 @@ function bindStampContextRemove(el, stamp, items) {
           (l) =>
             l.parentId === null &&
             l.lhEnd !== true &&
-            shouldShowHeroExtraLink(meta, l)
+            shouldShowPhaseLinkInList(meta, l)
         ).length
         const secondActionBadgeUi =
           allVisibleRootCount > 0

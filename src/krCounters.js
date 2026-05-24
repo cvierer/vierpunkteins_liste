@@ -1447,10 +1447,24 @@ export async function patchEnsureZaoSlotForLink(itemId, linkId, phaseNum) {
 
 /**
  * Primärladung → Abwehr-Schild.
- * Ladungs-Erhaltungsgesetz: 1 Ladung pro Objekt. Verschiebt zuerst die Ladung
- * aus dem letzten geladenen 2.A.-Slot (und entfernt diesen) — sonst aus dem
- * Mutter-Primärfeld. Gilt für Ang., S.R.A. und L.H.
+ * Ladungs-Erhaltungsgesetz: 1 Ladung pro Objekt. Beim Umwandeln von der
+ * **Mutter** zuerst die Mutter-Ladung — reguläre 2.AO-Zeilen bleiben erhalten.
+ * Nur wenn die Mutter leer ist, wird die Ladung aus dem letzten geladenen
+ * 2.A.-Slot geholt (und dieser entfernt). Gilt für Ang., S.R.A. und L.H.
  */
+export function motherHasTransferablePrimaryCharge(meta) {
+  if (!meta || typeof meta !== 'object') return false
+  const firstKind = readKrFirstSlotKind(meta)
+  if (firstKind === 'uo') return false
+  if (firstKind === 'lh') {
+    if (isLhActive(meta)) return false
+    const lh = normalizeKrDigit(meta[KR_LH_ACTION])
+    return lh === 0 && !meta[KR_LH_VOID_BY_TRANSFER]
+  }
+  const field = primaryFieldForKind(meta)
+  return krTransferMarkPresent(normalizeKrDigit(meta[field]))
+}
+
 export async function patchKrTransferPrimaryToAbw(itemId) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
@@ -1460,7 +1474,51 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
   const abw = normalizeKrDigit(meta[KR_ABW])
 
-  // 1) Letzter 2.A.-Slot mit Ladung (marks=1) → entladen & entfernen.
+  {
+    const roomMeta = await OBR.room.getMetadata()
+    const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
+    if (motherPrimarySelfStamped(stamps.entries, itemId)) return
+  }
+
+  if (motherHasTransferablePrimaryCharge(meta)) {
+    const firstKind = readKrFirstSlotKind(meta)
+    const field = primaryFieldForKind(meta)
+    const nextAbw = addOneAbwTransferChargeValue(abw)
+    if (nextAbw === abw) return
+
+    if (firstKind === 'lh') {
+      await OBR.scene.items.updateItems([itemId], (drafts) => {
+        for (const d of drafts) {
+          const m = d.metadata[TRACKER_ITEM_META_KEY]
+          if (!m) continue
+          m[KR_ABW] = nextAbw
+          m[KR_LH_ACTION] = 1
+          m[KR_LH_SECOND] = 0
+          m[KR_LH_VOID_BY_TRANSFER] = true
+          m[KR_FIRST_SLOT_KIND] = 'uo'
+          delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+          syncKrPrimaryLadungFromPrimaryField(m)
+        }
+      })
+      return
+    }
+    const primary = normalizeKrDigit(meta[field])
+    const nextPrimary = consumeOneChargeValue(primary)
+    await OBR.scene.items.updateItems([itemId], (drafts) => {
+      for (const d of drafts) {
+        const m = d.metadata[TRACKER_ITEM_META_KEY]
+        if (!m) continue
+        m[field] = nextPrimary
+        m[KR_ABW] = nextAbw
+        m[KR_PRIMARY_VOID_BY_ABW_TRANSFER] = true
+        m[KR_FIRST_SLOT_KIND] = 'uo'
+        syncKrPrimaryLadungFromPrimaryField(m)
+      }
+    })
+    return
+  }
+
+  // Fallback: Mutter leer — letzter regulärer 2.A.-Slot mit Ladung → entladen & entfernen.
   const phases = normalizePhases(meta.phases)
   const roots = sortedLinksForLayout(phases.links).filter(
     (l) => l.parentId === null && !l.heroExtra
@@ -1500,57 +1558,6 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
     })
     return
   }
-
-  {
-    const roomMeta = await OBR.room.getMetadata()
-    const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
-    if (motherPrimarySelfStamped(stamps.entries, itemId)) return
-  }
-
-  const firstKind = readKrFirstSlotKind(meta)
-  const field = primaryFieldForKind(meta)
-
-  const nextAbw = addOneAbwTransferChargeValue(abw)
-  if (nextAbw === abw) return
-
-  if (firstKind === 'lh') {
-    // Edge-Case 3 (Plan): bei aktiver L.H. (auch in der End-KR mit
-    // aufgehobenem Lock) den L.H.-Stempel-Slot NICHT ueber Transfer in
-    // die Schildspalte verschieben — der LH-Slot wird ausschliesslich
-    // ueber `stampLhCompletion` bedient. Sonst entstuenden Pseudo-
-    // Schildladungen, die das `KR_LH_SECOND`-Modell umgehen.
-    if (isLhActive(meta)) return
-    const lh = normalizeKrDigit(meta[KR_LH_ACTION])
-    if (lh !== 0) return
-    await OBR.scene.items.updateItems([itemId], (drafts) => {
-      for (const d of drafts) {
-        const m = d.metadata[TRACKER_ITEM_META_KEY]
-        if (!m) continue
-        m[KR_ABW] = nextAbw
-        m[KR_LH_ACTION] = 1
-        m[KR_LH_SECOND] = 0
-        m[KR_LH_VOID_BY_TRANSFER] = true
-        m[KR_FIRST_SLOT_KIND] = 'uo'
-        delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
-        syncKrPrimaryLadungFromPrimaryField(m)
-      }
-    })
-    return
-  }
-  const primary = normalizeKrDigit(meta[field])
-  if (!krTransferMarkPresent(primary)) return
-  const nextPrimary = consumeOneChargeValue(primary)
-  await OBR.scene.items.updateItems([itemId], (drafts) => {
-    for (const d of drafts) {
-      const m = d.metadata[TRACKER_ITEM_META_KEY]
-      if (!m) continue
-      m[field] = nextPrimary
-      m[KR_ABW] = nextAbw
-      m[KR_PRIMARY_VOID_BY_ABW_TRANSFER] = true
-      m[KR_FIRST_SLOT_KIND] = 'uo'
-      syncKrPrimaryLadungFromPrimaryField(m)
-    }
-  })
 }
 
 /**

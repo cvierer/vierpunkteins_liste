@@ -361,15 +361,10 @@ function normalizeKrDigitLocal(v) {
 function hasMotherSwordOrShield(meta) {
   const firstKind =
     typeof meta?.krFirstSlotKind === 'string' ? meta.krFirstSlotKind : 'ang'
-  if (firstKind === 'ang' || firstKind === 'sra' || firstKind === 'lh') {
-    return true
-  }
+  const hasSword = firstKind === 'ang'
   // KR_ABW: Wert 1 entspricht „leer“, alle anderen Werte tragen mind. eine Markierung.
   const hasShield = normalizeKrDigitLocal(meta?.krAbw) !== 1
-  if (firstKind === 'uo') {
-    return hasShield
-  }
-  return hasShield
+  return hasSword || hasShield
 }
 
 /**
@@ -410,10 +405,16 @@ export function shouldShowHeroExtraLink(meta, link) {
   // Die Wurzel wird beim Stempel ohnehin entfernt — der Guard ist redundanter
   // Schutz fuer transient inkonsistente Zustaende.
   if (meta?.krExtraChoiceUsed === 'par') return false
-  // Aktionsquelle: Mutter-Aktion (Ang/SRA/L.H./UO+Schild) ODER ein regulaeres 2.A. mit
+  // Aktionsquelle: Mutter-Schwert/-Schild ODER ein regulaeres 2.A. mit
   // Schwert-Setup. So bleibt die z.AT erhalten, wenn der Held seine
   // Aktion in eine 2.A. verschoben hat (Schwert dort eingestellt).
   return hasMotherSwordOrShield(meta) || hasSecondActionSword(meta)
+}
+
+/** Regulaere 2.AO-Links immer; z.AT nur via {@link shouldShowHeroExtraLink}. */
+export function shouldShowPhaseLinkInList(meta, link) {
+  if (!link?.heroExtra) return true
+  return shouldShowHeroExtraLink(meta, link)
 }
 
 export function normalizePhases(raw) {
@@ -1155,7 +1156,7 @@ export function finalizePhasesWithOrderedRoots(meta, rawPhases) {
  */
 export function orderedZaoRootIdsForBadge(meta, phasesNormalized, ownerIniStr) {
   const visibleLinks = sortedLinksForLayout(phasesNormalized.links).filter((l) =>
-    shouldShowHeroExtraLink(meta, l)
+    shouldShowPhaseLinkInList(meta, l)
   )
   // Alle regulären ZAO-Links (Mutter-Kette 2, 3, …) — z.AT und L.H.-Ende
   // ausblenden, damit die Badge-Nummern mit der Aktionskette übereinstimmen.
@@ -1200,7 +1201,7 @@ export function orderedZaoRootIdsForBadge(meta, phasesNormalized, ownerIniStr) {
  */
 export function orderedAllZaoRootIdsForBadge(meta, phasesNormalized, ownerIniStr) {
   const visibleLinks = sortedLinksForLayout(phasesNormalized.links).filter((l) =>
-    shouldShowHeroExtraLink(meta, l)
+    shouldShowPhaseLinkInList(meta, l)
   )
   const allRoots = visibleLinks.filter(
     (l) => l.parentId === null && l.lhEnd !== true
@@ -1275,7 +1276,7 @@ export function buildMergedDisplayRows(
     const phases = normalizePhases(meta?.phases)
 
     const visibleLinks = sortedLinksForLayout(phases.links).filter((l) =>
-      shouldShowHeroExtraLink(meta, l)
+      shouldShowPhaseLinkInList(meta, l)
     )
     const roots = visibleLinks.filter((l) => l.parentId === null)
     rootOrderByOwner.set(
