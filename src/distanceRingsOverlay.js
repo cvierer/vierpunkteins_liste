@@ -75,12 +75,11 @@ export async function showDistanceRingsFor(item, dpi) {
   for (const { max, code } of DIST_CLASS_THRESHOLDS) {
     const r = ringRadiusPxFromHalfMax(halfMax, dpi, max)
     const color = RING_COLORS[code] ?? '#888888'
-    const topLeft = circleTopLeftForCenter(c, r)
     const circle = buildShape()
       .shapeType('CIRCLE')
       .width(r * 2)
       .height(r * 2)
-      .position(topLeft)
+      .position(c)
       .strokeColor(color)
       .strokeOpacity(0.85)
       .strokeWidth(2)
