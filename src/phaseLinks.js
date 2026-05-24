@@ -359,11 +359,17 @@ function normalizeKrDigitLocal(v) {
 }
 
 function hasMotherSwordOrShield(meta) {
-  const firstKind = typeof meta?.krFirstSlotKind === 'string' ? meta.krFirstSlotKind : 'ang'
-  const hasSword = firstKind === 'ang'
+  const firstKind =
+    typeof meta?.krFirstSlotKind === 'string' ? meta.krFirstSlotKind : 'ang'
+  if (firstKind === 'ang' || firstKind === 'sra' || firstKind === 'lh') {
+    return true
+  }
   // KR_ABW: Wert 1 entspricht „leer“, alle anderen Werte tragen mind. eine Markierung.
   const hasShield = normalizeKrDigitLocal(meta?.krAbw) !== 1
-  return hasSword || hasShield
+  if (firstKind === 'uo') {
+    return hasShield
+  }
+  return hasShield
 }
 
 /**
@@ -404,7 +410,7 @@ export function shouldShowHeroExtraLink(meta, link) {
   // Die Wurzel wird beim Stempel ohnehin entfernt — der Guard ist redundanter
   // Schutz fuer transient inkonsistente Zustaende.
   if (meta?.krExtraChoiceUsed === 'par') return false
-  // Aktionsquelle: Mutter-Schwert/-Schild ODER ein regulaeres 2.A. mit
+  // Aktionsquelle: Mutter-Aktion (Ang/SRA/L.H./UO+Schild) ODER ein regulaeres 2.A. mit
   // Schwert-Setup. So bleibt die z.AT erhalten, wenn der Held seine
   // Aktion in eine 2.A. verschoben hat (Schwert dort eingestellt).
   return hasMotherSwordOrShield(meta) || hasSecondActionSword(meta)
