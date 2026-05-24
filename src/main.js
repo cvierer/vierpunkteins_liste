@@ -37,6 +37,7 @@ appRoot.innerHTML = `
         <span class="kampf-col-label kampf-col-label--counter" title="Aktion">Aktion</span>
         <span class="kampf-h-spacer kampf-h-spacer--action-reaction" aria-hidden="true"></span>
         <span class="kampf-col-label kampf-col-label--counter" title="Reaktion">Reaktion</span>
+        <span class="kampf-h-spacer kampf-h-spacer--reaction-frei" aria-hidden="true"></span>
         <span class="kampf-col-label kampf-col-label--counter" title="Freie Aktion">Frei</span>
       </div>
       <span class="kampf-col-label kampf-col-label--name">Name</span>
