@@ -1,6 +1,11 @@
 ﻿import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem, isGmSync } from './editAccess.js'
 import {
+  isHeroConvertAllowedForViewer,
+  isHeroConvertAnytimeMode,
+  shouldShowKrPrimaryConvertSwitch,
+} from './convertLockViewer.js'
+import {
   collectSortedParticipants,
   getTokenListDisplayName,
   TRACKER_ITEM_META_KEY,
@@ -394,25 +399,6 @@ function createRoundRowConvertLockButton() {
   return btn
 }
 
-/**
- * Entscheidet, ob der aktuelle Betrachter (kein-SL) bei diesem Token die
- * Umwandlungs-Pfeile nutzen darf. Die Owner-Berechtigung (`canEdit`) wird hier
- * nicht geprüft — sie ist Voraussetzung und wird vom Aufrufer kombiniert.
- *
- * Regelwerk:
- * - SL: immer erlaubt (das Schloss gilt nur für Spieler).
- * - Schloss „offen“: immer erlaubt.
- * - Schloss „geschlossen“: nie erlaubt.
- * - Schloss „Automatik“:
- *   - Heldenmodus „Gesamte Kampfrunde“ (inkl. Legacy `convertAnytimeEnabled`) → erlaubt.
- *   - Navigation steht auf Beginn/Ende der Kampfrunde → erlaubt.
- *   - Sonst greifen die Helden-Ansageoptionen:
- *     · `convertAllowEntireRound` → erlaubt (gesamte KR).
- *     · `convertAllowFirstPhase`  → erlaubt, solange die Navigation noch nicht
- *       hinter die erste INI-Phase des Helden gewandert ist
- *       (`currentNavIni >= heroIni`).
- *     · andernfalls → nicht erlaubt.
- */
 /** Eine der beiden Ansageoptionen oder keine (nie beides). */
 function convertAnnounceModeFromHeroMeta(m) {
   if (!m) return 'none'
@@ -420,39 +406,6 @@ function convertAnnounceModeFromHeroMeta(m) {
   if (m.convertAnytimeEnabled) return 'entireRound'
   if (m.convertAllowFirstPhase) return 'firstPhase'
   return 'none'
-}
-
-function isHeroConvertAnytimeMode(m) {
-  if (!m || typeof m !== 'object') return false
-  return m.convertAllowEntireRound === true || m.convertAnytimeEnabled === true
-}
-
-function isHeroConvertAllowedForViewer(
-  trackerMeta,
-  rowActiveId,
-  rowActivePhaseLinkId,
-  currentNavIni
-) {
-  if (isGmSync()) return true
-  const lock = getRoomSettings().convertLockState
-  if (lock === 'closed') return false
-  if (isHeroConvertAnytimeMode(trackerMeta)) return true
-  if (lock === 'open') return true
-  const atRoundBoundary =
-    !rowActivePhaseLinkId &&
-    (rowActiveId === ROUND_START_STEP_ID || rowActiveId === ROUND_END_STEP_ID)
-  if (atRoundBoundary) return true
-  if (!trackerMeta) return false
-  if (trackerMeta.convertAllowEntireRound) return true
-  if (trackerMeta.convertAllowFirstPhase) {
-    if (currentNavIni == null) return true
-    const heroIni = Number(
-      String(trackerMeta.initiative ?? '').trim().replace(',', '.')
-    )
-    if (!Number.isFinite(heroIni)) return false
-    return currentNavIni >= heroIni
-  }
-  return false
 }
 
 function mergeActionStampsIntoMerged(merged, stampEntries) {
@@ -707,6 +660,8 @@ function cycleKrPrimarySlotKind(k, dir, iniLocked = false) {
  * @param {{ rootCount: number, badgeNumber: number, canCreateSecondAction: boolean, title?: string } | null | undefined} [secondActionBadgeUi]
  *        Kleine Zahl unten rechts: Mutter = 1, erste reguläre 2.A.-Wurzel = 2 usw.
  * @param {boolean} [phaseRowActive] — Navigierte Zeile (Stempeln erlaubt); sonst gedimmte Darstellung.
+ * @param {boolean} [convertAllowedByLock] — Spieler-Umwandlung erlaubt (Schloss + Helden-Einstellung);
+ *        steuert Sichtbarkeit der Umtauschpfeile und Klick-Guard bei UO.
  */
 function appendKrPrimarySplitCell(
   container,
@@ -771,9 +726,8 @@ function appendKrPrimarySplitCell(
     '<svg class="init-kr-primary-switch__svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 12" width="12" height="8" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="m3 9 7-6 7 6"/></svg>'
   prevBtn.title = `Vorige Aktion (${kindLabelLong})${iniLocked ? iniLockHint : ''}`
   prevBtn.setAttribute('aria-label', 'Vorige Aktion wählen')
-  // Normale 2.A.O.-Slots dürfen immer zwischen Ang/SRA/L.H. umschalten.
-  // Nur Helden-Zusatz-Objekte (`heroExtra` / ZAO) bleiben fix, weil deren
-  // Ladung nicht umwandel- oder tauschbar ist.
+  // Helden-Zusatz-Objekte (`heroExtra`) und n.A.-Anker (`lhEnd`) bleiben fix.
+  // Sonst gilt für Spieler das Umwandelschloss, ob Umtauschpfeile sichtbar sind.
   const isHeroExtraSlot = isZaoSlot && Boolean(zaoSlotOverride.heroExtra)
   const isLhEndSlot = isZaoSlot && Boolean(zaoSlotOverride.lhEnd)
   // n.A.-Slot (lhEnd) ist konzeptuell der L.H.-Stempel-Anker; der Kind-
@@ -1134,7 +1088,15 @@ function appendKrPrimarySplitCell(
   // erscheint stattdessen in der Spalte der Umwandlungspfeile.
   const hideMotherSwitchForLh =
     !isZaoSlot && kind === 'lh' && lhStatePrimary.max > 0
-  if (hideMotherSwitchForLh || isHeroExtraSlot) {
+  const hideConvertSwitchForLock = !shouldShowKrPrimaryConvertSwitch(
+    convertAllowedByLock,
+    switchLocked
+  )
+  if (
+    hideMotherSwitchForLh ||
+    isHeroExtraSlot ||
+    hideConvertSwitchForLock
+  ) {
     shell.append(main)
     shell.classList.add('init-kr-primary-shell--no-switch')
   } else {
