@@ -29,6 +29,7 @@ import {
 } from './manualIniTieOverrides.js'
 import { setTrackedParticipantIds } from './listState.js'
 import { computeSchritt, formatSchrittWithClass } from './tokenDistance.js'
+import { hideDistanceRings, showDistanceRingsFor } from './distanceRingsOverlay.js'
 import {
   initiativeCompareOnlyIni,
   initiativeRank,
@@ -2711,6 +2712,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let restoreHeroInputFocus = null
   let lastItems = []
 
+  void hideDistanceRings()
+
   const roundIntroBoard = document.querySelector('[data-kampf-round-intro]')
   const roundIntroLabel = document.querySelector('[data-kampf-round-intro-label]')
 
@@ -2831,12 +2834,17 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         /* ignore */
       }
       distanceProbeItemId = itemId
-      void ensureDistanceDpi().then(applyDistanceOverlay)
+      void ensureDistanceDpi().then((dpi) => {
+        applyDistanceOverlay()
+        const item = lastItems.find((i) => i.id === itemId)
+        if (item && dpi) void showDistanceRingsFor(item, dpi)
+      })
       applyDistanceOverlay()
     })
     const release = () => {
       distanceProbeItemId = null
       applyDistanceOverlay()
+      void hideDistanceRings()
     }
     cell.addEventListener('pointerup', release)
     cell.addEventListener('pointercancel', release)
@@ -6281,5 +6289,6 @@ function bindStampContextRemove(el, stamp, items) {
     detachGlobalDragListeners()
     swapOverlay.remove()
     iniFloat.remove()
+    void hideDistanceRings()
   }
 }
