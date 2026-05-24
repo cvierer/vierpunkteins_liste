@@ -1389,14 +1389,43 @@ function wireFaStampableHover(wrap, tapEl, enabled) {
   if (!enabled || !(wrap instanceof HTMLElement) || !(tapEl instanceof HTMLElement)) {
     return
   }
-  const setHover = (on) => {
-    wrap.classList.toggle('is-fa-stamp-hover', on)
+  const clearAll = () => {
+    wrap.classList.remove('is-fa-stamp-hover')
     wrap.querySelectorAll('.init-fa-cell__bolt').forEach((b) => {
-      setFaBoltItemHover(b, on)
+      setFaBoltItemHover(b, false)
     })
   }
-  tapEl.addEventListener('pointerenter', () => setHover(true))
-  tapEl.addEventListener('pointerleave', () => setHover(false))
+  /** @param {number} clientX @param {number} clientY */
+  const boltAtPoint = (clientX, clientY) => {
+    for (const bolt of wrap.querySelectorAll('.init-fa-cell__bolt')) {
+      if (!(bolt instanceof HTMLElement)) continue
+      const r = bolt.getBoundingClientRect()
+      if (
+        clientX >= r.left &&
+        clientX <= r.right &&
+        clientY >= r.top &&
+        clientY <= r.bottom
+      ) {
+        return bolt
+      }
+    }
+    return null
+  }
+  /** @param {number} clientX @param {number} clientY */
+  const updateHover = (clientX, clientY) => {
+    const hit = boltAtPoint(clientX, clientY)
+    wrap.querySelectorAll('.init-fa-cell__bolt').forEach((b) => {
+      setFaBoltItemHover(b, b === hit)
+    })
+    wrap.classList.toggle('is-fa-stamp-hover', Boolean(hit))
+  }
+  tapEl.addEventListener('pointerenter', (e) => {
+    updateHover(e.clientX, e.clientY)
+  })
+  tapEl.addEventListener('pointermove', (e) => {
+    updateHover(e.clientX, e.clientY)
+  })
+  tapEl.addEventListener('pointerleave', clearAll)
 }
 
 /**
