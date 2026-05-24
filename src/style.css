@@ -5453,7 +5453,7 @@ select.init-row-extra-select {
       rgba(255, 235, 140, 0.6);
 }
 
-/* Mutterzeile: Reaktionsspeicher (Schilde + Freie Aktionen), ohne sichtbares Kästchen */
+/* Mutterzeile: Reaktionsspeicher (Freie Aktionen + Schilde), ohne sichtbares Kästchen */
 .init-kr-reaction-store {
   flex-shrink: 0;
   display: flex;
@@ -5470,6 +5470,13 @@ select.init-row-extra-select {
   border: none;
   border-radius: 0;
   box-shadow: none;
+}
+
+.init-kr-reaction-store__frei-spacer {
+  flex-shrink: 0;
+  width: calc(var(--init-obj-cell) * 1.5);
+  min-width: 0;
+  height: var(--init-obj-cell);
 }
 
 .init-kr-reaction-store::before,

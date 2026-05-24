@@ -1997,29 +1997,15 @@ function appendKrCounterPair(
       )
     }
   } else if (hideFa) {
-    appendKrAbwSplitCell(
-      container,
-      ownerItemId,
-      trackerMeta,
-      canEdit,
-      abwLadungAllowed,
-      phaseRowActive,
-      abwRoundBoundaryShell,
-      atRoundBoundaryNav,
-      combatRound,
-      combatStarted,
-      roundIntroPending,
-      abwMirrorLinkUi
-    )
-  } else {
     const reactionStore = document.createElement('div')
     reactionStore.className = 'init-kr-reaction-store'
     reactionStore.dataset.reactionStoreGroup = ownerItemId
     reactionStore.setAttribute('role', 'group')
-    reactionStore.setAttribute(
-      'aria-label',
-      'Reaktionsspeicher: Abwehr-Schildladungen und Freie Aktionen'
-    )
+    reactionStore.setAttribute('aria-label', 'Reaktionsspeicher: Abwehr-Schildladungen')
+    const freiSpacer = document.createElement('div')
+    freiSpacer.className = 'init-kr-reaction-store__frei-spacer'
+    freiSpacer.setAttribute('aria-hidden', 'true')
+    reactionStore.appendChild(freiSpacer)
     appendKrAbwSplitCell(
       reactionStore,
       ownerItemId,
@@ -2035,6 +2021,16 @@ function appendKrCounterPair(
       abwMirrorLinkUi,
       true
     )
+    container.appendChild(reactionStore)
+  } else {
+    const reactionStore = document.createElement('div')
+    reactionStore.className = 'init-kr-reaction-store'
+    reactionStore.dataset.reactionStoreGroup = ownerItemId
+    reactionStore.setAttribute('role', 'group')
+    reactionStore.setAttribute(
+      'aria-label',
+      'Reaktionsspeicher: Freie Aktionen und Abwehr-Schildladungen'
+    )
     appendFaCounter(
       reactionStore,
       ownerItemId,
@@ -2044,6 +2040,21 @@ function appendKrCounterPair(
       phaseRowActive,
       faLadungAllowed,
       combatStarted,
+      true
+    )
+    appendKrAbwSplitCell(
+      reactionStore,
+      ownerItemId,
+      trackerMeta,
+      canEdit,
+      abwLadungAllowed,
+      phaseRowActive,
+      abwRoundBoundaryShell,
+      atRoundBoundaryNav,
+      combatRound,
+      combatStarted,
+      roundIntroPending,
+      abwMirrorLinkUi,
       true
     )
     container.appendChild(reactionStore)
