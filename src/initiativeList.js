@@ -489,6 +489,23 @@ function createInitExpandSpacerCell() {
   return col
 }
 
+/** Aktionszähler links in der Expand-Spalte (Format „N.“). */
+function createActionColumnCountLabel(n, title = '') {
+  const el = document.createElement('span')
+  el.className = 'init-col-action-count'
+  el.textContent = `${n}.`
+  if (title) el.title = title
+  el.setAttribute('aria-hidden', 'true')
+  return el
+}
+
+function mountExpandColActionCount(expandCol, count, { minCount = 2, title = '' } = {}) {
+  const n = Math.floor(Number(count))
+  if (!Number.isFinite(n) || n < minCount) return
+  expandCol.classList.add('init-col-expand--has-action-count')
+  expandCol.insertBefore(createActionColumnCountLabel(n, title), expandCol.firstChild)
+}
+
 function formatIniOffsetDisplay(offsetValue) {
   return offsetValue != null && String(offsetValue) !== ''
     ? String(offsetValue)
@@ -554,7 +571,7 @@ function applySplitLadungVisual(shell, chargeRow, exec, v, variant) {
   const digit = exec.querySelector('.init-row-kr-counter__digit')
   const primaryIcon = exec.querySelector('.init-kr-primary-charge-icon')
   if (!fill || !digit) return
-  const showDigit = variant === 'abw' && v >= 2
+  const showDigit = false
   fill.classList.toggle('init-row-kr-counter__fill--on', !spent)
   digit.textContent = showDigit ? String(v) : ''
   exec.classList.toggle('init-row-kr-counter--has-digit', showDigit)
@@ -1104,21 +1121,6 @@ function appendKrPrimarySplitCell(
   } else {
     shell.append(switchCol, main)
   }
-  if (
-    secondActionBadgeUi &&
-    secondActionBadgeUi.canCreateSecondAction &&
-    Number.isFinite(secondActionBadgeUi.badgeNumber)
-  ) {
-    const badge = document.createElement('span')
-    badge.className = 'init-kr-primary-zao-badge'
-    badge.textContent = String(secondActionBadgeUi.badgeNumber)
-    badge.title =
-      secondActionBadgeUi.title ||
-      actionPhaseRangeLabel(secondActionBadgeUi.rootCount || 1)
-    badge.setAttribute('aria-hidden', 'true')
-    /* Unten rechts am Aktions-Icon (.init-kr-primary-main), nicht am gesamten Shell-Raster */
-    main.appendChild(badge)
-  }
   container.appendChild(shell)
 }
 
@@ -1506,10 +1508,6 @@ function appendKrAbwSplitCell(
     icon.className =
       'init-kr-abw-shield init-kr-abw-shield--reaction-blue-count'
     icon.innerHTML = SVG_ABW_SHIELD
-    const countEl = document.createElement('span')
-    countEl.className = 'init-kr-abw-shield__count'
-    countEl.textContent = String(shieldCount)
-    icon.appendChild(countEl)
     shields.appendChild(icon)
   } else {
     for (let i = 0; i < shieldCount; i++) {
@@ -1525,12 +1523,6 @@ function appendKrAbwSplitCell(
     iconP.className = 'init-kr-abw-shield init-kr-abw-shield--parade-extra'
     iconP.dataset.paradeExtraSlot = String(slotIdx)
     iconP.innerHTML = SVG_ABW_SHIELD_DARK
-    if (paradeLoadedSlots.length >= 2) {
-      const countEl = document.createElement('span')
-      countEl.className = 'init-kr-abw-shield__count'
-      countEl.textContent = String(paradeLoadedSlots.length)
-      iconP.appendChild(countEl)
-    }
     shields.appendChild(iconP)
   }
   exec.append(shields)
@@ -4878,6 +4870,30 @@ function bindStampContextRemove(el, stamp, items) {
 
         const expandCol = document.createElement('div')
         expandCol.className = 'init-col-expand'
+        if (
+          secondActionBadgeUi &&
+          Number.isFinite(secondActionBadgeUi.badgeNumber)
+        ) {
+          mountExpandColActionCount(
+            expandCol,
+            secondActionBadgeUi.badgeNumber,
+            {
+              minCount: 1,
+              title:
+                secondActionBadgeUi.title ||
+                actionPhaseRangeLabel(secondActionBadgeUi.rootCount || 1),
+            }
+          )
+        } else {
+          const shieldN = abwShieldCount(normalizeKrDigit(readKrAbw(meta)))
+          mountExpandColActionCount(expandCol, shieldN, {
+            minCount: 2,
+            title:
+              shieldN >= 2
+                ? `Abwehr: ${shieldN} Schildladungen geladen`
+                : '',
+          })
+        }
         if (canEdit) {
           const extrasOpen = expandedPlayerExtrasIds.has(row.id)
           const expandBtn = document.createElement('button')
@@ -5847,6 +5863,12 @@ function bindStampContextRemove(el, stamp, items) {
         zaoSwapCol.className = 'init-col-swap'
 
         const phaseExpandCell = createInitExpandSpacerCell()
+        if (isZaoRoot && zaoBadgeUi && Number.isFinite(zaoBadgeUi.badgeNumber)) {
+          mountExpandColActionCount(phaseExpandCell, zaoBadgeUi.badgeNumber, {
+            minCount: 1,
+            title: zaoBadgeUi.title || `${zaoPhaseNum}. Aktionsphase`,
+          })
+        }
         if (isZaoRoot) {
           main.append(
             phaseExpandCell,

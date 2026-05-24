@@ -716,10 +716,35 @@ html:not(.v4-is-gm) .kampf-settings-gear-host {
 
 .init-col-expand {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: calc(0.06rem * var(--init-ui-scale));
   min-width: 0;
   align-self: stretch;
+}
+
+.init-col-expand--has-action-count {
+  justify-content: flex-start;
+  padding-top: calc(0.04rem * var(--init-ui-scale));
+}
+
+.init-col-action-count {
+  flex-shrink: 0;
+  min-width: calc(0.48rem * var(--init-ui-scale));
+  padding: 0 calc(0.05rem * var(--init-ui-scale));
+  box-sizing: border-box;
+  font-family: var(--font-body);
+  font-size: calc(0.42rem * var(--init-ui-scale));
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--init-ui-wood-badge-ink);
+  background: var(--init-ui-wood-badge-bg);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(62, 39, 35, 0.45);
+  pointer-events: none;
+  user-select: none;
 }
 
 .init-col-expand--close {
@@ -5722,30 +5747,13 @@ select.init-row-extra-select {
   background: transparent;
 }
 
-/* Reaktions-Schild mit Zahl: gleiche Ziffern-Optik wie Parade-Extra (schwarz) */
+/* Reaktions-Schild mit Zahl: Ziffern nur noch links in der Expand-Spalte (ab 2) */
 .init-kr-abw-shield--reaction-blue-count {
   position: relative;
 }
 
-.init-kr-abw-shield--reaction-blue-count::after {
-  width: calc(0.38rem * var(--init-ui-scale));
-  height: calc(0.38rem * var(--init-ui-scale));
-  font-size: calc(0.3rem * var(--init-ui-scale));
-}
-
 .init-kr-abw-shield--reaction-blue-count .init-kr-abw-shield__count {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  color: #f7f8fa;
-  font-weight: 700;
-  font-size: calc(0.52rem * var(--init-ui-scale));
-  line-height: 1;
-  pointer-events: none;
-  text-shadow:
-    0 0 1px rgba(0, 0, 0, 0.95),
-    0 0 2px rgba(0, 0, 0, 0.8);
+  display: none;
 }
 
 .init-kr-abw-shields {
@@ -5778,8 +5786,36 @@ select.init-row-extra-select {
   box-sizing: border-box;
 }
 
-/* Blaue Abwehr-Schilder: grünes Plus oben rechts (Stempeln/+1) */
+/* Blaue Abwehr-Schilder in der Aktions-Zeile (nicht Reaktions-Speicher): grünes Plus */
 .init-kr-abw-shield:not(.init-kr-abw-shield--parade-extra)::after {
+  content: '+';
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(22%, -22%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(0.44rem * var(--init-ui-scale));
+  height: calc(0.44rem * var(--init-ui-scale));
+  border-radius: 50%;
+  background: #43a047;
+  color: #fff;
+  font-size: calc(0.36rem * var(--init-ui-scale));
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+.init-kr-reaction-store
+  .init-kr-abw-shield:not(.init-kr-abw-shield--parade-extra)::after {
+  content: none;
+}
+
+/* Blaues UO-Schild (Primär-Aktion): gleiches Plus wie Abwehr-Schild */
+.init-kr-primary-main--uo .init-kr-uo-convert-icon::after {
   content: '+';
   position: absolute;
   top: 0;
