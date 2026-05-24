@@ -5586,13 +5586,8 @@ select.init-row-extra-select {
 }
 
 .init-kr-reaction-store .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
-  filter: saturate(1.75) brightness(1.62)
-    drop-shadow(
-      0 0 calc(11px * var(--init-combat-icon-scale)) rgba(224, 178, 255, 0.95)
-    )
-    drop-shadow(
-      0 0 calc(5px * var(--init-combat-icon-scale)) rgba(255, 255, 255, 0.55)
-    );
+  filter: saturate(1.42) brightness(1.14) sepia(0) hue-rotate(0deg)
+    drop-shadow(0 0 calc(4px * var(--init-combat-icon-scale)) rgba(179, 136, 255, 0.62));
 }
 
 .init-kr-abw-split-shell {
@@ -7196,23 +7191,17 @@ select.init-row-extra-select {
   height: 100%;
   transform: scaleY(-1);
   transform-origin: center;
-  filter: saturate(1.42) brightness(1.14)
-    drop-shadow(0 0 calc(4px * var(--init-combat-icon-scale)) rgba(179, 136, 255, 0.62));
-  transition:
-    filter 0.14s ease,
-    drop-shadow 0.14s ease;
+  /* Ruhezustand: matter, erdig-desaturiertes Lila */
+  filter: saturate(0.5) brightness(0.74) sepia(0.34) hue-rotate(6deg);
+  transition: filter 0.14s ease;
 }
 
+/* Hover = bisherige Normalansicht: kräftig leuchtendes Lila */
 .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg,
 .init-fa-cell--stampable-now:hover .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg,
 .init-fa-cell.is-linked-hover .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
-  filter: saturate(1.75) brightness(1.62)
-    drop-shadow(
-      0 0 calc(9px * var(--init-combat-icon-scale)) rgba(224, 178, 255, 0.95)
-    )
-    drop-shadow(
-      0 0 calc(4px * var(--init-combat-icon-scale)) rgba(255, 255, 255, 0.55)
-    );
+  filter: saturate(1.42) brightness(1.14) sepia(0) hue-rotate(0deg)
+    drop-shadow(0 0 calc(4px * var(--init-combat-icon-scale)) rgba(179, 136, 255, 0.62));
 }
 
 .init-fa-cell__tap {
