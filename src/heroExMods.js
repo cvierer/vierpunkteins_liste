@@ -668,6 +668,34 @@ export function effectiveDeltaForField(
   return sum
 }
 
+const HERO_EX_GS = 'heroExGs'
+
+/**
+ * GS in Schritt fuer Bewegungsringe (Effektivwert wie im Heldenblock).
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {{ ownerIni?: number | null, navIni?: number | null, round?: number | null }} [context]
+ * @returns {number | null}
+ */
+export function readHeroGsSchritt(meta, context = {}) {
+  const raw = String(meta?.[HERO_EX_GS] ?? '').trim()
+  if (!/^-?\d+$/.test(raw)) return null
+  const base = parseInt(raw, 10)
+  if (!Number.isFinite(base) || base <= 0) return null
+  let effective = base
+  const ownerIni = context.ownerIni
+  if (ownerIni != null && integratesHeroModsIntoDisplayedValue(meta, 'gs')) {
+    effective += effectiveDeltaForField(
+      meta,
+      'gs',
+      ownerIni,
+      context.round,
+      context.navIni
+    )
+  }
+  if (!Number.isFinite(effective) || effective <= 0) return null
+  return effective
+}
+
 /**
  * Integrierte TP-Anzeige: letzte Zahl im Text um `deltaSum` verschieben;
  * positive Ergebnisse mit führendem „+“, negative mit „−“; sonst Delta anhängen.

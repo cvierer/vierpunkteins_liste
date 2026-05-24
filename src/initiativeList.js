@@ -171,6 +171,7 @@ import {
 } from './longHandlung.js'
 import {
   effectiveDeltaForField,
+  readHeroGsSchritt,
   runHeroExModsAfterCombatUpdate,
 } from './heroExMods.js'
 import { cancelLh } from './lhEngine.js'
@@ -2837,7 +2838,17 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       void ensureDistanceDpi().then((dpi) => {
         applyDistanceOverlay()
         const item = lastItems.find((i) => i.id === itemId)
-        if (item && dpi) void showDistanceRingsFor(item, dpi)
+        if (!item || !dpi) return
+        const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
+        const combat = getCombat()
+        const gsSchritt = meta
+          ? readHeroGsSchritt(meta, {
+              ownerIni: readOwnerIniReferenceForMods(meta),
+              navIni: currentNavIniForRender,
+              round: combat.started ? combat.round : null,
+            })
+          : null
+        void showDistanceRingsFor(item, dpi, gsSchritt)
       })
       applyDistanceOverlay()
     })

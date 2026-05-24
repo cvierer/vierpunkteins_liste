@@ -19,6 +19,7 @@ import {
   modRemaining,
   normalizeModLabel,
   readHeroExMods,
+  readHeroGsSchritt,
   readModDisplayMode,
   ticksPassedForMod,
 } from './heroExMods.js'
@@ -94,6 +95,71 @@ describe('readOwnerIniReferenceForMods', () => {
     expect(readOwnerIniReferenceForMods({ heroExIb: '10', initiative: '7' })).toBe(
       7
     )
+  })
+})
+
+describe('readHeroGsSchritt', () => {
+  it('gibt null bei leerem oder ungueltigem GS zurueck', () => {
+    expect(readHeroGsSchritt(undefined)).toBeNull()
+    expect(readHeroGsSchritt({})).toBeNull()
+    expect(readHeroGsSchritt({ heroExGs: '' })).toBeNull()
+    expect(readHeroGsSchritt({ heroExGs: 'abc' })).toBeNull()
+    expect(readHeroGsSchritt({ heroExGs: '0' })).toBeNull()
+    expect(readHeroGsSchritt({ heroExGs: '-2' })).toBeNull()
+  })
+
+  it('liefert Basis-GS als Schritt', () => {
+    expect(readHeroGsSchritt({ heroExGs: '8' })).toBe(8)
+  })
+
+  it('addiert GS-Mod bei integrierter Anzeige', () => {
+    const meta = {
+      heroExGs: '8',
+      [MOD_DISPLAY_MODE]: 'integrated',
+      initiative: '10',
+      [HERO_EX_MODS]: [
+        {
+          id: 'g1',
+          field: 'gs',
+          delta: -2,
+          duration: 3,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+        },
+      ],
+    }
+    expect(
+      readHeroGsSchritt(meta, {
+        ownerIni: 10,
+        navIni: Number.POSITIVE_INFINITY,
+        round: 1,
+      })
+    ).toBe(6)
+  })
+
+  it('gibt null wenn Effektivwert <= 0', () => {
+    const meta = {
+      heroExGs: '2',
+      [MOD_DISPLAY_MODE]: 'integrated',
+      initiative: '10',
+      [HERO_EX_MODS]: [
+        {
+          id: 'g1',
+          field: 'gs',
+          delta: -2,
+          duration: 3,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+        },
+      ],
+    }
+    expect(
+      readHeroGsSchritt(meta, {
+        ownerIni: 10,
+        navIni: Number.POSITIVE_INFINITY,
+        round: 1,
+      })
+    ).toBeNull()
   })
 })
 
