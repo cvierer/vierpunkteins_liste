@@ -5720,6 +5720,12 @@ select.init-row-extra-select {
   position: relative;
 }
 
+.init-kr-abw-shield--reaction-blue-count::after {
+  width: calc(0.38rem * var(--init-ui-scale));
+  height: calc(0.38rem * var(--init-ui-scale));
+  font-size: calc(0.3rem * var(--init-ui-scale));
+}
+
 .init-kr-abw-shield--reaction-blue-count .init-kr-abw-shield__count {
   position: absolute;
   left: 50%;
@@ -5749,6 +5755,7 @@ select.init-row-extra-select {
 
 .init-kr-abw-shield {
   flex: 0 0 auto;
+  position: relative;
   height: min(
     calc(33.85px * var(--init-combat-icon-scale)),
     calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
@@ -5762,6 +5769,29 @@ select.init-row-extra-select {
   );
   line-height: 0;
   box-sizing: border-box;
+}
+
+/* Blaue Abwehr-Schilder: grünes Plus oben rechts (Stempeln/+1) */
+.init-kr-abw-shield:not(.init-kr-abw-shield--parade-extra)::after {
+  content: '+';
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(22%, -22%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(0.44rem * var(--init-ui-scale));
+  height: calc(0.44rem * var(--init-ui-scale));
+  border-radius: 50%;
+  background: #43a047;
+  color: #fff;
+  font-size: calc(0.36rem * var(--init-ui-scale));
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 /* Zwei Schilde: so groß wie möglich, dürfen sich fast berühren */
