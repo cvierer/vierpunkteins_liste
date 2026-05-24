@@ -490,20 +490,29 @@ function createInitExpandSpacerCell() {
 }
 
 /** Aktionszähler links in der Expand-Spalte (Format „N.“). */
-function createActionColumnCountLabel(n, title = '') {
+function createActionColumnCountLabel(n, title = '', { variant = '' } = {}) {
   const el = document.createElement('span')
   el.className = 'init-col-action-count'
+  if (variant === 'child') el.classList.add('init-col-action-count--child')
   el.textContent = `${n}.`
   if (title) el.title = title
   el.setAttribute('aria-hidden', 'true')
   return el
 }
 
-function mountExpandColActionCount(expandCol, count, { minCount = 2, title = '' } = {}) {
+function mountExpandColActionCount(
+  expandCol,
+  count,
+  { minCount = 2, title = '', variant = '' } = {}
+) {
   const n = Math.floor(Number(count))
   if (!Number.isFinite(n) || n < minCount) return
   expandCol.classList.add('init-col-expand--has-action-count')
-  expandCol.insertBefore(createActionColumnCountLabel(n, title), expandCol.firstChild)
+  if (variant === 'child') expandCol.classList.add('init-col-expand--child-count')
+  expandCol.insertBefore(
+    createActionColumnCountLabel(n, title, { variant }),
+    expandCol.firstChild
+  )
 }
 
 function formatIniOffsetDisplay(offsetValue) {
@@ -887,7 +896,8 @@ function appendKrPrimarySplitCell(
     }
   }
   if (kind === 'uo') {
-    icon.innerHTML = SVG_UO_CONVERT_SHIELD
+    icon.classList.add('init-kr-primary-main__icon--uo-slot')
+    icon.innerHTML = ''
   } else if (kind === 'sra') {
     icon.innerHTML = SVG_PRIMARY_ACTION
   } else if (kind === 'lh') {
@@ -4870,30 +4880,6 @@ function bindStampContextRemove(el, stamp, items) {
 
         const expandCol = document.createElement('div')
         expandCol.className = 'init-col-expand'
-        if (
-          secondActionBadgeUi &&
-          Number.isFinite(secondActionBadgeUi.badgeNumber)
-        ) {
-          mountExpandColActionCount(
-            expandCol,
-            secondActionBadgeUi.badgeNumber,
-            {
-              minCount: 1,
-              title:
-                secondActionBadgeUi.title ||
-                actionPhaseRangeLabel(secondActionBadgeUi.rootCount || 1),
-            }
-          )
-        } else {
-          const shieldN = abwShieldCount(normalizeKrDigit(readKrAbw(meta)))
-          mountExpandColActionCount(expandCol, shieldN, {
-            minCount: 2,
-            title:
-              shieldN >= 2
-                ? `Abwehr: ${shieldN} Schildladungen geladen`
-                : '',
-          })
-        }
         if (canEdit) {
           const extrasOpen = expandedPlayerExtrasIds.has(row.id)
           const expandBtn = document.createElement('button')
@@ -5866,6 +5852,7 @@ function bindStampContextRemove(el, stamp, items) {
         if (isZaoRoot && zaoBadgeUi && Number.isFinite(zaoBadgeUi.badgeNumber)) {
           mountExpandColActionCount(phaseExpandCell, zaoBadgeUi.badgeNumber, {
             minCount: 1,
+            variant: 'child',
             title: zaoBadgeUi.title || `${zaoPhaseNum}. Aktionsphase`,
           })
         }
