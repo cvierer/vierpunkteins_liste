@@ -358,8 +358,8 @@ body {
   --init-col-swap: calc(0.3rem * var(--init-ui-scale));
   --init-grid-gap: var(--init-strip-h-gap);
   /* Abstände zwischen Aktions-, Reaktions- und Frei-Spalte (Zeile + Kopfzeile) */
-  --init-action-reaction-gap: calc(var(--init-grid-gap) * 3.25);
-  --init-reaction-frei-gap: calc(var(--init-grid-gap) * 2.5);
+  --init-action-reaction-gap: calc(var(--init-grid-gap) * 4.5);
+  --init-reaction-frei-gap: calc(var(--init-grid-gap) * 3.75);
   --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
 }
 
@@ -5586,8 +5586,13 @@ select.init-row-extra-select {
 }
 
 .init-kr-reaction-store .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
-  filter: saturate(1.45) brightness(1.28)
-    drop-shadow(0 0 calc(7px * var(--init-combat-icon-scale)) rgba(186, 104, 255, 0.78));
+  filter: saturate(1.75) brightness(1.62)
+    drop-shadow(
+      0 0 calc(11px * var(--init-combat-icon-scale)) rgba(224, 178, 255, 0.95)
+    )
+    drop-shadow(
+      0 0 calc(5px * var(--init-combat-icon-scale)) rgba(255, 255, 255, 0.55)
+    );
 }
 
 .init-kr-abw-split-shell {
@@ -7191,7 +7196,8 @@ select.init-row-extra-select {
   height: 100%;
   transform: scaleY(-1);
   transform-origin: center;
-  filter: saturate(1.08) brightness(0.94);
+  filter: saturate(1.42) brightness(1.14)
+    drop-shadow(0 0 calc(4px * var(--init-combat-icon-scale)) rgba(179, 136, 255, 0.62));
   transition:
     filter 0.14s ease,
     drop-shadow 0.14s ease;
@@ -7200,8 +7206,13 @@ select.init-row-extra-select {
 .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg,
 .init-fa-cell--stampable-now:hover .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg,
 .init-fa-cell.is-linked-hover .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
-  filter: saturate(1.45) brightness(1.28)
-    drop-shadow(0 0 calc(5px * var(--init-combat-icon-scale)) rgba(186, 104, 255, 0.72));
+  filter: saturate(1.75) brightness(1.62)
+    drop-shadow(
+      0 0 calc(9px * var(--init-combat-icon-scale)) rgba(224, 178, 255, 0.95)
+    )
+    drop-shadow(
+      0 0 calc(4px * var(--init-combat-icon-scale)) rgba(255, 255, 255, 0.55)
+    );
 }
 
 .init-fa-cell__tap {
