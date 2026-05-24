@@ -28,7 +28,7 @@ import {
   onManualIniTieOverridesChange,
 } from './manualIniTieOverrides.js'
 import { setTrackedParticipantIds } from './listState.js'
-import { formatSchrittWithClass } from './tokenDistance.js'
+import { computeSchritt, formatSchrittWithClass } from './tokenDistance.js'
 import {
   initiativeCompareOnlyIni,
   initiativeRank,
@@ -2810,6 +2810,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         valEl.innerHTML = DIST_PROBE_EYE_SVG
       } else {
         const other = lastItems.find((i) => i.id === id)
+        if (!probeItem || !other) {
+          valEl.textContent = ''
+          return
+        }
         const n = computeSchritt(probeItem, other, distanceProbeDpi)
         c.classList.remove('init-dist-cell--probe')
         c.classList.add('init-dist-cell--target')
