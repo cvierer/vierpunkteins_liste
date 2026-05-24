@@ -5983,6 +5983,12 @@ function bindStampContextRemove(el, stamp, items) {
 
     element.replaceChildren(frag)
 
+    const shouldRestoreScroll =
+      listScrollEl && savedListScrollTop != null
+    if (shouldRestoreScroll) {
+      listScrollEl.scrollTop = savedListScrollTop
+    }
+
     if (heroSettingsItemId) {
       const stillThere = items.some((i) => i.id === heroSettingsItemId)
       if (!stillThere) {
@@ -6056,14 +6062,19 @@ function bindStampContextRemove(el, stamp, items) {
       return true
     }
 
+    if (shouldRestoreScroll) {
+      listScrollEl.scrollTop = savedListScrollTop
+    }
+    runSwapLayout()
+
     requestAnimationFrame(() => {
       runSwapLayout()
       requestAnimationFrame(() => {
-        runSwapLayout()
         const didScroll = scrollActiveRowIfTurnChanged()
-        if (!didScroll && listScrollEl && savedListScrollTop != null) {
+        if (!didScroll && shouldRestoreScroll) {
           listScrollEl.scrollTop = savedListScrollTop
         }
+        runSwapLayout()
       })
     })
     if (typeof ResizeObserver !== 'undefined') {
