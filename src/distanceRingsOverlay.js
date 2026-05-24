@@ -1,5 +1,5 @@
 import OBR, { buildLabel, buildShape } from '@owlbear-rodeo/sdk'
-import { DIST_CLASS_THRESHOLDS, tokenBounds } from './tokenDistance.js'
+import { DIST_CLASS_THRESHOLDS, tokenCenter } from './tokenDistance.js'
 
 const RING_ID_PREFIX = 'vierpunkteins/dist-ring/'
 
@@ -16,17 +16,9 @@ function ringId(kind, code) {
   return `${RING_ID_PREFIX}${kind}-${code}`
 }
 
-export function ringRadiusPxFromHalfMax(halfMax, dpi, thresholdSchritt) {
-  return halfMax + thresholdSchritt * dpi
-}
-
-/**
- * Radius in px fuer einen Schwellen-Ring (Außenkante + threshold Schritt).
- * @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
- */
-export function ringRadiusPx(item, dpi, thresholdSchritt) {
-  const b = tokenBounds(item, dpi)
-  return ringRadiusPxFromHalfMax(Math.max(b.w, b.h) / 2, dpi, thresholdSchritt)
+/** Radius in px fuer einen Schwellen-Ring (Mittelpunkt + threshold Schritt). */
+export function ringRadiusPx(dpi, thresholdSchritt) {
+  return thresholdSchritt * dpi
 }
 
 /** @param {{ x: number, y: number }} center @param {number} radius */
@@ -36,30 +28,20 @@ export function circleTopLeftForCenter(center, radius) {
 
 /**
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
- * @returns {Promise<{ center: { x: number, y: number }, halfMax: number }>}
+ * @returns {Promise<{ x: number, y: number }>}
  */
-async function resolveTokenRingAnchor(item, dpi) {
+async function resolveTokenRingCenter(item) {
   if (item?.id) {
     try {
       const bounds = await OBR.scene.items.getItemBounds([item.id])
-      if (bounds?.center && Number.isFinite(bounds.width) && bounds.width > 0) {
-        return {
-          center: bounds.center,
-          halfMax: Math.max(bounds.width, bounds.height) / 2,
-        }
+      if (bounds?.center) {
+        return bounds.center
       }
     } catch {
       /* fallback */
     }
   }
-  const b = tokenBounds(item, dpi)
-  return {
-    center: {
-      x: b.x + b.w / 2,
-      y: b.y + b.h / 2,
-    },
-    halfMax: Math.max(b.w, b.h) / 2,
-  }
+  return tokenCenter(item)
 }
 
 /**
@@ -69,11 +51,11 @@ async function resolveTokenRingAnchor(item, dpi) {
 export async function showDistanceRingsFor(item, dpi) {
   if (!item || !Number.isFinite(dpi) || dpi <= 0) return
   await hideDistanceRings()
-  const { center: c, halfMax } = await resolveTokenRingAnchor(item, dpi)
+  const c = await resolveTokenRingCenter(item)
   /** @type {import('@owlbear-rodeo/sdk').Item[]} */
   const items = []
   for (const { max, code } of DIST_CLASS_THRESHOLDS) {
-    const r = ringRadiusPxFromHalfMax(halfMax, dpi, max)
+    const r = ringRadiusPx(dpi, max)
     const color = RING_COLORS[code] ?? '#888888'
     const circle = buildShape()
       .shapeType('CIRCLE')
