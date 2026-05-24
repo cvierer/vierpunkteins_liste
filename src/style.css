@@ -359,7 +359,7 @@ body {
   --init-grid-gap: var(--init-strip-h-gap);
   /* Abstände zwischen Aktions-, Reaktions- und Frei-Spalte (Zeile + Kopfzeile) */
   --init-action-reaction-gap: calc(var(--init-grid-gap) * 4.5);
-  --init-reaction-frei-gap: calc(var(--init-grid-gap) * 3.75);
+  --init-reaction-frei-gap: calc(var(--init-grid-gap) * 1.25);
   --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
 }
 
@@ -5569,25 +5569,17 @@ select.init-row-extra-select {
   text-shadow: none;
 }
 
-.init-kr-reaction-store
-  .init-fa-cell--stampable-now:hover
-  .init-fa-cell__bolt,
-.init-kr-reaction-store
-  .init-fa-cell.is-linked-hover
-  .init-fa-cell__bolt {
-  filter: none;
-  text-shadow: none;
-}
-
 .init-kr-reaction-store .init-kr-abw-shield.is-item-hover .init-kr-abw-shield__svg {
   filter: saturate(1.24) brightness(1.16);
   text-shadow: 0 0 calc(8px * var(--init-combat-icon-scale))
     rgba(100, 190, 255, 0.68);
 }
 
-.init-kr-reaction-store .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
-  filter: saturate(1.42) brightness(1.14)
-    drop-shadow(0 0 calc(4px * var(--init-combat-icon-scale)) rgba(179, 136, 255, 0.62));
+.init-kr-reaction-store .init-fa-cell--stampable-now .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg,
+.init-kr-reaction-store .init-fa-cell--stampable-now.is-fa-stamp-hover .init-fa-cell__bolt .init-fa-cell__bolt-svg {
+  filter: saturate(1.62) brightness(1.42)
+    drop-shadow(0 0 calc(8px * var(--init-combat-icon-scale)) rgba(186, 104, 255, 0.92))
+    drop-shadow(0 0 calc(3px * var(--init-combat-icon-scale)) rgba(255, 255, 255, 0.45));
 }
 
 .init-kr-abw-split-shell {
@@ -5865,8 +5857,6 @@ select.init-row-extra-select {
     rgba(100, 190, 255, 0.68);
 }
 
-.init-fa-cell--stampable-now:hover .init-fa-cell__bolt,
-.init-fa-cell.is-linked-hover .init-fa-cell__bolt,
 .init-fa-cell--stampable-now:hover .init-fa-cell__count,
 .init-fa-cell.is-linked-hover .init-fa-cell__count {
   filter: none;
@@ -7194,12 +7184,12 @@ select.init-row-extra-select {
   transition: filter 0.14s ease;
 }
 
-/* Hover: leuchtendes Lila (Stand V991, ein Prompt zuvor) */
-.init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg,
-.init-fa-cell--stampable-now:hover .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg,
-.init-fa-cell.is-linked-hover .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
-  filter: saturate(1.42) brightness(1.14)
-    drop-shadow(0 0 calc(4px * var(--init-combat-icon-scale)) rgba(179, 136, 255, 0.62));
+/* Stempelbar + Hover: satter, kräftiger, leuchtend (Lila-SVG) */
+.init-fa-cell--stampable-now .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg,
+.init-fa-cell--stampable-now.is-fa-stamp-hover .init-fa-cell__bolt .init-fa-cell__bolt-svg {
+  filter: saturate(1.62) brightness(1.42)
+    drop-shadow(0 0 calc(7px * var(--init-combat-icon-scale)) rgba(186, 104, 255, 0.88))
+    drop-shadow(0 0 calc(3px * var(--init-combat-icon-scale)) rgba(255, 255, 255, 0.45));
 }
 
 .init-fa-cell__tap {

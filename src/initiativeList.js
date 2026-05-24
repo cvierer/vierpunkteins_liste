@@ -1385,22 +1385,18 @@ function wireReactionStoreItemHover(el, enabled) {
   })
 }
 
-function wireReactionStoreFaBoltHover(wrap, enabled) {
-  if (!(wrap instanceof HTMLElement) || !enabled) return
-  const clear = () => {
+function wireFaStampableHover(wrap, tapEl, enabled) {
+  if (!enabled || !(wrap instanceof HTMLElement) || !(tapEl instanceof HTMLElement)) {
+    return
+  }
+  const setHover = (on) => {
+    wrap.classList.toggle('is-fa-stamp-hover', on)
     wrap.querySelectorAll('.init-fa-cell__bolt').forEach((b) => {
-      setFaBoltItemHover(b, false)
+      setFaBoltItemHover(b, on)
     })
   }
-  wrap.addEventListener('pointermove', (e) => {
-    clear()
-    const hit = document.elementFromPoint(e.clientX, e.clientY)
-    const bolt = hit instanceof Element ? hit.closest('.init-fa-cell__bolt') : null
-    if (bolt && wrap.contains(bolt)) {
-      setFaBoltItemHover(bolt, true)
-    }
-  })
-  wrap.addEventListener('pointerleave', clear)
+  tapEl.addEventListener('pointerenter', () => setHover(true))
+  tapEl.addEventListener('pointerleave', () => setHover(false))
 }
 
 /**
@@ -1762,9 +1758,6 @@ function appendFaCounter(
     if (inReactionStore) return
     setLinkedFaHover(ownerItemId, false)
   })
-  if (inReactionStore && canStampFaNow) {
-    wireReactionStoreFaBoltHover(wrap, true)
-  }
 
   const bolts = document.createElement('span')
   bolts.className = 'init-fa-cell__bolts'
@@ -1799,6 +1792,10 @@ function appendFaCounter(
   b.disabled = !canEdit || !faLadungAllowed
 
   wrap.append(bolts, b)
+
+  if (canStampFaNow) {
+    wireFaStampableHover(wrap, b, true)
+  }
 
   if (canEdit) {
     b.addEventListener('click', (e) => {
