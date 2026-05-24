@@ -7539,6 +7539,55 @@ select.init-row-extra-select {
   color: var(--color-ink-muted, rgba(0, 0, 0, 0.62));
 }
 
+.kampf-hero-custom-dist__profile {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.kampf-hero-custom-dist__profile--disabled {
+  opacity: 0.72;
+}
+
+.kampf-hero-custom-dist__head {
+  display: grid;
+  grid-template-columns: minmax(8rem, auto) minmax(4rem, 6rem) 1fr;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.kampf-hero-custom-dist__enable {
+  margin: 0;
+}
+
+.kampf-hero-custom-dist__name-label {
+  margin: 0;
+}
+
+.kampf-hero-custom-dist__row {
+  display: grid;
+  grid-template-columns: 1fr minmax(4.5rem, 5.5rem);
+  gap: 0.45rem;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+.kampf-hero-custom-dist__row--head {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-ink-muted, rgba(0, 0, 0, 0.62));
+}
+
+.kampf-hero-custom-dist__col-label,
+.kampf-hero-custom-dist__col-schritt {
+  width: 100%;
+  min-width: 0;
+}
+
 .kampf-settings-panel__actions {
   position: relative;
   z-index: 2;

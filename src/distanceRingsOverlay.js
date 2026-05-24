@@ -1,4 +1,5 @@
 import OBR, { buildLabel, buildShape } from '@owlbear-rodeo/sdk'
+import { allCustomDistRingCodes } from './heroCustomDist.js'
 import { DIST_CLASS_THRESHOLDS, tokenCenter } from './tokenDistance.js'
 
 const RING_ID_PREFIX = 'vierpunkteins/dist-ring/'
@@ -113,8 +114,9 @@ function appendRingPair(items, center, dpi, schritt, code, labelText, color) {
  * Zeigt H/N/S/P-Distanzkreise am Token (nur lokal fuer den aktuellen Nutzer).
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
  * @param {number | null | undefined} [gsSchritt]
+ * @param {import('./heroCustomDist.js').CustomDistRingSpec[]} [customRingSpecs]
  */
-export async function showDistanceRingsFor(item, dpi, gsSchritt = null) {
+export async function showDistanceRingsFor(item, dpi, gsSchritt = null, customRingSpecs = []) {
   if (!item || !Number.isFinite(dpi) || dpi <= 0) return
   await hideDistanceRings()
   const c = await resolveTokenRingCenter(item)
@@ -136,6 +138,9 @@ export async function showDistanceRingsFor(item, dpi, gsSchritt = null) {
       )
     }
   }
+  for (const { code, label, schritt, color } of customRingSpecs) {
+    appendRingPair(items, c, dpi, schritt, code, label, color)
+  }
   await OBR.scene.local.addItems(items)
 }
 
@@ -145,6 +150,9 @@ export async function hideDistanceRings() {
     ids.push(ringId('c', code), ringId('l', code))
   }
   for (const { code } of MOVEMENT_RING_SPECS) {
+    ids.push(ringId('c', code), ringId('l', code))
+  }
+  for (const code of allCustomDistRingCodes()) {
     ids.push(ringId('c', code), ringId('l', code))
   }
   try {

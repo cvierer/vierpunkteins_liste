@@ -31,6 +31,15 @@ import { setTrackedParticipantIds } from './listState.js'
 import { computeSchritt, formatSchrittWithClass } from './tokenDistance.js'
 import { hideDistanceRings, showDistanceRingsFor } from './distanceRingsOverlay.js'
 import {
+  buildCustomDistRingSpecs,
+  CUSTOM_DIST_BAND_COUNT,
+  CUSTOM_DIST_PROFILE_COUNT,
+  DEFAULT_BAND_LABELS,
+  HERO_CUSTOM_DIST,
+  readCustomDistProfiles,
+  writeCustomDistProfiles,
+} from './heroCustomDist.js'
+import {
   initiativeCompareOnlyIni,
   initiativeRank,
 } from './initiativeSort.js'
@@ -2848,7 +2857,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               round: combat.started ? combat.round : null,
             })
           : null
-        void showDistanceRingsFor(item, dpi, gsSchritt)
+        const customRingSpecs = meta
+          ? buildCustomDistRingSpecs(readCustomDistProfiles(meta))
+          : []
+        void showDistanceRingsFor(item, dpi, gsSchritt, customRingSpecs)
       })
       applyDistanceOverlay()
     })
@@ -3409,6 +3421,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       <label class="init-row-extra-label" for="kampf-hero-unfaehig-fixed-fields">Optische Fixwerte</label>
       <input type="text" id="kampf-hero-unfaehig-fixed-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, z. B. at=0,pa=0,a=0,tp=0,fk=0,gs=1" />
     </div>
+    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-custom-dist-section>
+      <h3 class="kampf-settings-panel__sub">Benutzerdefinierte Distanzen</h3>
+      <p class="kampf-settings-panel__microhint">Aktive Profile erscheinen beim Halten des Dist-Kästchens als Ringe auf der Karte.</p>
+      <div data-kampf-hero-custom-dist-host></div>
+    </div>
     <div class="kampf-settings-panel__actions">
       <button type="button" class="btn kampf-settings-panel__cancel" data-kampf-hero-settings-cancel>Abbrechen</button>
       <button type="button" class="btn btn--primary kampf-settings-panel__save" data-kampf-hero-settings-save>Speichern und schließen</button>
@@ -3525,6 +3542,135 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const heroUnfaehigFixedFieldsInp = heroSettingsPanel.querySelector(
     '#kampf-hero-unfaehig-fixed-fields'
   )
+  const heroCustomDistHost = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-custom-dist-host]'
+  )
+
+  /** @type {{ profileEl: HTMLElement, enabled: HTMLInputElement, name: HTMLInputElement, bands: { label: HTMLInputElement, schritt: HTMLInputElement }[] }[]} */
+  let heroCustomDistUiRefs = []
+
+  const setCustomDistProfileInputsDisabled = (profileRef, disabled) => {
+    profileRef.name.disabled = disabled
+    for (const band of profileRef.bands) {
+      band.label.disabled = disabled
+      band.schritt.disabled = disabled
+    }
+    profileRef.profileEl.classList.toggle('kampf-hero-custom-dist__profile--disabled', disabled)
+  }
+
+  const readCustomDistProfilesFromUi = () => {
+    return heroCustomDistUiRefs.map((profileRef) => ({
+      enabled: profileRef.enabled.checked,
+      name: profileRef.name.value,
+      bands: profileRef.bands.map((band) => ({
+        label: band.label.value,
+        schritt: band.schritt.value.trim() === '' ? null : band.schritt.value.trim(),
+      })),
+    }))
+  }
+
+  const syncCustomDistUiFromPending = () => {
+    if (!heroPending || heroCustomDistUiRefs.length === 0) return
+    const profiles = readCustomDistProfiles(
+      heroPending.customDistProfiles
+        ? { [HERO_CUSTOM_DIST]: heroPending.customDistProfiles }
+        : undefined
+    )
+    for (let p = 0; p < heroCustomDistUiRefs.length; p++) {
+      const profileRef = heroCustomDistUiRefs[p]
+      const profile = profiles[p]
+      if (!profile) continue
+      profileRef.enabled.checked = profile.enabled
+      profileRef.name.value = profile.name
+      for (let b = 0; b < profileRef.bands.length; b++) {
+        const band = profile.bands[b]
+        profileRef.bands[b].label.value = band?.label ?? DEFAULT_BAND_LABELS[b] ?? ''
+        profileRef.bands[b].schritt.value =
+          band?.schritt != null && band.schritt > 0 ? String(band.schritt) : ''
+      }
+      setCustomDistProfileInputsDisabled(profileRef, !profile.enabled)
+      profileRef.enabled.disabled = !heroSettingsGmMode
+    }
+  }
+
+  const pullCustomDistPendingFromUi = () => {
+    if (!heroPending || heroCustomDistUiRefs.length === 0) return
+    heroPending.customDistProfiles = readCustomDistProfilesFromUi()
+  }
+
+  const initHeroCustomDistUi = () => {
+    if (!(heroCustomDistHost instanceof HTMLElement) || heroCustomDistUiRefs.length > 0) {
+      return
+    }
+    heroCustomDistHost.replaceChildren()
+    for (let p = 0; p < CUSTOM_DIST_PROFILE_COUNT; p++) {
+      const profileEl = document.createElement('div')
+      profileEl.className = 'kampf-hero-custom-dist__profile'
+      const head = document.createElement('div')
+      head.className = 'kampf-hero-custom-dist__head'
+      const enabledLabel = document.createElement('label')
+      enabledLabel.className = 'kampf-settings-checkbox-label kampf-hero-custom-dist__enable'
+      const enabled = document.createElement('input')
+      enabled.type = 'checkbox'
+      enabled.dataset.customDistProfile = String(p)
+      const enableText = document.createElement('span')
+      enableText.textContent = `Profil ${p + 1} aktiv`
+      enabledLabel.append(enabled, enableText)
+      const nameLabel = document.createElement('label')
+      nameLabel.className = 'init-row-extra-label kampf-hero-custom-dist__name-label'
+      nameLabel.textContent = 'Name'
+      const name = document.createElement('input')
+      name.type = 'text'
+      name.className = 'init-row-extra-input kampf-hero-custom-dist__name'
+      name.autocomplete = 'off'
+      name.spellcheck = false
+      name.maxLength = 48
+      head.append(enabledLabel, nameLabel, name)
+      profileEl.appendChild(head)
+      const tableHead = document.createElement('div')
+      tableHead.className = 'kampf-hero-custom-dist__row kampf-hero-custom-dist__row--head'
+      tableHead.innerHTML =
+        '<span class="kampf-hero-custom-dist__col-label">Bezeichnung</span><span class="kampf-hero-custom-dist__col-schritt">Schritt</span>'
+      profileEl.appendChild(tableHead)
+      /** @type {{ label: HTMLInputElement, schritt: HTMLInputElement }[]} */
+      const bands = []
+      for (let b = 0; b < CUSTOM_DIST_BAND_COUNT; b++) {
+        const row = document.createElement('div')
+        row.className = 'kampf-hero-custom-dist__row'
+        const label = document.createElement('input')
+        label.type = 'text'
+        label.className = 'init-row-extra-input kampf-hero-custom-dist__col-label'
+        label.autocomplete = 'off'
+        label.spellcheck = false
+        label.maxLength = 32
+        label.placeholder = DEFAULT_BAND_LABELS[b] ?? ''
+        const schritt = document.createElement('input')
+        schritt.type = 'text'
+        schritt.className = 'init-row-extra-input kampf-hero-custom-dist__col-schritt'
+        schritt.inputMode = 'numeric'
+        schritt.autocomplete = 'off'
+        schritt.spellcheck = false
+        schritt.maxLength = 4
+        row.append(label, schritt)
+        profileEl.appendChild(row)
+        bands.push({ label, schritt })
+      }
+      heroCustomDistHost.appendChild(profileEl)
+      const profileRef = { profileEl, enabled, name, bands }
+      heroCustomDistUiRefs.push(profileRef)
+      enabled.addEventListener('change', () => {
+        setCustomDistProfileInputsDisabled(profileRef, !enabled.checked)
+        pullCustomDistPendingFromUi()
+      })
+      name.addEventListener('input', pullCustomDistPendingFromUi)
+      for (const band of bands) {
+        band.label.addEventListener('input', pullCustomDistPendingFromUi)
+        band.schritt.addEventListener('input', pullCustomDistPendingFromUi)
+      }
+    }
+  }
+
+  initHeroCustomDistUi()
 
   /** @type {ReturnType<typeof mountWappenEditor> | null} */
   let heroWappenEditor = null
@@ -3975,6 +4121,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       wappenOverride: hasWappenOverride
         ? normalizeWappenDefs(wappenOverrideRaw)
         : null,
+      customDistProfiles: readCustomDistProfiles(m),
     }
     if (titleHeroEl) {
       titleHeroEl.textContent = gm
@@ -3984,6 +4131,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     applyHeroSettingsUiMode()
     syncHeroSettingsFields(lastItems)
     syncHeroSettingsCheckboxes()
+    syncCustomDistUiFromPending()
     syncHeroWappenUi(room)
     heroSettingsBackdrop.hidden = false
     heroSettingsBackdrop.style.display = 'flex'
@@ -4165,6 +4313,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
     const id = heroSettingsItemId
     const pend = heroPending
+    pullCustomDistPendingFromUi()
     const patchModDisplayMode = (m) => {
       // Modifikator-Anzeige ist dauerhaft "getrennt".
       delete m.modDisplayMode
@@ -4262,6 +4411,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           delete m[HERO_EX_WAPPEN_TEMPLATE]
         }
         cleanupOrphanHitZoneKeys(m, room)
+        writeCustomDistProfiles(m, pend.customDistProfiles)
         initKrActionPoolsFromHeroDefaults(m)
         applyIniLockCharges(m)
       }
