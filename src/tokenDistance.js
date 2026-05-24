@@ -16,12 +16,11 @@ export function classifyDistance(schritt) {
 }
 
 /** @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item */
-export function tokenCenter(item) {
-  const w = Number(item?.width) || 0
-  const h = Number(item?.height) || 0
+export function tokenCenter(item, dpi = 0) {
+  const b = tokenBounds(item, dpi)
   return {
-    x: (item?.position?.x ?? 0) + w / 2,
-    y: (item?.position?.y ?? 0) + h / 2,
+    x: b.x + b.w / 2,
+    y: b.y + b.h / 2,
   }
 }
 
