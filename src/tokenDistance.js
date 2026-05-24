@@ -1,6 +1,6 @@
-/** DSA-Distanzklassen-Schwellen (Schritt, Mittelpunkt-Euklidisch). */
+/** DSA-Distanzklassen-Schwellen (Schritt, Kante-zu-Kante). */
 export const DIST_CLASS_THRESHOLDS = [
-  { max: 0.8, code: 'H' },
+  { max: 0.7, code: 'H' },
   { max: 1.5, code: 'N' },
   { max: 3, code: 'S' },
   { max: 4.5, code: 'P' },
@@ -26,18 +26,36 @@ export function tokenCenter(item) {
 }
 
 /**
- * Distanz in Schritt (1 OBR-Grid-Feld = dpi px).
+ * Achsenparalleles Token-Rechteck; fehlende Groesse = ein 1x1-Schritt-Feld (dpi).
+ * @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
+ */
+export function tokenBounds(item, dpi) {
+  const d = Number(dpi) || 0
+  const x = item?.position?.x ?? 0
+  const y = item?.position?.y ?? 0
+  const w = Number(item?.width) || d
+  const h = Number(item?.height) || d
+  return { x, y, w, h, x2: x + w, y2: y + h }
+}
+
+/** Kantenabstand zweier Rechtecke in px (0 bei Beruehrung/Ueberlappung). */
+export function edgeGapPx(a, b) {
+  const dx = Math.max(0, Math.max(a.x - b.x2, b.x - a.x2))
+  const dy = Math.max(0, Math.max(a.y - b.y2, b.y - a.y2))
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+/**
+ * Distanz in Schritt: Außenkante-zu-Außenkante (1 OBR-Grid-Feld = dpi px).
  * @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemA
  * @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemB
  */
 export function computeSchritt(itemA, itemB, dpi) {
   const d = Number(dpi)
   if (!d || d <= 0) return NaN
-  const a = tokenCenter(itemA)
-  const b = tokenCenter(itemB)
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  return Math.sqrt(dx * dx + dy * dy) / d
+  const ba = tokenBounds(itemA, d)
+  const bb = tokenBounds(itemB, d)
+  return edgeGapPx(ba, bb) / d
 }
 
 /** @param {number} n */

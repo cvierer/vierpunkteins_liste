@@ -2,16 +2,18 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyDistance,
   computeSchritt,
+  edgeGapPx,
   formatSchritt,
   formatSchrittWithClass,
+  tokenBounds,
   tokenCenter,
 } from './tokenDistance.js'
 
 describe('classifyDistance', () => {
   it('ordnet Schwellen H/N/S/P zu', () => {
     expect(classifyDistance(0)).toBe('H')
-    expect(classifyDistance(0.8)).toBe('H')
-    expect(classifyDistance(0.81)).toBe('N')
+    expect(classifyDistance(0.7)).toBe('H')
+    expect(classifyDistance(0.71)).toBe('N')
     expect(classifyDistance(1.5)).toBe('N')
     expect(classifyDistance(1.51)).toBe('S')
     expect(classifyDistance(3)).toBe('S')
@@ -40,28 +42,59 @@ describe('tokenCenter', () => {
   })
 })
 
+describe('tokenBounds', () => {
+  const dpi = 100
+
+  it('defaultet fehlende Groesse auf ein Schritt-Feld', () => {
+    expect(tokenBounds({ position: { x: 10, y: 20 } }, dpi)).toEqual({
+      x: 10,
+      y: 20,
+      w: 100,
+      h: 100,
+      x2: 110,
+      y2: 120,
+    })
+  })
+})
+
+describe('edgeGapPx', () => {
+  it('liefert 0 bei Beruehrung', () => {
+    const a = { x: 0, y: 0, x2: 100, y2: 100 }
+    const b = { x: 100, y: 0, x2: 200, y2: 100 }
+    expect(edgeGapPx(a, b)).toBe(0)
+  })
+
+  it('liefert horizontalen Abstand zwischen getrennten Kaestchen', () => {
+    const a = { x: 0, y: 0, x2: 100, y2: 100 }
+    const b = { x: 200, y: 0, x2: 300, y2: 100 }
+    expect(edgeGapPx(a, b)).toBe(100)
+  })
+})
+
 describe('computeSchritt', () => {
   const dpi = 100
 
-  it('liefert 0 fuer gleichen Punkt', () => {
-    const item = { position: { x: 0, y: 0 }, width: 50, height: 50 }
-    expect(computeSchritt(item, item, dpi)).toBe(0)
+  it('liefert 0 fuer ueberlappende oder beruehrende 1x1-Felder', () => {
+    const a = { position: { x: 0, y: 0 }, width: dpi, height: dpi }
+    const b = { position: { x: dpi, y: 0 }, width: dpi, height: dpi }
+    expect(computeSchritt(a, a, dpi)).toBe(0)
+    expect(computeSchritt(a, b, dpi)).toBe(0)
   })
 
-  it('liefert 1 Schritt fuer ein Feld horizontal', () => {
-    const a = { position: { x: 0, y: 0 }, width: 0, height: 0 }
-    const b = { position: { x: dpi, y: 0 }, width: 0, height: 0 }
+  it('liefert 1 Schritt fuer ein leeres Feld dazwischen', () => {
+    const a = { position: { x: 0, y: 0 }, width: dpi, height: dpi }
+    const b = { position: { x: 2 * dpi, y: 0 }, width: dpi, height: dpi }
     expect(computeSchritt(a, b, dpi)).toBe(1)
   })
 
-  it('liefert ca. 1.414 fuer diagonales Nachbarfeld', () => {
-    const a = { position: { x: 0, y: 0 }, width: 0, height: 0 }
-    const b = { position: { x: dpi, y: dpi }, width: 0, height: 0 }
+  it('liefert ca. 1.414 fuer diagonale Luecke eines Feldes', () => {
+    const a = { position: { x: 0, y: 0 }, width: dpi, height: dpi }
+    const b = { position: { x: 2 * dpi, y: 2 * dpi }, width: dpi, height: dpi }
     expect(computeSchritt(a, b, dpi)).toBeCloseTo(Math.SQRT2, 5)
   })
 
   it('liefert NaN bei ungueltigem dpi', () => {
-    const item = { position: { x: 0, y: 0 }, width: 0, height: 0 }
+    const item = { position: { x: 0, y: 0 }, width: dpi, height: dpi }
     expect(computeSchritt(item, item, 0)).toBeNaN()
     expect(computeSchritt(item, item, NaN)).toBeNaN()
   })
