@@ -35,6 +35,8 @@ appRoot.innerHTML = `
       <span class="kampf-h-spacer kampf-h-spacer--expand" aria-hidden="true"></span>
       <div class="kampf-col-za-group">
         <span class="kampf-col-label kampf-col-label--counter" title="Aktion">Aktion</span>
+        <span class="kampf-h-spacer kampf-h-spacer--action-dist" aria-hidden="true"></span>
+        <span class="kampf-col-label kampf-col-label--counter" title="Distanz (halten)">Dist</span>
         <span class="kampf-h-spacer kampf-h-spacer--action-reaction" aria-hidden="true"></span>
         <span class="kampf-col-label kampf-col-label--counter" title="Freie Aktion">Frei</span>
         <span class="kampf-h-spacer kampf-h-spacer--reaction-frei" aria-hidden="true"></span>

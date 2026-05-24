@@ -29,6 +29,11 @@ import {
 } from './manualIniTieOverrides.js'
 import { setTrackedParticipantIds } from './listState.js'
 import {
+  classifyDistance,
+  computeSchritt,
+  formatSchritt,
+} from './tokenDistance.js'
+import {
   initiativeCompareOnlyIni,
   initiativeRank,
 } from './initiativeSort.js'
@@ -1834,6 +1839,9 @@ function appendKrCounterPair(
     roundIntroPending = false,
     /** 2.A.-Zeile: Schilde nur Spiegel des Mutter-`KR_ABW`, kein Stempeln hier. */
     abwMirrorLinkUi = false,
+    /** Mutter-Zeile: Distanz-Kästchen zwischen Aktion und Frei. */
+    showDistanceCell = false,
+    wireDistanceProbeCell = null,
   } = options || {}
   const primaryLadungAllowed = navigationMatchesRow(
     ownerItemId,
@@ -1876,6 +1884,20 @@ function appendKrCounterPair(
       currentNavIniForRender
     )
   )
+  if (showDistanceCell && typeof wireDistanceProbeCell === 'function') {
+    const distCell = document.createElement('div')
+    distCell.className = 'init-dist-cell'
+    distCell.dataset.distCellItemId = ownerItemId
+    distCell.setAttribute('role', 'button')
+    distCell.setAttribute('aria-label', 'Distanzen anzeigen (halten)')
+    const valEl = document.createElement('span')
+    valEl.className = 'init-dist-cell__value'
+    const clsEl = document.createElement('span')
+    clsEl.className = 'init-dist-cell__class'
+    distCell.append(valEl, clsEl)
+    wireDistanceProbeCell(distCell, ownerItemId)
+    container.appendChild(distCell)
+  }
   // Schildplatz: entweder L.H.-Counter-Eingabe (vor Werte-Setzung),
   // L.H.-Fortschritts-Kuchen (nach Werte-Setzung), Schilde oder Replacement.
   // Die L.H. kann in Mutter ODER in einem 2.A.O. beginnen.
@@ -2756,6 +2778,77 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let swapLayoutRo = null
   /** Nur bei geändertem Kampf-Zug (Combat-State), nicht bei jedem List-Update oder DOM-Signatur. */
   let lastTurnScrollKey = ''
+
+  let distanceProbeItemId = null
+  let distanceProbeDpi = null
+
+  const DIST_PROBE_EYE_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+
+  async function ensureDistanceDpi() {
+    if (distanceProbeDpi != null) return distanceProbeDpi
+    try {
+      distanceProbeDpi = await OBR.scene.grid.getDpi()
+    } catch {
+      distanceProbeDpi = null
+    }
+    return distanceProbeDpi
+  }
+
+  function applyDistanceOverlay() {
+    const all = element.querySelectorAll('.init-dist-cell')
+    if (!distanceProbeItemId) {
+      all.forEach((c) => {
+        c.classList.remove('init-dist-cell--probe', 'init-dist-cell--target')
+        const valEl = c.querySelector('.init-dist-cell__value')
+        const clsEl = c.querySelector('.init-dist-cell__class')
+        if (valEl) valEl.textContent = ''
+        if (clsEl) clsEl.textContent = ''
+      })
+      return
+    }
+    const probeItem = lastItems.find((i) => i.id === distanceProbeItemId)
+    all.forEach((c) => {
+      const id = c.dataset.distCellItemId
+      const valEl = c.querySelector('.init-dist-cell__value')
+      const clsEl = c.querySelector('.init-dist-cell__class')
+      if (!valEl || !clsEl) return
+      if (id === distanceProbeItemId) {
+        c.classList.add('init-dist-cell--probe')
+        c.classList.remove('init-dist-cell--target')
+        valEl.innerHTML = DIST_PROBE_EYE_SVG
+        clsEl.textContent = ''
+      } else {
+        const other = lastItems.find((i) => i.id === id)
+        const n = computeSchritt(probeItem, other, distanceProbeDpi)
+        c.classList.remove('init-dist-cell--probe')
+        c.classList.add('init-dist-cell--target')
+        valEl.textContent = formatSchritt(n)
+        clsEl.textContent = classifyDistance(n)
+      }
+    })
+  }
+
+  function wireDistanceProbeCell(cell, itemId) {
+    cell.addEventListener('pointerdown', (e) => {
+      e.preventDefault()
+      try {
+        cell.setPointerCapture(e.pointerId)
+      } catch {
+        /* ignore */
+      }
+      distanceProbeItemId = itemId
+      void ensureDistanceDpi().then(applyDistanceOverlay)
+      applyDistanceOverlay()
+    })
+    const release = () => {
+      distanceProbeItemId = null
+      applyDistanceOverlay()
+    }
+    cell.addEventListener('pointerup', release)
+    cell.addEventListener('pointercancel', release)
+    cell.addEventListener('lostpointercapture', release)
+  }
 
   const hideIniFloat = () => {
     iniFloat.classList.remove('init-drag-ini-float--visible')
@@ -4936,6 +5029,8 @@ function bindStampContextRemove(el, stamp, items) {
             lhContainer: lhCol,
             combatStarted: combat.started,
             roundIntroPending: combat.roundIntroPending,
+            showDistanceCell: true,
+            wireDistanceProbeCell,
           }
         )
 
@@ -6114,6 +6209,8 @@ function bindStampContextRemove(el, stamp, items) {
       }
       restoreHeroInputFocus = null
     }
+
+    applyDistanceOverlay()
 
     onListChange?.(items)
 

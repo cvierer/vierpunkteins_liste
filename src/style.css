@@ -343,7 +343,12 @@ body {
   --init-strip-h-gap: calc(0.7 * var(--init-obj-gap));
   --init-col-expand: var(--init-obj-cell);
   /* Ang., Umwandlung, Abwehr-Schilde, Freie Aktion (L.H. entfällt in dieser Spalte) */
-  --init-col-btn: calc(4.48 * var(--init-obj-cell) + 3 * var(--init-strip-h-gap));
+  --init-col-btn: calc(
+    4.48 * var(--init-obj-cell)
+    + var(--init-dist-cell-w)
+    + var(--init-action-dist-gap)
+    + 3 * var(--init-strip-h-gap)
+  );
   /* Kein zusätzlicher Gutter: Name beginnt direkt hinter der F.A.-Spalte */
   --init-col-gutter: 0px;
   /* Listenrand rechts etwas kleiner: nutzbare Breite nach rechts (INI + Rundenzeilen gleich verschoben) */
@@ -361,6 +366,8 @@ body {
   --init-action-reaction-gap: calc(var(--init-grid-gap) * 1.2);
   --init-reaction-frei-gap: calc(var(--init-grid-gap) * 0.35);
   --init-btn-name-gap: calc(var(--init-grid-gap) * 2);
+  --init-dist-cell-w: calc(var(--init-obj-cell) * 1.7);
+  --init-action-dist-gap: calc(var(--init-grid-gap) * 0.6);
   --init-lh-ini-gap: calc(0.95rem * var(--init-ui-scale));
   --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
 }
@@ -416,6 +423,8 @@ body {
   display: grid;
   grid-template-columns:
     calc(var(--init-obj-cell) * 1.5)
+    var(--init-action-dist-gap)
+    var(--init-dist-cell-w)
     var(--init-action-reaction-gap)
     minmax(0, 1fr)
     var(--init-reaction-frei-gap)
@@ -424,6 +433,12 @@ body {
   align-items: flex-end;
   min-width: 0;
   box-sizing: border-box;
+}
+
+.kampf-h-spacer--action-dist {
+  width: 100%;
+  min-width: 0;
+  min-height: 1px;
 }
 
 .kampf-h-spacer--action-reaction {
@@ -5506,6 +5521,56 @@ select.init-row-extra-select {
   border: none;
   border-radius: 0;
   box-shadow: none;
+}
+
+.init-dist-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  flex-shrink: 0;
+  width: var(--init-dist-cell-w);
+  height: var(--init-obj-cell);
+  margin-left: var(--init-action-dist-gap);
+  padding: 0 4px;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 4px;
+  font-size: calc(0.78rem * var(--init-ui-scale));
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  cursor: pointer;
+  touch-action: none;
+  box-sizing: border-box;
+  color: var(--color-ink);
+}
+
+.init-dist-cell__value {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  line-height: 1;
+}
+
+.init-dist-cell__class {
+  flex: 0 0 auto;
+  opacity: 0.85;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.init-dist-cell--probe .init-dist-cell__value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.init-dist-cell--probe .init-dist-cell__value svg {
+  width: calc(14px * var(--init-ui-scale));
+  height: calc(14px * var(--init-ui-scale));
+}
+
+.init-dist-cell--target {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .init-kr-reaction-store__frei-spacer {
