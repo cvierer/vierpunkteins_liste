@@ -1,6 +1,6 @@
 /** DSA-Distanzklassen-Schwellen (Schritt, Mittelpunkt-Euklidisch). */
 export const DIST_CLASS_THRESHOLDS = [
-  { max: 0.5, code: 'H' },
+  { max: 0.8, code: 'H' },
   { max: 1.5, code: 'N' },
   { max: 3, code: 'S' },
   { max: 4.5, code: 'P' },

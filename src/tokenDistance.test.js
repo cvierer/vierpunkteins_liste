@@ -9,8 +9,8 @@ import {
 describe('classifyDistance', () => {
   it('ordnet Schwellen H/N/S/P zu', () => {
     expect(classifyDistance(0)).toBe('H')
-    expect(classifyDistance(0.5)).toBe('H')
-    expect(classifyDistance(0.51)).toBe('N')
+    expect(classifyDistance(0.8)).toBe('H')
+    expect(classifyDistance(0.81)).toBe('N')
     expect(classifyDistance(1.5)).toBe('N')
     expect(classifyDistance(1.51)).toBe('S')
     expect(classifyDistance(3)).toBe('S')
