@@ -357,6 +357,8 @@ body {
   /* Tauschpfeile-Spalte halb so breit */
   --init-col-swap: calc(0.3rem * var(--init-ui-scale));
   --init-grid-gap: var(--init-strip-h-gap);
+  /* Zusatzabstand zwischen Aktions- und Reaktionsspalte (Zeile + Kopfzeile) */
+  --init-action-reaction-gap: calc(var(--init-grid-gap) * 2.25);
   --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
 }
 
@@ -411,6 +413,7 @@ body {
   display: grid;
   grid-template-columns:
     calc(var(--init-obj-cell) * 1.5)
+    var(--init-action-reaction-gap)
     minmax(0, 1fr)
     minmax(0, 1fr);
   gap: var(--init-grid-gap);
@@ -419,13 +422,19 @@ body {
   box-sizing: border-box;
 }
 
+.kampf-h-spacer--action-reaction {
+  width: 100%;
+  min-width: 0;
+  min-height: 1px;
+}
+
 .kampf-col-label--counter {
   flex: 1;
   min-width: 0;
   text-align: center;
   text-transform: none;
-  letter-spacing: 0.02em;
-  font-size: calc(0.52rem * var(--init-ui-scale));
+  letter-spacing: 0.01em;
+  font-size: calc(0.46rem * var(--init-ui-scale));
   box-sizing: border-box;
 }
 
@@ -5447,7 +5456,7 @@ select.init-row-extra-select {
   min-height: var(--init-obj-cell);
   min-width: 0;
   position: relative;
-  margin-left: calc(var(--init-grid-gap) * 1.25);
+  margin-left: var(--init-action-reaction-gap);
   background: transparent;
   border: none;
   border-radius: 0;
@@ -6686,15 +6695,13 @@ select.init-row-extra-select {
 }
 
 /* SL-Schloss für die Umwandlungs-Pfeile: gleiche Optik wie der Bulk-INI-Button,
-   sitzt aber über der Umwandlungs-Spalte (innerhalb von `.init-col-btn`). */
+   horizontal über der Aktions-Spalte (Primär-Shell). */
 .init-row-round-convert-lock-btn {
   position: absolute;
   top: 50%;
-  /* expand-Spalte + Spalten-gap + Primär-Shell (1.5×) + halber Slot-gap (0.42×grid-gap)
-     bringt den linken Rand exakt auf den Anfang der Umwandlungs-Spalte. */
   left: calc(
     var(--init-col-expand) + var(--init-grid-gap) +
-      1.5 * var(--init-obj-cell) + 0.42 * var(--init-grid-gap)
+      0.25 * var(--init-obj-cell)
   );
   transform: translateY(-50%);
   z-index: 4;

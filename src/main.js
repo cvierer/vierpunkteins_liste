@@ -34,9 +34,10 @@ appRoot.innerHTML = `
     <div class="kampf-list-head" aria-hidden="true">
       <span class="kampf-h-spacer kampf-h-spacer--expand" aria-hidden="true"></span>
       <div class="kampf-col-za-group">
-        <span class="kampf-col-label kampf-col-label--counter" title="Aktion">A</span>
-        <span class="kampf-col-label kampf-col-label--counter" title="Reaktion">R</span>
-        <span class="kampf-col-label kampf-col-label--counter" title="Freie Aktion">F</span>
+        <span class="kampf-col-label kampf-col-label--counter" title="Aktion">Aktion</span>
+        <span class="kampf-h-spacer kampf-h-spacer--action-reaction" aria-hidden="true"></span>
+        <span class="kampf-col-label kampf-col-label--counter" title="Reaktion">Reaktion</span>
+        <span class="kampf-col-label kampf-col-label--counter" title="Freie Aktion">Frei</span>
       </div>
       <span class="kampf-col-label kampf-col-label--name">Name</span>
       <span class="kampf-h-spacer" aria-hidden="true"></span>
