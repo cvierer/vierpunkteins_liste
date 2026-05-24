@@ -360,6 +360,7 @@ body {
   /* Abstände zwischen Aktions-, Reaktions- und Frei-Spalte (Zeile + Kopfzeile) */
   --init-action-reaction-gap: calc(var(--init-grid-gap) * 4.5);
   --init-reaction-frei-gap: calc(var(--init-grid-gap) * 0.35);
+  --init-lh-ini-gap: calc(1.25rem * var(--init-ui-scale));
   --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
 }
 
@@ -7051,13 +7052,13 @@ select.init-row-extra-select {
   justify-content: flex-end;
   gap: var(--init-grid-gap);
   width: auto;
-  margin-right: calc(var(--init-grid-gap) * 0.55);
+  margin-right: var(--init-lh-ini-gap);
 }
 
 .init-row-main--phase .init-col-lh,
 .init-row-main--phase-zao .init-col-lh {
   flex-shrink: 0;
-  padding-right: calc(0.92rem * var(--init-ui-scale));
+  padding-right: 0;
   overflow: visible;
   z-index: 2;
 }
