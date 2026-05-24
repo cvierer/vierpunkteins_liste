@@ -45,3 +45,11 @@ export function formatSchritt(n) {
   if (!Number.isFinite(n)) return ''
   return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',')
 }
+
+/** Schritt + Distanzklasse ohne Leerzeichen, z. B. „1,2N“. */
+export function formatSchrittWithClass(n) {
+  const s = formatSchritt(n)
+  if (!s) return ''
+  const cls = classifyDistance(n)
+  return cls ? `${s}${cls}` : s
+}

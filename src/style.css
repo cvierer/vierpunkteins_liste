@@ -366,9 +366,9 @@ body {
   --init-action-reaction-gap: calc(var(--init-grid-gap) * 1.2);
   --init-reaction-frei-gap: calc(var(--init-grid-gap) * 0.35);
   --init-btn-name-gap: calc(var(--init-grid-gap) * 2);
-  --init-dist-cell-w: calc(var(--init-obj-cell) * 1.05);
-  --init-dist-cell-h: calc(var(--init-obj-cell) * 0.78);
-  --init-dist-cell-font-size: calc(0.42rem * var(--init-ui-scale));
+  --init-dist-cell-w: calc(var(--init-obj-cell) * 1.12);
+  --init-dist-cell-h: calc(var(--init-obj-cell) * 0.82);
+  --init-dist-cell-font-size: calc(0.58rem * var(--init-ui-scale));
   --init-action-dist-gap: calc(var(--init-grid-gap) * 0.6);
   --init-lh-ini-gap: calc(0.95rem * var(--init-ui-scale));
   --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
@@ -5528,8 +5528,7 @@ select.init-row-extra-select {
 .init-dist-cell {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1px;
+  justify-content: center;
   flex-shrink: 0;
   width: var(--init-dist-cell-w);
   height: var(--init-dist-cell-h);
@@ -5549,17 +5548,10 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell__value {
-  flex: 1;
   min-width: 0;
-  text-align: left;
+  text-align: center;
   line-height: 1;
-}
-
-.init-dist-cell__class {
-  flex: 0 0 auto;
-  opacity: 0.85;
-  font-weight: 600;
-  line-height: 1;
+  white-space: nowrap;
 }
 
 .init-dist-cell--probe .init-dist-cell__value {

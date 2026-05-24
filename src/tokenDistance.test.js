@@ -3,6 +3,7 @@ import {
   classifyDistance,
   computeSchritt,
   formatSchritt,
+  formatSchrittWithClass,
   tokenCenter,
 } from './tokenDistance.js'
 
@@ -75,5 +76,17 @@ describe('formatSchritt', () => {
 
   it('gibt leer bei NaN zurueck', () => {
     expect(formatSchritt(NaN)).toBe('')
+  })
+})
+
+describe('formatSchrittWithClass', () => {
+  it('haengt Klasse direkt an den Wert', () => {
+    expect(formatSchrittWithClass(1.2)).toBe('1,2N')
+    expect(formatSchrittWithClass(0.5)).toBe('0,5H')
+    expect(formatSchrittWithClass(10)).toBe('10,0')
+  })
+
+  it('gibt leer bei NaN zurueck', () => {
+    expect(formatSchrittWithClass(NaN)).toBe('')
   })
 })

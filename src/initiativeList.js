@@ -28,11 +28,7 @@ import {
   onManualIniTieOverridesChange,
 } from './manualIniTieOverrides.js'
 import { setTrackedParticipantIds } from './listState.js'
-import {
-  classifyDistance,
-  computeSchritt,
-  formatSchritt,
-} from './tokenDistance.js'
+import { formatSchrittWithClass } from './tokenDistance.js'
 import {
   initiativeCompareOnlyIni,
   initiativeRank,
@@ -1892,9 +1888,7 @@ function appendKrCounterPair(
     distCell.setAttribute('aria-label', 'Distanzen anzeigen (halten)')
     const valEl = document.createElement('span')
     valEl.className = 'init-dist-cell__value'
-    const clsEl = document.createElement('span')
-    clsEl.className = 'init-dist-cell__class'
-    distCell.append(valEl, clsEl)
+    distCell.appendChild(valEl)
     wireDistanceProbeCell(distCell, ownerItemId)
     container.appendChild(distCell)
   }
@@ -2801,9 +2795,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       all.forEach((c) => {
         c.classList.remove('init-dist-cell--probe', 'init-dist-cell--target')
         const valEl = c.querySelector('.init-dist-cell__value')
-        const clsEl = c.querySelector('.init-dist-cell__class')
         if (valEl) valEl.textContent = ''
-        if (clsEl) clsEl.textContent = ''
       })
       return
     }
@@ -2811,20 +2803,17 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     all.forEach((c) => {
       const id = c.dataset.distCellItemId
       const valEl = c.querySelector('.init-dist-cell__value')
-      const clsEl = c.querySelector('.init-dist-cell__class')
-      if (!valEl || !clsEl) return
+      if (!valEl) return
       if (id === distanceProbeItemId) {
         c.classList.add('init-dist-cell--probe')
         c.classList.remove('init-dist-cell--target')
         valEl.innerHTML = DIST_PROBE_EYE_SVG
-        clsEl.textContent = ''
       } else {
         const other = lastItems.find((i) => i.id === id)
         const n = computeSchritt(probeItem, other, distanceProbeDpi)
         c.classList.remove('init-dist-cell--probe')
         c.classList.add('init-dist-cell--target')
-        valEl.textContent = formatSchritt(n)
-        clsEl.textContent = classifyDistance(n)
+        valEl.textContent = formatSchrittWithClass(n)
       }
     })
   }
