@@ -5,11 +5,10 @@ import { TRACKER_ITEM_META_KEY } from './participants.js'
 /** Metadatenschlüssel für die Heldenfarbe (Name, INI-Rahmen, Karte). */
 export const HERO_BG_COLOR = 'heroBgColor'
 
-/** Feste Helden-Palette (12 Voreinstellungen). */
+/** Feste Helden-Palette (11 Voreinstellungen). */
 const HERO_PALETTE = [
   '#ef4444',
   '#f97316',
-  '#eab308',
   '#22c55e',
   '#14b8a6',
   '#3b82f6',
@@ -17,7 +16,7 @@ const HERO_PALETTE = [
   '#8b5cf6',
   '#d946ef',
   '#ec4899',
-  '#78716c',
+  '#57534e',
   '#1e293b',
 ]
 

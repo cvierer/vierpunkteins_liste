@@ -7681,7 +7681,7 @@ select.init-row-extra-select {
   font-weight: 600;
 }
 
-/* 12 Heldenfarben (+ „×“ rechts unter der Reihe). */
+/* 11 Heldenfarben (+ „×“ rechts unter der Reihe). */
 .kampf-hero-color-grid {
   display: flex;
   flex-direction: column;
@@ -7692,7 +7692,7 @@ select.init-row-extra-select {
 
 .kampf-hero-color-grid__swatches {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(11, minmax(0, 1fr));
   gap: 0.22rem;
 }
 
@@ -7702,7 +7702,7 @@ select.init-row-extra-select {
 }
 
 .kampf-hero-color-grid__clear-wrap .kampf-hero-color-swatch {
-  width: min(100%, calc((100% - 11 * 0.22rem) / 12));
+  width: min(100%, calc((100% - 10 * 0.22rem) / 11));
   max-width: 3.2rem;
   flex: 0 0 auto;
 }

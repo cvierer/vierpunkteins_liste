@@ -7,9 +7,9 @@ import {
 } from './heroColors.js'
 
 describe('HERO_PALETTE_ROWS', () => {
-  it('hat eine Reihe mit 12 Hex-Farben', () => {
+  it('hat eine Reihe mit 11 Hex-Farben', () => {
     expect(HERO_PALETTE_ROWS).toHaveLength(1)
-    expect(HERO_PALETTE_ROWS[0]).toHaveLength(12)
+    expect(HERO_PALETTE_ROWS[0]).toHaveLength(11)
     for (const c of HERO_PALETTE_ROWS[0]) {
       expect(c).toMatch(/^#[0-9a-fA-F]{6}$/)
     }
