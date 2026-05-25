@@ -1,6 +1,7 @@
 ﻿import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem, isGmSync } from './editAccess.js'
 import {
+  buildConvertListVisibilityCtx,
   isHeroConvertAllowedForViewer,
   isHeroConvertAnytimeMode,
   shouldShowKrPrimaryConvertSwitch,
@@ -79,6 +80,7 @@ import {
   orderedZaoRootIdsForBadge,
   removeLastZaoRoot,
   removePhaseLink,
+  resolveCurrentNavIniForCombat,
   LH_DONE_STEP_ID,
   ROUND_END_STEP_ID,
   ROUND_START_STEP_ID,
@@ -5301,11 +5303,28 @@ function bindStampContextRemove(el, stamp, items) {
         : combat.round
 
     const combatRoundForMerged = combat.started ? combat.round : null
+    currentNavIniForRender = resolveCurrentNavIniForCombat(
+      tokenRows,
+      listItems,
+      getIniTieOrder(),
+      combatRoundForMerged,
+      combat
+    )
+    const visibilityCtx = buildConvertListVisibilityCtx({
+      combatStarted: combat.started,
+      roundIntroPending: combat.roundIntroPending,
+      rowActiveId,
+      rowActivePhaseLinkId,
+      currentNavIni: currentNavIniForRender,
+      roundStartStepId: ROUND_START_STEP_ID,
+      roundEndStepId: ROUND_END_STEP_ID,
+    })
     const merged = buildMergedDisplayRows(
       tokenRows,
       listItems,
       getIniTieOrder(),
-      combatRoundForMerged
+      combatRoundForMerged,
+      visibilityCtx
     )
     const actionStamps = getActionStamps()
     const stampEntries = Array.isArray(actionStamps?.entries)
@@ -5319,34 +5338,6 @@ function bindStampContextRemove(el, stamp, items) {
     const iniSwapDiscPairs =
       collectAdjacentSameIniSwapPairs(mergedWithStamps)
     const combatRoundForLhUi = combat.started ? combat.round : null
-
-    currentNavIniForRender = (() => {
-      if (!combat.started || combat.roundIntroPending) return null
-      const steps = buildCombatTurnSteps(
-        tokenRows,
-        items,
-        getIniTieOrder(),
-        combatRoundForMerged
-      )
-      const idx = findCombatStepIndex(steps, combat)
-      if (idx < 0 || idx >= merged.length) return null
-      const current = merged[idx]
-      if (!current) return null
-      // currentNavIniForRender wird nach diesem IIFE auf den Listen-Host
-      // (data-current-nav-ini) gespiegelt — siehe weiter unten in renderList.
-      // Runden-Marker: `roundStart` = vor allen INI-Schritten dieser KR.
-      // `roundEnd` = alle Auslöser dieser KR als passiert (unter jeder
-      // endlichen Trigger-INI; 0 wäre bei neg. Helden-INI falsch und würde
-      // Stern/Counter/Sanduhr kurz zurückspringen).
-      if (current.kind === 'roundEnd') return Number.NEGATIVE_INFINITY
-      if (current.kind === 'roundStart') return Number.POSITIVE_INFINITY
-      if (current.kind === 'token') {
-        const n = Number(String(current.row.initiative ?? '').replace(',', '.'))
-        return Number.isFinite(n) ? n : null
-      }
-      if (Number.isFinite(current.hookIni)) return current.hookIni
-      return null
-    })()
 
     /* Spiegel der Navigations-INI auf das Listen-Host, damit Hero-Block
        (iniModMeta.js) den Wert beim Anlegen eines Mods lesen kann. */
@@ -5403,7 +5394,7 @@ function bindStampContextRemove(el, stamp, items) {
           (l) =>
             l.parentId === null &&
             l.lhEnd !== true &&
-            shouldShowPhaseLinkInList(meta, l)
+            shouldShowPhaseLinkInList(meta, l, visibilityCtx)
         ).length
         const secondActionBadgeUi =
           allVisibleRootCount > 0
@@ -6135,7 +6126,8 @@ function bindStampContextRemove(el, stamp, items) {
           ? orderedAllZaoRootIdsForBadge(
               ownerTrackerMeta,
               ownerPhasesNorm,
-              ownerIniStr
+              ownerIniStr,
+              visibilityCtx
             )
           : null
         const zaoPhaseNum =

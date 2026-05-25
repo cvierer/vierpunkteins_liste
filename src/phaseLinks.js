@@ -21,14 +21,14 @@ import {
   addManualIniTieOverridePair,
   getManualIniTieOverridePairs,
 } from './manualIniTieOverrides.js'
+import { shouldHideEmptySecondActionRow } from './convertLockViewer.js'
 
 const ZAO_ROOT_TIE_ORDER_KEY = `${TRACKER_ID}/zaoRootTieOrder`
 const FULL_INI_TIE_ORDER_KEY = `${TRACKER_ID}/fullIniTieOrder`
 
-/** Synthetischer Zug „Ende der Kampfrunde“ (INI intern 0); kein Szenen-Token. */
-export const ROUND_END_STEP_ID = `${TRACKER_ID}/roundEndStep`
-/** Synthetischer Zug „Beginn der Kampfrunde“ (Listenkopf); kein Szenen-Token. */
-export const ROUND_START_STEP_ID = `${TRACKER_ID}/roundStartStep`
+import { ROUND_END_STEP_ID, ROUND_START_STEP_ID } from './combatStepIds.js'
+
+export { ROUND_END_STEP_ID, ROUND_START_STEP_ID }
 export const LH_DONE_STEP_ID = `${TRACKER_ID}/lhDoneStep`
 
 /** @type {Record<string, string[]>} INI-Schlüssel (formatIniForSort) → Reihenfolge der 2.A.-Wurzeln ownerId:linkId */
@@ -411,10 +411,33 @@ export function shouldShowHeroExtraLink(meta, link) {
   return hasMotherSwordOrShield(meta) || hasSecondActionSword(meta)
 }
 
-/** Regulaere 2.AO-Links immer; z.AT nur via {@link shouldShowHeroExtraLink}. */
-export function shouldShowPhaseLinkInList(meta, link) {
-  if (!link?.heroExtra) return true
-  return shouldShowHeroExtraLink(meta, link)
+function findZaoRootLink(link, links) {
+  if (!link) return null
+  const map = new Map(
+    (Array.isArray(links) ? links : [])
+      .filter((l) => l && typeof l.id === 'string')
+      .map((l) => [l.id, l])
+  )
+  let cur = link
+  while (cur?.parentId) {
+    cur = map.get(cur.parentId)
+    if (!cur) break
+  }
+  return cur
+}
+
+/** Regulaere 2.AO nach Schloss; z.AT nur via {@link shouldShowHeroExtraLink}. */
+export function shouldShowPhaseLinkInList(meta, link, visibilityCtx = null) {
+  if (link?.heroExtra) return shouldShowHeroExtraLink(meta, link)
+  if (visibilityCtx) {
+    const phases = normalizePhases(meta?.phases)
+    const root =
+      link.parentId === null ? link : findZaoRootLink(link, phases.links)
+    if (root && shouldHideEmptySecondActionRow(meta, root, visibilityCtx)) {
+      return false
+    }
+  }
+  return true
 }
 
 export function normalizePhases(raw) {
@@ -1154,9 +1177,14 @@ export function finalizePhasesWithOrderedRoots(meta, rawPhases) {
  *
  * @param {ReturnType<typeof normalizePhases>} phasesNormalized
  */
-export function orderedZaoRootIdsForBadge(meta, phasesNormalized, ownerIniStr) {
+export function orderedZaoRootIdsForBadge(
+  meta,
+  phasesNormalized,
+  ownerIniStr,
+  visibilityCtx = null
+) {
   const visibleLinks = sortedLinksForLayout(phasesNormalized.links).filter((l) =>
-    shouldShowPhaseLinkInList(meta, l)
+    shouldShowPhaseLinkInList(meta, l, visibilityCtx)
   )
   // Alle regulären ZAO-Links (Mutter-Kette 2, 3, …) — z.AT und L.H.-Ende
   // ausblenden, damit die Badge-Nummern mit der Aktionskette übereinstimmen.
@@ -1199,9 +1227,14 @@ export function orderedZaoRootIdsForBadge(meta, phasesNormalized, ownerIniStr) {
  * ein — reguläre 2.A. **und** heroExtra='ang' (z.AT). lhEnd-Links bleiben
  * ausgeschlossen. Sortierung: hookIni absteigend (höhere INI → kleinere Nummer).
  */
-export function orderedAllZaoRootIdsForBadge(meta, phasesNormalized, ownerIniStr) {
+export function orderedAllZaoRootIdsForBadge(
+  meta,
+  phasesNormalized,
+  ownerIniStr,
+  visibilityCtx = null
+) {
   const visibleLinks = sortedLinksForLayout(phasesNormalized.links).filter((l) =>
-    shouldShowPhaseLinkInList(meta, l)
+    shouldShowPhaseLinkInList(meta, l, visibilityCtx)
   )
   const allRoots = visibleLinks.filter(
     (l) => l.parentId === null && l.lhEnd !== true
@@ -1257,7 +1290,8 @@ export function buildMergedDisplayRows(
   tokenRows,
   items,
   tieOrderIds = [],
-  combatRound = null
+  combatRound = null,
+  visibilityCtx = null
 ) {
   const metaOf = (id) => {
     const it = items.find((i) => i.id === id)
@@ -1276,7 +1310,7 @@ export function buildMergedDisplayRows(
     const phases = normalizePhases(meta?.phases)
 
     const visibleLinks = sortedLinksForLayout(phases.links).filter((l) =>
-      shouldShowPhaseLinkInList(meta, l)
+      shouldShowPhaseLinkInList(meta, l, visibilityCtx)
     )
     const roots = visibleLinks.filter((l) => l.parentId === null)
     rootOrderByOwner.set(
@@ -1418,9 +1452,16 @@ export function buildCombatTurnSteps(
   tokenRows,
   items,
   tieOrderIds = [],
-  combatRound = null
+  combatRound = null,
+  visibilityCtx = null
 ) {
-  return buildMergedDisplayRows(tokenRows, items, tieOrderIds, combatRound).map(
+  return buildMergedDisplayRows(
+    tokenRows,
+    items,
+    tieOrderIds,
+    combatRound,
+    visibilityCtx
+  ).map(
     (e) =>
       e.kind === 'roundStart'
         ? { kind: 'roundStart', id: ROUND_START_STEP_ID }
@@ -1443,6 +1484,45 @@ export function combatPatchForStep(step) {
     return { currentItemId: step.id, currentPhaseLinkId: null }
   }
   return { currentItemId: step.ownerId, currentPhaseLinkId: step.linkId }
+}
+
+/**
+ * Navigations-INI aus Kampf-Schritt (unabhängig von gefilterter Listen-Merge).
+ */
+export function resolveCurrentNavIniForCombat(
+  tokenRows,
+  items,
+  tieOrderIds,
+  combatRound,
+  combat
+) {
+  if (!combat?.started || combat.roundIntroPending) return null
+  const steps = buildCombatTurnSteps(
+    tokenRows,
+    items,
+    tieOrderIds,
+    combatRound,
+    null
+  )
+  const idx = findCombatStepIndex(steps, combat)
+  if (idx < 0) return null
+  const step = steps[idx]
+  if (step.kind === 'roundEnd') return Number.NEGATIVE_INFINITY
+  if (step.kind === 'roundStart') return Number.POSITIVE_INFINITY
+  if (step.kind === 'token') {
+    const row = tokenRows.find((r) => r.id === step.id)
+    const n = Number(String(row?.initiative ?? '').replace(',', '.'))
+    return Number.isFinite(n) ? n : null
+  }
+  if (step.kind === 'phase') {
+    const row = tokenRows.find((r) => r.id === step.ownerId)
+    const it = items.find((i) => i.id === step.ownerId)
+    const meta = it?.metadata?.[TRACKER_ITEM_META_KEY]
+    const links = normalizePhases(meta?.phases).links
+    const hook = hookIniForLink(step.linkId, row?.initiative ?? '', links)
+    return Number.isFinite(hook) ? hook : null
+  }
+  return null
 }
 
 export function findCombatStepIndex(steps, combat) {

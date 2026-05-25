@@ -10,6 +10,7 @@ import {
   normalizeActionStamps,
   patchActionStamps,
 } from './combatRoom.js'
+import { ROUND_END_STEP_ID, ROUND_START_STEP_ID } from './combatStepIds.js'
 import {
   canCreateSecondActionRoot,
   ensureExtraAttackPhaseRoot,
@@ -17,8 +18,6 @@ import {
   nextChainedZaoParentForTransfer,
   normalizePhases,
   removeLastZaoRoot,
-  ROUND_END_STEP_ID,
-  ROUND_START_STEP_ID,
   sortedLinksForLayout,
 } from './phaseLinks.js'
 import {
