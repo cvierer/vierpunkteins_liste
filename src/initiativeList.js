@@ -2761,14 +2761,19 @@ function layoutIniSwapBetween(ul, host, overlay) {
 }
 
 /**
- * @param {HTMLElement} main
+ * @param {HTMLElement | null} nameEl
+ * @param {HTMLElement | null} iniEl
  * @param {string} heroBg
  */
-function applyHeroRowBorder(main, heroBg) {
-  main.style.backgroundColor = ''
-  main.style.setProperty('--init-hero-border-color', heroBg)
-  main.style.borderColor = heroBg
-  main.classList.add('init-row-main--hero-border')
+function applyHeroAccent(nameEl, iniEl, heroBg) {
+  if (nameEl) {
+    nameEl.style.color = heroBg
+    nameEl.classList.add('init-row-name--hero-color')
+  }
+  if (iniEl) {
+    iniEl.style.setProperty('--init-hero-inset-color', heroBg)
+    iniEl.classList.add('init-row-init--hero-inset')
+  }
 }
 
 export function setupInitiativeList(element, { onListChange } = {}) {
@@ -3475,7 +3480,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       </fieldset>
     </div>
     <div class="kampf-settings-panel__section">
-      <label class="init-row-extra-label" data-kampf-hero-color-field-label>Rahmenfarbe (Hauptzeile)</label>
+      <label class="init-row-extra-label" data-kampf-hero-color-field-label>Heldenfarbe</label>
       <p class="kampf-settings-panel__microhint" id="kampf-hero-color-microhint">Für alle in der Szene sichtbar (SL und Spieler). Klick setzt die Farbe sofort; „×“ entfernt sie.</p>
       <div class="kampf-hero-color-grid" data-kampf-hero-color-grid></div>
     </div>
@@ -4134,7 +4139,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         sw.style.backgroundColor = color
         sw.dataset.color = color
         sw.title = `Farbe ${color} setzen`
-        sw.setAttribute('aria-label', `Hintergrundfarbe ${color}`)
+        sw.setAttribute('aria-label', `Heldenfarbe ${color}`)
         sw.addEventListener('click', (e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -4149,8 +4154,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const clearBtn = document.createElement('button')
     clearBtn.type = 'button'
     clearBtn.className = 'kampf-hero-color-swatch kampf-hero-color-swatch--clear'
-    clearBtn.title = 'Hintergrundfarbe entfernen'
-    clearBtn.setAttribute('aria-label', 'Hintergrundfarbe entfernen')
+    clearBtn.title = 'Heldenfarbe entfernen'
+    clearBtn.setAttribute('aria-label', 'Heldenfarbe entfernen')
     clearBtn.textContent = '×'
     clearBtn.addEventListener('click', (e) => {
       e.preventDefault()
@@ -5499,9 +5504,6 @@ function bindStampContextRemove(el, stamp, items) {
         const showHeroBg =
           heroBg &&
           (canEdit || !getHideForeignHeroColorsForViewer())
-        if (showHeroBg) {
-          applyHeroRowBorder(main, heroBg)
-        }
 
         if (!canEdit) expandedPlayerExtrasIds.delete(row.id)
 
@@ -5735,6 +5737,10 @@ function bindStampContextRemove(el, stamp, items) {
           syncIniRowModTone()
         })
 
+        if (showHeroBg) {
+          applyHeroAccent(nameEl, input, heroBg)
+        }
+
         const swapCol = document.createElement('div')
         swapCol.className = 'init-col-swap'
         main.append(expandCol, btnCol, nameCol, lhCol, input, swapCol)
@@ -5802,7 +5808,7 @@ function bindStampContextRemove(el, stamp, items) {
             gearHero.innerHTML = KAMPF_GEAR_ICON_SVG
             gearHero.title = isGmSync()
               ? 'Helden-Einstellungen (Spielleitung)'
-              : 'Mein Held: Hintergrundfarbe der Zeile'
+              : 'Mein Held: Heldenfarbe'
             gearHero.setAttribute(
               'aria-label',
               isGmSync()
@@ -6182,15 +6188,15 @@ function bindStampContextRemove(el, stamp, items) {
           : 'init-col-btn init-col-btn--phase'
         const ownerTrackerMeta =
           ownerSceneItem?.metadata?.[TRACKER_ITEM_META_KEY]
+        let showOwnerHeroBg = false
+        /** @type {string | null} */
+        let ownerHeroBg = null
         if (isZaoRoot) {
-          const ownerHeroBg = readHeroBgColor(ownerTrackerMeta)
+          ownerHeroBg = readHeroBgColor(ownerTrackerMeta)
           const ownerCanEdit = canEdit
-          const showOwnerHeroBg =
-            ownerHeroBg &&
+          showOwnerHeroBg =
+            Boolean(ownerHeroBg) &&
             (ownerCanEdit || !getHideForeignHeroColorsForViewer())
-          if (showOwnerHeroBg) {
-            applyHeroRowBorder(main, ownerHeroBg)
-          }
         }
         const isLhEndLink = isZaoRoot && link.lhEnd === true
         const isHeroExtraZao = isZaoRoot && Boolean(link.heroExtra)
@@ -6471,6 +6477,10 @@ function bindStampContextRemove(el, stamp, items) {
           iniInput,
           String(link.offset)
         )
+
+        if (isZaoRoot && showOwnerHeroBg && zaoIniDragNameEl && ownerHeroBg) {
+          applyHeroAccent(zaoIniDragNameEl, iniInput, ownerHeroBg)
+        }
 
         const swapSpacer = document.createElement('div')
         swapSpacer.className = 'init-col-swap init-col-swap--phase'

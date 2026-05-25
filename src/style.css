@@ -7681,7 +7681,7 @@ select.init-row-extra-select {
   font-weight: 600;
 }
 
-/* 2×16 Palette (+ „×“ rechts unter den Reihen). */
+/* 12 Heldenfarben (+ „×“ rechts unter der Reihe). */
 .kampf-hero-color-grid {
   display: flex;
   flex-direction: column;
@@ -7692,7 +7692,7 @@ select.init-row-extra-select {
 
 .kampf-hero-color-grid__swatches {
   display: grid;
-  grid-template-columns: repeat(16, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 0.22rem;
 }
 
@@ -7702,7 +7702,7 @@ select.init-row-extra-select {
 }
 
 .kampf-hero-color-grid__clear-wrap .kampf-hero-color-swatch {
-  width: min(100%, calc((100% - 15 * 0.22rem) / 16));
+  width: min(100%, calc((100% - 11 * 0.22rem) / 12));
   max-width: 3.2rem;
   flex: 0 0 auto;
 }
@@ -7746,15 +7746,20 @@ select.init-row-extra-select {
   font-weight: 700;
 }
 
-/* Hauptzeile mit Helden-Rahmenfarbe — transparenter Hintergrund, farbiger Rand. */
-.init-row-main--hero-border {
-  border-color: var(--init-hero-border-color, currentColor);
-  border-width: 4px;
-  background: transparent;
+/* Heldenfarbe: Name + INI-Feld mit nach innen gerichtetem Rahmen. */
+.init-row-name.init-row-name--hero-color {
+  font-weight: inherit;
 }
 
-.init-row--active .init-row-main.init-row-main--hero-border {
-  border-color: var(--init-hero-border-color);
+.init-row-init.init-row-init--hero-inset {
+  --init-hero-inset-color: currentColor;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 3px var(--init-hero-inset-color);
+}
+
+.init-row-init.init-row-init--hero-inset:focus {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 3px var(--init-hero-inset-color);
 }
 
 /* === V582+ Temporaere Helden-Modifikatoren =============================

@@ -7,20 +7,18 @@ import {
 } from './heroColors.js'
 
 describe('HERO_PALETTE_ROWS', () => {
-  it('hat zwei Reihen mit jeweils 16 Hex-Farben', () => {
-    expect(HERO_PALETTE_ROWS).toHaveLength(2)
-    for (const row of HERO_PALETTE_ROWS) {
-      expect(row).toHaveLength(16)
-      for (const c of row) {
-        expect(c).toMatch(/^#[0-9a-fA-F]{6}$/)
-      }
+  it('hat eine Reihe mit 12 Hex-Farben', () => {
+    expect(HERO_PALETTE_ROWS).toHaveLength(1)
+    expect(HERO_PALETTE_ROWS[0]).toHaveLength(12)
+    for (const c of HERO_PALETTE_ROWS[0]) {
+      expect(c).toMatch(/^#[0-9a-fA-F]{6}$/)
     }
   })
 })
 
 describe('pickRandomHeroColor', () => {
   it('liefert eine Hex-Farbe aus der Palette', () => {
-    const all = new Set([...HERO_PALETTE_ROWS[0], ...HERO_PALETTE_ROWS[1]])
+    const all = new Set(HERO_PALETTE_ROWS[0])
     for (let i = 0; i < 50; i++) {
       const c = pickRandomHeroColor()
       expect(c).toMatch(/^#[0-9a-fA-F]{6}$/)
