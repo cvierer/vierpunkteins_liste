@@ -2938,69 +2938,66 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     })
   }
 
-  function wireDistanceProbeCell(cell, itemId) {
-    cell.addEventListener('pointerdown', (e) => {
-      e.preventDefault()
-      try {
-        cell.setPointerCapture(e.pointerId)
-      } catch {
-        /* ignore */
-      }
-      distanceProbeItemId = itemId
-      const probeAtDown = lastItems.find((i) => i.id === itemId)
-      distanceProbeDragStart = probeAtDown
-        ? { ...tokenCenter(probeAtDown) }
-        : null
-      void ensureDistanceDpi().then((dpi) => {
-        applyDistanceOverlay()
-        const item = lastItems.find((i) => i.id === itemId)
-        if (!item || !dpi) return
-        const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
-        const combat = getCombat()
-        const gsSchritt = meta
-          ? readHeroGsSchritt(meta, {
-              ownerIni: readOwnerIniReferenceForMods(meta),
-              navIni: currentNavIniForRender,
-              round: combat.started ? combat.round : null,
-            })
-          : null
-        const ringVisible = meta ? readDistRingVisible(meta) : defaultDistRingVisible()
-        const customRingSpecs =
-          meta && ringVisible.custom
-            ? buildCustomDistRingSpecs(readCustomDistProfiles(meta))
-            : []
-        const classXSchritt = meta ? readHeroDistClassXSchritt(meta) : null
-        void showDistanceRingsFor(
-          item,
-          dpi,
-          gsSchritt,
-          customRingSpecs,
-          ringVisible,
-          classXSchritt
-        )
-        const others = lastItems.filter(
-          (i) =>
-            i.id !== itemId && i.metadata?.[TRACKER_ITEM_META_KEY] != null
-        )
-        void showDistanceSpokesFor(
-          item,
-          others,
-          dpi,
-          classXSchritt
-        )
-      })
-      applyDistanceOverlay()
-    })
-    const release = () => {
-      distanceProbeItemId = null
-      distanceProbeDragStart = null
-      applyDistanceOverlay()
+  function deactivateDistanceProbe() {
+    distanceProbeItemId = null
+    distanceProbeDragStart = null
+    applyDistanceOverlay()
+    void hideDistanceRings()
+    void hideDistanceSpokes()
+  }
+
+  async function activateDistanceProbe(itemId) {
+    if (distanceProbeItemId && distanceProbeItemId !== itemId) {
       void hideDistanceRings()
       void hideDistanceSpokes()
     }
-    cell.addEventListener('pointerup', release)
-    cell.addEventListener('pointercancel', release)
-    cell.addEventListener('lostpointercapture', release)
+    distanceProbeItemId = itemId
+    const probeAtDown = lastItems.find((i) => i.id === itemId)
+    distanceProbeDragStart = probeAtDown
+      ? { ...tokenCenter(probeAtDown) }
+      : null
+    applyDistanceOverlay()
+    const dpi = await ensureDistanceDpi()
+    const item = lastItems.find((i) => i.id === itemId)
+    if (!item || !dpi) return
+    const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
+    const combat = getCombat()
+    const gsSchritt = meta
+      ? readHeroGsSchritt(meta, {
+          ownerIni: readOwnerIniReferenceForMods(meta),
+          navIni: currentNavIniForRender,
+          round: combat.started ? combat.round : null,
+        })
+      : null
+    const ringVisible = meta ? readDistRingVisible(meta) : defaultDistRingVisible()
+    const customRingSpecs =
+      meta && ringVisible.custom
+        ? buildCustomDistRingSpecs(readCustomDistProfiles(meta))
+        : []
+    const classXSchritt = meta ? readHeroDistClassXSchritt(meta) : null
+    await showDistanceRingsFor(
+      item,
+      dpi,
+      gsSchritt,
+      customRingSpecs,
+      ringVisible,
+      classXSchritt
+    )
+    await refreshDistanceProbeMapOverlays()
+  }
+
+  function wireDistanceProbeCell(cell, itemId) {
+    cell.title = 'Distanz anzeigen (erneut klicken zum Ausblenden)'
+    cell.addEventListener('pointerdown', (e) => {
+      e.preventDefault()
+      if (distanceProbeItemId === itemId) {
+        deactivateDistanceProbe()
+        return
+      }
+      void activateDistanceProbe(itemId).catch((err) => {
+        console.warn('[vierpunkteins] DIST-Probe aktivieren', err)
+      })
+    })
   }
 
   const hideIniFloat = () => {
@@ -5313,10 +5310,7 @@ function bindStampContextRemove(el, stamp, items) {
       distanceProbeItemId &&
       !listItems.some((i) => i.id === distanceProbeItemId)
     ) {
-      distanceProbeItemId = null
-      distanceProbeDragStart = null
-      void hideDistanceRings()
-      void hideDistanceSpokes()
+      deactivateDistanceProbe()
     }
     lastItems = listItems
     const tokenRows = collectSortedParticipants(
