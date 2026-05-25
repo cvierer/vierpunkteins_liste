@@ -3009,7 +3009,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       ? { ...tokenCenter(probeAtDown) }
       : null
     applyDistanceOverlay()
-    const gridContext = await getGridContext()
+    const gridContext = await getGridContext({ forceRefresh: true })
     const item = lastItems.find((i) => i.id === itemId)
     if (!item || !gridContext) return
     await refreshDistanceProbeRings()

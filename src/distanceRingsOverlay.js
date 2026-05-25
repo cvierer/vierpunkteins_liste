@@ -1,4 +1,4 @@
-import OBR, { buildLabel, buildShape } from '@owlbear-rodeo/sdk'
+import OBR, { buildLabel, buildLine, buildShape } from '@owlbear-rodeo/sdk'
 import { getGridContext, normalizeGridDistanceRaw } from './gridDistance.js'
 import { tokenCenterScene } from './heroOrientationRingsOverlay.js'
 import {
@@ -80,6 +80,117 @@ export function isHexGridType(gridContext) {
 }
 
 /** @param {import('./gridDistance.js').GridType} gridType */
+export function hexRingDirections(gridType) {
+  const startDeg = gridType === 'HEX_HORIZONTAL' ? 30 : 0
+  /** @type {{ x: number, y: number }[]} */
+  const dirs = []
+  for (let i = 0; i < 6; i++) {
+    const rad = ((startDeg + i * 60) * Math.PI) / 180
+    dirs.push({ x: Math.sin(rad), y: -Math.cos(rad) })
+  }
+  return dirs
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {{ x: number, y: number }} dir
+ * @param {number} px
+ */
+export function rayPoint(center, dir, px) {
+  return { x: center.x + dir.x * px, y: center.y + dir.y * px }
+}
+
+/**
+ * Letzter Punkt auf Strahl mit getDistance <= schritt (Binärsuche).
+ * @param {{ x: number, y: number }} center
+ * @param {{ x: number, y: number }} dir
+ * @param {number} schritt
+ * @param {number} dpi
+ * @param {(from: { x: number, y: number }, to: { x: number, y: number }) => Promise<number>} getDistanceFn
+ * @param {(center: { x: number, y: number }, dir: { x: number, y: number }, px: number) => Promise<{ x: number, y: number }> | { x: number, y: number }} [pointOnRayFn]
+ */
+export async function findBoundaryOnRay(
+  center,
+  dir,
+  schritt,
+  dpi,
+  getDistanceFn,
+  pointOnRayFn = rayPoint
+) {
+  const maxPx = Math.ceil((Math.ceil(schritt) + 2) * dpi * 1.5)
+  let lo = 0
+  let hi = maxPx
+  let bestPx = 0
+  for (let i = 0; i < 32; i++) {
+    if (lo > hi) break
+    const mid = Math.floor((lo + hi) / 2)
+    const p = await pointOnRayFn(center, dir, mid)
+    const raw = await getDistanceFn(center, p)
+    if (raw <= schritt) {
+      bestPx = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return pointOnRayFn(center, dir, bestPx)
+}
+
+/**
+ * Hex-Ring: 6 Eckpunkte per OBR-Grid-Distanz kalibriert.
+ * @param {{ x: number, y: number }} center
+ * @param {number} schritt
+ * @param {number} dpi
+ * @param {import('./gridDistance.js').GridType} gridType
+ * @param {import('./gridDistance.js').GridMeasurement} measurement
+ */
+export async function hexRingVerticesFromObr(center, schritt, dpi, gridType, measurement) {
+  const dirs = hexRingDirections(gridType)
+  /** @type {{ x: number, y: number }[]} */
+  const verts = []
+  for (const dir of dirs) {
+    verts.push(
+      await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
+        const raw = await OBR.scene.grid.getDistance(from, to)
+        return normalizeGridDistanceRaw(raw, measurement, dpi)
+      })
+    )
+  }
+  return verts
+}
+
+/**
+ * @param {{ x: number, y: number }[]} pts
+ * @param {string} code
+ * @param {string} color
+ */
+function buildCalibratedRingEdges(pts, code, color) {
+  /** @type {import('@owlbear-rodeo/sdk').Item[]} */
+  const edges = []
+  for (let i = 0; i < pts.length; i++) {
+    const start = pts[i]
+    const end = pts[(i + 1) % pts.length]
+    edges.push(
+      buildLine()
+        .id(ringId('e', code, i))
+        .startPosition(start)
+        .endPosition(end)
+        .strokeColor(color)
+        .strokeOpacity(0.85)
+        .strokeWidth(2)
+        .strokeDash([8, 6])
+        .layer('DRAWING')
+        .locked(true)
+        .disableHit(true)
+        .zIndex(-1000)
+        .name(`Distanz ${code}`)
+        .build()
+    )
+  }
+  return edges
+}
+
+/** @param {import('./gridDistance.js').GridType} gridType */
 export function hexRingRotation(gridType) {
   if (gridType === 'HEX_HORIZONTAL') return 90
   if (gridType === 'HEX_VERTICAL') return 0
@@ -151,23 +262,7 @@ export async function findManhattanVertexOnAxis(
   getDistanceFn,
   axisPointFn = manhattanAxisPoint
 ) {
-  const maxPx = Math.ceil((Math.ceil(schritt) + 2) * dpi)
-  let lo = 0
-  let hi = maxPx
-  let bestPx = 0
-  for (let i = 0; i < 32; i++) {
-    if (lo > hi) break
-    const mid = Math.floor((lo + hi) / 2)
-    const p = await axisPointFn(center, dir, mid)
-    const raw = await getDistanceFn(center, p)
-    if (raw <= schritt) {
-      bestPx = mid
-      lo = mid + 1
-    } else {
-      hi = mid - 1
-    }
-  }
-  return axisPointFn(center, dir, bestPx)
+  return findBoundaryOnRay(center, dir, schritt, dpi, getDistanceFn, axisPointFn)
 }
 
 /**
@@ -245,37 +340,18 @@ export async function buildRingOutlineItemsAsync(
   const { measurement, type } = gridContext
 
   if (measurement === 'MANHATTAN') {
-    const rPx = await calibrateManhattanRadiusPx(center, schritt, dpi)
-    const diameter = rPx * 2
-    const northLabel = { x: center.x, y: center.y - rPx }
+    const pts = await manhattanRingVerticesFromObr(center, schritt, dpi)
     return {
-      items: [
-        commonShape(center)
-          .id(ringId('c', code))
-          .shapeType('RECTANGLE')
-          .width(diameter)
-          .height(diameter)
-          .rotation(45)
-          .build(),
-      ],
-      labelPos: ringLabelPosition(center, rPx, gridContext, northLabel),
+      items: buildCalibratedRingEdges(pts, code, color),
+      labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
     }
   }
 
   if (measurement !== 'EUCLIDEAN' && isHexGridType(gridContext)) {
-    const diameter = r * 2
-    const rotation = hexRingRotation(type)
+    const pts = await hexRingVerticesFromObr(center, schritt, dpi, type, measurement)
     return {
-      items: [
-        commonShape(ringShapePosition(center, r, 'HEXAGON'))
-          .id(ringId('c', code))
-          .shapeType('HEXAGON')
-          .width(diameter)
-          .height(diameter)
-          .rotation(rotation)
-          .build(),
-      ],
-      labelPos: ringLabelPosition(center, r, gridContext),
+      items: buildCalibratedRingEdges(pts, code, color),
+      labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
     }
   }
 
@@ -327,30 +403,58 @@ export function buildRingOutlineItems(center, r, code, color, gridContext) {
   const { measurement, type } = gridContext
 
   if (measurement === 'MANHATTAN') {
-    const diameter = r * 2
-    return [
-      commonShape(center)
-        .id(ringId('c', code))
-        .shapeType('RECTANGLE')
-        .width(diameter)
-        .height(diameter)
-        .rotation(45)
-        .build(),
-    ]
+    const pts = manhattanDiamondVertices(center, r)
+    /** @type {import('@owlbear-rodeo/sdk').Item[]} */
+    const edges = []
+    for (let i = 0; i < pts.length; i++) {
+      const start = pts[i]
+      const end = pts[(i + 1) % pts.length]
+      edges.push(
+        buildLine()
+          .id(ringId('e', code, i))
+          .startPosition(start)
+          .endPosition(end)
+          .strokeColor(color)
+          .strokeOpacity(0.85)
+          .strokeWidth(2)
+          .strokeDash([8, 6])
+          .layer('DRAWING')
+          .locked(true)
+          .disableHit(true)
+          .zIndex(-1000)
+          .name(`Distanz ${code}`)
+          .build()
+      )
+    }
+    return edges
   }
 
   if (measurement !== 'EUCLIDEAN' && isHexGridType(gridContext)) {
-    const diameter = r * 2
-    const rotation = hexRingRotation(type)
-    return [
-      commonShape(ringShapePosition(center, r, 'HEXAGON'))
-        .id(ringId('c', code))
-        .shapeType('HEXAGON')
-        .width(diameter)
-        .height(diameter)
-        .rotation(rotation)
-        .build(),
-    ]
+    const dirs = hexRingDirections(type)
+    const pts = dirs.map((dir) => rayPoint(center, dir, r))
+    /** @type {import('@owlbear-rodeo/sdk').Item[]} */
+    const edges = []
+    for (let i = 0; i < pts.length; i++) {
+      const start = pts[i]
+      const end = pts[(i + 1) % pts.length]
+      edges.push(
+        buildLine()
+          .id(ringId('e', code, i))
+          .startPosition(start)
+          .endPosition(end)
+          .strokeColor(color)
+          .strokeOpacity(0.85)
+          .strokeWidth(2)
+          .strokeDash([8, 6])
+          .layer('DRAWING')
+          .locked(true)
+          .disableHit(true)
+          .zIndex(-1000)
+          .name(`Distanz ${code}`)
+          .build()
+      )
+    }
+    return edges
   }
 
   if (measurement === 'CHEBYSHEV' || measurement === 'ALTERNATING') {
@@ -539,18 +643,18 @@ export async function hideDistanceRings() {
   const ids = []
   for (const { code } of DIST_CLASS_THRESHOLDS) {
     ids.push(ringId('c', code), ringId('l', code))
-    for (let i = 0; i < 4; i++) ids.push(ringId('e', code, i))
+    for (let i = 0; i < 6; i++) ids.push(ringId('e', code, i))
   }
   ids.push(ringId('c', 'X'), ringId('l', 'X'))
   for (let i = 0; i < 4; i++) ids.push(ringId('e', 'X', i))
   for (const { code } of MOVEMENT_RING_SPECS) {
     ids.push(ringId('c', code), ringId('l', code))
-    for (let i = 0; i < 4; i++) ids.push(ringId('e', code, i))
+    for (let i = 0; i < 6; i++) ids.push(ringId('e', code, i))
   }
   for (const code of lastShownRingCodes) {
     if (code.startsWith('cd-')) {
       ids.push(ringId('c', code), ringId('l', code))
-      for (let i = 0; i < 4; i++) ids.push(ringId('e', code, i))
+      for (let i = 0; i < 6; i++) ids.push(ringId('e', code, i))
     }
   }
   lastShownRingCodes.clear()
