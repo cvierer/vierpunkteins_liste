@@ -2,7 +2,7 @@ import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem } from './editAccess.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
 
-/** Metadatenschlüssel für die Heldenfarbe (Name, INI-Rahmen, Karte). */
+/** Metadatenschlüssel für die Heldenfarbe (Name, Karte). */
 export const HERO_BG_COLOR = 'heroBgColor'
 
 /** Feste Helden-Palette (11 Voreinstellungen). */

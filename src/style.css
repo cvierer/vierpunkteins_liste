@@ -7746,20 +7746,9 @@ select.init-row-extra-select {
   font-weight: 700;
 }
 
-/* Heldenfarbe: Name + INI-Feld mit nach innen gerichtetem Rahmen. */
+/* Heldenfarbe: Name in der gewählten Farbe. */
 .init-row-name.init-row-name--hero-color {
   font-weight: inherit;
-}
-
-.init-row-init.init-row-init--hero-inset {
-  --init-hero-inset-color: currentColor;
-  border-color: transparent;
-  box-shadow: inset 0 0 0 3px var(--init-hero-inset-color);
-}
-
-.init-row-init.init-row-init--hero-inset:focus {
-  border-color: transparent;
-  box-shadow: inset 0 0 0 3px var(--init-hero-inset-color);
 }
 
 /* === V582+ Temporaere Helden-Modifikatoren =============================

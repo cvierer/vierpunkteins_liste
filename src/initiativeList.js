@@ -2762,18 +2762,12 @@ function layoutIniSwapBetween(ul, host, overlay) {
 
 /**
  * @param {HTMLElement | null} nameEl
- * @param {HTMLElement | null} iniEl
  * @param {string} heroBg
  */
-function applyHeroAccent(nameEl, iniEl, heroBg) {
-  if (nameEl) {
-    nameEl.style.color = heroBg
-    nameEl.classList.add('init-row-name--hero-color')
-  }
-  if (iniEl) {
-    iniEl.style.setProperty('--init-hero-inset-color', heroBg)
-    iniEl.classList.add('init-row-init--hero-inset')
-  }
+function applyHeroAccent(nameEl, heroBg) {
+  if (!nameEl) return
+  nameEl.style.color = heroBg
+  nameEl.classList.add('init-row-name--hero-color')
 }
 
 export function setupInitiativeList(element, { onListChange } = {}) {
@@ -5738,7 +5732,7 @@ function bindStampContextRemove(el, stamp, items) {
         })
 
         if (showHeroBg) {
-          applyHeroAccent(nameEl, input, heroBg)
+          applyHeroAccent(nameEl, heroBg)
         }
 
         const swapCol = document.createElement('div')
@@ -6479,7 +6473,7 @@ function bindStampContextRemove(el, stamp, items) {
         )
 
         if (isZaoRoot && showOwnerHeroBg && zaoIniDragNameEl && ownerHeroBg) {
-          applyHeroAccent(zaoIniDragNameEl, iniInput, ownerHeroBg)
+          applyHeroAccent(zaoIniDragNameEl, ownerHeroBg)
         }
 
         const swapSpacer = document.createElement('div')
