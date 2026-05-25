@@ -114,9 +114,9 @@ describe('ringShapePosition', () => {
 })
 
 describe('hexRingRotation', () => {
-  it('liefert 90 fuer HEX_HORIZONTAL und 0 fuer HEX_VERTICAL', () => {
-    expect(hexRingRotation('HEX_HORIZONTAL')).toBe(90)
-    expect(hexRingRotation('HEX_VERTICAL')).toBe(0)
+  it('liefert 0 fuer HEX_HORIZONTAL und 90 fuer HEX_VERTICAL', () => {
+    expect(hexRingRotation('HEX_HORIZONTAL')).toBe(0)
+    expect(hexRingRotation('HEX_VERTICAL')).toBe(90)
   })
 })
 
@@ -124,10 +124,10 @@ describe('hexRingDirections', () => {
   it('liefert 6 Richtungen je GridType', () => {
     expect(hexRingDirections('HEX_VERTICAL')).toHaveLength(6)
     expect(hexRingDirections('HEX_HORIZONTAL')).toHaveLength(6)
-    expect(hexRingDirections('HEX_VERTICAL')[0]).toEqual({ x: 0, y: -1 })
-    const h = hexRingDirections('HEX_HORIZONTAL')[0]
-    expect(h.x).toBeCloseTo(0.5, 5)
-    expect(h.y).toBeCloseTo(-Math.sqrt(3) / 2, 5)
+    expect(hexRingDirections('HEX_HORIZONTAL')[0]).toEqual({ x: 0, y: -1 })
+    const v = hexRingDirections('HEX_VERTICAL')[0]
+    expect(v.x).toBeCloseTo(0.5, 5)
+    expect(v.y).toBeCloseTo(-Math.sqrt(3) / 2, 5)
   })
 })
 

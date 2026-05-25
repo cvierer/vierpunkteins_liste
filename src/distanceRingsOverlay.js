@@ -81,7 +81,7 @@ export function isHexGridType(gridContext) {
 
 /** @param {import('./gridDistance.js').GridType} gridType */
 export function hexRingDirections(gridType) {
-  const startDeg = gridType === 'HEX_HORIZONTAL' ? 30 : 0
+  const startDeg = gridType === 'HEX_HORIZONTAL' ? 0 : 30
   /** @type {{ x: number, y: number }[]} */
   const dirs = []
   for (let i = 0; i < 6; i++) {
@@ -192,8 +192,8 @@ function buildCalibratedRingEdges(pts, code, color) {
 
 /** @param {import('./gridDistance.js').GridType} gridType */
 export function hexRingRotation(gridType) {
-  if (gridType === 'HEX_HORIZONTAL') return 90
-  if (gridType === 'HEX_VERTICAL') return 0
+  if (gridType === 'HEX_HORIZONTAL') return 0
+  if (gridType === 'HEX_VERTICAL') return 90
   return 0
 }
 
