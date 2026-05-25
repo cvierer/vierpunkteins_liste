@@ -1,62 +1,57 @@
 import { describe, expect, it } from 'vitest'
 import {
-  advanceProbeMapDragState,
+  latchProbeMapDrag,
   PROBE_MAP_DRAG_MOVE_EPS,
 } from './distanceProbeDrag.js'
 
-describe('advanceProbeMapDragState', () => {
-  const a = { x: 100, y: 100 }
-  const b = { x: 110, y: 100 }
+describe('latchProbeMapDrag', () => {
+  const clickRef = { x: 100, y: 100 }
+  const moved = { x: 110, y: 100 }
+  const jitter = { x: 100.1, y: 100.05 }
 
-  it('ohne lastCenter: kein Drag, Anker null', () => {
-    const got = advanceProbeMapDragState(null, a, false, null)
-    expect(got.dragActive).toBe(false)
-    expect(got.movementAnchor).toBeNull()
-    expect(got.lastCenter).toEqual(a)
+  it('ohne Referenz: keine Linie', () => {
+    expect(latchProbeMapDrag(false, null, moved)).toEqual({
+      mapDragging: false,
+      showLine: false,
+    })
   })
 
-  it('erste Bewegung: Anker = lastCenter (Abhebepunkt)', () => {
-    const got = advanceProbeMapDragState(a, b, false, null)
-    expect(got.dragActive).toBe(true)
-    expect(got.dragAnchor).toEqual(a)
-    expect(got.movementAnchor).toEqual(a)
-    expect(got.lastCenter).toEqual(b)
+  it('vor Bewegung: keine Linie', () => {
+    expect(latchProbeMapDrag(false, clickRef, clickRef)).toEqual({
+      mapDragging: false,
+      showLine: false,
+    })
   })
 
-  it('weitere Bewegung: Anker bleibt', () => {
-    const c = { x: 120, y: 100 }
-    const got = advanceProbeMapDragState(b, c, true, a)
-    expect(got.dragActive).toBe(true)
-    expect(got.dragAnchor).toEqual(a)
-    expect(got.movementAnchor).toEqual(a)
+  it('erste Bewegung ab Referenz: Linie an', () => {
+    expect(latchProbeMapDrag(false, clickRef, moved)).toEqual({
+      mapDragging: true,
+      showLine: true,
+    })
   })
 
-  it('unter Schwellwert: Drag endet', () => {
-    const near = { x: 110.1, y: 100.05 }
-    const got = advanceProbeMapDragState(
-      b,
-      near,
-      true,
-      a,
-      PROBE_MAP_DRAG_MOVE_EPS
-    )
-    expect(got.dragActive).toBe(false)
-    expect(got.movementAnchor).toBeNull()
+  it('latched: Linie bleibt bei kleinem Frame-Sprung', () => {
+    expect(latchProbeMapDrag(true, clickRef, jitter)).toEqual({
+      mapDragging: true,
+      showLine: true,
+    })
   })
 
-  it('neuer Drag nach Ruhe: neuer Anker', () => {
-    const rest = { x: 110.05, y: 100 }
-    const afterRest = advanceProbeMapDragState(b, rest, true, a)
-    expect(afterRest.dragActive).toBe(false)
+  it('Referenz bleibt Klick-Position (nicht aktuelles Zentrum)', () => {
+    const first = latchProbeMapDrag(false, clickRef, moved)
+    expect(first.showLine).toBe(true)
+    const far = { x: 200, y: 100 }
+    const second = latchProbeMapDrag(true, clickRef, far)
+    expect(second.showLine).toBe(true)
+    expect(second.mapDragging).toBe(true)
+  })
 
-    const moved = { x: 130, y: 100 }
-    const got = advanceProbeMapDragState(
-      afterRest.lastCenter,
-      moved,
-      afterRest.dragActive,
-      afterRest.dragAnchor
-    )
-    expect(got.dragActive).toBe(true)
-    expect(got.movementAnchor).toEqual(rest)
+  it('unter Schwellwert ohne latch: keine Linie', () => {
+    expect(
+      latchProbeMapDrag(false, clickRef, jitter, PROBE_MAP_DRAG_MOVE_EPS)
+    ).toEqual({
+      mapDragging: false,
+      showLine: false,
+    })
   })
 })

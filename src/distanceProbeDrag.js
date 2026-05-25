@@ -1,25 +1,40 @@
-/** Mindest-Verschiebung (px) fuer Map-Drag der Dist-Probe. */
+/** Mindest-Verschiebung (px) bis die Bewegungslinie erscheint. */
 export const PROBE_MAP_DRAG_MOVE_EPS = 0.5
 
 /**
  * @typedef {{ x: number, y: number }} Point
- * @typedef {{
- *   lastCenter: Point,
- *   dragActive: boolean,
- *   dragAnchor: Point | null,
- *   movementAnchor: Point | null,
- * }} ProbeMapDragState
+ * @typedef {{ mapDragging: boolean, showLine: boolean }} ProbeMovementLatch
  */
 
 /**
- * Erkennt Karten-Drag: Anker = letztes Zentrum vor Bewegung (Abhebepunkt).
- * @param {Point | null} lastCenter
- * @param {Point} currentCenter
- * @param {boolean} dragActive
- * @param {Point | null} dragAnchor
+ * Feste Referenz = Dist-Klick-Position. Linie ab erster Bewegung bis pointerup (mapDragging).
+ * @param {boolean} mapDragging bereits gezogen (latched bis Loslassen)
+ * @param {Point | null} movementAnchor Referenz beim Dist-Anklicken
+ * @param {Point} currentCenter aktuelles Token-Zentrum
  * @param {number} [epsilon]
- * @returns {ProbeMapDragState}
+ * @returns {ProbeMovementLatch}
  */
+export function latchProbeMapDrag(
+  mapDragging,
+  movementAnchor,
+  currentCenter,
+  epsilon = PROBE_MAP_DRAG_MOVE_EPS
+) {
+  if (!movementAnchor) {
+    return { mapDragging: false, showLine: false }
+  }
+  if (mapDragging) {
+    return { mapDragging: true, showLine: true }
+  }
+  const moved =
+    Math.hypot(
+      currentCenter.x - movementAnchor.x,
+      currentCenter.y - movementAnchor.y
+    ) > epsilon
+  return { mapDragging: moved, showLine: moved }
+}
+
+/** @deprecated Nur Tests — alte Abhebepunkt-Logik. */
 export function advanceProbeMapDragState(
   lastCenter,
   currentCenter,
