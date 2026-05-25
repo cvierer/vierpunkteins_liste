@@ -46,9 +46,26 @@ export function ringRadiusPx(dpi, thresholdSchritt) {
   return thresholdSchritt * dpi
 }
 
-/** @param {{ x: number, y: number }} center @param {number} radius */
-export function circleTopLeftForCenter(center, radius) {
+/** Obere linke Ecke der Bounding-Box fuer ein zentriertes Rechteck (radius = halbe Kantenlaenge). */
+export function boxTopLeftForCenter(center, radius) {
   return { x: center.x - radius, y: center.y - radius }
+}
+
+/** @deprecated Alias fuer boxTopLeftForCenter */
+export function circleTopLeftForCenter(center, radius) {
+  return boxTopLeftForCenter(center, radius)
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number} r
+ * @param {'CIRCLE' | 'HEXAGON' | 'RECTANGLE'} shapeType
+ */
+export function ringShapePosition(center, r, shapeType) {
+  if (shapeType === 'RECTANGLE') {
+    return boxTopLeftForCenter(center, r)
+  }
+  return center
 }
 
 /**
@@ -95,9 +112,9 @@ export function ringLabelPosition(center, r, gridContext) {
  * @returns {import('@owlbear-rodeo/sdk').Item[]}
  */
 export function buildRingOutlineItems(center, r, code, color, gridContext) {
-  const commonShape = () =>
+  const commonShape = (position) =>
     buildShape()
-      .position(center)
+      .position(position)
       .strokeColor(color)
       .strokeOpacity(0.85)
       .strokeWidth(2)
@@ -143,7 +160,7 @@ export function buildRingOutlineItems(center, r, code, color, gridContext) {
     const diameter = r * 2
     const rotation = type === 'HEX_HORIZONTAL' ? 0 : 30
     return [
-      commonShape()
+      commonShape(ringShapePosition(center, r, 'HEXAGON'))
         .id(ringId('c', code))
         .shapeType('HEXAGON')
         .width(diameter)
@@ -156,7 +173,7 @@ export function buildRingOutlineItems(center, r, code, color, gridContext) {
   if (measurement === 'CHEBYSHEV' || measurement === 'ALTERNATING') {
     const diameter = r * 2
     return [
-      commonShape()
+      commonShape(ringShapePosition(center, r, 'RECTANGLE'))
         .id(ringId('c', code))
         .shapeType('RECTANGLE')
         .width(diameter)
@@ -166,7 +183,7 @@ export function buildRingOutlineItems(center, r, code, color, gridContext) {
   }
 
   return [
-    commonShape()
+    commonShape(ringShapePosition(center, r, 'CIRCLE'))
       .id(ringId('c', code))
       .shapeType('CIRCLE')
       .width(r * 2)
@@ -191,6 +208,22 @@ async function resolveTokenRingCenter(item) {
     }
   }
   return tokenCenter(item)
+}
+
+/**
+ * Ring-Mittelpunkt: EUCLIDEAN = Token-Bounds; gitterbasierte Modi = Grid-Snap.
+ * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
+ * @param {import('./gridDistance.js').GridContext} gridContext
+ * @returns {Promise<{ x: number, y: number }>}
+ */
+export async function resolveRingCenter(item, gridContext) {
+  const center = await resolveTokenRingCenter(item)
+  if (gridContext.measurement === 'EUCLIDEAN') return center
+  try {
+    return await OBR.scene.grid.snapPosition(center, undefined, true)
+  } catch {
+    return center
+  }
 }
 
 /**
@@ -266,7 +299,7 @@ export async function showDistanceRingsFor(
   const { dpi } = gridContext
   await hideDistanceRings()
   const prefs = ringVisible ?? defaultDistRingVisible()
-  const c = await resolveTokenRingCenter(item)
+  const c = await resolveRingCenter(item, gridContext)
   /** @type {import('@owlbear-rodeo/sdk').Item[]} */
   const items = []
   lastShownRingCodes.clear()
