@@ -1,4 +1,4 @@
-import OBR, { buildShape } from '@owlbear-rodeo/sdk'
+import OBR, { buildShape, isImage } from '@owlbear-rodeo/sdk'
 import { canEditSceneItem, isGmSync } from './editAccess.js'
 import { readHeroBgColor } from './heroColors.js'
 import {
@@ -12,14 +12,13 @@ import {
   isSceneItemVisibleOnMap,
   TRACKER_ITEM_META_KEY,
 } from './participants.js'
-import { tokenCenter } from './tokenDistance.js'
 
 const ORIENTATION_ID_PREFIX = 'vierpunkteins/hero-orientation/'
 export const ORIENTATION_RING_COLOR_FALLBACK = '#9e9e9e'
 
-const MARKER_W = 14
-const MARKER_H = 18
-const ATTACHMENT_DISABLED = ['SCALE', 'LOCKED', 'COPY']
+const MARKER_W = 16
+const MARKER_H = 20
+const RING_DIAMETER_PAD = 1.04
 
 /** @type {Set<string>} */
 const lastTokenIds = new Set()
@@ -35,20 +34,55 @@ export function orientationRingIds(tokenId) {
 }
 
 /**
- * @param {{ width?: number, height?: number } | null | undefined} bounds
+ * @param {import('@owlbear-rodeo/sdk').Item} item
+ * @param {number} sceneDpi
  */
-export function ringRadiusFromBounds(bounds) {
-  const w = Number(bounds?.width) || 0
-  const h = Number(bounds?.height) || 0
-  const base = Math.max(w, h) / 2
-  return Math.max(20, base * 1.08)
+export function imageRenderSize(item, sceneDpi) {
+  const imgW = Number(item?.image?.width) || Number(item?.width) || 100
+  const imgH = Number(item?.image?.height) || Number(item?.height) || 100
+  const gridDpi = Number(item?.grid?.dpi) || sceneDpi || 100
+  const dpiScale = sceneDpi / gridDpi
+  const width = imgW * dpiScale
+  const height = imgH * dpiScale
+  const offsetX = ((Number(item?.grid?.offset?.x) || 0) / imgW) * width
+  const offsetY = ((Number(item?.grid?.offset?.y) || 0) / imgH) * height
+  return { width, height, offsetX, offsetY }
 }
 
 /**
- * @param {number} ringRadius
+ * @param {import('@owlbear-rodeo/sdk').Item} item
+ * @param {number} sceneDpi
  */
-export function markerOffsetY(ringRadius) {
-  return -ringRadius - MARKER_H / 2
+export function tokenCenterScene(item, sceneDpi) {
+  const { width, height, offsetX, offsetY } = imageRenderSize(item, sceneDpi)
+  const px = Number(item?.position?.x) || 0
+  const py = Number(item?.position?.y) || 0
+  return {
+    x: px - offsetX + width / 2,
+    y: py - offsetY + height / 2,
+  }
+}
+
+/**
+ * @param {import('@owlbear-rodeo/sdk').Item} item
+ * @param {number} sceneDpi
+ */
+export function ringDiameter(item, sceneDpi) {
+  const { width, height } = imageRenderSize(item, sceneDpi)
+  return Math.max(40, Math.min(width, height) * RING_DIAMETER_PAD)
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number} radius
+ * @param {number} rotationDeg
+ */
+export function markerScenePosition(center, radius, rotationDeg) {
+  const rad = (Number(rotationDeg) || 0) * (Math.PI / 180)
+  return {
+    x: center.x + Math.sin(rad) * radius,
+    y: center.y - Math.cos(rad) * radius,
+  }
 }
 
 /**
@@ -74,70 +108,60 @@ export function darkenHexColor(hex, factor = 0.72) {
 
 /**
  * @param {import('@owlbear-rodeo/sdk').Item} item
- * @param {number} ringRadius
- */
-function fallbackRingRadius(item, ringRadius) {
-  const w = Number(item.width) || 0
-  const h = Number(item.height) || 0
-  if (w > 0 || h > 0) {
-    return ringRadiusFromBounds({ width: w, height: h })
-  }
-  return ringRadius
-}
-
-/**
- * @param {string} tokenId
- * @param {number} ringRadius
+ * @param {{ x: number, y: number }} center
+ * @param {number} diameter
  * @param {string} color
  */
-function buildOrientationRing(tokenId, ringRadius, color) {
-  const ids = orientationRingIds(tokenId)
-  const d = ringRadius * 2
+function buildOrientationRing(item, center, diameter, color) {
+  const ids = orientationRingIds(item.id)
   return buildShape()
     .id(ids.ring)
     .shapeType('CIRCLE')
-    .width(d)
-    .height(d)
-    .position({ x: 0, y: 0 })
-    .attachedTo(tokenId)
-    .disableAttachmentBehavior(ATTACHMENT_DISABLED)
+    .width(diameter)
+    .height(diameter)
+    .position(center)
+    .attachedTo(item.id)
     .strokeColor(color)
-    .strokeOpacity(0.9)
-    .strokeWidth(2)
+    .strokeOpacity(0.95)
+    .strokeWidth(6)
     .fillColor(color)
     .fillOpacity(0)
-    .layer('DRAWING')
+    .layer('ATTACHMENT')
     .locked(true)
     .disableHit(true)
-    .zIndex(-995)
+    .visible(item.visible !== false)
     .name('Orientierungsring')
     .build()
 }
 
 /**
- * @param {string} tokenId
- * @param {number} ringRadius
+ * @param {import('@owlbear-rodeo/sdk').Item} item
+ * @param {{ x: number, y: number }} center
+ * @param {number} diameter
  * @param {string} color
  */
-function buildOrientationMarker(tokenId, ringRadius, color) {
-  const ids = orientationRingIds(tokenId)
+function buildOrientationMarker(item, center, diameter, color) {
+  const ids = orientationRingIds(item.id)
+  const radius = diameter / 2
+  const rotation = Number(item.rotation) || 0
+  const pos = markerScenePosition(center, radius, rotation)
   return buildShape()
     .id(ids.marker)
     .shapeType('TRIANGLE')
     .width(MARKER_W)
     .height(MARKER_H)
-    .position({ x: 0, y: markerOffsetY(ringRadius) })
-    .attachedTo(tokenId)
-    .disableAttachmentBehavior(ATTACHMENT_DISABLED)
+    .position(pos)
+    .rotation(rotation)
+    .attachedTo(item.id)
     .fillColor(color)
-    .fillOpacity(0.95)
+    .fillOpacity(1)
     .strokeColor(darkenHexColor(color))
     .strokeOpacity(1)
     .strokeWidth(1)
-    .layer('DRAWING')
+    .layer('ATTACHMENT')
     .locked(true)
     .disableHit(true)
-    .zIndex(-994)
+    .visible(item.visible !== false)
     .name('Blickrichtung')
     .build()
 }
@@ -148,6 +172,7 @@ function buildOrientationMarker(tokenId, ringRadius, color) {
  *   show?: boolean,
  *   hideForeignHeroColors?: boolean,
  *   isGm?: boolean,
+ *   sceneDpi?: number,
  * }} [options]
  */
 export async function syncHeroOrientationRings(items, options = {}) {
@@ -161,37 +186,35 @@ export async function syncHeroOrientationRings(items, options = {}) {
     options.hideForeignHeroColors ?? getHideForeignHeroColorsForViewer()
   const isGm = options.isGm ?? isGmSync()
   const listItems = isGm ? items : filterItemsForListViewer(items, false)
+
+  let sceneDpi = options.sceneDpi ?? 100
+  if (options.sceneDpi == null && OBR.isAvailable) {
+    try {
+      sceneDpi = await OBR.scene.grid.getDpi()
+    } catch {
+      /* fallback */
+    }
+  }
+
   /** @type {import('@owlbear-rodeo/sdk').Item[]} */
   const overlayItems = []
   lastTokenIds.clear()
 
   for (const item of listItems) {
     if (!item?.id) continue
+    if (!isImage(item)) continue
+    if (item.layer !== 'CHARACTER') continue
     const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
     if (!meta) continue
     if (!isSceneItemVisibleOnMap(item)) continue
     if (hideForeign && !canEditSceneItem(item)) continue
 
-    let ringRadius = fallbackRingRadius(item, 24)
-    try {
-      const bounds = await OBR.scene.items.getItemBounds([item.id])
-      if (bounds?.width != null && bounds?.height != null) {
-        ringRadius = ringRadiusFromBounds(bounds)
-      } else if (bounds?.center) {
-        const c = tokenCenter(item)
-        ringRadius = ringRadiusFromBounds({
-          width: Math.abs((bounds.center.x - c.x) * 2) || item.width,
-          height: Math.abs((bounds.center.y - c.y) * 2) || item.height,
-        })
-      }
-    } catch {
-      /* fallback radius */
-    }
-
+    const center = tokenCenterScene(item, sceneDpi)
+    const diameter = ringDiameter(item, sceneDpi)
     const color = resolveRingStrokeColor(meta)
     overlayItems.push(
-      buildOrientationRing(item.id, ringRadius, color),
-      buildOrientationMarker(item.id, ringRadius, color)
+      buildOrientationRing(item, center, diameter, color),
+      buildOrientationMarker(item, center, diameter, color)
     )
     lastTokenIds.add(item.id)
   }

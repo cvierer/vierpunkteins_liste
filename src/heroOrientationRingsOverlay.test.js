@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
-  markerOffsetY,
+  imageRenderSize,
+  markerScenePosition,
   orientationRingIds,
   ORIENTATION_RING_COLOR_FALLBACK,
   resolveRingStrokeColor,
-  ringRadiusFromBounds,
+  ringDiameter,
+  tokenCenterScene,
 } from './heroOrientationRingsOverlay.js'
+
+const sampleImageItem = {
+  position: { x: 100, y: 200 },
+  image: { width: 512, height: 512 },
+  grid: { dpi: 256, offset: { x: 0, y: 0 } },
+}
 
 describe('orientationRingIds', () => {
   it('liefert stabile Ring- und Marker-IDs pro Token', () => {
@@ -16,16 +24,86 @@ describe('orientationRingIds', () => {
   })
 })
 
-describe('ringRadiusFromBounds', () => {
-  it('nutzt max(width,height)/2 mit Padding und Minimum', () => {
-    expect(ringRadiusFromBounds({ width: 100, height: 80 })).toBeCloseTo(54, 5)
-    expect(ringRadiusFromBounds({ width: 0, height: 0 })).toBe(20)
+describe('imageRenderSize', () => {
+  it('skaliert Bildgroesse mit sceneDpi/item.grid.dpi', () => {
+    expect(imageRenderSize(sampleImageItem, 150)).toEqual({
+      width: 300,
+      height: 300,
+      offsetX: 0,
+      offsetY: 0,
+    })
+  })
+
+  it('rechnet Grid-Offset in Szene-Pixel um', () => {
+    const item = {
+      ...sampleImageItem,
+      grid: { dpi: 256, offset: { x: 64, y: 128 } },
+    }
+    expect(imageRenderSize(item, 150)).toEqual({
+      width: 300,
+      height: 300,
+      offsetX: 37.5,
+      offsetY: 75,
+    })
   })
 })
 
-describe('markerOffsetY', () => {
-  it('platziert Marker am oberen Ringrand', () => {
-    expect(markerOffsetY(50)).toBe(-50 - 9)
+describe('tokenCenterScene', () => {
+  it('liefert Bildmittelpunkt in Szene-Koordinaten', () => {
+    expect(tokenCenterScene(sampleImageItem, 150)).toEqual({
+      x: 250,
+      y: 350,
+    })
+  })
+
+  it('beruecksichtigt Grid-Offset', () => {
+    const item = {
+      position: { x: 100, y: 200 },
+      image: { width: 512, height: 512 },
+      grid: { dpi: 256, offset: { x: 64, y: 128 } },
+    }
+    expect(tokenCenterScene(item, 150)).toEqual({
+      x: 212.5,
+      y: 275,
+    })
+  })
+})
+
+describe('ringDiameter', () => {
+  it('nutzt min(width,height) mit leichtem Padding', () => {
+    expect(ringDiameter(sampleImageItem, 150)).toBeCloseTo(312, 5)
+  })
+})
+
+describe('markerScenePosition', () => {
+  const center = { x: 100, y: 100 }
+  const radius = 50
+
+  it('0°: Marker oben am Ring', () => {
+    expect(markerScenePosition(center, radius, 0)).toEqual({
+      x: 100,
+      y: 50,
+    })
+  })
+
+  it('90°: Marker rechts am Ring', () => {
+    expect(markerScenePosition(center, radius, 90)).toEqual({
+      x: 150,
+      y: 100,
+    })
+  })
+
+  it('180°: Marker unten am Ring', () => {
+    expect(markerScenePosition(center, radius, 180)).toEqual({
+      x: 100,
+      y: 150,
+    })
+  })
+
+  it('270°: Marker links am Ring', () => {
+    const pos = markerScenePosition(center, radius, 270)
+    expect(pos.x).toBeCloseTo(50, 5)
+    expect(pos.y).toBeCloseTo(100, 5)
   })
 })
 
