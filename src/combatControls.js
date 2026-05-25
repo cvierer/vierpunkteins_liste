@@ -1,4 +1,5 @@
 import OBR from '@owlbear-rodeo/sdk'
+import { scheduleTurnActionMapRefresh } from './heroActionLabel.js'
 import { collectSortedParticipants } from './participants.js'
 import {
   buildCombatTurnSteps,
@@ -219,6 +220,7 @@ export async function setupCombatControls(root) {
   }
 
   const applyCombatNext = async () => {
+    try {
     const c0 = getCombat()
     if (c0.started && c0.roundIntroPending) {
       const stepsCommit = await combatTurnSteps()
@@ -357,9 +359,13 @@ export async function setupCombatControls(root) {
       ...combatPatchForStep(steps[nextIdx]),
       round: c.round,
     })
+    } finally {
+      scheduleTurnActionMapRefresh()
+    }
   }
 
   const applyCombatPrev = async () => {
+    try {
     const cIntro = getCombat()
     if (cIntro.started && cIntro.roundIntroPending) {
       await patchCombat({
@@ -417,6 +423,9 @@ export async function setupCombatControls(root) {
       round = Math.max(1, c.round - 1)
     }
     await patchCombat({ ...combatPatchForStep(steps[prevIdx]), round })
+    } finally {
+      scheduleTurnActionMapRefresh()
+    }
   }
 
   const applyCombatUndo = async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { combatOverlayKey, primaryKindSvgDataUrl } from './krPrimaryKindIcons.js'
 import {
   KIND_LABEL,
   resolveTurnActionLabelTarget,
@@ -39,6 +40,16 @@ describe('resolveTurnActionLabelText', () => {
   })
 })
 
+describe('primaryKindSvgDataUrl', () => {
+  it('liefert data-URL für ang', () => {
+    const url = primaryKindSvgDataUrl('ang')
+    expect(url.startsWith('data:image/svg+xml,')).toBe(true)
+    expect(decodeURIComponent(url.slice('data:image/svg+xml,'.length))).toContain(
+      'init-kr-primary-kind__svg--ang'
+    )
+  })
+})
+
 describe('resolveTurnActionLabelTarget', () => {
   it('null wenn Kampf nicht läuft', () => {
     expect(resolveTurnActionLabelTarget({ started: false })).toBeNull()
@@ -64,5 +75,21 @@ describe('resolveTurnActionLabelTarget', () => {
       currentTurnSubStep: 'action',
     })
     expect(t).toMatchObject({ ownerId: 'hero-a', phaseLinkId: null })
+  })
+})
+
+describe('combatOverlayKey (Nav-Refresh)', () => {
+  it('unterscheidet Phase-Link', () => {
+    const a = combatOverlayKey({
+      currentItemId: 'h1',
+      currentPhaseLinkId: 'z1',
+      currentTurnSubStep: 'action',
+    })
+    const b = combatOverlayKey({
+      currentItemId: 'h1',
+      currentPhaseLinkId: 'z2',
+      currentTurnSubStep: 'action',
+    })
+    expect(a).not.toBe(b)
   })
 })
