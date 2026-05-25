@@ -22,9 +22,9 @@ const RING_DIAMETER_PAD = 1.04
 const RING_STROKE_WIDTH = 6
 /** Abstand Dreieck-Mitte zum aeusseren Ringrand (px). */
 export const MARKER_OUTSIDE_PADDING = 8
-/** Ring/Marker unter Token-Namensbeschriftung (relativ zum Token). */
-const RING_Z_INDEX = -500
-const MARKER_Z_INDEX = -499
+/** DRAWING unter CHARACTER — Name (item.text) bleibt im Vordergrund. */
+const RING_Z_INDEX = -1000
+const MARKER_Z_INDEX = -999
 
 /** @type {Set<string>} */
 const lastTokenIds = new Set()
@@ -142,13 +142,12 @@ function buildOrientationRing(item, center, diameter, color) {
     .width(diameter)
     .height(diameter)
     .position(center)
-    .attachedTo(item.id)
     .strokeColor(color)
     .strokeOpacity(0.95)
     .strokeWidth(RING_STROKE_WIDTH)
     .fillColor(color)
     .fillOpacity(0)
-    .layer('ATTACHMENT')
+    .layer('DRAWING')
     .zIndex(RING_Z_INDEX)
     .locked(true)
     .disableHit(true)
@@ -180,13 +179,12 @@ function buildOrientationMarker(item, center, diameter, color) {
     .height(MARKER_H)
     .position(pos)
     .rotation(rotation)
-    .attachedTo(item.id)
     .fillColor(color)
     .fillOpacity(1)
     .strokeColor(darkenHexColor(color))
     .strokeOpacity(1)
     .strokeWidth(1)
-    .layer('ATTACHMENT')
+    .layer('DRAWING')
     .zIndex(MARKER_Z_INDEX)
     .locked(true)
     .disableHit(true)
