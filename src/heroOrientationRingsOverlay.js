@@ -48,8 +48,10 @@ export function imageRenderSize(item, sceneDpi) {
   const imgH = Number(item?.image?.height) || Number(item?.height) || 100
   const gridDpi = Number(item?.grid?.dpi) || sceneDpi || 100
   const dpiScale = sceneDpi / gridDpi
-  const width = imgW * dpiScale
-  const height = imgH * dpiScale
+  const sx = Number(item?.scale?.x) || 1
+  const sy = Number(item?.scale?.y) || 1
+  const width = imgW * dpiScale * sx
+  const height = imgH * dpiScale * sy
   const offsetX = ((Number(item?.grid?.offset?.x) || 0) / imgW) * width
   const offsetY = ((Number(item?.grid?.offset?.y) || 0) / imgH) * height
   return { width, height, offsetX, offsetY }

@@ -36,6 +36,27 @@ describe('imageRenderSize', () => {
     })
   })
 
+  it('beruecksichtigt item.scale bei Groesse und Offset', () => {
+    const scaled = { ...sampleImageItem, scale: { x: 2, y: 2 } }
+    const base = imageRenderSize(sampleImageItem, 150)
+    const got = imageRenderSize(scaled, 150)
+    expect(got.width).toBeCloseTo(base.width * 2, 5)
+    expect(got.height).toBeCloseTo(base.height * 2, 5)
+  })
+})
+
+describe('ringDiameter scale', () => {
+  it('verdoppelt Durchmesser bei scale 2', () => {
+    const base = ringDiameter(sampleImageItem, 150)
+    const scaled = ringDiameter(
+      { ...sampleImageItem, scale: { x: 2, y: 2 } },
+      150
+    )
+    expect(scaled).toBeCloseTo(base * 2, 5)
+  })
+})
+
+describe('imageRenderSize offset', () => {
   it('rechnet Grid-Offset in Szene-Pixel um', () => {
     const item = {
       ...sampleImageItem,

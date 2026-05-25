@@ -2849,21 +2849,41 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let distanceProbeItemId = null
   /** @type {{ x: number, y: number } | null} */
   let distanceProbeDragStart = null
+  let distanceProbeRefreshPending = false
 
   initGridDistance()
 
-  const DIST_PROBE_EYE_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+  /** @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems */
+  function findDistanceProbeItem(sceneItems) {
+    if (!distanceProbeItemId) return null
+    const listItems = filterItemsForListViewer(sceneItems ?? [], isGmSync())
+    return (
+      listItems.find((i) => i.id === distanceProbeItemId) ??
+      sceneItems.find((i) => i.id === distanceProbeItemId) ??
+      null
+    )
+  }
 
-  const DIST_CELL_TARGET_SVG =
-    '<svg class="init-dist-cell__target-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="5.5" opacity="0.5"/><circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.25"/></svg>'
-
-  async function refreshDistanceProbeRings() {
+  async function runDistanceProbeRefresh() {
     if (!distanceProbeItemId) return
-    const item = lastItems.find((i) => i.id === distanceProbeItemId)
+    let sceneItems = []
+    try {
+      sceneItems = await OBR.scene.items.getItems()
+    } catch {
+      return
+    }
+    const probeItem = findDistanceProbeItem(sceneItems)
+    if (!probeItem) return
+    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
+    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
+    const others = sceneItems.filter(
+      (i) =>
+        i.id !== distanceProbeItemId &&
+        i.metadata?.[TRACKER_ITEM_META_KEY] != null
+    )
     const gridContext = await getGridContext({ forceRefresh: true })
-    if (!item || !gridContext) return
-    const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!gridContext) return
+    const meta = probeMeta
     const combat = getCombat()
     const gsSchritt = meta
       ? readHeroGsSchritt(meta, {
@@ -2879,24 +2899,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         : []
     const classXSchritt = meta ? readHeroDistClassXSchritt(meta) : null
     await showDistanceRingsFor(
-      item,
+      probeItem,
       gsSchritt,
       customRingSpecs,
       ringVisible,
       classXSchritt
-    )
-  }
-
-  async function refreshDistanceProbeMapOverlays() {
-    if (!distanceProbeItemId) return
-    const probeItem = lastItems.find((i) => i.id === distanceProbeItemId)
-    if (!probeItem) return
-    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
-    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
-    const others = lastItems.filter(
-      (i) =>
-        i.id !== distanceProbeItemId &&
-        i.metadata?.[TRACKER_ITEM_META_KEY] != null
     )
     await showDistanceSpokesFor(probeItem, others, probeXSchritt)
     await syncDistanceMovementLine(
@@ -2904,6 +2911,31 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       distanceProbeDragStart,
       probeXSchritt
     )
+  }
+
+  function scheduleDistanceProbeRefresh() {
+    if (!distanceProbeItemId || distanceProbeRefreshPending) return
+    distanceProbeRefreshPending = true
+    requestAnimationFrame(() => {
+      distanceProbeRefreshPending = false
+      void runDistanceProbeRefresh().catch((err) => {
+        console.error('[vierpunkteins] distance probe refresh failed', err)
+      })
+    })
+  }
+
+  const DIST_PROBE_EYE_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+
+  const DIST_CELL_TARGET_SVG =
+    '<svg class="init-dist-cell__target-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="5.5" opacity="0.5"/><circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.25"/></svg>'
+
+  async function refreshDistanceProbeRings() {
+    await runDistanceProbeRefresh()
+  }
+
+  async function refreshDistanceProbeMapOverlays() {
+    await runDistanceProbeRefresh()
   }
 
   async function applyDistanceOverlayAsync() {
@@ -2955,12 +2987,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   onGridDistanceChange(() => {
     if (!distanceProbeItemId) return
     applyDistanceOverlay()
-    void refreshDistanceProbeMapOverlays().catch((err) => {
-      console.error('[vierpunkteins] distance spokes refresh failed', err)
-    })
-    void refreshDistanceProbeRings().catch((err) => {
-      console.error('[vierpunkteins] distance rings refresh failed', err)
-    })
+    scheduleDistanceProbeRefresh()
   })
 
   function applyDistCellIdleState(cell) {
@@ -3013,8 +3040,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     applyDistanceOverlay()
     const item = lastItems.find((i) => i.id === itemId)
     if (!item || !gridContext) return
-    await refreshDistanceProbeRings()
-    await refreshDistanceProbeMapOverlays()
+    await runDistanceProbeRefresh()
   }
 
   function wireDistanceProbeCell(cell, itemId) {
@@ -6777,11 +6803,7 @@ function bindStampContextRemove(el, stamp, items) {
       console.error('[vierpunkteins] applyDistanceOverlay failed', err)
     }
 
-    if (distanceProbeItemId) {
-      void refreshDistanceProbeMapOverlays().catch((err) => {
-        console.error('[vierpunkteins] distance spokes refresh failed', err)
-      })
-    }
+    scheduleDistanceProbeRefresh()
 
     onListChange?.(items)
 
@@ -6790,6 +6812,7 @@ function bindStampContextRemove(el, stamp, items) {
   }
 
   const safeRenderList = (items) => {
+    scheduleDistanceProbeRefresh()
     void renderList(items).catch((err) => {
       console.error('[vierpunkteins] renderList failed', err)
       if (err instanceof Error && err.stack) {

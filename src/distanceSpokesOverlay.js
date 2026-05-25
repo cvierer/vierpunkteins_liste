@@ -18,6 +18,7 @@ const SPOKE_LABEL_BG_OPACITY = 0.88
 
 /** @type {Set<string>} */
 const lastSpokeOtherIds = new Set()
+let movementLineActive = false
 
 /** @param {string} otherId @param {'line' | 'label'} kind */
 export function spokeItemId(otherId, kind) {
@@ -90,12 +91,71 @@ function buildSpokeLabel(text, position, id, color) {
     .build()
 }
 
-async function hideOtherDistanceSpokes() {
-  const ids = []
-  for (const otherId of lastSpokeOtherIds) {
-    ids.push(spokeItemId(otherId, 'line'), spokeItemId(otherId, 'label'))
-  }
-  lastSpokeOtherIds.clear()
+/**
+ * @param {string[]} ids
+ * @param {(draft: import('@owlbear-rodeo/sdk').Item) => void} mutator
+ */
+async function updateLocalSpokeItems(ids, mutator) {
+  await OBR.scene.local.updateItems(ids, (drafts) => {
+    for (const d of drafts) mutator(d)
+  })
+}
+
+/**
+ * @param {{ x: number, y: number }} start
+ * @param {{ x: number, y: number }} end
+ * @param {string} color
+ * @param {string} text
+ */
+async function updateMovementSpokeItems(start, end, color, text) {
+  const labelPos = spokeLabelPosition(start, end)
+  await updateLocalSpokeItems(
+    [MOVEMENT_SPOKE_LINE_ID, MOVEMENT_SPOKE_LABEL_ID],
+    (d) => {
+      if (d.type === 'LINE') {
+        d.startPosition = start
+        d.endPosition = end
+        d.strokeColor = color
+        return
+      }
+      d.position = labelPos
+      if (d.text) {
+        d.text.plainText = text
+        d.text.backgroundColor = color
+      }
+    }
+  )
+}
+
+/**
+ * @param {string} otherId
+ * @param {{ x: number, y: number }} start
+ * @param {{ x: number, y: number }} end
+ * @param {string} color
+ * @param {string} text
+ */
+async function updateOtherSpokeItems(otherId, start, end, color, text) {
+  const labelPos = spokeLabelPosition(start, end)
+  await updateLocalSpokeItems(
+    [spokeItemId(otherId, 'line'), spokeItemId(otherId, 'label')],
+    (d) => {
+      if (d.type === 'LINE') {
+        d.startPosition = start
+        d.endPosition = end
+        d.strokeColor = color
+        return
+      }
+      d.position = labelPos
+      if (d.text) {
+        d.text.plainText = text
+        d.text.backgroundColor = color
+      }
+    }
+  )
+}
+
+/** @param {string[]} ids */
+async function deleteLocalSpokeIds(ids) {
   if (ids.length === 0) return
   try {
     await OBR.scene.local.deleteItems(ids)
@@ -104,15 +164,46 @@ async function hideOtherDistanceSpokes() {
   }
 }
 
-export async function hideDistanceMovementLine() {
-  try {
-    await OBR.scene.local.deleteItems([
-      MOVEMENT_SPOKE_LINE_ID,
-      MOVEMENT_SPOKE_LABEL_ID,
-    ])
-  } catch {
-    /* ignore */
+async function hideOtherDistanceSpokes() {
+  const ids = []
+  for (const otherId of lastSpokeOtherIds) {
+    ids.push(spokeItemId(otherId, 'line'), spokeItemId(otherId, 'label'))
   }
+  lastSpokeOtherIds.clear()
+  await deleteLocalSpokeIds(ids)
+}
+
+export async function hideDistanceMovementLine() {
+  movementLineActive = false
+  await deleteLocalSpokeIds([MOVEMENT_SPOKE_LINE_ID, MOVEMENT_SPOKE_LABEL_ID])
+}
+
+/**
+ * @param {{ x: number, y: number }} start
+ * @param {{ x: number, y: number }} end
+ * @param {string} color
+ * @param {string} text
+ */
+async function ensureMovementSpokeItems(start, end, color, text) {
+  if (movementLineActive) {
+    try {
+      await updateMovementSpokeItems(start, end, color, text)
+      return
+    } catch {
+      movementLineActive = false
+    }
+  }
+  await hideDistanceMovementLine()
+  await OBR.scene.local.addItems([
+    buildSpokeLine(start, end, MOVEMENT_SPOKE_LINE_ID, color),
+    buildSpokeLabel(
+      text,
+      spokeLabelPosition(start, end),
+      MOVEMENT_SPOKE_LABEL_ID,
+      color
+    ),
+  ])
+  movementLineActive = true
 }
 
 /**
@@ -143,16 +234,7 @@ export async function syncDistanceMovementLine(
     await hideDistanceMovementLine()
     return
   }
-  await hideDistanceMovementLine()
-  await OBR.scene.local.addItems([
-    buildSpokeLine(dragStartCenter, end, MOVEMENT_SPOKE_LINE_ID, color),
-    buildSpokeLabel(
-      text,
-      spokeLabelPosition(dragStartCenter, end),
-      MOVEMENT_SPOKE_LABEL_ID,
-      color
-    ),
-  ])
+  await ensureMovementSpokeItems(dragStartCenter, end, color, text)
 }
 
 /**
@@ -166,12 +248,8 @@ export async function showDistanceSpokesFor(
   classXSchritt = null
 ) {
   if (!probeItem) return
-  await hideOtherDistanceSpokes()
   const ctx = await getGridContext()
   const start = await resolveDistanceCenter(probeItem, ctx)
-  /** @type {import('@owlbear-rodeo/sdk').Item[]} */
-  const items = []
-  lastSpokeOtherIds.clear()
   const spokePairs = await Promise.all(
     otherItems.map(async (other) => {
       if (!other?.id || other.id === probeItem.id) return null
@@ -181,30 +259,81 @@ export async function showDistanceSpokesFor(
       if (!text) return null
       const meta = other.metadata?.[TRACKER_ITEM_META_KEY]
       const color = resolveSpokeColor(meta)
-      return {
-        otherId: other.id,
-        items: [
-          buildSpokeLine(start, end, spokeItemId(other.id, 'line'), color),
-          buildSpokeLabel(
-            text,
-            spokeLabelPosition(start, end),
-            spokeItemId(other.id, 'label'),
-            color
-          ),
-        ],
-      }
+      return { otherId: other.id, end, color, text }
     })
   )
+
+  /** @type {Set<string>} */
+  const nextIds = new Set()
+  /** @type {import('@owlbear-rodeo/sdk').Item[]} */
+  const toAdd = []
+
   for (const pair of spokePairs) {
     if (!pair) continue
-    items.push(...pair.items)
-    lastSpokeOtherIds.add(pair.otherId)
+    nextIds.add(pair.otherId)
+    if (lastSpokeOtherIds.has(pair.otherId)) {
+      try {
+        await updateOtherSpokeItems(
+          pair.otherId,
+          start,
+          pair.end,
+          pair.color,
+          pair.text
+        )
+      } catch {
+        toAdd.push(
+          buildSpokeLine(
+            start,
+            pair.end,
+            spokeItemId(pair.otherId, 'line'),
+            pair.color
+          ),
+          buildSpokeLabel(
+            pair.text,
+            spokeLabelPosition(start, pair.end),
+            spokeItemId(pair.otherId, 'label'),
+            pair.color
+          )
+        )
+      }
+    } else {
+      toAdd.push(
+        buildSpokeLine(
+          start,
+          pair.end,
+          spokeItemId(pair.otherId, 'line'),
+          pair.color
+        ),
+        buildSpokeLabel(
+          pair.text,
+          spokeLabelPosition(start, pair.end),
+          spokeItemId(pair.otherId, 'label'),
+          pair.color
+        )
+      )
+    }
   }
-  if (items.length === 0) return
-  await OBR.scene.local.addItems(items)
+
+  const removeIds = []
+  for (const oldId of lastSpokeOtherIds) {
+    if (!nextIds.has(oldId)) {
+      removeIds.push(spokeItemId(oldId, 'line'), spokeItemId(oldId, 'label'))
+    }
+  }
+  lastSpokeOtherIds.clear()
+  for (const id of nextIds) lastSpokeOtherIds.add(id)
+
+  await deleteLocalSpokeIds(removeIds)
+  if (toAdd.length > 0) await OBR.scene.local.addItems(toAdd)
 }
 
 export async function hideDistanceSpokes() {
   await hideOtherDistanceSpokes()
   await hideDistanceMovementLine()
+}
+
+/** Nur fuer Tests: Spoke-/Movement-Tracking zuruecksetzen. */
+export function resetDistanceSpokeOverlayStateForTests() {
+  lastSpokeOtherIds.clear()
+  movementLineActive = false
 }
