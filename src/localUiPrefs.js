@@ -1,9 +1,11 @@
 const SHOW_ACTION_STAMPS_KEY = 'vierp_show_action_stamps_v1'
 /** Persönlich: Fremde Helden-Hintergrundfarben ausblenden. Fehlt der Eintrag, Standard an. */
 const HIDE_FOREIGN_HERO_COLORS_KEY = 'vierp_hide_foreign_hero_colors_v1'
+const SHOW_HERO_ORIENTATION_RINGS_KEY = 'vierp_show_hero_orientation_rings_v1'
 
 const listeners = new Set()
 const foreignHeroColorListeners = new Set()
+const orientationRingListeners = new Set()
 
 export function getShowActionStamps() {
   try {
@@ -73,4 +75,34 @@ export function setHideForeignHeroColorsForViewer(hide) {
 export function onHideForeignHeroColorsForViewerChange(fn) {
   foreignHeroColorListeners.add(fn)
   return () => foreignHeroColorListeners.delete(fn)
+}
+
+export function getShowHeroOrientationRings() {
+  try {
+    const v = localStorage.getItem(SHOW_HERO_ORIENTATION_RINGS_KEY)
+    if (v === null) return false
+    return v !== '0'
+  } catch {
+    return false
+  }
+}
+
+export function setShowHeroOrientationRings(show) {
+  try {
+    localStorage.setItem(SHOW_HERO_ORIENTATION_RINGS_KEY, show ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+  for (const fn of orientationRingListeners) {
+    try {
+      fn()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function onShowHeroOrientationRingsChange(fn) {
+  orientationRingListeners.add(fn)
+  return () => orientationRingListeners.delete(fn)
 }

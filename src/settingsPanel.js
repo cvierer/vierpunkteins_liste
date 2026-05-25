@@ -3,10 +3,13 @@ import { isGmSync } from './editAccess.js'
 import {
   getHideForeignHeroColorsForViewer,
   getShowActionStamps,
+  getShowHeroOrientationRings,
   onHideForeignHeroColorsForViewerChange,
   onShowActionStampsChange,
+  onShowHeroOrientationRingsChange,
   setHideForeignHeroColorsForViewer,
   setShowActionStamps,
+  setShowHeroOrientationRings,
 } from './localUiPrefs.js'
 import {
   getRoomSettings,
@@ -69,6 +72,12 @@ export function setupSettingsPanel(gearHost) {
     </div>
     <div class="kampf-settings-panel__section">
       <label class="kampf-settings-checkbox-label">
+        <input type="checkbox" data-kampf-setting-show-orientation-rings />
+        <span><strong>Orientierungsringe</strong> auf der Karte (Farbe = Zeilenfarbe des Helden, Dreieck = Blickrichtung). Nur auf deinem Gerät.</span>
+      </label>
+    </div>
+    <div class="kampf-settings-panel__section">
+      <label class="kampf-settings-checkbox-label">
         <input type="checkbox" data-kampf-setting-hide-foreign-hero-colors />
         <span><strong>Fremde Heldenfarben ausblenden:</strong> Wenn aktiv, siehst du nur die Hintergrundfarbe deines eigenen Helden; andere Helden nutzen den Standard-Hintergrund. Gilt nur auf deinem Gerät. Ohne eigene Auswahl hier gilt der <strong>Raum-Standard</strong> (die Spielleitung kann den Standard unter Helden-Einstellungen setzen).</span>
       </label>
@@ -102,6 +111,9 @@ export function setupSettingsPanel(gearHost) {
     '[data-kampf-setting-round-intro-lowest-ini]'
   )
   const stampsCb = panel.querySelector('[data-kampf-setting-show-action-stamps]')
+  const orientationRingsCb = panel.querySelector(
+    '[data-kampf-setting-show-orientation-rings]'
+  )
   const foreignHeroCb = panel.querySelector(
     '[data-kampf-setting-hide-foreign-hero-colors]'
   )
@@ -121,6 +133,7 @@ export function setupSettingsPanel(gearHost) {
    */
   let pendingRoom = null
   let pendingStamps = null
+  let pendingOrientationRings = null
   let pendingForeignHero = null
   /** Aktuelle Wappen-Liste im Editor (nur GM); null wenn nicht eingelesen. */
   let pendingWappen = null
@@ -147,6 +160,11 @@ export function setupSettingsPanel(gearHost) {
       stampsCb.checked = pendingStamps ?? getShowActionStamps()
       stampsCb.disabled = false
     }
+    if (orientationRingsCb instanceof HTMLInputElement) {
+      orientationRingsCb.checked =
+        pendingOrientationRings ?? getShowHeroOrientationRings()
+      orientationRingsCb.disabled = false
+    }
     if (foreignHeroCb instanceof HTMLInputElement) {
       foreignHeroCb.checked =
         pendingForeignHero ?? getHideForeignHeroColorsForViewer()
@@ -154,8 +172,8 @@ export function setupSettingsPanel(gearHost) {
     }
     if (roleHint) {
       roleHint.textContent = isGmSync()
-        ? 'Als Spielleitung kannst du die kampfbezogenen Raum-Optionen ändern; alle Spieler sehen dieselben Werte. „Aktionsstempel“ und „Fremde Heldenfarben“ sind persönliche Anzeige-Optionen (nur bei dir). Änderungen greifen erst bei „Speichern und schließen“.'
-        : 'Nur die Spielleitung kann die Raum-Option oben ändern. „Aktionsstempel“ und „Fremde Heldenfarben“ kannst du für deine Ansicht selbst einstellen. Änderungen greifen erst bei „Speichern und schließen“.'
+        ? 'Als Spielleitung kannst du die kampfbezogenen Raum-Optionen ändern; alle Spieler sehen dieselben Werte. „Aktionsstempel“, „Orientierungsringe“ und „Fremde Heldenfarben“ sind persönliche Anzeige-Optionen (nur bei dir). Änderungen greifen erst bei „Speichern und schließen“.'
+        : 'Nur die Spielleitung kann die Raum-Option oben ändern. „Aktionsstempel“, „Orientierungsringe“ und „Fremde Heldenfarben“ kannst du für deine Ansicht selbst einstellen. Änderungen greifen erst bei „Speichern und schließen“.'
     }
     if (wappenSection instanceof HTMLElement) {
       const gm = isGmSync()
@@ -171,6 +189,7 @@ export function setupSettingsPanel(gearHost) {
     backdrop.style.display = 'none'
     pendingRoom = null
     pendingStamps = null
+    pendingOrientationRings = null
     pendingForeignHero = null
     pendingWappen = null
     if (wappenEditor) {
@@ -187,6 +206,7 @@ export function setupSettingsPanel(gearHost) {
       roundIntroFocusLowestIni: Boolean(s.roundIntroFocusLowestIni),
     }
     pendingStamps = getShowActionStamps()
+    pendingOrientationRings = getShowHeroOrientationRings()
     pendingForeignHero = getHideForeignHeroColorsForViewer()
     if (isGmSync() && wappenHost instanceof HTMLElement) {
       if (wappenEditor) {
@@ -232,6 +252,12 @@ export function setupSettingsPanel(gearHost) {
     }
     if (pendingStamps !== null && pendingStamps !== getShowActionStamps()) {
       setShowActionStamps(Boolean(pendingStamps))
+    }
+    if (
+      pendingOrientationRings !== null &&
+      pendingOrientationRings !== getShowHeroOrientationRings()
+    ) {
+      setShowHeroOrientationRings(Boolean(pendingOrientationRings))
     }
     if (
       pendingForeignHero !== null &&
@@ -293,6 +319,11 @@ export function setupSettingsPanel(gearHost) {
     pendingStamps = stampsCb.checked
   })
 
+  orientationRingsCb?.addEventListener('change', () => {
+    if (!(orientationRingsCb instanceof HTMLInputElement)) return
+    pendingOrientationRings = orientationRingsCb.checked
+  })
+
   foreignHeroCb?.addEventListener('change', () => {
     if (!(foreignHeroCb instanceof HTMLInputElement)) return
     pendingForeignHero = foreignHeroCb.checked
@@ -305,6 +336,13 @@ export function setupSettingsPanel(gearHost) {
   const offStampPref = onShowActionStampsChange(() => {
     if (!backdrop.hidden && stampsCb instanceof HTMLInputElement) {
       stampsCb.checked = getShowActionStamps()
+    }
+  })
+
+  const offOrientationPref = onShowHeroOrientationRingsChange(() => {
+    if (!backdrop.hidden && orientationRingsCb instanceof HTMLInputElement) {
+      pendingOrientationRings = getShowHeroOrientationRings()
+      orientationRingsCb.checked = pendingOrientationRings
     }
   })
 
@@ -323,6 +361,7 @@ export function setupSettingsPanel(gearHost) {
     document.removeEventListener('keydown', onDocKey)
     offSettings()
     offStampPref()
+    offOrientationPref()
     offForeignHeroPref()
     offPlayer()
     gear.remove()

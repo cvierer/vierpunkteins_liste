@@ -119,6 +119,7 @@ if (OBR.isAvailable) {
       },
     })
     setupSettingsPanel(document.querySelector('#kampf-settings-gear-host'))
+    ;(await import('./heroOrientationRingsOverlay.js')).setupHeroOrientationRings()
   })
 } else {
   const hint = document.querySelector('#standalone-hint')
