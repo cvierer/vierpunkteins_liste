@@ -119,18 +119,14 @@ export function isoRingDirections(gridType) {
  * @param {import('./gridDistance.js').GridMeasurement} measurement
  */
 export async function isoRingVerticesFromObr(center, schritt, dpi, gridType, measurement) {
-  const dirs = isoRingDirections(gridType)
-  /** @type {{ x: number, y: number }[]} */
-  const verts = []
-  for (const dir of dirs) {
-    verts.push(
-      await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
-        const raw = await OBR.scene.grid.getDistance(from, to)
-        return normalizeGridDistanceRaw(raw, measurement, dpi)
-      })
-    )
-  }
-  return verts
+  void gridType
+  return contourRingVerticesFromObr(
+    center,
+    schritt,
+    dpi,
+    measurement,
+    CONTOUR_RAY_COUNT_ISO
+  )
 }
 
 export function alternatingRingDirections() {
@@ -149,18 +145,13 @@ export function alternatingRingDirections() {
  * @param {number} dpi
  */
 export async function alternatingRingVerticesFromObr(center, schritt, dpi) {
-  const dirs = alternatingRingDirections()
-  /** @type {{ x: number, y: number }[]} */
-  const verts = []
-  for (const dir of dirs) {
-    verts.push(
-      await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
-        const raw = await OBR.scene.grid.getDistance(from, to)
-        return normalizeGridDistanceRaw(raw, 'ALTERNATING', dpi)
-      })
-    )
-  }
-  return verts
+  return contourRingVerticesFromObr(
+    center,
+    schritt,
+    dpi,
+    'ALTERNATING',
+    CONTOUR_RAY_COUNT_ALTERNATING
+  )
 }
 
 /**
@@ -208,6 +199,49 @@ export async function findBoundaryOnRay(
   return pointOnRayFn(center, dir, bestPx)
 }
 
+export const CONTOUR_RAY_COUNT_HEX = 6
+export const CONTOUR_RAY_COUNT_ALTERNATING = 8
+export const CONTOUR_RAY_COUNT_ISO = 16
+
+/**
+ * @param {number} index
+ * @param {number} rayCount
+ */
+export function contourRingDirectionAtIndex(index, rayCount) {
+  const deg = (index * 360) / rayCount
+  const rad = (deg * Math.PI) / 180
+  return { x: Math.sin(rad), y: -Math.cos(rad) }
+}
+
+/**
+ * Distanz-Kontur: Eckpunkte per getDistance entlang gleichmaessig verteilter Strahlen.
+ * @param {{ x: number, y: number }} center
+ * @param {number} schritt
+ * @param {number} dpi
+ * @param {import('./gridDistance.js').GridMeasurement} measurement
+ * @param {number} rayCount
+ */
+export async function contourRingVerticesFromObr(
+  center,
+  schritt,
+  dpi,
+  measurement,
+  rayCount
+) {
+  /** @type {{ x: number, y: number }[]} */
+  const verts = []
+  for (let i = 0; i < rayCount; i++) {
+    const dir = contourRingDirectionAtIndex(i, rayCount)
+    verts.push(
+      await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
+        const raw = await OBR.scene.grid.getDistance(from, to)
+        return normalizeGridDistanceRaw(raw, measurement, dpi)
+      })
+    )
+  }
+  return verts
+}
+
 /**
  * Hex-Ring: 6 Eckpunkte per OBR-Grid-Distanz kalibriert.
  * @param {{ x: number, y: number }} center
@@ -217,18 +251,14 @@ export async function findBoundaryOnRay(
  * @param {import('./gridDistance.js').GridMeasurement} measurement
  */
 export async function hexRingVerticesFromObr(center, schritt, dpi, gridType, measurement) {
-  const dirs = hexRingDirections(gridType)
-  /** @type {{ x: number, y: number }[]} */
-  const verts = []
-  for (const dir of dirs) {
-    verts.push(
-      await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
-        const raw = await OBR.scene.grid.getDistance(from, to)
-        return normalizeGridDistanceRaw(raw, measurement, dpi)
-      })
-    )
-  }
-  return verts
+  void gridType
+  return contourRingVerticesFromObr(
+    center,
+    schritt,
+    dpi,
+    measurement,
+    CONTOUR_RAY_COUNT_HEX
+  )
 }
 
 /**
@@ -412,7 +442,15 @@ export async function buildRingOutlineItemsAsync(
   const { measurement, type } = gridContext
 
   if (measurement === 'MANHATTAN') {
-    const pts = await manhattanRingVerticesFromObr(center, schritt, dpi)
+    const pts = isIsoGridType(gridContext)
+      ? await contourRingVerticesFromObr(
+          center,
+          schritt,
+          dpi,
+          'MANHATTAN',
+          CONTOUR_RAY_COUNT_ISO
+        )
+      : await manhattanRingVerticesFromObr(center, schritt, dpi)
     return {
       items: buildCalibratedRingEdges(pts, code, color),
       labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
@@ -572,24 +610,13 @@ export function buildRingOutlineItems(center, r, code, color, gridContext) {
 }
 
 /**
- * Ring-Mittelpunkt: EUCLIDEAN/MANHATTAN = Token-Bounds; CHEBYSHEV/ALTERNATING = Grid-Snap.
+ * Ring-Mittelpunkt = Token-Mittelpunkt (wie Owlbear-Maßband und Spokes), ohne Grid-Snap.
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
  * @param {import('./gridDistance.js').GridContext} gridContext
  * @returns {Promise<{ x: number, y: number }>}
  */
 export async function resolveRingCenter(item, gridContext) {
-  const center = await resolveDistanceCenter(item, gridContext)
-  if (
-    gridContext.measurement === 'EUCLIDEAN' ||
-    gridContext.measurement === 'MANHATTAN'
-  ) {
-    return center
-  }
-  try {
-    return await OBR.scene.grid.snapPosition(center, undefined, true)
-  } catch {
-    return center
-  }
+  return resolveDistanceCenter(item, gridContext)
 }
 
 /**

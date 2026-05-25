@@ -88,6 +88,8 @@ import {
   boxTopLeftForCenter,
   buildRingOutlineItemsAsync,
   circleTopLeftForCenter,
+  CONTOUR_RAY_COUNT_ISO,
+  contourRingVerticesFromObr,
   findManhattanVertexOnAxis,
   hexRingDirections,
   hexRingRotation,
@@ -204,7 +206,7 @@ describe('buildRingOutlineItemsAsync', () => {
     expect(shapeBuilderState.lastShapeType).toBeNull()
   })
 
-  it('ISOMETRIC CHEBYSHEV: 4 Linien, kein Rechteck', async () => {
+  it('ISOMETRIC CHEBYSHEV: 16 Linien-Kontur, kein Rechteck', async () => {
     const { items } = await buildRingOutlineItemsAsync(
       center,
       100,
@@ -213,9 +215,36 @@ describe('buildRingOutlineItemsAsync', () => {
       '#3d8fd1',
       { dpi: 100, measurement: 'CHEBYSHEV', type: 'ISOMETRIC' }
     )
-    expect(items).toHaveLength(4)
-    expect(lineBuildCount.value).toBe(4)
+    expect(items).toHaveLength(16)
+    expect(lineBuildCount.value).toBe(16)
     expect(shapeBuilderState.lastShapeType).toBeNull()
+  })
+
+  it('MANHATTAN ISOMETRIC: 16 Linien-Kontur statt Bildschirm-Raute', async () => {
+    const { items } = await buildRingOutlineItemsAsync(
+      center,
+      100,
+      8,
+      'm1',
+      '#3d8fd1',
+      { dpi: 100, measurement: 'MANHATTAN', type: 'ISOMETRIC' }
+    )
+    expect(items).toHaveLength(16)
+    expect(lineBuildCount.value).toBe(16)
+    expect(shapeBuilderState.lastShapeType).toBeNull()
+  })
+})
+
+describe('contourRingVerticesFromObr', () => {
+  it('liefert rayCount Eckpunkte', async () => {
+    const verts = await contourRingVerticesFromObr(
+      { x: 200, y: 200 },
+      8,
+      100,
+      'CHEBYSHEV',
+      CONTOUR_RAY_COUNT_ISO
+    )
+    expect(verts).toHaveLength(CONTOUR_RAY_COUNT_ISO)
   })
 })
 
@@ -366,30 +395,20 @@ describe('resolveRingCenter', () => {
     expect(gridApi.snapPosition).not.toHaveBeenCalled()
   })
 
-  it('snappt CHEBYSHEV und ALTERNATING auf Grid', async () => {
-    gridApi.snapPosition.mockImplementation(async (pos) => ({
-      x: pos.x + 5,
-      y: pos.y + 5,
-    }))
+  it('nutzt Token-Bounds ohne Snap bei CHEBYSHEV und HEX', async () => {
     const cheb = await resolveRingCenter(
       { id: 't1', position: { x: 0, y: 0 }, width: 100, height: 100 },
       { dpi: 100, measurement: 'CHEBYSHEV', type: 'SQUARE' }
     )
-    expect(gridApi.snapPosition).toHaveBeenCalledWith(
-      { x: 100, y: 100 },
-      undefined,
-      true
-    )
-    expect(cheb).toEqual({ x: 105, y: 105 })
+    expect(gridApi.snapPosition).not.toHaveBeenCalled()
+    expect(cheb).toEqual({ x: 100, y: 100 })
 
-    gridApi.snapPosition.mockClear()
-    const alt = await resolveRingCenter(
+    const hex = await resolveRingCenter(
       { id: 't1', position: { x: 0, y: 0 }, width: 100, height: 100 },
-      { dpi: 100, measurement: 'ALTERNATING', type: 'SQUARE' }
+      { dpi: 100, measurement: 'CHEBYSHEV', type: 'HEX_VERTICAL' }
     )
-    expect(gridApi.snapPosition).toHaveBeenCalled()
-    expect(alt).toEqual({ x: 105, y: 105 })
-    gridApi.snapPosition.mockImplementation(async (pos) => ({ x: pos.x, y: pos.y }))
+    expect(gridApi.snapPosition).not.toHaveBeenCalled()
+    expect(hex).toEqual({ x: 100, y: 100 })
   })
 
   it('nutzt Token-Bounds bei MANHATTAN ohne Snap', async () => {
