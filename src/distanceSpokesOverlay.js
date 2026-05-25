@@ -1,4 +1,6 @@
 import OBR, { buildLabel, buildLine } from '@owlbear-rodeo/sdk'
+import { readHeroBgColor } from './heroColors.js'
+import { TRACKER_ITEM_META_KEY } from './participants.js'
 import {
   computeSchritt,
   formatSchrittWithClass,
@@ -6,7 +8,9 @@ import {
 } from './tokenDistance.js'
 
 const SPOKE_ID_PREFIX = 'vierpunkteins/dist-spoke/'
-const SPOKE_STROKE = '#64748b'
+export const SPOKE_COLOR_FALLBACK = '#9e9e9e'
+export const SPOKE_STROKE_WIDTH = 4
+const SPOKE_LABEL_BG_OPACITY = 0.88
 
 /** @type {Set<string>} */
 const lastSpokeOtherIds = new Set()
@@ -14,6 +18,13 @@ const lastSpokeOtherIds = new Set()
 /** @param {string} otherId @param {'line' | 'label'} kind */
 export function spokeItemId(otherId, kind) {
   return `${SPOKE_ID_PREFIX}${kind}/${otherId}`
+}
+
+/**
+ * @param {unknown} meta
+ */
+export function resolveSpokeColor(meta) {
+  return readHeroBgColor(meta) ?? SPOKE_COLOR_FALLBACK
 }
 
 /**
@@ -28,15 +39,16 @@ export function spokeLabelPosition(a, b) {
  * @param {{ x: number, y: number }} start
  * @param {{ x: number, y: number }} end
  * @param {string} otherId
+ * @param {string} color
  */
-function buildSpokeLine(start, end, otherId) {
+function buildSpokeLine(start, end, otherId, color) {
   return buildLine()
     .id(spokeItemId(otherId, 'line'))
     .startPosition(start)
     .endPosition(end)
-    .strokeColor(SPOKE_STROKE)
-    .strokeOpacity(0.75)
-    .strokeWidth(1)
+    .strokeColor(color)
+    .strokeOpacity(0.95)
+    .strokeWidth(SPOKE_STROKE_WIDTH)
     .layer('DRAWING')
     .locked(true)
     .disableHit(true)
@@ -49,14 +61,16 @@ function buildSpokeLine(start, end, otherId) {
  * @param {string} text
  * @param {{ x: number, y: number }} position
  * @param {string} otherId
+ * @param {string} color
  */
-function buildSpokeLabel(text, position, otherId) {
+function buildSpokeLabel(text, position, otherId, color) {
   return buildLabel()
     .id(spokeItemId(otherId, 'label'))
     .plainText(text)
     .position(position)
-    .backgroundColor('#1f2937')
-    .backgroundOpacity(0.8)
+    .fillColor('#111827')
+    .backgroundColor(color)
+    .backgroundOpacity(SPOKE_LABEL_BG_OPACITY)
     .layer('TEXT')
     .locked(true)
     .disableHit(true)
@@ -66,7 +80,7 @@ function buildSpokeLabel(text, position, otherId) {
 }
 
 /**
- * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} probeItem
+ * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} probeItem
  * @param {typeof probeItem[]} otherItems
  * @param {number} dpi
  * @param {number | null | undefined} classXSchritt
@@ -89,9 +103,11 @@ export async function showDistanceSpokesFor(
     const n = computeSchritt(probeItem, other, dpi)
     const text = formatSchrittWithClass(n, classXSchritt)
     if (!text) continue
-    items.push(buildSpokeLine(start, end, other.id))
+    const meta = other.metadata?.[TRACKER_ITEM_META_KEY]
+    const color = resolveSpokeColor(meta)
+    items.push(buildSpokeLine(start, end, other.id, color))
     items.push(
-      buildSpokeLabel(text, spokeLabelPosition(start, end), other.id)
+      buildSpokeLabel(text, spokeLabelPosition(start, end), other.id, color)
     )
     lastSpokeOtherIds.add(other.id)
   }
