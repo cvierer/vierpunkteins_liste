@@ -7,6 +7,7 @@ import {
 } from './convertLockViewer.js'
 import {
   collectSortedParticipants,
+  filterItemsForListViewer,
   getTokenListDisplayName,
   TRACKER_ITEM_META_KEY,
 } from './participants.js'
@@ -5250,9 +5251,17 @@ function bindStampContextRemove(el, stamp, items) {
       return
     }
     await flushOpenHeroExpandPanelsBeforeRemount()
-    lastItems = items
+    const listItems = filterItemsForListViewer(items ?? [], isGmSync())
+    if (
+      distanceProbeItemId &&
+      !listItems.some((i) => i.id === distanceProbeItemId)
+    ) {
+      distanceProbeItemId = null
+      void hideDistanceRings()
+    }
+    lastItems = listItems
     const tokenRows = collectSortedParticipants(
-      items,
+      listItems,
       getIniTieOrder(),
       getManualIniTieOverridePairs()
     )
@@ -5294,7 +5303,7 @@ function bindStampContextRemove(el, stamp, items) {
     const combatRoundForMerged = combat.started ? combat.round : null
     const merged = buildMergedDisplayRows(
       tokenRows,
-      items,
+      listItems,
       getIniTieOrder(),
       combatRoundForMerged
     )

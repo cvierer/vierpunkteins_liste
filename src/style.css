@@ -336,6 +336,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: rgba(233, 220, 200, 0.38);
   /* Kompaktheit ausgelegt auf ~18 Token-Zeilen im Extension-Panel ohne Listen-Scroll */
   /* Objektkästchen: --init-obj-cell von :root */
   --init-obj-gap: calc(0.16rem * var(--init-ui-scale));
@@ -392,6 +393,9 @@ body {
   margin-bottom: 0.06rem;
   flex-shrink: 0;
   border-bottom: 1px solid rgba(127, 127, 127, 0.22);
+  background: rgba(233, 220, 200, 0.42);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .kampf-h-spacer--swap {
@@ -495,6 +499,9 @@ body {
   overflow-y: auto;
   overflow-anchor: none;
   scrollbar-width: thin;
+  background: rgba(233, 220, 200, 0.42);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .initiative-list-scroll-inner {
@@ -591,6 +598,17 @@ body {
   min-height: 1.45rem;
   padding: 0.05rem 0.45rem 0.28rem;
   box-sizing: border-box;
+  background: rgba(233, 220, 200, 0.42);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .kampf-list-head,
+  .initiative-list-scroll,
+  .kampf-list-footer {
+    background: rgba(233, 220, 200, 0.88);
+  }
 }
 
 .kampf-settings-gear-host {

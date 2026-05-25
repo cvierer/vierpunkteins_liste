@@ -32,6 +32,20 @@ function readIbValue(meta) {
   return Number.isFinite(v) ? v : null
 }
 
+/** Owlbear-Sichtbarkeit: unsichtbare Tokens (`visible: false`) für Spieler ausblenden. */
+export function isSceneItemVisibleOnMap(item) {
+  return item != null && item.visible !== false
+}
+
+/**
+ * @param {unknown[]} items
+ * @param {boolean} isGm
+ */
+export function filterItemsForListViewer(items, isGm) {
+  if (isGm) return items
+  return items.filter((it) => isSceneItemVisibleOnMap(it))
+}
+
 /** Wie auf der Karte sichtbar: Token-Text (Beschriftung), sonst Item-Name. */
 export function getTokenListDisplayName(item) {
   if (isImage(item) || isLabel(item)) {
