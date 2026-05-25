@@ -1,4 +1,5 @@
 import OBR from '@owlbear-rodeo/sdk'
+import { tokenCenterScene } from './heroOrientationRingsOverlay.js'
 import { computeSchrittFromCenters, tokenCenter } from './tokenDistance.js'
 
 /** @typedef {'SQUARE' | 'HEX_VERTICAL' | 'HEX_HORIZONTAL' | 'DIMETRIC' | 'ISOMETRIC'} GridType */
@@ -21,11 +22,7 @@ const gridChangeListeners = new Set()
  */
 export function normalizeGridDistanceRaw(raw, measurement, dpi) {
   if (!Number.isFinite(raw)) return NaN
-  if (measurement === 'EUCLIDEAN') {
-    const d = Number(dpi)
-    if (!d || d <= 0) return NaN
-    return raw / d
-  }
+  void dpi
   return raw
 }
 
@@ -59,6 +56,30 @@ export async function getGridContext(options) {
 }
 
 /**
+ * Token-Mittelpunkt fuer Distanzmessung: Bounds → tokenCenterScene → tokenCenter.
+ * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
+ * @param {GridContext | null | undefined} [gridContext]
+ * @returns {Promise<{ x: number, y: number }>}
+ */
+export async function resolveDistanceCenter(item, gridContext) {
+  if (item?.id) {
+    try {
+      const bounds = await OBR.scene.items.getItemBounds([item.id])
+      if (bounds?.center) {
+        return bounds.center
+      }
+    } catch {
+      /* fallback */
+    }
+  }
+  const dpi = gridContext?.dpi ?? (await getGridContext())?.dpi
+  if (dpi && item) {
+    return tokenCenterScene(item, dpi)
+  }
+  return tokenCenter(item)
+}
+
+/**
  * @param {{ x: number, y: number }} a
  * @param {{ x: number, y: number }} b
  */
@@ -83,11 +104,16 @@ export async function computeGridSchrittFromCenters(a, b) {
 }
 
 /**
- * @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemA
+ * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemA
  * @param {typeof itemA} itemB
  */
 export async function computeGridSchritt(itemA, itemB) {
-  return computeGridSchrittFromCenters(tokenCenter(itemA), tokenCenter(itemB))
+  const ctx = await getGridContext()
+  const [a, b] = await Promise.all([
+    resolveDistanceCenter(itemA, ctx),
+    resolveDistanceCenter(itemB, ctx),
+  ])
+  return computeGridSchrittFromCenters(a, b)
 }
 
 /** @param {() => void} callback */

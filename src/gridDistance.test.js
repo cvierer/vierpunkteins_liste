@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { gridApi } = vi.hoisted(() => ({
+const { gridApi, itemsApi } = vi.hoisted(() => ({
   gridApi: {
     getDpi: vi.fn(),
     getMeasurement: vi.fn(),
@@ -8,12 +8,16 @@ const { gridApi } = vi.hoisted(() => ({
     getDistance: vi.fn(),
     onChange: vi.fn(() => () => {}),
   },
+  itemsApi: {
+    getItemBounds: vi.fn(),
+  },
 }))
 
 vi.mock('@owlbear-rodeo/sdk', () => ({
   default: {
     scene: {
       grid: gridApi,
+      items: itemsApi,
     },
   },
 }))
@@ -23,11 +27,13 @@ import {
   getGridContext,
   invalidateGridContextCache,
   normalizeGridDistanceRaw,
+  resolveDistanceCenter,
 } from './gridDistance.js'
 
 describe('normalizeGridDistanceRaw', () => {
-  it('teilt EUCLIDEAN-Rohwert durch dpi', () => {
-    expect(normalizeGridDistanceRaw(141.4, 'EUCLIDEAN', 100)).toBeCloseTo(1.414, 3)
+  it('liefert EUCLIDEAN-Rohwert unveraendert', () => {
+    expect(normalizeGridDistanceRaw(8, 'EUCLIDEAN', 100)).toBe(8)
+    expect(normalizeGridDistanceRaw(141.4, 'EUCLIDEAN', 100)).toBeCloseTo(141.4, 3)
   })
 
   it('liefert Zellwert direkt bei CHEBYSHEV', () => {
@@ -36,9 +42,25 @@ describe('normalizeGridDistanceRaw', () => {
     expect(normalizeGridDistanceRaw(3, 'ALTERNATING', 100)).toBe(3)
   })
 
-  it('liefert NaN bei ungueltigem Rohwert oder dpi in EUCLIDEAN', () => {
+  it('liefert NaN bei ungueltigem Rohwert', () => {
     expect(normalizeGridDistanceRaw(NaN, 'EUCLIDEAN', 100)).toBeNaN()
-    expect(normalizeGridDistanceRaw(100, 'EUCLIDEAN', 0)).toBeNaN()
+  })
+})
+
+describe('resolveDistanceCenter', () => {
+  beforeEach(() => {
+    invalidateGridContextCache()
+    gridApi.getDpi.mockResolvedValue(100)
+    itemsApi.getItemBounds.mockResolvedValue({ center: { x: 42, y: 84 } })
+  })
+
+  it('bevorzugt getItemBounds().center', async () => {
+    const center = await resolveDistanceCenter(
+      { id: 'tok-1', position: { x: 0, y: 0 }, width: 100, height: 100 },
+      { dpi: 100, measurement: 'EUCLIDEAN', type: 'SQUARE' }
+    )
+    expect(center).toEqual({ x: 42, y: 84 })
+    expect(itemsApi.getItemBounds).toHaveBeenCalledWith(['tok-1'])
   })
 })
 
@@ -63,15 +85,15 @@ describe('computeGridSchrittFromCenters', () => {
     expect(schritt).toBe(1)
   })
 
-  it('rechnet EUCLIDEAN in Schritt um', async () => {
+  it('liefert EUCLIDEAN-Schritt direkt aus getDistance', async () => {
     invalidateGridContextCache()
     gridApi.getMeasurement.mockResolvedValue('EUCLIDEAN')
-    gridApi.getDistance.mockResolvedValue(141.421356)
+    gridApi.getDistance.mockResolvedValue(8)
     const schritt = await computeGridSchrittFromCenters(
       { x: 0, y: 0 },
-      { x: 100, y: 100 }
+      { x: 800, y: 0 }
     )
-    expect(schritt).toBeCloseTo(1.414, 3)
+    expect(schritt).toBe(8)
   })
 
   it('faellt auf euklidische Berechnung zurueck wenn getDistance fehlschlaegt', async () => {

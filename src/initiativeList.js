@@ -39,6 +39,7 @@ import {
   getGridContext,
   initGridDistance,
   onGridDistanceChange,
+  resolveDistanceCenter,
 } from './gridDistance.js'
 import { hideDistanceRings, showDistanceRingsFor } from './distanceRingsOverlay.js'
 import {
@@ -3005,11 +3006,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
     distanceProbeItemId = itemId
     const probeAtDown = lastItems.find((i) => i.id === itemId)
+    const gridContext = await getGridContext({ forceRefresh: true })
     distanceProbeDragStart = probeAtDown
-      ? { ...tokenCenter(probeAtDown) }
+      ? { ...(await resolveDistanceCenter(probeAtDown, gridContext)) }
       : null
     applyDistanceOverlay()
-    const gridContext = await getGridContext({ forceRefresh: true })
     const item = lastItems.find((i) => i.id === itemId)
     if (!item || !gridContext) return
     await refreshDistanceProbeRings()

@@ -92,6 +92,8 @@ import {
   hexRingDirections,
   hexRingRotation,
   isHexGridType,
+  isIsoGridType,
+  isoRingDirections,
   manhattanDiamondVertices,
   manhattanRingVerticesFromObr,
   MOVEMENT_RING_SPECS,
@@ -114,20 +116,25 @@ describe('ringShapePosition', () => {
 })
 
 describe('hexRingRotation', () => {
-  it('liefert 0 fuer HEX_HORIZONTAL und 90 fuer HEX_VERTICAL', () => {
-    expect(hexRingRotation('HEX_HORIZONTAL')).toBe(0)
-    expect(hexRingRotation('HEX_VERTICAL')).toBe(90)
+  it('liefert 90 fuer HEX_HORIZONTAL und 0 fuer HEX_VERTICAL', () => {
+    expect(hexRingRotation('HEX_HORIZONTAL')).toBe(90)
+    expect(hexRingRotation('HEX_VERTICAL')).toBe(0)
   })
 })
 
 describe('hexRingDirections', () => {
-  it('liefert 6 Richtungen je GridType', () => {
+  it('liefert 6 Richtungen mit N als erste fuer beide Hex-Typen', () => {
     expect(hexRingDirections('HEX_VERTICAL')).toHaveLength(6)
     expect(hexRingDirections('HEX_HORIZONTAL')).toHaveLength(6)
     expect(hexRingDirections('HEX_HORIZONTAL')[0]).toEqual({ x: 0, y: -1 })
-    const v = hexRingDirections('HEX_VERTICAL')[0]
-    expect(v.x).toBeCloseTo(0.5, 5)
-    expect(v.y).toBeCloseTo(-Math.sqrt(3) / 2, 5)
+    expect(hexRingDirections('HEX_VERTICAL')[0]).toEqual({ x: 0, y: -1 })
+  })
+})
+
+describe('isoRingDirections', () => {
+  it('liefert 4 Iso-Achsen fuer ISOMETRIC und DIMETRIC', () => {
+    expect(isoRingDirections('ISOMETRIC')).toHaveLength(4)
+    expect(isoRingDirections('DIMETRIC')).toHaveLength(4)
   })
 })
 
@@ -181,6 +188,46 @@ describe('buildRingOutlineItemsAsync', () => {
     expect(items).toHaveLength(6)
     expect(lineBuildCount.value).toBe(6)
     expect(shapeBuilderState.lastShapeType).toBeNull()
+  })
+
+  it('ALTERNATING SQUARE: 8 Linien-Oktagon, kein Rechteck', async () => {
+    const { items } = await buildRingOutlineItemsAsync(
+      center,
+      100,
+      8,
+      'm1',
+      '#3d8fd1',
+      { dpi: 100, measurement: 'ALTERNATING', type: 'SQUARE' }
+    )
+    expect(items).toHaveLength(8)
+    expect(lineBuildCount.value).toBe(8)
+    expect(shapeBuilderState.lastShapeType).toBeNull()
+  })
+
+  it('ISOMETRIC CHEBYSHEV: 4 Linien, kein Rechteck', async () => {
+    const { items } = await buildRingOutlineItemsAsync(
+      center,
+      100,
+      8,
+      'm1',
+      '#3d8fd1',
+      { dpi: 100, measurement: 'CHEBYSHEV', type: 'ISOMETRIC' }
+    )
+    expect(items).toHaveLength(4)
+    expect(lineBuildCount.value).toBe(4)
+    expect(shapeBuilderState.lastShapeType).toBeNull()
+  })
+})
+
+describe('isIsoGridType', () => {
+  it('erkennt Iso- und Dimetric-Gitter', () => {
+    expect(isIsoGridType({ dpi: 100, measurement: 'CHEBYSHEV', type: 'ISOMETRIC' })).toBe(
+      true
+    )
+    expect(isIsoGridType({ dpi: 100, measurement: 'CHEBYSHEV', type: 'DIMETRIC' })).toBe(
+      true
+    )
+    expect(isIsoGridType({ dpi: 100, measurement: 'CHEBYSHEV', type: 'SQUARE' })).toBe(false)
   })
 })
 

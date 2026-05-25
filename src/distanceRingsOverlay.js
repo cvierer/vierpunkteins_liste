@@ -1,13 +1,16 @@
 import OBR, { buildLabel, buildLine, buildShape } from '@owlbear-rodeo/sdk'
-import { getGridContext, normalizeGridDistanceRaw } from './gridDistance.js'
-import { tokenCenterScene } from './heroOrientationRingsOverlay.js'
+import {
+  getGridContext,
+  normalizeGridDistanceRaw,
+  resolveDistanceCenter,
+} from './gridDistance.js'
 import {
   defaultDistRingVisible,
   isClassRingVisible,
   isCustomRingsEnabled,
   isMovementRingVisible,
 } from './heroDistRingPrefs.js'
-import { DIST_CLASS_THRESHOLDS, tokenCenter } from './tokenDistance.js'
+import { DIST_CLASS_THRESHOLDS } from './tokenDistance.js'
 
 const RING_ID_PREFIX = 'vierpunkteins/dist-ring/'
 
@@ -79,9 +82,9 @@ export function isHexGridType(gridContext) {
   )
 }
 
-/** @param {import('./gridDistance.js').GridType} gridType */
-export function hexRingDirections(gridType) {
-  const startDeg = gridType === 'HEX_HORIZONTAL' ? 0 : 30
+/** @param {import('./gridDistance.js').GridType} [_gridType] */
+export function hexRingDirections(_gridType) {
+  const startDeg = 0
   /** @type {{ x: number, y: number }[]} */
   const dirs = []
   for (let i = 0; i < 6; i++) {
@@ -89,6 +92,75 @@ export function hexRingDirections(gridType) {
     dirs.push({ x: Math.sin(rad), y: -Math.cos(rad) })
   }
   return dirs
+}
+
+/**
+ * @param {import('./gridDistance.js').GridContext} gridContext
+ */
+export function isIsoGridType(gridContext) {
+  return gridContext.type === 'ISOMETRIC' || gridContext.type === 'DIMETRIC'
+}
+
+/** @param {import('./gridDistance.js').GridType} gridType */
+export function isoRingDirections(gridType) {
+  const baseDeg = gridType === 'DIMETRIC' ? 26.56505117707799 : 30
+  const angles = [baseDeg, 180 - baseDeg, 180 + baseDeg, 360 - baseDeg]
+  return angles.map((deg) => {
+    const rad = (deg * Math.PI) / 180
+    return { x: Math.sin(rad), y: -Math.cos(rad) }
+  })
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number} schritt
+ * @param {number} dpi
+ * @param {import('./gridDistance.js').GridType} gridType
+ * @param {import('./gridDistance.js').GridMeasurement} measurement
+ */
+export async function isoRingVerticesFromObr(center, schritt, dpi, gridType, measurement) {
+  const dirs = isoRingDirections(gridType)
+  /** @type {{ x: number, y: number }[]} */
+  const verts = []
+  for (const dir of dirs) {
+    verts.push(
+      await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
+        const raw = await OBR.scene.grid.getDistance(from, to)
+        return normalizeGridDistanceRaw(raw, measurement, dpi)
+      })
+    )
+  }
+  return verts
+}
+
+export function alternatingRingDirections() {
+  /** @type {{ x: number, y: number }[]} */
+  const dirs = []
+  for (let i = 0; i < 8; i++) {
+    const rad = (i * 45 * Math.PI) / 180
+    dirs.push({ x: Math.sin(rad), y: -Math.cos(rad) })
+  }
+  return dirs
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number} schritt
+ * @param {number} dpi
+ */
+export async function alternatingRingVerticesFromObr(center, schritt, dpi) {
+  const dirs = alternatingRingDirections()
+  /** @type {{ x: number, y: number }[]} */
+  const verts = []
+  for (const dir of dirs) {
+    verts.push(
+      await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
+        const raw = await OBR.scene.grid.getDistance(from, to)
+        return normalizeGridDistanceRaw(raw, 'ALTERNATING', dpi)
+      })
+    )
+  }
+  return verts
 }
 
 /**
@@ -192,8 +264,8 @@ function buildCalibratedRingEdges(pts, code, color) {
 
 /** @param {import('./gridDistance.js').GridType} gridType */
 export function hexRingRotation(gridType) {
-  if (gridType === 'HEX_HORIZONTAL') return 0
-  if (gridType === 'HEX_VERTICAL') return 90
+  if (gridType === 'HEX_HORIZONTAL') return 90
+  if (gridType === 'HEX_VERTICAL') return 0
   return 0
 }
 
@@ -355,6 +427,26 @@ export async function buildRingOutlineItemsAsync(
     }
   }
 
+  if (measurement === 'ALTERNATING' && type === 'SQUARE') {
+    const pts = await alternatingRingVerticesFromObr(center, schritt, dpi)
+    return {
+      items: buildCalibratedRingEdges(pts, code, color),
+      labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
+    }
+  }
+
+  if (
+    measurement !== 'EUCLIDEAN' &&
+    measurement !== 'MANHATTAN' &&
+    isIsoGridType(gridContext)
+  ) {
+    const pts = await isoRingVerticesFromObr(center, schritt, dpi, type, measurement)
+    return {
+      items: buildCalibratedRingEdges(pts, code, color),
+      labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
+    }
+  }
+
   if (measurement === 'CHEBYSHEV' || measurement === 'ALTERNATING') {
     const diameter = r * 2
     return {
@@ -480,35 +572,13 @@ export function buildRingOutlineItems(center, r, code, color, gridContext) {
 }
 
 /**
- * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
- * @returns {Promise<{ x: number, y: number }>}
- */
-async function resolveTokenRingCenter(item, gridContext) {
-  if (item?.id) {
-    try {
-      const bounds = await OBR.scene.items.getItemBounds([item.id])
-      if (bounds?.center) {
-        return bounds.center
-      }
-    } catch {
-      /* fallback */
-    }
-  }
-  const dpi = gridContext?.dpi
-  if (dpi && item) {
-    return tokenCenterScene(item, dpi)
-  }
-  return tokenCenter(item)
-}
-
-/**
  * Ring-Mittelpunkt: EUCLIDEAN/MANHATTAN = Token-Bounds; CHEBYSHEV/ALTERNATING = Grid-Snap.
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
  * @param {import('./gridDistance.js').GridContext} gridContext
  * @returns {Promise<{ x: number, y: number }>}
  */
 export async function resolveRingCenter(item, gridContext) {
-  const center = await resolveTokenRingCenter(item, gridContext)
+  const center = await resolveDistanceCenter(item, gridContext)
   if (
     gridContext.measurement === 'EUCLIDEAN' ||
     gridContext.measurement === 'MANHATTAN'
