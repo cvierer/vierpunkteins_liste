@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   combatOverlayKey,
+  MAP_PRIMARY_ICON_H,
+  MAP_PRIMARY_ICON_W,
   primaryKindSvgMarkup,
   resolvePrimaryKindForNav,
 } from './krPrimaryKindIcons.js'
@@ -57,6 +59,13 @@ describe('primaryKindSvgMarkup', () => {
 
   it('uo enthält UO-Pfeil-Klasse', () => {
     expect(primaryKindSvgMarkup('uo')).toContain('init-kr-uo-convert-arrow')
+  })
+})
+
+describe('MAP_PRIMARY_ICON dimensions', () => {
+  it('entspricht viewBox 24:34 skaliert', () => {
+    expect(MAP_PRIMARY_ICON_W).toBe(48)
+    expect(MAP_PRIMARY_ICON_H).toBe(68)
   })
 })
 

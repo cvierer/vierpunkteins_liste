@@ -4,7 +4,9 @@ import { isGmSync } from './editAccess.js'
 import {
   combatOverlayKey,
   KIND_LABEL,
-  primaryKindSvgDataUrl,
+  MAP_PRIMARY_ICON_H,
+  MAP_PRIMARY_ICON_W,
+  primaryKindPngDataUrl,
   resolvePrimaryKindForNav,
 } from './krPrimaryKindIcons.js'
 import {
@@ -18,9 +20,9 @@ import { TRACKER_ITEM_META_KEY } from './participants.js'
 export const TURN_ACTION_LABEL_ID = 'vierpunkteins/turn-action-label'
 const TURN_ACTION_LABEL_META = 'vierpunkteins_kampf.turnActionLabel'
 
-const ICON_W = 32
-const ICON_H = 46
-const ICON_GAP = 8
+const ICON_W = MAP_PRIMARY_ICON_W
+const ICON_H = MAP_PRIMARY_ICON_H
+const ICON_GAP = 10
 
 export { KIND_LABEL }
 
@@ -101,17 +103,16 @@ async function resolveIconPosition(tokenId) {
  * @param {import('@owlbear-rodeo/sdk').Item} tokenItem
  * @param {{ x: number, y: number }} position
  * @param {number} dpi
+ * @param {string} url
  */
-function buildTurnActionImageItem(kind, tokenItem, position, dpi) {
-  const url = primaryKindSvgDataUrl(kind)
+function buildTurnActionImageItem(kind, tokenItem, position, dpi, url) {
   const label = KIND_LABEL[kind] ?? 'Aktion'
   return buildImage(
-    { width: ICON_W, height: ICON_H, url, mime: 'image/svg+xml' },
-    { dpi, offset: { x: ICON_W / 2, y: ICON_H / 2 } }
+    { width: ICON_W, height: ICON_H, url, mime: 'image/png' },
+    { dpi, offset: { x: 0, y: 0 } }
   )
     .id(TURN_ACTION_LABEL_ID)
     .position(position)
-    .attachedTo(tokenItem.id)
     .layer('TEXT')
     .locked(true)
     .disableHit(true)
@@ -189,25 +190,30 @@ async function refreshTurnActionLabel(itemsIn) {
     await deleteTurnActionLabelIfPresent(items)
     return
   }
+  const pngUrl = await primaryKindPngDataUrl(kind)
+  if (!pngUrl) {
+    console.warn('[vierpunkteins_kampf] Aktions-Icon Raster fehlgeschlagen', kind)
+    return
+  }
   const position =
     (await resolveIconPosition(target.ownerId)) ??
     tokenItem.position ??
     { x: 0, y: 0 }
   const dpi = await sceneDpi()
-  const imageItem = buildTurnActionImageItem(kind, tokenItem, position, dpi)
+  const imageItem = buildTurnActionImageItem(
+    kind,
+    tokenItem,
+    position,
+    dpi,
+    pngUrl
+  )
   const existing = items.find((i) => i.id === TURN_ACTION_LABEL_ID)
   const ownerChanged =
-    lastOverlayOwnerId !== '' &&
-    lastOverlayOwnerId !== target.ownerId
+    lastOverlayOwnerId !== '' && lastOverlayOwnerId !== target.ownerId
   const keyChanged = lastOverlayKey !== '' && lastOverlayKey !== overlayKey
-  const attachedMismatch =
-    existing?.attachedTo != null && existing.attachedTo !== target.ownerId
 
   try {
-    if (
-      existing &&
-      (ownerChanged || keyChanged || attachedMismatch)
-    ) {
+    if (existing && (ownerChanged || keyChanged)) {
       await OBR.scene.items.deleteItems([TURN_ACTION_LABEL_ID])
       await OBR.scene.items.addItems([imageItem])
     } else if (existing) {
@@ -220,7 +226,6 @@ async function refreshTurnActionLabel(itemsIn) {
             d.image.height = imageItem.image.height
           }
           d.position = imageItem.position
-          d.attachedTo = imageItem.attachedTo
           d.visible = imageItem.visible
           d.name = imageItem.name
           d.metadata = imageItem.metadata

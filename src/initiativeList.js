@@ -33,6 +33,10 @@ import { setTrackedParticipantIds } from './listState.js'
 import { computeSchritt, formatSchrittWithClass } from './tokenDistance.js'
 import { hideDistanceRings, showDistanceRingsFor } from './distanceRingsOverlay.js'
 import {
+  hideDistanceSpokes,
+  showDistanceSpokesFor,
+} from './distanceSpokesOverlay.js'
+import {
   buildCustomDistRingSpecs,
   CUSTOM_DIST_MAX_BANDS,
   CUSTOM_DIST_MAX_PROFILES,
@@ -2868,6 +2872,25 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     })
   }
 
+  async function refreshDistanceProbeMapOverlays() {
+    if (!distanceProbeItemId || distanceProbeDpi == null) return
+    const probeItem = lastItems.find((i) => i.id === distanceProbeItemId)
+    if (!probeItem) return
+    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
+    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
+    const others = lastItems.filter(
+      (i) =>
+        i.id !== distanceProbeItemId &&
+        i.metadata?.[TRACKER_ITEM_META_KEY] != null
+    )
+    await showDistanceSpokesFor(
+      probeItem,
+      others,
+      distanceProbeDpi,
+      probeXSchritt
+    )
+  }
+
   function applyDistanceOverlay() {
     const all = element.querySelectorAll('.init-dist-cell')
     if (!distanceProbeItemId) {
@@ -2938,6 +2961,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           ringVisible,
           classXSchritt
         )
+        const others = lastItems.filter(
+          (i) =>
+            i.id !== itemId && i.metadata?.[TRACKER_ITEM_META_KEY] != null
+        )
+        void showDistanceSpokesFor(
+          item,
+          others,
+          dpi,
+          classXSchritt
+        )
       })
       applyDistanceOverlay()
     })
@@ -2945,6 +2978,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       distanceProbeItemId = null
       applyDistanceOverlay()
       void hideDistanceRings()
+      void hideDistanceSpokes()
     }
     cell.addEventListener('pointerup', release)
     cell.addEventListener('pointercancel', release)
@@ -5263,6 +5297,7 @@ function bindStampContextRemove(el, stamp, items) {
     ) {
       distanceProbeItemId = null
       void hideDistanceRings()
+      void hideDistanceSpokes()
     }
     lastItems = listItems
     const tokenRows = collectSortedParticipants(
@@ -6693,6 +6728,12 @@ function bindStampContextRemove(el, stamp, items) {
       applyDistanceOverlay()
     } catch (err) {
       console.error('[vierpunkteins] applyDistanceOverlay failed', err)
+    }
+
+    if (distanceProbeItemId) {
+      void refreshDistanceProbeMapOverlays().catch((err) => {
+        console.error('[vierpunkteins] distance spokes refresh failed', err)
+      })
     }
 
     onListChange?.(items)

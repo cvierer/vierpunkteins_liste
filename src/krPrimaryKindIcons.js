@@ -1,5 +1,9 @@
 import { readKrFirstSlotKind, readZaoSlot } from './krCounters.js'
 import { normalizePhases } from './phaseLinks.js'
+import { rasterizeSvgToPngDataUrl } from './svgRaster.js'
+
+export const MAP_PRIMARY_ICON_W = 48
+export const MAP_PRIMARY_ICON_H = 68
 
 export const SVG_PRIMARY_LH_STAR = `<svg class="init-kr-primary-kind__svg init-kr-primary-kind__svg--lh" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 34" aria-hidden="true"><path fill="#5d4037" d="M12 5l3.35 6.95 7.55.55-5.75 4.95 1.8 7.4L12 21.05 5.05 24.85l1.8-7.4L1.1 12.5l7.55-.55z"/><path fill="#0c2e24" d="M12 6.45 14.85 12.4l6.55.5-4.95 4.25 1.55 6.45L12 20.2 5.95 23.6l1.55-6.45L2.6 12.9l6.55-.5z"/><path fill="#1f6b4a" d="M12 8 14.45 13l5.65.45-4.3 3.7 1.35 5.55L12 19.5l-5.15 3.2 1.35-5.55-4.3-3.7 5.65-.45z"/><path fill="#3a9d6e" d="M12 9.65 13.95 13.7l4.6.35-3.55 3.05 1.1 4.55L12 19l-4.1 2.6 1.1-4.55-3.55-3.05 4.6-.35z"/><circle cx="12" cy="14.95" r="1.55" fill="#b8860b"/><circle cx="12" cy="14.95" r="0.85" fill="#fffde7"/><path fill="none" stroke="#3e2723" stroke-width="0.45" stroke-linejoin="round" d="M12 5l3.35 6.95 7.55.55-5.75 4.95 1.8 7.4L12 21.05 5.05 24.85l1.8-7.4L1.1 12.5l7.55-.55z"/></svg>`
 
@@ -72,4 +76,20 @@ export function primaryKindSvgMarkup(kind) {
 export function primaryKindSvgDataUrl(kind) {
   const svg = primaryKindSvgMarkup(kind)
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+/**
+ * PNG-Data-URL für OBR-Map-Overlay (zuverlässiger als SVG).
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
+ * @param {number} [width]
+ * @param {number} [height]
+ * @returns {Promise<string | null>}
+ */
+export async function primaryKindPngDataUrl(
+  kind,
+  width = MAP_PRIMARY_ICON_W,
+  height = MAP_PRIMARY_ICON_H
+) {
+  const svg = primaryKindSvgMarkup(kind)
+  return rasterizeSvgToPngDataUrl(svg, width, height)
 }
