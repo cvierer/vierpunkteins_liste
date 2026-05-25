@@ -1,9 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import {
   circleTopLeftForCenter,
+  isHexGridType,
+  manhattanDiamondVertices,
   MOVEMENT_RING_SPECS,
   ringRadiusPx,
 } from './distanceRingsOverlay.js'
+
+describe('isHexGridType', () => {
+  it('erkennt Hex-Gitter', () => {
+    expect(isHexGridType({ dpi: 100, measurement: 'CHEBYSHEV', type: 'HEX_VERTICAL' })).toBe(
+      true
+    )
+    expect(isHexGridType({ dpi: 100, measurement: 'CHEBYSHEV', type: 'HEX_HORIZONTAL' })).toBe(
+      true
+    )
+    expect(isHexGridType({ dpi: 100, measurement: 'CHEBYSHEV', type: 'SQUARE' })).toBe(false)
+  })
+})
+
+describe('manhattanDiamondVertices', () => {
+  it('liefert Raute um den Mittelpunkt', () => {
+    expect(manhattanDiamondVertices({ x: 50, y: 50 }, 10)).toEqual([
+      { x: 50, y: 40 },
+      { x: 60, y: 50 },
+      { x: 50, y: 60 },
+      { x: 40, y: 50 },
+    ])
+  })
+})
 
 describe('ringRadiusPx', () => {
   it('rechnet threshold-Schritt in px vom Mittelpunkt', () => {

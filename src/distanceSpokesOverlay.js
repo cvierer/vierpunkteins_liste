@@ -1,12 +1,8 @@
 import OBR, { buildLabel, buildLine } from '@owlbear-rodeo/sdk'
+import { computeGridSchritt, computeGridSchrittFromCenters } from './gridDistance.js'
 import { readHeroBgColor } from './heroColors.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
-import {
-  computeSchritt,
-  computeSchrittFromCenters,
-  formatSchrittWithClass,
-  tokenCenter,
-} from './tokenDistance.js'
+import { formatSchrittWithClass, tokenCenter } from './tokenDistance.js'
 
 const SPOKE_ID_PREFIX = 'vierpunkteins/dist-spoke/'
 export const MOVEMENT_SPOKE_LINE_ID = `${SPOKE_ID_PREFIX}move/line`
@@ -118,21 +114,19 @@ export async function hideDistanceMovementLine() {
 /**
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} probeItem
  * @param {{ x: number, y: number } | null | undefined} dragStartCenter
- * @param {number} dpi
  * @param {number | null | undefined} classXSchritt
  */
 export async function syncDistanceMovementLine(
   probeItem,
   dragStartCenter,
-  dpi,
   classXSchritt = null
 ) {
-  if (!probeItem || !dragStartCenter || !Number.isFinite(dpi) || dpi <= 0) {
+  if (!probeItem || !dragStartCenter) {
     await hideDistanceMovementLine()
     return
   }
   const end = tokenCenter(probeItem)
-  const schritt = computeSchrittFromCenters(dragStartCenter, end, dpi)
+  const schritt = await computeGridSchrittFromCenters(dragStartCenter, end)
   if (!shouldShowMovementSpoke(schritt)) {
     await hideDistanceMovementLine()
     return
@@ -159,39 +153,46 @@ export async function syncDistanceMovementLine(
 /**
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} probeItem
  * @param {typeof probeItem[]} otherItems
- * @param {number} dpi
  * @param {number | null | undefined} classXSchritt
  */
 export async function showDistanceSpokesFor(
   probeItem,
   otherItems,
-  dpi,
   classXSchritt = null
 ) {
-  if (!probeItem || !Number.isFinite(dpi) || dpi <= 0) return
+  if (!probeItem) return
   await hideOtherDistanceSpokes()
   const start = tokenCenter(probeItem)
   /** @type {import('@owlbear-rodeo/sdk').Item[]} */
   const items = []
   lastSpokeOtherIds.clear()
-  for (const other of otherItems) {
-    if (!other?.id || other.id === probeItem.id) continue
-    const end = tokenCenter(other)
-    const n = computeSchritt(probeItem, other, dpi)
-    const text = formatSchrittWithClass(n, classXSchritt)
-    if (!text) continue
-    const meta = other.metadata?.[TRACKER_ITEM_META_KEY]
-    const color = resolveSpokeColor(meta)
-    items.push(buildSpokeLine(start, end, spokeItemId(other.id, 'line'), color))
-    items.push(
-      buildSpokeLabel(
-        text,
-        spokeLabelPosition(start, end),
-        spokeItemId(other.id, 'label'),
-        color
-      )
-    )
-    lastSpokeOtherIds.add(other.id)
+  const spokePairs = await Promise.all(
+    otherItems.map(async (other) => {
+      if (!other?.id || other.id === probeItem.id) return null
+      const end = tokenCenter(other)
+      const n = await computeGridSchritt(probeItem, other)
+      const text = formatSchrittWithClass(n, classXSchritt)
+      if (!text) return null
+      const meta = other.metadata?.[TRACKER_ITEM_META_KEY]
+      const color = resolveSpokeColor(meta)
+      return {
+        otherId: other.id,
+        items: [
+          buildSpokeLine(start, end, spokeItemId(other.id, 'line'), color),
+          buildSpokeLabel(
+            text,
+            spokeLabelPosition(start, end),
+            spokeItemId(other.id, 'label'),
+            color
+          ),
+        ],
+      }
+    })
+  )
+  for (const pair of spokePairs) {
+    if (!pair) continue
+    items.push(...pair.items)
+    lastSpokeOtherIds.add(pair.otherId)
   }
   if (items.length === 0) return
   await OBR.scene.local.addItems(items)

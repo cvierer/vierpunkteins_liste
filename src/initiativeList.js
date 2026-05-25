@@ -31,10 +31,15 @@ import {
 } from './manualIniTieOverrides.js'
 import { setTrackedParticipantIds } from './listState.js'
 import {
-  computeSchritt,
   formatSchrittWithClass,
   tokenCenter,
 } from './tokenDistance.js'
+import {
+  computeGridSchritt,
+  getGridContext,
+  initGridDistance,
+  onGridDistanceChange,
+} from './gridDistance.js'
 import { hideDistanceRings, showDistanceRingsFor } from './distanceRingsOverlay.js'
 import {
   hideDistanceSpokes,
@@ -2841,9 +2846,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let lastTurnScrollKey = ''
 
   let distanceProbeItemId = null
-  let distanceProbeDpi = null
   /** @type {{ x: number, y: number } | null} */
   let distanceProbeDragStart = null
+
+  initGridDistance()
 
   const DIST_PROBE_EYE_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
@@ -2851,15 +2857,110 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const DIST_CELL_TARGET_SVG =
     '<svg class="init-dist-cell__target-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="5.5" opacity="0.5"/><circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.25"/></svg>'
 
-  async function ensureDistanceDpi() {
-    if (distanceProbeDpi != null) return distanceProbeDpi
-    try {
-      distanceProbeDpi = await OBR.scene.grid.getDpi()
-    } catch {
-      distanceProbeDpi = null
-    }
-    return distanceProbeDpi
+  async function refreshDistanceProbeRings() {
+    if (!distanceProbeItemId) return
+    const item = lastItems.find((i) => i.id === distanceProbeItemId)
+    const gridContext = await getGridContext()
+    if (!item || !gridContext) return
+    const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
+    const combat = getCombat()
+    const gsSchritt = meta
+      ? readHeroGsSchritt(meta, {
+          ownerIni: readOwnerIniReferenceForMods(meta),
+          navIni: currentNavIniForRender,
+          round: combat.started ? combat.round : null,
+        })
+      : null
+    const ringVisible = meta ? readDistRingVisible(meta) : defaultDistRingVisible()
+    const customRingSpecs =
+      meta && ringVisible.custom
+        ? buildCustomDistRingSpecs(readCustomDistProfiles(meta))
+        : []
+    const classXSchritt = meta ? readHeroDistClassXSchritt(meta) : null
+    await showDistanceRingsFor(
+      item,
+      gsSchritt,
+      customRingSpecs,
+      ringVisible,
+      classXSchritt
+    )
   }
+
+  async function refreshDistanceProbeMapOverlays() {
+    if (!distanceProbeItemId) return
+    const probeItem = lastItems.find((i) => i.id === distanceProbeItemId)
+    if (!probeItem) return
+    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
+    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
+    const others = lastItems.filter(
+      (i) =>
+        i.id !== distanceProbeItemId &&
+        i.metadata?.[TRACKER_ITEM_META_KEY] != null
+    )
+    await showDistanceSpokesFor(probeItem, others, probeXSchritt)
+    await syncDistanceMovementLine(
+      probeItem,
+      distanceProbeDragStart,
+      probeXSchritt
+    )
+  }
+
+  async function applyDistanceOverlayAsync() {
+    const all = element.querySelectorAll('.init-dist-cell')
+    if (!distanceProbeItemId) {
+      all.forEach((c) => {
+        c.classList.remove('init-dist-cell--probe', 'init-dist-cell--target')
+        applyDistCellIdleState(c)
+      })
+      return
+    }
+    const probeItem = lastItems.find((i) => i.id === distanceProbeItemId)
+    const probeMeta = probeItem?.metadata?.[TRACKER_ITEM_META_KEY]
+    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
+    /** @type {Promise<void>[]} */
+    const pending = []
+    all.forEach((c) => {
+      const id = c.dataset.distCellItemId
+      const valEl = c.querySelector('.init-dist-cell__value')
+      if (!valEl) return
+      if (id === distanceProbeItemId) {
+        c.classList.add('init-dist-cell--probe')
+        c.classList.remove('init-dist-cell--target', 'init-dist-cell--idle-rings')
+        valEl.innerHTML = DIST_PROBE_EYE_SVG
+      } else {
+        const other = lastItems.find((i) => i.id === id)
+        if (!probeItem || !other) {
+          applyDistCellIdleState(c)
+          return
+        }
+        c.classList.remove('init-dist-cell--probe', 'init-dist-cell--idle-rings')
+        c.classList.add('init-dist-cell--target')
+        pending.push(
+          computeGridSchritt(probeItem, other).then((n) => {
+            valEl.textContent = formatSchrittWithClass(n, probeXSchritt)
+          })
+        )
+      }
+    })
+    await Promise.all(pending)
+  }
+
+  function applyDistanceOverlay() {
+    void applyDistanceOverlayAsync().catch((err) => {
+      console.error('[vierpunkteins] applyDistanceOverlay failed', err)
+    })
+  }
+
+  onGridDistanceChange(() => {
+    if (!distanceProbeItemId) return
+    applyDistanceOverlay()
+    void refreshDistanceProbeMapOverlays().catch((err) => {
+      console.error('[vierpunkteins] distance spokes refresh failed', err)
+    })
+    void refreshDistanceProbeRings().catch((err) => {
+      console.error('[vierpunkteins] distance rings refresh failed', err)
+    })
+  })
 
   function applyDistCellIdleState(cell) {
     const valEl = cell.querySelector('.init-dist-cell__value')
@@ -2889,65 +2990,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     })
   }
 
-  async function refreshDistanceProbeMapOverlays() {
-    if (!distanceProbeItemId || distanceProbeDpi == null) return
-    const probeItem = lastItems.find((i) => i.id === distanceProbeItemId)
-    if (!probeItem) return
-    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
-    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
-    const others = lastItems.filter(
-      (i) =>
-        i.id !== distanceProbeItemId &&
-        i.metadata?.[TRACKER_ITEM_META_KEY] != null
-    )
-    await showDistanceSpokesFor(
-      probeItem,
-      others,
-      distanceProbeDpi,
-      probeXSchritt
-    )
-    await syncDistanceMovementLine(
-      probeItem,
-      distanceProbeDragStart,
-      distanceProbeDpi,
-      probeXSchritt
-    )
-  }
-
-  function applyDistanceOverlay() {
-    const all = element.querySelectorAll('.init-dist-cell')
-    if (!distanceProbeItemId) {
-      all.forEach((c) => {
-        c.classList.remove('init-dist-cell--probe', 'init-dist-cell--target')
-        applyDistCellIdleState(c)
-      })
-      return
-    }
-    const probeItem = lastItems.find((i) => i.id === distanceProbeItemId)
-    const probeMeta = probeItem?.metadata?.[TRACKER_ITEM_META_KEY]
-    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
-    all.forEach((c) => {
-      const id = c.dataset.distCellItemId
-      const valEl = c.querySelector('.init-dist-cell__value')
-      if (!valEl) return
-      if (id === distanceProbeItemId) {
-        c.classList.add('init-dist-cell--probe')
-        c.classList.remove('init-dist-cell--target', 'init-dist-cell--idle-rings')
-        valEl.innerHTML = DIST_PROBE_EYE_SVG
-      } else {
-        const other = lastItems.find((i) => i.id === id)
-        if (!probeItem || !other) {
-          applyDistCellIdleState(c)
-          return
-        }
-        const n = computeSchritt(probeItem, other, distanceProbeDpi)
-        c.classList.remove('init-dist-cell--probe', 'init-dist-cell--idle-rings')
-        c.classList.add('init-dist-cell--target')
-        valEl.textContent = formatSchrittWithClass(n, probeXSchritt)
-      }
-    })
-  }
-
   function deactivateDistanceProbe() {
     distanceProbeItemId = null
     distanceProbeDragStart = null
@@ -2967,32 +3009,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       ? { ...tokenCenter(probeAtDown) }
       : null
     applyDistanceOverlay()
-    const dpi = await ensureDistanceDpi()
+    const gridContext = await getGridContext()
     const item = lastItems.find((i) => i.id === itemId)
-    if (!item || !dpi) return
-    const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
-    const combat = getCombat()
-    const gsSchritt = meta
-      ? readHeroGsSchritt(meta, {
-          ownerIni: readOwnerIniReferenceForMods(meta),
-          navIni: currentNavIniForRender,
-          round: combat.started ? combat.round : null,
-        })
-      : null
-    const ringVisible = meta ? readDistRingVisible(meta) : defaultDistRingVisible()
-    const customRingSpecs =
-      meta && ringVisible.custom
-        ? buildCustomDistRingSpecs(readCustomDistProfiles(meta))
-        : []
-    const classXSchritt = meta ? readHeroDistClassXSchritt(meta) : null
-    await showDistanceRingsFor(
-      item,
-      dpi,
-      gsSchritt,
-      customRingSpecs,
-      ringVisible,
-      classXSchritt
-    )
+    if (!item || !gridContext) return
+    await refreshDistanceProbeRings()
     await refreshDistanceProbeMapOverlays()
   }
 

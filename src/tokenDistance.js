@@ -1,4 +1,4 @@
-/** DSA-Distanzklassen-Schwellen (Schritt, Mittelpunkt-Euklidisch). */
+/** DSA-Distanzklassen-Schwellen (Schritt). Distanzmessung nutzt Owlbear-Grid via gridDistance.js. */
 export const DIST_CLASS_THRESHOLDS = [
   { max: 0.8, code: 'H' },
   { max: 1.5, code: 'N' },
@@ -31,7 +31,7 @@ export function tokenCenter(item) {
 }
 
 /**
- * Distanz in Schritt: Mittelpunkt-zu-Mittelpunkt (1 OBR-Grid-Feld = dpi px).
+ * Euklidische Distanz in Schritt (Fallback ohne OBR-Grid-API).
  * @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemA
  * @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemB
  */
