@@ -35,6 +35,7 @@ function defaultCombat() {
     round: 1,
     currentItemId: null,
     currentPhaseLinkId: null,
+    currentTurnSubStep: null,
     roundIntroPending: false,
     roundIntroPrevRound: null,
     roundIntroPrevItemId: null,
@@ -48,9 +49,11 @@ export const RESET_ROUND_INTRO = Object.freeze({
   roundIntroPrevRound: null,
   roundIntroPrevItemId: null,
   roundIntroPrevPhaseLinkId: null,
+  currentTurnSubStep: null,
 })
 
-function normalize(raw) {
+/** @param {unknown} raw */
+export function normalizeCombat(raw) {
   const d = defaultCombat()
   if (!raw || typeof raw !== 'object') return d
   const pr =
@@ -58,6 +61,9 @@ function normalize(raw) {
     Number.isFinite(raw.roundIntroPrevRound)
       ? Math.max(1, Math.floor(raw.roundIntroPrevRound))
       : null
+  const subRaw = raw.currentTurnSubStep
+  const currentTurnSubStep =
+    subRaw === 'reaction' ? 'reaction' : subRaw === 'action' ? 'action' : null
   return {
     started: Boolean(raw.started),
     round: Math.max(1, Math.floor(Number(raw.round)) || 1),
@@ -67,6 +73,7 @@ function normalize(raw) {
       typeof raw.currentPhaseLinkId === 'string'
         ? raw.currentPhaseLinkId
         : null,
+    currentTurnSubStep,
     roundIntroPending: Boolean(raw.roundIntroPending),
     roundIntroPrevRound: pr,
     roundIntroPrevItemId:
@@ -79,6 +86,8 @@ function normalize(raw) {
         : null,
   }
 }
+
+const normalize = normalizeCombat
 
 let cache = defaultCombat()
 let tieOrderCache = []
@@ -209,6 +218,7 @@ async function pullFromRoom() {
     next.round === cache.round &&
     next.currentItemId === cache.currentItemId &&
     next.currentPhaseLinkId === cache.currentPhaseLinkId &&
+    next.currentTurnSubStep === cache.currentTurnSubStep &&
     next.roundIntroPending === cache.roundIntroPending &&
     next.roundIntroPrevRound === cache.roundIntroPrevRound &&
     next.roundIntroPrevItemId === cache.roundIntroPrevItemId &&

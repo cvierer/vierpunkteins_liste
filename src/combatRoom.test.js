@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeActionStamps } from './combatRoom.js'
+import { normalizeActionStamps, normalizeCombat } from './combatRoom.js'
+
+describe('normalizeCombat', () => {
+  it('normalisiert currentTurnSubStep', () => {
+    expect(normalizeCombat({ currentTurnSubStep: 'action' }).currentTurnSubStep).toBe(
+      'action'
+    )
+    expect(
+      normalizeCombat({ currentTurnSubStep: 'reaction' }).currentTurnSubStep
+    ).toBe('reaction')
+    expect(normalizeCombat({ currentTurnSubStep: 'x' }).currentTurnSubStep).toBeNull()
+  })
+})
 
 describe('normalizeActionStamps', () => {
   it('liefert leere Struktur bei null/undefined', () => {

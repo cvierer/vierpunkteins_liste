@@ -100,6 +100,7 @@ if (OBR.isAvailable) {
 
     const combatRoot = document.querySelector('[data-combat-root]')
     const { refreshBar } = await setupCombatControls(combatRoot)
+    ;(await import('./heroActionLabel.js')).setupHeroActionLabel()
 
     const [{ setupContextMenu }, { setupInitiativeList }, { setupSettingsPanel }] =
       await Promise.all([

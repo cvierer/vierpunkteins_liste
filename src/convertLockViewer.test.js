@@ -112,10 +112,12 @@ describe('isHeroConvertAllowedForViewer', () => {
   it('auto + erste Phase: auf 2.AO-Zug trotz gleicher INI nicht erlaubt', () => {
     const ctx = buildConvertListVisibilityCtx({
       turnSteps: [
-        { kind: 'token', id: 'hero-A' },
-        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+        { kind: 'token', id: 'hero-A', sub: 'action' },
+        { kind: 'token', id: 'hero-A', sub: 'reaction' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1', sub: 'action' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1', sub: 'reaction' },
       ],
-      combatStepIndex: 1,
+      combatStepIndex: 2,
     })
     expect(
       isHeroConvertAllowedForViewer(
@@ -128,11 +130,32 @@ describe('isHeroConvertAllowedForViewer', () => {
     ).toBe(false)
   })
 
-  it('auto + erste Phase: auf Mutter-Zug erlaubt', () => {
+  it('auto + erste Phase: auf Mutter-Reaktion noch erlaubt', () => {
     const ctx = buildConvertListVisibilityCtx({
       turnSteps: [
-        { kind: 'token', id: 'hero-A' },
-        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+        { kind: 'token', id: 'hero-A', sub: 'action' },
+        { kind: 'token', id: 'hero-A', sub: 'reaction' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1', sub: 'action' },
+      ],
+      combatStepIndex: 1,
+    })
+    expect(
+      isHeroConvertAllowedForViewer(
+        { convertAllowFirstPhase: true, initiative: 15 },
+        'hero-A',
+        null,
+        15,
+        { ownerItemId: 'hero-A', visibilityCtx: ctx }
+      )
+    ).toBe(true)
+  })
+
+  it('auto + erste Phase: auf Mutter-Aktion erlaubt', () => {
+    const ctx = buildConvertListVisibilityCtx({
+      turnSteps: [
+        { kind: 'token', id: 'hero-A', sub: 'action' },
+        { kind: 'token', id: 'hero-A', sub: 'reaction' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1', sub: 'action' },
       ],
       combatStepIndex: 0,
     })
@@ -168,18 +191,26 @@ describe('isHeroConvertAllowedForViewer', () => {
 })
 
 describe('hasPassedHeroMotherTurnStep', () => {
-  it('true wenn Kampfindex hinter Mutter-Token', () => {
-    const ctx = buildConvertListVisibilityCtx({
-      turnSteps: [
-        { kind: 'token', id: 'hero-A' },
-        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
-      ],
+  const splitSteps = [
+    { kind: 'token', id: 'hero-A', sub: 'action' },
+    { kind: 'token', id: 'hero-A', sub: 'reaction' },
+    { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1', sub: 'action' },
+  ]
+
+  it('false auf Mutter-Reaktion, true ab 2.AO-Aktion', () => {
+    const ctxReaction = buildConvertListVisibilityCtx({
+      turnSteps: splitSteps,
       combatStepIndex: 1,
     })
-    expect(hasPassedHeroMotherTurnStep('hero-A', ctx)).toBe(true)
-    expect(hasPassedHeroMotherTurnStep('hero-A', { ...ctx, combatStepIndex: 0 })).toBe(
-      false
-    )
+    const ctxZao = buildConvertListVisibilityCtx({
+      turnSteps: splitSteps,
+      combatStepIndex: 2,
+    })
+    expect(hasPassedHeroMotherTurnStep('hero-A', ctxReaction)).toBe(false)
+    expect(hasPassedHeroMotherTurnStep('hero-A', ctxZao)).toBe(true)
+    expect(
+      hasPassedHeroMotherTurnStep('hero-A', { ...ctxReaction, combatStepIndex: 0 })
+    ).toBe(false)
   })
 })
 
@@ -254,10 +285,12 @@ describe('shouldHideEmptySecondActionRow', () => {
       rowActivePhaseLinkId: 'zao1',
       currentNavIni: 15,
       turnSteps: [
-        { kind: 'token', id: 'hero-A' },
-        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+        { kind: 'token', id: 'hero-A', sub: 'action' },
+        { kind: 'token', id: 'hero-A', sub: 'reaction' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1', sub: 'action' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1', sub: 'reaction' },
       ],
-      combatStepIndex: 1,
+      combatStepIndex: 2,
     })
     expect(
       shouldHideEmptySecondActionRow(
@@ -277,8 +310,9 @@ describe('shouldHideEmptySecondActionRow', () => {
       rowActivePhaseLinkId: null,
       currentNavIni: 15,
       turnSteps: [
-        { kind: 'token', id: 'hero-A' },
-        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+        { kind: 'token', id: 'hero-A', sub: 'action' },
+        { kind: 'token', id: 'hero-A', sub: 'reaction' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1', sub: 'action' },
       ],
       combatStepIndex: 0,
     })

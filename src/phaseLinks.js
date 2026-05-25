@@ -1453,6 +1453,38 @@ export function buildMergedDisplayRows(
 }
 
 /**
+ * @param {{ kind: string, row?: { id: string }, ownerId?: string, link?: { id: string, lhEnd?: boolean }, hookIni?: unknown }} e
+ * @returns {Array<{ kind: string, id?: string, ownerId?: string, linkId?: string, sub?: 'action' | 'reaction' }>}
+ */
+function mergedEntryToCombatSteps(e) {
+  if (e.kind === 'roundStart') {
+    return [{ kind: 'roundStart', id: ROUND_START_STEP_ID }]
+  }
+  if (e.kind === 'roundEnd') {
+    return [{ kind: 'roundEnd', id: ROUND_END_STEP_ID }]
+  }
+  if (e.kind === 'token') {
+    return [
+      { kind: 'token', id: e.row.id, sub: 'action' },
+      { kind: 'token', id: e.row.id, sub: 'reaction' },
+    ]
+  }
+  if (e.kind === 'phase') {
+    if (e.link.lhEnd === true) {
+      return [{ kind: 'phase', ownerId: e.ownerId, linkId: e.link.id }]
+    }
+    return [
+      { kind: 'phase', ownerId: e.ownerId, linkId: e.link.id, sub: 'action' },
+      { kind: 'phase', ownerId: e.ownerId, linkId: e.link.id, sub: 'reaction' },
+    ]
+  }
+  if (e.kind === 'lhDone') {
+    return [{ kind: 'phase', ownerId: e.ownerId, linkId: LH_DONE_STEP_ID }]
+  }
+  return []
+}
+
+/**
  * Zug-Reihenfolge für Kampf-Navigation (wie die Liste: Beginn … Teilnehmer … Ende).
  */
 export function buildCombatTurnSteps(
@@ -1462,35 +1494,53 @@ export function buildCombatTurnSteps(
   combatRound = null,
   visibilityCtx = null
 ) {
-  return buildMergedDisplayRows(
+  const merged = buildMergedDisplayRows(
     tokenRows,
     items,
     tieOrderIds,
     combatRound,
     visibilityCtx
-  ).map(
-    (e) =>
-      e.kind === 'roundStart'
-        ? { kind: 'roundStart', id: ROUND_START_STEP_ID }
-        : e.kind === 'token'
-          ? { kind: 'token', id: e.row.id }
-          : e.kind === 'roundEnd'
-            ? { kind: 'roundEnd', id: ROUND_END_STEP_ID }
-            : { kind: 'phase', ownerId: e.ownerId, linkId: e.link.id }
   )
+  const steps = []
+  for (const e of merged) {
+    steps.push(...mergedEntryToCombatSteps(e))
+  }
+  return steps
+}
+
+/** @param {{ sub?: 'action' | 'reaction' | null | undefined }} step */
+function subStepForCombatPatch(step) {
+  return step.sub === 'reaction' ? 'reaction' : step.sub === 'action' ? 'action' : null
 }
 
 export function combatPatchForStep(step) {
+  const currentTurnSubStep = subStepForCombatPatch(step)
   if (step.kind === 'token') {
-    return { currentItemId: step.id, currentPhaseLinkId: null }
+    return {
+      currentItemId: step.id,
+      currentPhaseLinkId: null,
+      currentTurnSubStep,
+    }
   }
   if (step.kind === 'roundStart') {
-    return { currentItemId: step.id, currentPhaseLinkId: null }
+    return {
+      currentItemId: step.id,
+      currentPhaseLinkId: null,
+      currentTurnSubStep: null,
+    }
   }
   if (step.kind === 'roundEnd') {
-    return { currentItemId: step.id, currentPhaseLinkId: null }
+    return {
+      currentItemId: step.id,
+      currentPhaseLinkId: null,
+      currentTurnSubStep: null,
+    }
   }
-  return { currentItemId: step.ownerId, currentPhaseLinkId: step.linkId }
+  return {
+    currentItemId: step.ownerId,
+    currentPhaseLinkId: step.linkId,
+    currentTurnSubStep,
+  }
 }
 
 /**
@@ -1534,17 +1584,31 @@ export function resolveCurrentNavIniForCombat(
 
 export function findCombatStepIndex(steps, combat) {
   const phaseId = combat.currentPhaseLinkId
+  const wantSub =
+    combat.currentTurnSubStep === 'reaction'
+      ? 'reaction'
+      : combat.currentTurnSubStep === 'action'
+        ? 'action'
+        : null
   return steps.findIndex((s) => {
+    let positionMatch = false
     if (s.kind === 'roundStart') {
-      return s.id === combat.currentItemId && !phaseId
+      positionMatch = s.id === combat.currentItemId && !phaseId
+    } else if (s.kind === 'roundEnd') {
+      positionMatch = s.id === combat.currentItemId && !phaseId
+    } else if (s.kind === 'token') {
+      positionMatch = s.id === combat.currentItemId && !phaseId
+    } else if (s.kind === 'phase') {
+      positionMatch =
+        s.ownerId === combat.currentItemId && s.linkId === phaseId
     }
-    if (s.kind === 'roundEnd') {
-      return s.id === combat.currentItemId && !phaseId
+    if (!positionMatch) return false
+    if (s.kind === 'token' || s.kind === 'phase') {
+      if (!s.sub) return wantSub === null
+      if (wantSub === null) return s.sub === 'action'
+      return s.sub === wantSub
     }
-    if (s.kind === 'token') {
-      return s.id === combat.currentItemId && !phaseId
-    }
-    return s.ownerId === combat.currentItemId && s.linkId === phaseId
+    return true
   })
 }
 

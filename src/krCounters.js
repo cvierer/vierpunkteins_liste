@@ -2180,7 +2180,7 @@ function chargeValueFromMarks(marksRaw) {
   return marks
 }
 
-function primaryFieldForKind(meta) {
+export function primaryFieldForKind(meta) {
   const kind = readKrFirstSlotKind(meta)
   if (kind === 'uo') return KR_ANG
   if (kind === 'sra') return KR_SRA

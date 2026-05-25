@@ -38,11 +38,13 @@ export function hasPassedHeroMotherTurnStep(ownerId, ctx) {
   if (!ownerId || !ctx?.turnSteps) return false
   const idx = ctx.combatStepIndex
   if (idx == null || idx < 0) return false
-  const motherIdx = ctx.turnSteps.findIndex(
-    (s) => s.kind === 'token' && s.id === ownerId
-  )
-  if (motherIdx < 0) return false
-  return idx > motherIdx
+  let motherEndIdx = -1
+  for (let i = 0; i < ctx.turnSteps.length; i++) {
+    const s = ctx.turnSteps[i]
+    if (s.kind === 'token' && s.id === ownerId) motherEndIdx = i
+  }
+  if (motherEndIdx < 0) return false
+  return idx > motherEndIdx
 }
 
 function isFirstPhaseConvertAllowed(

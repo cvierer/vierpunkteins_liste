@@ -6626,7 +6626,7 @@ function bindStampContextRemove(el, stamp, items) {
         lastTurnScrollKey = ''
         return false
       }
-      const turnKey = `${cNow.roundIntroPending ? 'i' : 'z'}\0${cNow.currentItemId ?? ''}\0${cNow.currentPhaseLinkId ?? ''}\0${cNow.round}`
+      const turnKey = `${cNow.roundIntroPending ? 'i' : 'z'}\0${cNow.currentItemId ?? ''}\0${cNow.currentPhaseLinkId ?? ''}\0${cNow.currentTurnSubStep ?? ''}\0${cNow.round}`
       if (turnKey === lastTurnScrollKey) return false
       lastTurnScrollKey = turnKey
       const active = element.querySelector('li.init-row--active')

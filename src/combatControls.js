@@ -35,6 +35,10 @@ import { clearCombatStartHeroSessionVisuals } from './krCombatMarks.js'
 import { applyLhKrStartObjects } from './longHandlung.js'
 import { getManualIniTieOverridePairs } from './manualIniTieOverrides.js'
 import { clearCombatLog } from './combatLog.js'
+import {
+  autoStampForCombatStep,
+  shouldAutoStampActionToReaction,
+} from './combatAutoStamp.js'
 
 async function combatTurnSteps() {
   const items = await OBR.scene.items.getItems()
@@ -315,6 +319,11 @@ export async function setupCombatControls(root) {
         })
         return
       }
+      const curRetry = stepsRetry[idxRetry]
+      const nextRetry = stepsRetry[nextIdxRetry]
+      if (shouldAutoStampActionToReaction(curRetry, nextRetry)) {
+        await autoStampForCombatStep(curRetry)
+      }
       await patchCombat({
         ...combatPatchForStep(stepsRetry[nextIdxRetry]),
         round: cRetry.round,
@@ -339,6 +348,11 @@ export async function setupCombatControls(root) {
       return
     }
 
+    const cur = steps[idx]
+    const next = steps[nextIdx]
+    if (shouldAutoStampActionToReaction(cur, next)) {
+      await autoStampForCombatStep(cur)
+    }
     await patchCombat({
       ...combatPatchForStep(steps[nextIdx]),
       round: c.round,
