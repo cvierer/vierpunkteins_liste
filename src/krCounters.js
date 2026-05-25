@@ -641,6 +641,30 @@ export function readZaoSlot(meta, linkId) {
 }
 
 /**
+ * Entfernt ZAO-Slot-Einträge ohne passenden Phasen-Link.
+ * @param {Record<string, unknown>} meta
+ * @returns {boolean} true wenn Meta geändert wurde
+ */
+export function pruneOrphanZaoSlots(meta) {
+  if (!meta || typeof meta !== 'object') return false
+  const slots = readZaoSlots(meta)
+  const keys = Object.keys(slots)
+  if (keys.length === 0) return false
+  const linkIds = new Set(normalizePhases(meta.phases).links.map((l) => l.id))
+  /** @type {Record<string, { kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }>} */
+  const next = {}
+  let changed = false
+  for (const key of keys) {
+    if (linkIds.has(key)) next[key] = slots[key]
+    else changed = true
+  }
+  if (!changed) return false
+  if (Object.keys(next).length === 0) delete meta[KR_ZAO_SLOTS]
+  else meta[KR_ZAO_SLOTS] = next
+  return true
+}
+
+/**
  * Mutter-Primärfeld: Angriff (ang) mit geladener Ladung.
  *
  * @param {unknown} meta

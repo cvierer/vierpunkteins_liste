@@ -1,5 +1,11 @@
 import OBR, { buildLabel, buildShape } from '@owlbear-rodeo/sdk'
 import { allCustomDistRingCodes } from './heroCustomDist.js'
+import {
+  defaultDistRingVisible,
+  isClassRingVisible,
+  isCustomRingsEnabled,
+  isMovementRingVisible,
+} from './heroDistRingPrefs.js'
 import { DIST_CLASS_THRESHOLDS, tokenCenter } from './tokenDistance.js'
 
 const RING_ID_PREFIX = 'vierpunkteins/dist-ring/'
@@ -115,18 +121,28 @@ function appendRingPair(items, center, dpi, schritt, code, labelText, color) {
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
  * @param {number | null | undefined} [gsSchritt]
  * @param {import('./heroCustomDist.js').CustomDistRingSpec[]} [customRingSpecs]
+ * @param {import('./heroDistRingPrefs.js').DistRingVisiblePrefs} [ringVisible]
  */
-export async function showDistanceRingsFor(item, dpi, gsSchritt = null, customRingSpecs = []) {
+export async function showDistanceRingsFor(
+  item,
+  dpi,
+  gsSchritt = null,
+  customRingSpecs = [],
+  ringVisible = defaultDistRingVisible()
+) {
   if (!item || !Number.isFinite(dpi) || dpi <= 0) return
   await hideDistanceRings()
+  const prefs = ringVisible ?? defaultDistRingVisible()
   const c = await resolveTokenRingCenter(item)
   /** @type {import('@owlbear-rodeo/sdk').Item[]} */
   const items = []
   for (const { max, code } of DIST_CLASS_THRESHOLDS) {
+    if (!isClassRingVisible(prefs, code)) continue
     appendRingPair(items, c, dpi, max, code, code, RING_COLORS[code] ?? '#888888')
   }
   if (Number.isFinite(gsSchritt) && gsSchritt > 0) {
     for (const { code, label, mult } of MOVEMENT_RING_SPECS) {
+      if (!isMovementRingVisible(prefs, code)) continue
       appendRingPair(
         items,
         c,
@@ -138,8 +154,10 @@ export async function showDistanceRingsFor(item, dpi, gsSchritt = null, customRi
       )
     }
   }
-  for (const { code, label, schritt, color } of customRingSpecs) {
-    appendRingPair(items, c, dpi, schritt, code, label, color)
+  if (isCustomRingsEnabled(prefs)) {
+    for (const { code, label, schritt, color } of customRingSpecs) {
+      appendRingPair(items, c, dpi, schritt, code, label, color)
+    }
   }
   await OBR.scene.local.addItems(items)
 }

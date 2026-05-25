@@ -40,6 +40,13 @@ import {
   writeCustomDistProfiles,
 } from './heroCustomDist.js'
 import {
+  CLASS_CODES,
+  defaultDistRingVisible,
+  MOVEMENT_CODES,
+  readDistRingVisible,
+  writeDistRingVisible,
+} from './heroDistRingPrefs.js'
+import {
   initiativeCompareOnlyIni,
   initiativeRank,
 } from './initiativeSort.js'
@@ -119,6 +126,7 @@ import {
   readHeroActionPoolPair,
   readHeroExtraAngCount,
   readHeroExtraParCount,
+  pruneOrphanZaoSlots,
   readHeroFaMax,
   readKrAbw,
   readKrParadeExtraSlots,
@@ -1433,9 +1441,14 @@ function appendKrAbwSplitCell(
   combatStarted = false,
   roundIntroPending = false,
   mirrorLinkUi = false,
-  inReactionStore = false
+  inReactionStore = false,
+  mirrorZaoSlot = null
 ) {
-  const value = readKrAbw(trackerMeta)
+  const mirrorAbwActive =
+    !mirrorLinkUi ||
+    !mirrorZaoSlot ||
+    mirrorZaoSlot.marks === 1
+  const value = mirrorAbwActive ? readKrAbw(trackerMeta) : 0
   const v = normalizeKrDigit(value)
   const shieldCount = abwShieldCount(v)
   const paradeSlots = readKrParadeExtraSlots(trackerMeta)
@@ -2048,7 +2061,8 @@ function appendKrCounterPair(
       combatStarted,
       roundIntroPending,
       abwMirrorLinkUi,
-      true
+      true,
+      abwMirrorLinkUi ? zaoSlotOverride : null
     )
     container.appendChild(reactionStore)
   } else {
@@ -2084,7 +2098,8 @@ function appendKrCounterPair(
       combatStarted,
       roundIntroPending,
       abwMirrorLinkUi,
-      true
+      true,
+      abwMirrorLinkUi ? zaoSlotOverride : null
     )
     container.appendChild(reactionStore)
   }
@@ -2857,10 +2872,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               round: combat.started ? combat.round : null,
             })
           : null
-        const customRingSpecs = meta
-          ? buildCustomDistRingSpecs(readCustomDistProfiles(meta))
-          : []
-        void showDistanceRingsFor(item, dpi, gsSchritt, customRingSpecs)
+        const ringVisible = meta ? readDistRingVisible(meta) : defaultDistRingVisible()
+        const customRingSpecs =
+          meta && ringVisible.custom
+            ? buildCustomDistRingSpecs(readCustomDistProfiles(meta))
+            : []
+        void showDistanceRingsFor(item, dpi, gsSchritt, customRingSpecs, ringVisible)
       })
       applyDistanceOverlay()
     })
@@ -3421,6 +3438,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       <label class="init-row-extra-label" for="kampf-hero-unfaehig-fixed-fields">Optische Fixwerte</label>
       <input type="text" id="kampf-hero-unfaehig-fixed-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, z. B. at=0,pa=0,a=0,tp=0,fk=0,gs=1" />
     </div>
+    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-dist-ring-section>
+      <h3 class="kampf-settings-panel__sub">Distanzkreise auf der Karte</h3>
+      <p class="kampf-settings-panel__microhint">Beim Halten des Dist-Kästchens nur aktivierte Ring-Typen anzeigen.</p>
+      <div class="kampf-hero-dist-ring__grid" data-kampf-hero-dist-ring-host></div>
+    </div>
     <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-custom-dist-section>
       <h3 class="kampf-settings-panel__sub">Benutzerdefinierte Distanzen</h3>
       <p class="kampf-settings-panel__microhint">Aktive Profile erscheinen beim Halten des Dist-Kästchens als Ringe auf der Karte.</p>
@@ -3545,6 +3567,70 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const heroCustomDistHost = heroSettingsPanel.querySelector(
     '[data-kampf-hero-custom-dist-host]'
   )
+  const heroDistRingHost = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-dist-ring-host]'
+  )
+
+  const DIST_RING_LABELS = {
+    H: 'H',
+    N: 'N',
+    S: 'S',
+    P: 'P',
+    m1: '1 Akt. Bewegen',
+    m2: '2 Akt. Bewegen',
+    sp: 'Sprint',
+    custom: 'Benutzerdefinierte Distanzen',
+  }
+
+  /** @type {Record<string, HTMLInputElement>} */
+  let heroDistRingCheckboxRefs = {}
+
+  const pullDistRingPendingFromUi = () => {
+    if (!heroPending) return
+    const prefs = defaultDistRingVisible()
+    for (const code of CLASS_CODES) {
+      prefs[code] = Boolean(heroDistRingCheckboxRefs[code]?.checked)
+    }
+    for (const code of MOVEMENT_CODES) {
+      prefs[code] = Boolean(heroDistRingCheckboxRefs[code]?.checked)
+    }
+    prefs.custom = Boolean(heroDistRingCheckboxRefs.custom?.checked)
+    heroPending.distRingVisible = prefs
+  }
+
+  const syncDistRingUiFromPending = () => {
+    if (!heroPending) return
+    const prefs = heroPending.distRingVisible ?? defaultDistRingVisible()
+    for (const code of [...CLASS_CODES, ...MOVEMENT_CODES, 'custom']) {
+      const cb = heroDistRingCheckboxRefs[code]
+      if (cb) {
+        cb.checked = Boolean(/** @type {Record<string, boolean>} */ (prefs)[code])
+        cb.disabled = !heroSettingsGmMode
+      }
+    }
+  }
+
+  const initHeroDistRingUi = () => {
+    if (!(heroDistRingHost instanceof HTMLElement) || Object.keys(heroDistRingCheckboxRefs).length > 0) {
+      return
+    }
+    heroDistRingHost.replaceChildren()
+    for (const code of [...CLASS_CODES, ...MOVEMENT_CODES, 'custom']) {
+      const label = document.createElement('label')
+      label.className = 'kampf-settings-checkbox-label kampf-hero-dist-ring__item'
+      const cb = document.createElement('input')
+      cb.type = 'checkbox'
+      cb.dataset.distRingCode = code
+      const span = document.createElement('span')
+      span.textContent = DIST_RING_LABELS[code] ?? code
+      label.append(cb, span)
+      heroDistRingHost.appendChild(label)
+      heroDistRingCheckboxRefs[code] = cb
+      cb.addEventListener('change', pullDistRingPendingFromUi)
+    }
+  }
+
+  initHeroDistRingUi()
 
   /** @type {{ profileEl: HTMLElement, enabled: HTMLInputElement, name: HTMLInputElement, bands: { label: HTMLInputElement, schritt: HTMLInputElement }[] }[]} */
   let heroCustomDistUiRefs = []
@@ -4122,6 +4208,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         ? normalizeWappenDefs(wappenOverrideRaw)
         : null,
       customDistProfiles: readCustomDistProfiles(m),
+      distRingVisible: readDistRingVisible(m),
     }
     if (titleHeroEl) {
       titleHeroEl.textContent = gm
@@ -4132,6 +4219,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     syncHeroSettingsFields(lastItems)
     syncHeroSettingsCheckboxes()
     syncCustomDistUiFromPending()
+    syncDistRingUiFromPending()
     syncHeroWappenUi(room)
     heroSettingsBackdrop.hidden = false
     heroSettingsBackdrop.style.display = 'flex'
@@ -4269,6 +4357,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           slotsRaw && typeof slotsRaw === 'object' ? { ...slotsRaw } : {}
         for (const id of dropIds) delete slots[id]
         m[KR_ZAO_SLOTS] = slots
+        pruneOrphanZaoSlots(m)
       }
     })
     if (droppedLinkIds.size > 0) {
@@ -4314,6 +4403,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const id = heroSettingsItemId
     const pend = heroPending
     pullCustomDistPendingFromUi()
+    pullDistRingPendingFromUi()
     const patchModDisplayMode = (m) => {
       // Modifikator-Anzeige ist dauerhaft "getrennt".
       delete m.modDisplayMode
@@ -4343,10 +4433,35 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         hideForeignHeroColors: pend.hideForeignHeroColors,
       }))
     }
-    await applyHeroExtraCounts(id, pend.heroExtraAngCount, pend.heroExtraParCount)
-    if (pend.heroExtraParCount > 0) {
+    const heroItemBefore = lastItems.find((i) => i.id === id)
+    const metaBefore = heroItemBefore?.metadata?.[TRACKER_ITEM_META_KEY]
+    const prevAng = readHeroExtraAngCount(metaBefore)
+    const prevPar = readHeroExtraParCount(metaBefore)
+    const angCount = Math.max(
+      0,
+      Math.min(10, Math.floor(Number(pend.heroExtraAngCount)) || 0)
+    )
+    const parCount = Math.max(
+      0,
+      Math.min(10, Math.floor(Number(pend.heroExtraParCount)) || 0)
+    )
+    const extraCountsChanged = prevAng !== angCount || prevPar !== parCount
+    if (extraCountsChanged) {
+      await applyHeroExtraCounts(id, angCount, parCount)
+      if (angCount > 0) {
+        await patchRestoreHeroExtraZao(id)
+      }
+    }
+    if (parCount > 0) {
       await ensureParadeExtraShield(id)
     }
+    const prevPoolAng = readHeroActionPoolPair(metaBefore).ang
+    const prevPoolAbw = readHeroActionPoolPair(metaBefore).abw
+    const prevPoolMax = readHeroActionPoolMax(metaBefore)
+    const poolChanged =
+      prevPoolAng !== pend.heroActionPoolAng ||
+      prevPoolAbw !== pend.heroActionPoolAbw ||
+      prevPoolMax !== pend.heroActionPoolMax
     await OBR.scene.items.updateItems([id], (drafts) => {
       for (const d of drafts) {
         const m = d.metadata[TRACKER_ITEM_META_KEY]
@@ -4412,7 +4527,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         }
         cleanupOrphanHitZoneKeys(m, room)
         writeCustomDistProfiles(m, pend.customDistProfiles)
-        initKrActionPoolsFromHeroDefaults(m)
+        writeDistRingVisible(m, pend.distRingVisible ?? defaultDistRingVisible())
+        if (extraCountsChanged) pruneOrphanZaoSlots(m)
+        if (poolChanged) initKrActionPoolsFromHeroDefaults(m)
+        else pruneOrphanZaoSlots(m)
         applyIniLockCharges(m)
       }
     })
