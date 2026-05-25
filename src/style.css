@@ -5582,9 +5582,9 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell__target-svg {
-  width: calc(11px * var(--init-ui-scale));
-  height: calc(11px * var(--init-ui-scale));
-  opacity: 0.55;
+  width: calc(12px * var(--init-ui-scale));
+  height: calc(12px * var(--init-ui-scale));
+  opacity: 0.62;
 }
 
 .init-kr-reaction-store__frei-spacer {

@@ -43,6 +43,7 @@ import {
   readHeroDistClassXSchritt,
   writeHeroDistClassXSchritt,
 } from './heroDistClassX.js'
+import { resolveMirrorAbwKrValue } from './krMirrorAbwDisplay.js'
 import {
   CLASS_CODES,
   defaultDistRingVisible,
@@ -1449,11 +1450,11 @@ function appendKrAbwSplitCell(
   inReactionStore = false,
   mirrorZaoSlot = null
 ) {
-  const mirrorAbwActive =
-    !mirrorLinkUi ||
-    !mirrorZaoSlot ||
-    mirrorZaoSlot.marks === 1
-  const value = mirrorAbwActive ? readKrAbw(trackerMeta) : 0
+  const value = resolveMirrorAbwKrValue(
+    mirrorLinkUi,
+    mirrorZaoSlot,
+    readKrAbw(trackerMeta)
+  )
   const v = normalizeKrDigit(value)
   const shieldCount = abwShieldCount(v)
   const paradeSlots = readKrParadeExtraSlots(trackerMeta)
@@ -1477,6 +1478,10 @@ function appendKrAbwSplitCell(
   const shieldLayoutSlots = stackedBlueReaction
     ? 1 + (paradeLoaded ? 1 : 0)
     : totalDisplay
+
+  if (mirrorLinkUi && shieldCount < 1 && !paradeLoaded) {
+    return
+  }
 
   const shell = document.createElement('div')
   shell.className = 'init-kr-abw-split-shell'
@@ -1867,6 +1872,7 @@ function appendKrCounterPair(
     /** Mutter-Zeile: Distanz-Kästchen zwischen Aktion und Frei. */
     showDistanceCell = false,
     wireDistanceProbeCell = null,
+    refreshDistCellIdle = null,
   } = options || {}
   const primaryLadungAllowed = navigationMatchesRow(
     ownerItemId,
@@ -1919,6 +1925,9 @@ function appendKrCounterPair(
     valEl.className = 'init-dist-cell__value'
     distCell.appendChild(valEl)
     wireDistanceProbeCell(distCell, ownerItemId)
+    if (typeof refreshDistCellIdle === 'function') {
+      refreshDistCellIdle(distCell)
+    }
     container.appendChild(distCell)
   }
   // Schildplatz: entweder L.H.-Counter-Eingabe (vor Werte-Setzung),
@@ -2826,20 +2835,24 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   function applyDistCellIdleState(cell) {
-    const id = cell.dataset.distCellItemId
     const valEl = cell.querySelector('.init-dist-cell__value')
     if (!valEl) return
+    if (
+      cell.classList.contains('init-dist-cell--probe') ||
+      cell.classList.contains('init-dist-cell--target')
+    ) {
+      return
+    }
+    const id = cell.dataset.distCellItemId
     const item = lastItems.find((i) => i.id === id)
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
     const prefs = meta ? readDistRingVisible(meta) : defaultDistRingVisible()
     const xSchritt = meta ? readHeroDistClassXSchritt(meta) : null
-    const inactive = isDistMapRingsInactive(prefs, xSchritt)
-    cell.classList.toggle('init-dist-cell--idle-rings', inactive)
-    if (inactive) {
-      valEl.innerHTML = DIST_CELL_TARGET_SVG
-    } else if (!cell.classList.contains('init-dist-cell--probe')) {
-      valEl.textContent = ''
-    }
+    cell.classList.toggle(
+      'init-dist-cell--idle-rings',
+      isDistMapRingsInactive(prefs, xSchritt)
+    )
+    valEl.innerHTML = DIST_CELL_TARGET_SVG
   }
 
   function applyDistCellIdleStates() {
@@ -5476,6 +5489,7 @@ function bindStampContextRemove(el, stamp, items) {
             roundIntroPending: combat.roundIntroPending,
             showDistanceCell: true,
             wireDistanceProbeCell,
+            refreshDistCellIdle: applyDistCellIdleState,
           }
         )
 
