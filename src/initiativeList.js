@@ -3678,12 +3678,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   initHeroDistRingUi()
 
-  /** @type {{ profileEl: HTMLElement, enabled: HTMLInputElement, name: HTMLInputElement, removeBtn: HTMLButtonElement, bands: { row: HTMLElement, label: HTMLInputElement, schritt: HTMLInputElement, removeBtn: HTMLButtonElement }[], addBandBtn: HTMLButtonElement }[]} */
+  /** @type {{ profileEl: HTMLElement, enabled: HTMLInputElement, name: HTMLInputElement, removeBtn: HTMLButtonElement, bands: { row: HTMLElement, label: HTMLInputElement, schritt: HTMLInputElement, removeBtn: HTMLButtonElement }[], addBandBtn: HTMLButtonElement | null }[]} */
   let heroCustomDistUiRefs = []
+  let heroCustomDistUiReady = false
 
   const setCustomDistProfileInputsDisabled = (profileRef, disabled) => {
     profileRef.name.disabled = disabled
-    profileRef.addBandBtn.disabled = disabled || profileRef.bands.length >= CUSTOM_DIST_MAX_BANDS
+    if (profileRef.addBandBtn instanceof HTMLButtonElement) {
+      profileRef.addBandBtn.disabled =
+        disabled || profileRef.bands.length >= CUSTOM_DIST_MAX_BANDS
+    }
     for (const band of profileRef.bands) {
       band.label.disabled = disabled
       band.schritt.disabled = disabled
@@ -3702,10 +3706,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         schritt: band.schritt.value.trim() === '' ? null : band.schritt.value.trim(),
       })),
     }))
-  }
-
-  const syncCustomDistUiFromPending = () => {
-    rebuildHeroCustomDistUi()
   }
 
   const pullCustomDistPendingFromUi = () => {
@@ -3820,10 +3820,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       bands,
       addBandBtn: null,
     }
-    for (let b = 0; b < profile.bands.length; b++) {
+    const profileBands = Array.isArray(profile.bands) ? profile.bands : []
+    for (let b = 0; b < profileBands.length; b++) {
       const bandRef = createCustomDistBandRow(profileIndex, b, profileRef)
-      bandRef.label.value = profile.bands[b]?.label ?? ''
-      const st = profile.bands[b]?.schritt
+      bandRef.label.value = profileBands[b]?.label ?? ''
+      const st = profileBands[b]?.schritt
       bandRef.schritt.value = st != null && st > 0 ? String(st) : ''
       bandsHost.appendChild(bandRef.row)
       bands.push(bandRef)
@@ -3869,42 +3870,51 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   const rebuildHeroCustomDistUi = () => {
     if (!(heroCustomDistHost instanceof HTMLElement)) return
-    heroCustomDistHost.replaceChildren()
-    heroCustomDistUiRefs = []
-    const profiles = heroPending
-      ? readCustomDistProfiles(
-          heroPending.customDistProfiles
-            ? { [HERO_CUSTOM_DIST]: heroPending.customDistProfiles }
-            : undefined
-        )
-      : readCustomDistProfiles(undefined)
-    for (let p = 0; p < profiles.length; p++) {
-      appendCustomDistProfileUi(profiles[p], p, profiles.length)
-    }
-    const addProfileBtn = document.createElement('button')
-    addProfileBtn.type = 'button'
-    addProfileBtn.className = 'btn kampf-hero-custom-dist__add-profile'
-    addProfileBtn.textContent = '+ Profil'
-    addProfileBtn.disabled =
-      !heroSettingsGmMode || profiles.length >= CUSTOM_DIST_MAX_PROFILES
-    addProfileBtn.addEventListener('click', (e) => {
-      e.preventDefault()
-      if (!heroPending) return
-      pullCustomDistPendingFromUi()
-      const list = readCustomDistProfilesFromUi()
-      if (list.length >= CUSTOM_DIST_MAX_PROFILES) return
-      list.push({
-        enabled: false,
-        name: `Reichweite ${list.length + 1}`,
-        bands: [{ label: '', schritt: null }],
+    try {
+      heroCustomDistHost.replaceChildren()
+      heroCustomDistUiRefs = []
+      const profiles = heroPending
+        ? readCustomDistProfiles(
+            heroPending.customDistProfiles
+              ? { [HERO_CUSTOM_DIST]: heroPending.customDistProfiles }
+              : undefined
+          )
+        : readCustomDistProfiles(undefined)
+      for (let p = 0; p < profiles.length; p++) {
+        appendCustomDistProfileUi(profiles[p], p, profiles.length)
+      }
+      const addProfileBtn = document.createElement('button')
+      addProfileBtn.type = 'button'
+      addProfileBtn.className = 'btn kampf-hero-custom-dist__add-profile'
+      addProfileBtn.textContent = '+ Profil'
+      addProfileBtn.disabled =
+        !heroSettingsGmMode || profiles.length >= CUSTOM_DIST_MAX_PROFILES
+      addProfileBtn.addEventListener('click', (e) => {
+        e.preventDefault()
+        if (!heroPending) return
+        pullCustomDistPendingFromUi()
+        const list = readCustomDistProfilesFromUi()
+        if (list.length >= CUSTOM_DIST_MAX_PROFILES) return
+        list.push({
+          enabled: false,
+          name: `Reichweite ${list.length + 1}`,
+          bands: [{ label: '', schritt: null }],
+        })
+        heroPending.customDistProfiles = list
+        rebuildHeroCustomDistUi()
       })
-      heroPending.customDistProfiles = list
-      rebuildHeroCustomDistUi()
-    })
-    heroCustomDistHost.appendChild(addProfileBtn)
+      heroCustomDistHost.appendChild(addProfileBtn)
+      heroCustomDistUiReady = true
+    } catch (err) {
+      heroCustomDistUiReady = false
+      console.error('[vierpunkteins] hero custom dist UI failed', err)
+    }
   }
 
-  rebuildHeroCustomDistUi()
+  const syncCustomDistUiFromPending = () => {
+    rebuildHeroCustomDistUi()
+  }
+
   if (heroDistClassXInp instanceof HTMLInputElement) {
     heroDistClassXInp.addEventListener('input', pullHeroDistClassXFromUi)
   }
@@ -6645,7 +6655,11 @@ function bindStampContextRemove(el, stamp, items) {
       restoreHeroInputFocus = null
     }
 
-    applyDistanceOverlay()
+    try {
+      applyDistanceOverlay()
+    } catch (err) {
+      console.error('[vierpunkteins] applyDistanceOverlay failed', err)
+    }
 
     onListChange?.(items)
 
@@ -6655,7 +6669,10 @@ function bindStampContextRemove(el, stamp, items) {
 
   const safeRenderList = (items) => {
     void renderList(items).catch((err) => {
-      console.warn('[vierpunkteins] renderList failed', err)
+      console.error('[vierpunkteins] renderList failed', err)
+      if (err instanceof Error && err.stack) {
+        console.error(err.stack)
+      }
     })
   }
 
