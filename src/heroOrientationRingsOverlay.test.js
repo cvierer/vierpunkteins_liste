@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   imageRenderSize,
+  markerOutsideOffset,
   markerScenePosition,
+  MARKER_OUTSIDE_PADDING,
   orientationRingIds,
   ORIENTATION_RING_COLOR_FALLBACK,
   resolveRingStrokeColor,
@@ -75,35 +77,37 @@ describe('ringDiameter', () => {
   })
 })
 
+describe('markerOutsideOffset', () => {
+  it('addiert Stroke, halbe Dreieck-Hoehe und Luft', () => {
+    expect(markerOutsideOffset()).toBe(3 + 10 + MARKER_OUTSIDE_PADDING)
+  })
+})
+
 describe('markerScenePosition', () => {
   const center = { x: 100, y: 100 }
   const radius = 50
 
-  it('0°: Marker oben am Ring', () => {
-    expect(markerScenePosition(center, radius, 0)).toEqual({
+  it('0° ohne Offset: am Ringrand', () => {
+    expect(markerScenePosition(center, radius, 0, 0)).toEqual({
       x: 100,
       y: 50,
     })
   })
 
-  it('90°: Marker rechts am Ring', () => {
-    expect(markerScenePosition(center, radius, 90)).toEqual({
-      x: 150,
+  it('0° mit Offset: ausserhalb des Rings', () => {
+    const extra = markerOutsideOffset()
+    expect(markerScenePosition(center, radius, 0, extra)).toEqual({
+      x: 100,
+      y: 100 - radius - extra,
+    })
+  })
+
+  it('90° mit Offset: rechts ausserhalb', () => {
+    const extra = markerOutsideOffset()
+    expect(markerScenePosition(center, radius, 90, extra)).toEqual({
+      x: 100 + radius + extra,
       y: 100,
     })
-  })
-
-  it('180°: Marker unten am Ring', () => {
-    expect(markerScenePosition(center, radius, 180)).toEqual({
-      x: 100,
-      y: 150,
-    })
-  })
-
-  it('270°: Marker links am Ring', () => {
-    const pos = markerScenePosition(center, radius, 270)
-    expect(pos.x).toBeCloseTo(50, 5)
-    expect(pos.y).toBeCloseTo(100, 5)
   })
 })
 

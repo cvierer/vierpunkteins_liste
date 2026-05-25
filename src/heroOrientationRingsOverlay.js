@@ -19,6 +19,12 @@ export const ORIENTATION_RING_COLOR_FALLBACK = '#9e9e9e'
 const MARKER_W = 16
 const MARKER_H = 20
 const RING_DIAMETER_PAD = 1.04
+const RING_STROKE_WIDTH = 6
+/** Abstand Dreieck-Mitte zum aeusseren Ringrand (px). */
+export const MARKER_OUTSIDE_PADDING = 8
+/** Ring/Marker unter Token-Namensbeschriftung (relativ zum Token). */
+const RING_Z_INDEX = -500
+const MARKER_Z_INDEX = -499
 
 /** @type {Set<string>} */
 const lastTokenIds = new Set()
@@ -73,15 +79,31 @@ export function ringDiameter(item, sceneDpi) {
 }
 
 /**
- * @param {{ x: number, y: number }} center
- * @param {number} radius
- * @param {number} rotationDeg
+ * Zusaetzlicher Abstand Ringradius → Dreieck-Mitte (Stroke, Dreieck-Hoehe, Luft).
+ * @param {number} [strokeWidth]
+ * @param {number} [markerHeight]
+ * @param {number} [padding]
  */
-export function markerScenePosition(center, radius, rotationDeg) {
+export function markerOutsideOffset(
+  strokeWidth = RING_STROKE_WIDTH,
+  markerHeight = MARKER_H,
+  padding = MARKER_OUTSIDE_PADDING
+) {
+  return strokeWidth / 2 + markerHeight / 2 + padding
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number} radius Ringradius (ohne Stroke)
+ * @param {number} rotationDeg
+ * @param {number} [outsideOffset] Abstand Ringmitte → Dreieck-Mitte (0 = am Ringrand)
+ */
+export function markerScenePosition(center, radius, rotationDeg, outsideOffset = 0) {
+  const dist = radius + outsideOffset
   const rad = (Number(rotationDeg) || 0) * (Math.PI / 180)
   return {
-    x: center.x + Math.sin(rad) * radius,
-    y: center.y - Math.cos(rad) * radius,
+    x: center.x + Math.sin(rad) * dist,
+    y: center.y - Math.cos(rad) * dist,
   }
 }
 
@@ -123,10 +145,11 @@ function buildOrientationRing(item, center, diameter, color) {
     .attachedTo(item.id)
     .strokeColor(color)
     .strokeOpacity(0.95)
-    .strokeWidth(6)
+    .strokeWidth(RING_STROKE_WIDTH)
     .fillColor(color)
     .fillOpacity(0)
     .layer('ATTACHMENT')
+    .zIndex(RING_Z_INDEX)
     .locked(true)
     .disableHit(true)
     .visible(item.visible !== false)
@@ -144,7 +167,12 @@ function buildOrientationMarker(item, center, diameter, color) {
   const ids = orientationRingIds(item.id)
   const radius = diameter / 2
   const rotation = Number(item.rotation) || 0
-  const pos = markerScenePosition(center, radius, rotation)
+  const pos = markerScenePosition(
+    center,
+    radius,
+    rotation,
+    markerOutsideOffset()
+  )
   return buildShape()
     .id(ids.marker)
     .shapeType('TRIANGLE')
@@ -159,6 +187,7 @@ function buildOrientationMarker(item, center, diameter, color) {
     .strokeOpacity(1)
     .strokeWidth(1)
     .layer('ATTACHMENT')
+    .zIndex(MARKER_Z_INDEX)
     .locked(true)
     .disableHit(true)
     .visible(item.visible !== false)
