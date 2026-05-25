@@ -36,10 +36,19 @@ export function tokenCenter(item) {
  * @param {{ position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemB
  */
 export function computeSchritt(itemA, itemB, dpi) {
-  const d = Number(dpi)
-  if (!d || d <= 0) return NaN
   const a = tokenCenter(itemA)
   const b = tokenCenter(itemB)
+  return computeSchrittFromCenters(a, b, dpi)
+}
+
+/**
+ * @param {{ x: number, y: number }} a
+ * @param {{ x: number, y: number }} b
+ * @param {number} dpi
+ */
+export function computeSchrittFromCenters(a, b, dpi) {
+  const d = Number(dpi)
+  if (!d || d <= 0) return NaN
   const dx = b.x - a.x
   const dy = b.y - a.y
   return Math.sqrt(dx * dx + dy * dy) / d

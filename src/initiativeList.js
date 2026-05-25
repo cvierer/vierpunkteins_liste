@@ -30,11 +30,16 @@ import {
   onManualIniTieOverridesChange,
 } from './manualIniTieOverrides.js'
 import { setTrackedParticipantIds } from './listState.js'
-import { computeSchritt, formatSchrittWithClass } from './tokenDistance.js'
+import {
+  computeSchritt,
+  formatSchrittWithClass,
+  tokenCenter,
+} from './tokenDistance.js'
 import { hideDistanceRings, showDistanceRingsFor } from './distanceRingsOverlay.js'
 import {
   hideDistanceSpokes,
   showDistanceSpokesFor,
+  syncDistanceMovementLine,
 } from './distanceSpokesOverlay.js'
 import {
   buildCustomDistRingSpecs,
@@ -2827,6 +2832,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   let distanceProbeItemId = null
   let distanceProbeDpi = null
+  /** @type {{ x: number, y: number } | null} */
+  let distanceProbeDragStart = null
 
   const DIST_PROBE_EYE_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
@@ -2889,6 +2896,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       distanceProbeDpi,
       probeXSchritt
     )
+    await syncDistanceMovementLine(
+      probeItem,
+      distanceProbeDragStart,
+      distanceProbeDpi,
+      probeXSchritt
+    )
   }
 
   function applyDistanceOverlay() {
@@ -2934,6 +2947,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         /* ignore */
       }
       distanceProbeItemId = itemId
+      const probeAtDown = lastItems.find((i) => i.id === itemId)
+      distanceProbeDragStart = probeAtDown
+        ? { ...tokenCenter(probeAtDown) }
+        : null
       void ensureDistanceDpi().then((dpi) => {
         applyDistanceOverlay()
         const item = lastItems.find((i) => i.id === itemId)
@@ -2976,6 +2993,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     })
     const release = () => {
       distanceProbeItemId = null
+      distanceProbeDragStart = null
       applyDistanceOverlay()
       void hideDistanceRings()
       void hideDistanceSpokes()
@@ -5296,6 +5314,7 @@ function bindStampContextRemove(el, stamp, items) {
       !listItems.some((i) => i.id === distanceProbeItemId)
     ) {
       distanceProbeItemId = null
+      distanceProbeDragStart = null
       void hideDistanceRings()
       void hideDistanceSpokes()
     }

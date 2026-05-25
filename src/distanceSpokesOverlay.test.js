@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  MOVEMENT_MIN_SCHRITT,
   resolveSpokeColor,
+  shouldShowMovementSpoke,
   SPOKE_COLOR_FALLBACK,
   spokeItemId,
   spokeLabelPosition,
@@ -23,6 +25,15 @@ describe('spokeLabelPosition', () => {
       x: 50,
       y: 100,
     })
+  })
+})
+
+describe('shouldShowMovementSpoke', () => {
+  it('zeigt Linie ab Mindest-Schritt', () => {
+    expect(shouldShowMovementSpoke(MOVEMENT_MIN_SCHRITT)).toBe(true)
+    expect(shouldShowMovementSpoke(1.2)).toBe(true)
+    expect(shouldShowMovementSpoke(0.04)).toBe(false)
+    expect(shouldShowMovementSpoke(NaN)).toBe(false)
   })
 })
 

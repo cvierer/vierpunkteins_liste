@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyDistance,
   computeSchritt,
+  computeSchrittFromCenters,
   formatSchritt,
   formatSchrittWithClass,
   tokenCenter,
@@ -71,6 +72,17 @@ describe('computeSchritt', () => {
     const item = { position: { x: 0, y: 0 }, width: 0, height: 0 }
     expect(computeSchritt(item, item, 0)).toBeNaN()
     expect(computeSchritt(item, item, NaN)).toBeNaN()
+  })
+})
+
+describe('computeSchrittFromCenters', () => {
+  it('misst Abstand zwischen zwei Mittelpunkten in Schritt', () => {
+    expect(computeSchrittFromCenters({ x: 0, y: 0 }, { x: 100, y: 0 }, 100)).toBe(
+      1
+    )
+    expect(
+      computeSchrittFromCenters({ x: 0, y: 0 }, { x: 100, y: 100 }, 100)
+    ).toBeCloseTo(Math.SQRT2, 5)
   })
 })
 
