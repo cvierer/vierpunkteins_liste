@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { gridApi, itemsApi } = vi.hoisted(() => ({
   gridApi: {
     snapPosition: vi.fn(async (pos) => ({ x: pos.x + 5, y: pos.y + 5 })),
+    getDistance: vi.fn(async (from, to) => {
+      const dx = Math.abs(to.x - from.x)
+      const dy = Math.abs(to.y - from.y)
+      if (dx === 0 || dy === 0) return (dx + dy) / 100
+      return Math.round((dx + dy) / 100)
+    }),
   },
   itemsApi: {
     getItemBounds: vi.fn(async () => ({ center: { x: 100, y: 100 } })),
@@ -70,8 +76,10 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
 import {
   boxTopLeftForCenter,
   circleTopLeftForCenter,
+  findManhattanVertexOnAxis,
   isHexGridType,
   manhattanDiamondVertices,
+  manhattanRingVerticesFromObr,
   MOVEMENT_RING_SPECS,
   resolveRingCenter,
   ringRadiusPx,
@@ -111,6 +119,40 @@ describe('manhattanDiamondVertices', () => {
       { x: 50, y: 60 },
       { x: 40, y: 50 },
     ])
+  })
+})
+
+describe('findManhattanVertexOnAxis', () => {
+  it('findet letzten Punkt mit Distanz <= schritt entlang einer Achse', async () => {
+    const center = { x: 100, y: 100 }
+    const getDistanceFn = async (from, to) => {
+      const dx = Math.abs(to.x - from.x)
+      const dy = Math.abs(to.y - from.y)
+      if (dx === 0 || dy === 0) return (dx + dy) / 100
+      return Math.round((dx + dy) / 100)
+    }
+    const north = await findManhattanVertexOnAxis(
+      center,
+      { x: 0, y: -1 },
+      8,
+      100,
+      getDistanceFn
+    )
+    expect(north).toEqual({ x: 100, y: 100 - 800 })
+  })
+})
+
+describe('manhattanRingVerticesFromObr', () => {
+  it('liefert gleiche Achs-Abstaende fuer alle vier Richtungen', async () => {
+    const center = { x: 200, y: 200 }
+    const schritt = 8
+    const dpi = 100
+    const verts = await manhattanRingVerticesFromObr(center, schritt, dpi)
+    expect(verts).toHaveLength(4)
+    expect(verts[0]).toEqual({ x: 200, y: 200 - schritt * dpi })
+    expect(verts[1]).toEqual({ x: 200 + schritt * dpi, y: 200 })
+    expect(verts[2]).toEqual({ x: 200, y: 200 + schritt * dpi })
+    expect(verts[3]).toEqual({ x: 200 - schritt * dpi, y: 200 })
   })
 })
 
@@ -167,7 +209,7 @@ describe('resolveRingCenter', () => {
     expect(gridApi.snapPosition).not.toHaveBeenCalled()
   })
 
-  it('snappt auf Grid bei CHEBYSHEV und MANHATTAN', async () => {
+  it('snappt auf Grid bei CHEBYSHEV und ALTERNATING', async () => {
     const cheb = await resolveRingCenter(
       { id: 't1', position: { x: 0, y: 0 }, width: 100, height: 100 },
       { dpi: 100, measurement: 'CHEBYSHEV', type: 'SQUARE' }
@@ -180,11 +222,20 @@ describe('resolveRingCenter', () => {
     expect(cheb).toEqual({ x: 105, y: 105 })
 
     gridApi.snapPosition.mockClear()
+    const alt = await resolveRingCenter(
+      { id: 't1', position: { x: 0, y: 0 }, width: 100, height: 100 },
+      { dpi: 100, measurement: 'ALTERNATING', type: 'SQUARE' }
+    )
+    expect(gridApi.snapPosition).toHaveBeenCalled()
+    expect(alt).toEqual({ x: 105, y: 105 })
+  })
+
+  it('nutzt Token-Bounds bei MANHATTAN ohne Snap', async () => {
     const man = await resolveRingCenter(
       { id: 't1', position: { x: 0, y: 0 }, width: 100, height: 100 },
       { dpi: 100, measurement: 'MANHATTAN', type: 'SQUARE' }
     )
-    expect(gridApi.snapPosition).toHaveBeenCalled()
-    expect(man).toEqual({ x: 105, y: 105 })
+    expect(gridApi.snapPosition).not.toHaveBeenCalled()
+    expect(man).toEqual({ x: 100, y: 100 })
   })
 })

@@ -1,5 +1,5 @@
 import OBR, { buildLabel, buildLine, buildShape } from '@owlbear-rodeo/sdk'
-import { getGridContext } from './gridDistance.js'
+import { getGridContext, normalizeGridDistanceRaw } from './gridDistance.js'
 import {
   defaultDistRingVisible,
   isClassRingVisible,
@@ -93,24 +93,183 @@ export function manhattanDiamondVertices(center, r) {
 
 /**
  * @param {{ x: number, y: number }} center
+ * @param {{ x: number, y: number }} dir
+ * @param {number} schritt
+ * @param {number} dpi
+ * @param {(from: { x: number, y: number }, to: { x: number, y: number }) => Promise<number>} getDistanceFn
+ */
+export async function findManhattanVertexOnAxis(
+  center,
+  dir,
+  schritt,
+  dpi,
+  getDistanceFn
+) {
+  const stepPx = Math.max(1, dpi / 4)
+  const maxPx = (schritt + 2) * dpi
+  let best = { ...center }
+  for (let px = stepPx; px <= maxPx; px += stepPx) {
+    const p = { x: center.x + dir.x * px, y: center.y + dir.y * px }
+    const raw = await getDistanceFn(center, p)
+    if (raw <= schritt) {
+      best = p
+    } else {
+      break
+    }
+  }
+  return best
+}
+
+/**
+ * Manhattan-Raute: Eckpunkte per OBR-Grid-Distanz kalibriert (N, O, S, W).
+ * @param {{ x: number, y: number }} center
+ * @param {number} schritt
+ * @param {number} dpi
+ */
+export async function manhattanRingVerticesFromObr(center, schritt, dpi) {
+  const dirs = [
+    { x: 0, y: -1 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 },
+  ]
+  /** @type {{ x: number, y: number }[]} */
+  const verts = []
+  for (const dir of dirs) {
+    verts.push(
+      await findManhattanVertexOnAxis(center, dir, schritt, dpi, async (from, to) => {
+        const raw = await OBR.scene.grid.getDistance(from, to)
+        return normalizeGridDistanceRaw(raw, 'MANHATTAN', dpi)
+      })
+    )
+  }
+  return verts
+}
+
+/**
+ * @param {{ x: number, y: number }} center
  * @param {number} r
  * @param {import('./gridDistance.js').GridContext} gridContext
+ * @param {{ x: number, y: number } | null} [manhattanNorthVertex]
  */
-export function ringLabelPosition(center, r, gridContext) {
-  if (gridContext.measurement === 'MANHATTAN') {
-    return { x: center.x, y: center.y - r }
+export function ringLabelPosition(center, r, gridContext, manhattanNorthVertex = null) {
+  if (gridContext.measurement === 'MANHATTAN' && manhattanNorthVertex) {
+    return manhattanNorthVertex
   }
   return { x: center.x, y: center.y - r }
 }
 
 /**
  * @param {{ x: number, y: number }} center
- * @param {number} r
+ * @param {number} dpi
+ * @param {number} schritt
  * @param {string} code
  * @param {string} color
  * @param {import('./gridDistance.js').GridContext} gridContext
- * @returns {import('@owlbear-rodeo/sdk').Item[]}
+ * @returns {Promise<{ items: import('@owlbear-rodeo/sdk').Item[], labelPos: { x: number, y: number } }>}
  */
+export async function buildRingOutlineItemsAsync(
+  center,
+  dpi,
+  schritt,
+  code,
+  color,
+  gridContext
+) {
+  const r = ringRadiusPx(dpi, schritt)
+  const commonShape = (position) =>
+    buildShape()
+      .position(position)
+      .strokeColor(color)
+      .strokeOpacity(0.85)
+      .strokeWidth(2)
+      .strokeDash([8, 6])
+      .fillColor(color)
+      .fillOpacity(0)
+      .layer('DRAWING')
+      .locked(true)
+      .disableHit(true)
+      .zIndex(-1000)
+      .name(`Distanz ${code}`)
+
+  const { measurement, type } = gridContext
+
+  if (measurement === 'MANHATTAN') {
+    const pts = await manhattanRingVerticesFromObr(center, schritt, dpi)
+    /** @type {import('@owlbear-rodeo/sdk').Item[]} */
+    const edges = []
+    for (let i = 0; i < pts.length; i++) {
+      const start = pts[i]
+      const end = pts[(i + 1) % pts.length]
+      edges.push(
+        buildLine()
+          .id(ringId('e', code, i))
+          .startPosition(start)
+          .endPosition(end)
+          .strokeColor(color)
+          .strokeOpacity(0.85)
+          .strokeWidth(2)
+          .strokeDash([8, 6])
+          .layer('DRAWING')
+          .locked(true)
+          .disableHit(true)
+          .zIndex(-1000)
+          .name(`Distanz ${code}`)
+          .build()
+      )
+    }
+    return {
+      items: edges,
+      labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
+    }
+  }
+
+  if (measurement !== 'EUCLIDEAN' && isHexGridType(gridContext)) {
+    const diameter = r * 2
+    const rotation = type === 'HEX_HORIZONTAL' ? 0 : 30
+    return {
+      items: [
+        commonShape(ringShapePosition(center, r, 'HEXAGON'))
+          .id(ringId('c', code))
+          .shapeType('HEXAGON')
+          .width(diameter)
+          .height(diameter)
+          .rotation(rotation)
+          .build(),
+      ],
+      labelPos: ringLabelPosition(center, r, gridContext),
+    }
+  }
+
+  if (measurement === 'CHEBYSHEV' || measurement === 'ALTERNATING') {
+    const diameter = r * 2
+    return {
+      items: [
+        commonShape(ringShapePosition(center, r, 'RECTANGLE'))
+          .id(ringId('c', code))
+          .shapeType('RECTANGLE')
+          .width(diameter)
+          .height(diameter)
+          .build(),
+      ],
+      labelPos: ringLabelPosition(center, r, gridContext),
+    }
+  }
+
+  return {
+    items: [
+      commonShape(ringShapePosition(center, r, 'CIRCLE'))
+        .id(ringId('c', code))
+        .shapeType('CIRCLE')
+        .width(r * 2)
+        .height(r * 2)
+        .build(),
+    ],
+    labelPos: ringLabelPosition(center, r, gridContext),
+  }
+}
+
+/** @deprecated Sync-Fallback ohne Manhattan-OBR-Kalibrierung (Tests). */
 export function buildRingOutlineItems(center, r, code, color, gridContext) {
   const commonShape = (position) =>
     buildShape()
@@ -211,14 +370,19 @@ async function resolveTokenRingCenter(item) {
 }
 
 /**
- * Ring-Mittelpunkt: EUCLIDEAN = Token-Bounds; gitterbasierte Modi = Grid-Snap.
+ * Ring-Mittelpunkt: EUCLIDEAN/MANHATTAN = Token-Bounds; CHEBYSHEV/ALTERNATING = Grid-Snap.
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
  * @param {import('./gridDistance.js').GridContext} gridContext
  * @returns {Promise<{ x: number, y: number }>}
  */
 export async function resolveRingCenter(item, gridContext) {
   const center = await resolveTokenRingCenter(item)
-  if (gridContext.measurement === 'EUCLIDEAN') return center
+  if (
+    gridContext.measurement === 'EUCLIDEAN' ||
+    gridContext.measurement === 'MANHATTAN'
+  ) {
+    return center
+  }
   try {
     return await OBR.scene.grid.snapPosition(center, undefined, true)
   } catch {
@@ -257,7 +421,7 @@ function buildRingLabel(text, color, position, id) {
  * @param {string} color
  * @param {import('./gridDistance.js').GridContext} gridContext
  */
-function appendRingPair(
+async function appendRingPair(
   items,
   center,
   dpi,
@@ -267,16 +431,16 @@ function appendRingPair(
   color,
   gridContext
 ) {
-  const r = ringRadiusPx(dpi, schritt)
-  items.push(...buildRingOutlineItems(center, r, code, color, gridContext))
-  items.push(
-    buildRingLabel(
-      labelText,
-      color,
-      ringLabelPosition(center, r, gridContext),
-      ringId('l', code)
-    )
+  const { items: outlineItems, labelPos } = await buildRingOutlineItemsAsync(
+    center,
+    dpi,
+    schritt,
+    code,
+    color,
+    gridContext
   )
+  items.push(...outlineItems)
+  items.push(buildRingLabel(labelText, color, labelPos, ringId('l', code)))
 }
 
 /**
@@ -305,7 +469,7 @@ export async function showDistanceRingsFor(
   lastShownRingCodes.clear()
   for (const { max, code } of DIST_CLASS_THRESHOLDS) {
     if (!isClassRingVisible(prefs, code)) continue
-    appendRingPair(items, c, dpi, max, code, code, RING_COLORS[code] ?? '#888888', gridContext)
+    await appendRingPair(items, c, dpi, max, code, code, RING_COLORS[code] ?? '#888888', gridContext)
     lastShownRingCodes.add(code)
   }
   if (
@@ -314,13 +478,13 @@ export async function showDistanceRingsFor(
     Number.isFinite(classXSchritt) &&
     classXSchritt > 0
   ) {
-    appendRingPair(items, c, dpi, classXSchritt, 'X', 'X', RING_COLORS.X ?? '#888888', gridContext)
+    await appendRingPair(items, c, dpi, classXSchritt, 'X', 'X', RING_COLORS.X ?? '#888888', gridContext)
     lastShownRingCodes.add('X')
   }
   if (Number.isFinite(gsSchritt) && gsSchritt > 0) {
     for (const { code, label, mult } of MOVEMENT_RING_SPECS) {
       if (!isMovementRingVisible(prefs, code)) continue
-      appendRingPair(
+      await appendRingPair(
         items,
         c,
         dpi,
@@ -335,7 +499,7 @@ export async function showDistanceRingsFor(
   }
   if (isCustomRingsEnabled(prefs)) {
     for (const { code, label, schritt, color } of customRingSpecs) {
-      appendRingPair(items, c, dpi, schritt, code, label, color, gridContext)
+      await appendRingPair(items, c, dpi, schritt, code, label, color, gridContext)
       lastShownRingCodes.add(code)
     }
   }
