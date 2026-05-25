@@ -79,7 +79,7 @@ function buildSpokeLabel(text, position, id, color) {
     .id(id)
     .plainText(text)
     .position(position)
-    .fillColor('#111827')
+    .fillColor('#ffffff')
     .backgroundColor(color)
     .backgroundOpacity(SPOKE_LABEL_BG_OPACITY)
     .layer('TEXT')

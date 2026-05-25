@@ -76,6 +76,7 @@ function buildRingLabel(text, color, position, id) {
   return buildLabel()
     .plainText(text)
     .position(position)
+    .fillColor('#ffffff')
     .backgroundColor(color)
     .backgroundOpacity(0.85)
     .layer('TEXT')
