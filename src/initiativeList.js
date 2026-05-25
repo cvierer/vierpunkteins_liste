@@ -2760,6 +2760,17 @@ function layoutIniSwapBetween(ul, host, overlay) {
   }
 }
 
+/**
+ * @param {HTMLElement} main
+ * @param {string} heroBg
+ */
+function applyHeroRowBorder(main, heroBg) {
+  main.style.backgroundColor = ''
+  main.style.setProperty('--init-hero-border-color', heroBg)
+  main.style.borderColor = heroBg
+  main.classList.add('init-row-main--hero-border')
+}
+
 export function setupInitiativeList(element, { onListChange } = {}) {
   let restoreFocusItemId = null
   /** @type {{ itemId: string, inputId: string, selectionStart: number | null, selectionEnd: number | null } | null} */
@@ -3464,7 +3475,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       </fieldset>
     </div>
     <div class="kampf-settings-panel__section">
-      <label class="init-row-extra-label" data-kampf-hero-color-field-label>Hintergrundfarbe (Hauptzeile)</label>
+      <label class="init-row-extra-label" data-kampf-hero-color-field-label>Rahmenfarbe (Hauptzeile)</label>
       <p class="kampf-settings-panel__microhint" id="kampf-hero-color-microhint">Für alle in der Szene sichtbar (SL und Spieler). Klick setzt die Farbe sofort; „×“ entfernt sie.</p>
       <div class="kampf-hero-color-grid" data-kampf-hero-color-grid></div>
     </div>
@@ -5489,8 +5500,7 @@ function bindStampContextRemove(el, stamp, items) {
           heroBg &&
           (canEdit || !getHideForeignHeroColorsForViewer())
         if (showHeroBg) {
-          main.style.backgroundColor = heroBg
-          main.classList.add('init-row-main--hero-bg')
+          applyHeroRowBorder(main, heroBg)
         }
 
         if (!canEdit) expandedPlayerExtrasIds.delete(row.id)
@@ -6179,8 +6189,7 @@ function bindStampContextRemove(el, stamp, items) {
             ownerHeroBg &&
             (ownerCanEdit || !getHideForeignHeroColorsForViewer())
           if (showOwnerHeroBg) {
-            main.style.backgroundColor = ownerHeroBg
-            main.classList.add('init-row-main--hero-bg')
+            applyHeroRowBorder(main, ownerHeroBg)
           }
         }
         const isLhEndLink = isZaoRoot && link.lhEnd === true

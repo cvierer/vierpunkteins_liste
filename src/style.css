@@ -7746,14 +7746,15 @@ select.init-row-extra-select {
   font-weight: 700;
 }
 
-/* Hauptzeile mit Helden-Hintergrundfarbe — Standard-Hintergrund nicht
-   überdecken: nur sanft tönen, damit Schrift/Icons gut lesbar bleiben. */
-.init-row-main--hero-bg {
-  background-image: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0) 100%
-  );
+/* Hauptzeile mit Helden-Rahmenfarbe — transparenter Hintergrund, farbiger Rand. */
+.init-row-main--hero-border {
+  border-color: var(--init-hero-border-color, currentColor);
+  border-width: 2px;
+  background: transparent;
+}
+
+.init-row--active .init-row-main.init-row-main--hero-border {
+  border-color: var(--init-hero-border-color);
 }
 
 /* === V582+ Temporaere Helden-Modifikatoren =============================
