@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
-  allCustomDistRingCodes,
   buildCustomDistRingSpecs,
   customDistRingCode,
+  CUSTOM_DIST_MAX_BANDS,
+  CUSTOM_DIST_MAX_PROFILES,
   defaultCustomDistProfiles,
   HERO_CUSTOM_DIST,
   readCustomDistProfiles,
@@ -10,43 +11,55 @@ import {
 } from './heroCustomDist.js'
 
 describe('defaultCustomDistProfiles', () => {
-  it('liefert drei deaktivierte Profile mit Standard-Namen und -Baendern', () => {
+  it('liefert Fernkampf und Zauberreichweite deaktiviert', () => {
     const profiles = defaultCustomDistProfiles()
-    expect(profiles).toHaveLength(3)
+    expect(profiles).toHaveLength(2)
     expect(profiles.every((p) => p.enabled === false)).toBe(true)
-    expect(profiles[0].name).toBe('Fernkampfwaffe 1')
-    expect(profiles[0].bands).toHaveLength(5)
-    expect(profiles[0].bands[0].label).toBe('Sehr nah')
-    expect(profiles[0].bands[0].schritt).toBeNull()
+    expect(profiles[0].name).toBe('Fernkampf')
+    expect(profiles[1].name).toBe('Zauberreichweite')
+    expect(profiles[0].bands).toHaveLength(1)
   })
 })
 
 describe('readCustomDistProfiles', () => {
   it('defaultet leeres Meta', () => {
     expect(readCustomDistProfiles(undefined)).toEqual(defaultCustomDistProfiles())
-    expect(readCustomDistProfiles({})).toEqual(defaultCustomDistProfiles())
   })
 
-  it('normalisiert gespeicherte Profile', () => {
+  it('liest variable Profile und Baender', () => {
     const meta = {
       [HERO_CUSTOM_DIST]: [
         {
           enabled: true,
-          name: 'Bogen',
+          name: 'Feuerball',
           bands: [
             { label: 'Nah', schritt: 8 },
-            { label: '', schritt: '12' },
+            { label: 'Fern', schritt: 24 },
           ],
         },
+        { enabled: false, name: 'Bogen', bands: [{ label: '', schritt: null }] },
       ],
     }
     const got = readCustomDistProfiles(meta)
-    expect(got[0].enabled).toBe(true)
-    expect(got[0].name).toBe('Bogen')
-    expect(got[0].bands[0]).toEqual({ label: 'Nah', schritt: 8 })
-    expect(got[0].bands[1].schritt).toBe(12)
-    expect(got[0].bands[1].label).toBe('Nah')
-    expect(got[1].enabled).toBe(false)
+    expect(got).toHaveLength(2)
+    expect(got[0].name).toBe('Feuerball')
+    expect(got[0].bands[1].schritt).toBe(24)
+  })
+
+  it('begrenzt auf MAX_PROFILES und MAX_BANDS', () => {
+    const manyProfiles = Array.from({ length: CUSTOM_DIST_MAX_PROFILES + 5 }, (_, i) => ({
+      enabled: false,
+      name: `P${i}`,
+      bands: [{ label: '', schritt: null }],
+    }))
+    const manyBands = Array.from({ length: CUSTOM_DIST_MAX_BANDS + 5 }, (_, i) => ({
+      label: `B${i}`,
+      schritt: i + 1,
+    }))
+    manyProfiles[0].bands = manyBands
+    const got = readCustomDistProfiles({ [HERO_CUSTOM_DIST]: manyProfiles })
+    expect(got).toHaveLength(CUSTOM_DIST_MAX_PROFILES)
+    expect(got[0].bands).toHaveLength(CUSTOM_DIST_MAX_BANDS)
   })
 
   it('ignoriert ungueltige Schritt-Werte', () => {
@@ -70,15 +83,16 @@ describe('buildCustomDistRingSpecs', () => {
     const profiles = defaultCustomDistProfiles()
     profiles[0].enabled = true
     profiles[0].name = 'Bogen'
-    profiles[0].bands[2].schritt = 12
+    profiles[0].bands[0].label = 'Mittel'
+    profiles[0].bands[0].schritt = 12
     const specs = buildCustomDistRingSpecs(profiles)
     expect(specs).toHaveLength(1)
     expect(specs[0]).toMatchObject({
-      code: customDistRingCode(0, 2),
+      code: customDistRingCode(0, 0),
       label: 'Bogen · Mittel',
       schritt: 12,
     })
-    expect(specs[0].color).toMatch(/^#/)
+    expect(specs[0].color).toMatch(/^hsl\(/)
   })
 
   it('liefert leer wenn alle deaktiviert', () => {
@@ -87,24 +101,17 @@ describe('buildCustomDistRingSpecs', () => {
 })
 
 describe('writeCustomDistProfiles', () => {
-  it('schreibt normalisiertes Array ins Meta', () => {
+  it('schreibt variable Profile ins Meta', () => {
     /** @type {Record<string, unknown>} */
     const meta = {}
     const profiles = defaultCustomDistProfiles()
-    profiles[1].enabled = true
-    profiles[1].bands[0].schritt = 5
+    profiles.push({
+      enabled: true,
+      name: 'Zauber',
+      bands: [{ label: 'Reichweite', schritt: 16 }],
+    })
     writeCustomDistProfiles(meta, profiles)
-    expect(Array.isArray(meta[HERO_CUSTOM_DIST])).toBe(true)
-    expect(/** @type {any[]} */ (meta[HERO_CUSTOM_DIST])[1].enabled).toBe(true)
-    expect(/** @type {any[]} */ (meta[HERO_CUSTOM_DIST])[1].bands[0].schritt).toBe(5)
-  })
-})
-
-describe('allCustomDistRingCodes', () => {
-  it('liefert 15 eindeutige Ring-Codes', () => {
-    const codes = allCustomDistRingCodes()
-    expect(codes).toHaveLength(15)
-    expect(new Set(codes).size).toBe(15)
-    expect(codes[0]).toBe('cd-p0-b0')
+    expect(/** @type {any[]} */ (meta[HERO_CUSTOM_DIST])).toHaveLength(3)
+    expect(/** @type {any[]} */ (meta[HERO_CUSTOM_DIST])[2].name).toBe('Zauber')
   })
 })

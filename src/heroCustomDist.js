@@ -1,5 +1,14 @@
 export const HERO_CUSTOM_DIST = 'heroCustomDist'
 
+export const CUSTOM_DIST_MAX_PROFILES = 24
+export const CUSTOM_DIST_MAX_BANDS = 99
+export const CUSTOM_DIST_MIN_BANDS = 1
+
+/** @deprecated Nur fuer Alt-Import; neue Helden nutzen variable Profile. */
+export const CUSTOM_DIST_PROFILE_COUNT = 3
+/** @deprecated Nur fuer Alt-Import. */
+export const CUSTOM_DIST_BAND_COUNT = 5
+
 export const DEFAULT_BAND_LABELS = Object.freeze([
   'Sehr nah',
   'Nah',
@@ -9,59 +18,60 @@ export const DEFAULT_BAND_LABELS = Object.freeze([
 ])
 
 export const DEFAULT_PROFILE_NAMES = Object.freeze([
-  'Fernkampfwaffe 1',
-  'Fernkampfwaffe 2',
-  'Fernkampfwaffe 3',
+  'Fernkampf',
+  'Zauberreichweite',
 ])
-
-export const CUSTOM_DIST_PROFILE_COUNT = 3
-export const CUSTOM_DIST_BAND_COUNT = 5
 
 /** @typedef {{ label: string, schritt: number | null }} CustomDistBand */
 /** @typedef {{ enabled: boolean, name: string, bands: CustomDistBand[] }} CustomDistProfile */
 /** @typedef {{ code: string, label: string, schritt: number, color: string }} CustomDistRingSpec */
 
-/** Profil-Basis × Band-Abstufung (Teal / Amber / Rose). */
-const PROFILE_BAND_COLORS = Object.freeze([
-  ['#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4'],
-  ['#d97706', '#f59e0b', '#fbbf24', '#fcd34d', '#fde68a'],
-  ['#e11d48', '#f43f5e', '#fb7185', '#fda4af', '#fecdd3'],
-])
+const PROFILE_HUES = Object.freeze([168, 38, 345, 210, 280, 120, 15, 195])
+
+/** @param {number} profileIndex @param {number} bandIndex @param {number} bandCount */
+export function customDistRingColor(profileIndex, bandIndex, bandCount = 5) {
+  const hue = PROFILE_HUES[profileIndex % PROFILE_HUES.length] ?? 168
+  const maxIdx = Math.max(1, bandCount - 1)
+  const t = bandIndex / maxIdx
+  const light = 42 + t * 38
+  const sat = 58 - t * 12
+  return `hsl(${hue} ${sat}% ${light}%)`
+}
 
 /** @param {number} profileIndex @param {number} bandIndex */
 export function customDistRingCode(profileIndex, bandIndex) {
   return `cd-p${profileIndex}-b${bandIndex}`
 }
 
-/** @returns {string[]} */
-export function allCustomDistRingCodes() {
+/**
+ * @param {number} [maxProfile]
+ * @param {number} [maxBand]
+ * @returns {string[]}
+ */
+export function allCustomDistRingCodes(
+  maxProfile = CUSTOM_DIST_MAX_PROFILES,
+  maxBand = CUSTOM_DIST_MAX_BANDS
+) {
   /** @type {string[]} */
   const codes = []
-  for (let p = 0; p < CUSTOM_DIST_PROFILE_COUNT; p++) {
-    for (let b = 0; b < CUSTOM_DIST_BAND_COUNT; b++) {
+  for (let p = 0; p < maxProfile; p++) {
+    for (let b = 0; b < maxBand; b++) {
       codes.push(customDistRingCode(p, b))
     }
   }
   return codes
 }
 
-/** @param {number} profileIndex @param {number} bandIndex */
-export function customDistRingColor(profileIndex, bandIndex) {
-  const row = PROFILE_BAND_COLORS[profileIndex] ?? PROFILE_BAND_COLORS[0]
-  return row[bandIndex] ?? row[0]
-}
-
 /** @param {unknown} raw */
 function parseSchritt(raw) {
   const t = String(raw ?? '').trim()
-  if (!t) return null
-  if (!/^\d+$/.test(t)) return null
+  if (!t || !/^\d+$/.test(t)) return null
   const n = parseInt(t, 10)
-  return Number.isFinite(n) && n > 0 ? n : null
+  return Number.isFinite(n) && n >= 1 && n <= CUSTOM_DIST_MAX_BANDS ? n : null
 }
 
-/** @param {unknown} raw @param {number} profileIndex @param {number} bandIndex */
-function normalizeBand(raw, profileIndex, bandIndex) {
+/** @param {unknown} raw @param {number} bandIndex */
+function normalizeBand(raw, bandIndex) {
   const fallbackLabel = DEFAULT_BAND_LABELS[bandIndex] ?? ''
   if (!raw || typeof raw !== 'object') {
     return { label: fallbackLabel, schritt: null }
@@ -75,15 +85,22 @@ function normalizeBand(raw, profileIndex, bandIndex) {
 
 /** @param {number} profileIndex @param {unknown} [raw] */
 function normalizeProfile(raw, profileIndex) {
-  const fallbackName = DEFAULT_PROFILE_NAMES[profileIndex] ?? ''
+  const fallbackName =
+    DEFAULT_PROFILE_NAMES[profileIndex] ?? `Reichweite ${profileIndex + 1}`
   const src = raw && typeof raw === 'object' ? raw : {}
   const bandsRaw = Array.isArray(/** @type {{ bands?: unknown }} */ (src).bands)
     ? /** @type {{ bands: unknown[] }} */ (src).bands
     : []
   /** @type {CustomDistBand[]} */
   const bands = []
-  for (let b = 0; b < CUSTOM_DIST_BAND_COUNT; b++) {
-    bands.push(normalizeBand(bandsRaw[b], profileIndex, b))
+  const limit = Math.min(bandsRaw.length, CUSTOM_DIST_MAX_BANDS)
+  for (let b = 0; b < limit; b++) {
+    bands.push(normalizeBand(bandsRaw[b], b))
+  }
+  if (bands.length < CUSTOM_DIST_MIN_BANDS) {
+    for (let b = bands.length; b < CUSTOM_DIST_MIN_BANDS; b++) {
+      bands.push(normalizeBand(null, b))
+    }
   }
   return {
     enabled: /** @type {{ enabled?: unknown }} */ (src).enabled === true,
@@ -94,21 +111,11 @@ function normalizeProfile(raw, profileIndex) {
 
 /** @returns {CustomDistProfile[]} */
 export function defaultCustomDistProfiles() {
-  /** @type {CustomDistProfile[]} */
-  const out = []
-  for (let p = 0; p < CUSTOM_DIST_PROFILE_COUNT; p++) {
-    /** @type {CustomDistBand[]} */
-    const bands = []
-    for (let b = 0; b < CUSTOM_DIST_BAND_COUNT; b++) {
-      bands.push({ label: DEFAULT_BAND_LABELS[b], schritt: null })
-    }
-    out.push({
-      enabled: false,
-      name: DEFAULT_PROFILE_NAMES[p],
-      bands,
-    })
-  }
-  return out
+  return DEFAULT_PROFILE_NAMES.map((name) => ({
+    enabled: false,
+    name,
+    bands: [{ label: '', schritt: null }],
+  }))
 }
 
 /**
@@ -117,13 +124,14 @@ export function defaultCustomDistProfiles() {
  */
 export function readCustomDistProfiles(meta) {
   const raw = meta?.[HERO_CUSTOM_DIST]
-  if (!Array.isArray(raw)) return defaultCustomDistProfiles()
+  if (!Array.isArray(raw) || raw.length === 0) return defaultCustomDistProfiles()
   /** @type {CustomDistProfile[]} */
   const out = []
-  for (let p = 0; p < CUSTOM_DIST_PROFILE_COUNT; p++) {
+  const limit = Math.min(raw.length, CUSTOM_DIST_MAX_PROFILES)
+  for (let p = 0; p < limit; p++) {
     out.push(normalizeProfile(raw[p], p))
   }
-  return out
+  return out.length > 0 ? out : defaultCustomDistProfiles()
 }
 
 /**
@@ -155,14 +163,15 @@ export function buildCustomDistRingSpecs(profiles) {
   for (let p = 0; p < list.length; p++) {
     const profile = list[p]
     if (!profile.enabled) continue
-    for (let b = 0; b < profile.bands.length; b++) {
+    const bandCount = profile.bands.length
+    for (let b = 0; b < bandCount; b++) {
       const band = profile.bands[b]
       if (band.schritt == null || band.schritt <= 0) continue
       specs.push({
         code: customDistRingCode(p, b),
-        label: `${profile.name} · ${band.label}`,
+        label: `${profile.name} · ${band.label || `Stufe ${b + 1}`}`,
         schritt: band.schritt,
-        color: customDistRingColor(p, b),
+        color: customDistRingColor(p, b, bandCount),
       })
     }
   }

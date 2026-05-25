@@ -1,8 +1,8 @@
 export const HERO_DIST_RING_VISIBLE = 'heroDistRingVisible'
 
-/** @typedef {{ H: boolean, N: boolean, S: boolean, P: boolean, m1: boolean, m2: boolean, sp: boolean, custom: boolean }} DistRingVisiblePrefs */
+/** @typedef {{ H: boolean, N: boolean, S: boolean, P: boolean, X: boolean, m1: boolean, m2: boolean, sp: boolean, custom: boolean }} DistRingVisiblePrefs */
 
-const CLASS_CODES = ['H', 'N', 'S', 'P']
+const CLASS_CODES = ['H', 'N', 'S', 'P', 'X']
 const MOVEMENT_CODES = ['m1', 'm2', 'sp']
 
 /** @returns {DistRingVisiblePrefs} */
@@ -12,6 +12,7 @@ export function defaultDistRingVisible() {
     N: true,
     S: false,
     P: false,
+    X: false,
     m1: true,
     m2: true,
     sp: true,
@@ -38,6 +39,7 @@ export function readDistRingVisible(meta) {
     N: boolPref(o.N, def.N),
     S: boolPref(o.S, def.S),
     P: boolPref(o.P, def.P),
+    X: boolPref(o.X, def.X),
     m1: boolPref(o.m1, def.m1),
     m2: boolPref(o.m2, def.m2),
     sp: boolPref(o.sp, def.sp),
@@ -76,6 +78,28 @@ export function isMovementRingVisible(prefs, code) {
 export function isCustomRingsEnabled(prefs) {
   const p = prefs ?? defaultDistRingVisible()
   return Boolean(p.custom)
+}
+
+/**
+ * Kein Karten-Ring-Typ aktiv (Dist-Kästchen zeigt Zielscheibe).
+ * @param {DistRingVisiblePrefs | undefined | null} prefs
+ * @param {number | null | undefined} [classXSchritt]
+ */
+export function isDistMapRingsInactive(prefs, classXSchritt = null) {
+  const p = prefs ?? defaultDistRingVisible()
+  for (const code of CLASS_CODES) {
+    if (!isClassRingVisible(p, code)) continue
+    if (code === 'X') {
+      if (classXSchritt != null && classXSchritt > 0) return false
+      continue
+    }
+    return false
+  }
+  for (const code of MOVEMENT_CODES) {
+    if (isMovementRingVisible(p, code)) return false
+  }
+  if (isCustomRingsEnabled(p)) return false
+  return true
 }
 
 export { CLASS_CODES, MOVEMENT_CODES }

@@ -4,18 +4,20 @@ import {
   HERO_DIST_RING_VISIBLE,
   isClassRingVisible,
   isCustomRingsEnabled,
+  isDistMapRingsInactive,
   isMovementRingVisible,
   readDistRingVisible,
   writeDistRingVisible,
 } from './heroDistRingPrefs.js'
 
 describe('defaultDistRingVisible', () => {
-  it('aktiviert N und GS-Bewegungsringe, nicht H/S/P/custom', () => {
+  it('aktiviert N und GS-Bewegungsringe, nicht H/S/P/X/custom', () => {
     expect(defaultDistRingVisible()).toEqual({
       H: false,
       N: true,
       S: false,
       P: false,
+      X: false,
       m1: true,
       m2: true,
       sp: true,
@@ -31,10 +33,11 @@ describe('readDistRingVisible', () => {
 
   it('liest gespeicherte Werte', () => {
     const got = readDistRingVisible({
-      [HERO_DIST_RING_VISIBLE]: { H: true, N: false, custom: true },
+      [HERO_DIST_RING_VISIBLE]: { H: true, N: false, X: true, custom: true },
     })
     expect(got.H).toBe(true)
     expect(got.N).toBe(false)
+    expect(got.X).toBe(true)
     expect(got.custom).toBe(true)
     expect(got.m1).toBe(true)
   })
@@ -45,8 +48,42 @@ describe('filter helpers', () => {
     const p = defaultDistRingVisible()
     expect(isClassRingVisible(p, 'N')).toBe(true)
     expect(isClassRingVisible(p, 'H')).toBe(false)
+    expect(isClassRingVisible(p, 'X')).toBe(false)
     expect(isMovementRingVisible(p, 'sp')).toBe(true)
     expect(isCustomRingsEnabled(p)).toBe(false)
+  })
+})
+
+describe('isDistMapRingsInactive', () => {
+  it('false bei Standard-Defaults (N + GS aktiv)', () => {
+    expect(isDistMapRingsInactive(defaultDistRingVisible(), null)).toBe(false)
+    expect(isDistMapRingsInactive(defaultDistRingVisible(), 10)).toBe(false)
+  })
+
+  it('true wenn alle Ring-Typen aus', () => {
+    const off = {
+      H: false,
+      N: false,
+      S: false,
+      P: false,
+      X: false,
+      m1: false,
+      m2: false,
+      sp: false,
+      custom: false,
+    }
+    expect(isDistMapRingsInactive(off, null)).toBe(true)
+  })
+
+  it('false wenn ein Ring-Typ aktiv', () => {
+    const p = { ...defaultDistRingVisible(), custom: true }
+    expect(isDistMapRingsInactive(p, null)).toBe(false)
+  })
+
+  it('X zaehlt nur mit Schwelle', () => {
+    const p = { ...defaultDistRingVisible(), N: false, m1: false, m2: false, sp: false, X: true }
+    expect(isDistMapRingsInactive(p, null)).toBe(true)
+    expect(isDistMapRingsInactive(p, 12)).toBe(false)
   })
 })
 

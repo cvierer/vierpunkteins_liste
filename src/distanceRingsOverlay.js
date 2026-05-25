@@ -1,5 +1,4 @@
 import OBR, { buildLabel, buildShape } from '@owlbear-rodeo/sdk'
-import { allCustomDistRingCodes } from './heroCustomDist.js'
 import {
   defaultDistRingVisible,
   isClassRingVisible,
@@ -16,7 +15,11 @@ const RING_COLORS = {
   N: '#e08a1f',
   S: '#e0c020',
   P: '#3aa84a',
+  X: '#6b7280',
 }
+
+/** @type {Set<string>} */
+const lastShownRingCodes = new Set()
 
 /** @type {Record<string, string>} */
 export const MOVEMENT_RING_COLORS = {
@@ -122,13 +125,15 @@ function appendRingPair(items, center, dpi, schritt, code, labelText, color) {
  * @param {number | null | undefined} [gsSchritt]
  * @param {import('./heroCustomDist.js').CustomDistRingSpec[]} [customRingSpecs]
  * @param {import('./heroDistRingPrefs.js').DistRingVisiblePrefs} [ringVisible]
+ * @param {number | null | undefined} [classXSchritt]
  */
 export async function showDistanceRingsFor(
   item,
   dpi,
   gsSchritt = null,
   customRingSpecs = [],
-  ringVisible = defaultDistRingVisible()
+  ringVisible = defaultDistRingVisible(),
+  classXSchritt = null
 ) {
   if (!item || !Number.isFinite(dpi) || dpi <= 0) return
   await hideDistanceRings()
@@ -136,9 +141,20 @@ export async function showDistanceRingsFor(
   const c = await resolveTokenRingCenter(item)
   /** @type {import('@owlbear-rodeo/sdk').Item[]} */
   const items = []
+  lastShownRingCodes.clear()
   for (const { max, code } of DIST_CLASS_THRESHOLDS) {
     if (!isClassRingVisible(prefs, code)) continue
     appendRingPair(items, c, dpi, max, code, code, RING_COLORS[code] ?? '#888888')
+    lastShownRingCodes.add(code)
+  }
+  if (
+    isClassRingVisible(prefs, 'X') &&
+    classXSchritt != null &&
+    Number.isFinite(classXSchritt) &&
+    classXSchritt > 0
+  ) {
+    appendRingPair(items, c, dpi, classXSchritt, 'X', 'X', RING_COLORS.X ?? '#888888')
+    lastShownRingCodes.add('X')
   }
   if (Number.isFinite(gsSchritt) && gsSchritt > 0) {
     for (const { code, label, mult } of MOVEMENT_RING_SPECS) {
@@ -152,11 +168,13 @@ export async function showDistanceRingsFor(
         label,
         MOVEMENT_RING_COLORS[code] ?? '#888888'
       )
+      lastShownRingCodes.add(code)
     }
   }
   if (isCustomRingsEnabled(prefs)) {
     for (const { code, label, schritt, color } of customRingSpecs) {
       appendRingPair(items, c, dpi, schritt, code, label, color)
+      lastShownRingCodes.add(code)
     }
   }
   await OBR.scene.local.addItems(items)
@@ -167,12 +185,16 @@ export async function hideDistanceRings() {
   for (const { code } of DIST_CLASS_THRESHOLDS) {
     ids.push(ringId('c', code), ringId('l', code))
   }
+  ids.push(ringId('c', 'X'), ringId('l', 'X'))
   for (const { code } of MOVEMENT_RING_SPECS) {
     ids.push(ringId('c', code), ringId('l', code))
   }
-  for (const code of allCustomDistRingCodes()) {
-    ids.push(ringId('c', code), ringId('l', code))
+  for (const code of lastShownRingCodes) {
+    if (code.startsWith('cd-')) {
+      ids.push(ringId('c', code), ringId('l', code))
+    }
   }
+  lastShownRingCodes.clear()
   try {
     await OBR.scene.local.deleteItems(ids)
   } catch {

@@ -6,12 +6,17 @@ export const DIST_CLASS_THRESHOLDS = [
   { max: 4.5, code: 'P' },
 ]
 
-/** @returns {'' | 'H' | 'N' | 'S' | 'P'} */
-export function classifyDistance(schritt) {
+/** @returns {'' | 'H' | 'N' | 'S' | 'P' | 'X'} */
+export function classifyDistance(schritt, classXSchritt = null) {
   if (!Number.isFinite(schritt) || schritt < 0) return ''
   for (const { max, code } of DIST_CLASS_THRESHOLDS) {
     if (schritt <= max) return code
   }
+  const xMax =
+    classXSchritt != null && Number.isFinite(classXSchritt) && classXSchritt > 0
+      ? classXSchritt
+      : null
+  if (xMax != null && schritt <= xMax) return 'X'
   return ''
 }
 
@@ -47,9 +52,9 @@ export function formatSchritt(n) {
 }
 
 /** Schritt + Distanzklasse ohne Leerzeichen, z. B. „1,2N“. */
-export function formatSchrittWithClass(n) {
+export function formatSchrittWithClass(n, classXSchritt = null) {
   const s = formatSchritt(n)
   if (!s) return ''
-  const cls = classifyDistance(n)
+  const cls = classifyDistance(n, classXSchritt)
   return cls ? `${s}${cls}` : s
 }

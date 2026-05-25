@@ -21,6 +21,13 @@ describe('classifyDistance', () => {
     expect(classifyDistance(10)).toBe('')
   })
 
+  it('nutzt Klasse X bis zur konfigurierten Grenze', () => {
+    expect(classifyDistance(5, 6)).toBe('X')
+    expect(classifyDistance(6, 6)).toBe('X')
+    expect(classifyDistance(6.01, 6)).toBe('')
+    expect(classifyDistance(4.5, 6)).toBe('P')
+  })
+
   it('gibt leer bei ungueltigen Werten zurueck', () => {
     expect(classifyDistance(NaN)).toBe('')
     expect(classifyDistance(-1)).toBe('')
@@ -84,6 +91,7 @@ describe('formatSchrittWithClass', () => {
     expect(formatSchrittWithClass(1.2)).toBe('1,2N')
     expect(formatSchrittWithClass(0.5)).toBe('0,5H')
     expect(formatSchrittWithClass(10)).toBe('10,0')
+    expect(formatSchrittWithClass(5.5, 8)).toBe('5,5X')
   })
 
   it('gibt leer bei NaN zurueck', () => {
