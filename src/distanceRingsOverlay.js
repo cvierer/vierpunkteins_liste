@@ -82,9 +82,9 @@ export function isHexGridType(gridContext) {
   )
 }
 
-/** @param {import('./gridDistance.js').GridType} [_gridType] */
-export function hexRingDirections(_gridType) {
-  const startDeg = 0
+/** @param {import('./gridDistance.js').GridType} gridType */
+export function hexRingDirections(gridType) {
+  const startDeg = gridType === 'HEX_VERTICAL' ? 30 : 0
   /** @type {{ x: number, y: number }[]} */
   const dirs = []
   for (let i = 0; i < 6; i++) {
@@ -111,22 +111,24 @@ export function isoRingDirections(gridType) {
   })
 }
 
+/** @param {{ x: number, y: number }} dir */
+export function directionScreenAngle(dir) {
+  return Math.atan2(dir.x, -dir.y)
+}
+
 /**
- * @param {{ x: number, y: number }} center
- * @param {number} schritt
- * @param {number} dpi
+ * Chessboard auf Iso/Dimetric: Zellachsen + Bildschirm-Kardinalen (sortiert).
  * @param {import('./gridDistance.js').GridType} gridType
- * @param {import('./gridDistance.js').GridMeasurement} measurement
  */
-export async function isoRingVerticesFromObr(center, schritt, dpi, gridType, measurement) {
-  void gridType
-  return contourRingVerticesFromObr(
-    center,
-    schritt,
-    dpi,
-    measurement,
-    CONTOUR_RAY_COUNT_ISO
-  )
+export function chessboardIsoRingDirections(gridType) {
+  const cardinals = [
+    { x: 0, y: -1 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 },
+  ]
+  const all = [...isoRingDirections(gridType), ...cardinals]
+  return all.sort((a, b) => directionScreenAngle(a) - directionScreenAngle(b))
 }
 
 export function alternatingRingDirections() {
@@ -243,6 +245,97 @@ export async function contourRingVerticesFromObr(
 }
 
 /**
+ * Kanten einschraenken: zusaetzliche Eckpunkte wenn die Kante unter schritt liegt.
+ * @param {{ x: number, y: number }} center
+ * @param {{ x: number, y: number }[]} verts
+ * @param {number} schritt
+ * @param {number} dpi
+ * @param {import('./gridDistance.js').GridMeasurement} measurement
+ */
+export async function densifyRingVertices(center, verts, schritt, dpi, measurement) {
+  if (verts.length < 3) return verts
+  const getDist = async (to) => {
+    const raw = await OBR.scene.grid.getDistance(center, to)
+    return normalizeGridDistanceRaw(raw, measurement, dpi)
+  }
+  /** @type {{ x: number, y: number }[]} */
+  const out = []
+  for (let i = 0; i < verts.length; i++) {
+    const a = verts[i]
+    const b = verts[(i + 1) % verts.length]
+    out.push(a)
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    const dMid = await getDist(mid)
+    if (dMid < schritt - 0.001) {
+      const dx = mid.x - center.x
+      const dy = mid.y - center.y
+      const len = Math.hypot(dx, dy) || 1
+      const dir = { x: dx / len, y: dy / len }
+      out.push(
+        await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
+          const raw = await OBR.scene.grid.getDistance(from, to)
+          return normalizeGridDistanceRaw(raw, measurement, dpi)
+        })
+      )
+    }
+  }
+  return out
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number} schritt
+ * @param {number} dpi
+ * @param {import('./gridDistance.js').GridMeasurement} measurement
+ * @param {{ x: number, y: number }[]} dirs
+ */
+async function calibrateVerticesFromDirections(
+  center,
+  schritt,
+  dpi,
+  measurement,
+  dirs
+) {
+  /** @type {{ x: number, y: number }[]} */
+  const verts = []
+  for (const dir of dirs) {
+    verts.push(
+      await findBoundaryOnRay(center, dir, schritt, dpi, async (from, to) => {
+        const raw = await OBR.scene.grid.getDistance(from, to)
+        return normalizeGridDistanceRaw(raw, measurement, dpi)
+      })
+    )
+  }
+  return densifyRingVertices(center, verts, schritt, dpi, measurement)
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number} schritt
+ * @param {number} dpi
+ * @param {import('./gridDistance.js').GridType} gridType
+ * @param {import('./gridDistance.js').GridMeasurement} measurement
+ */
+export async function isoRingVerticesFromObr(center, schritt, dpi, gridType, measurement) {
+  if (measurement === 'CHEBYSHEV') {
+    return calibrateVerticesFromDirections(
+      center,
+      schritt,
+      dpi,
+      measurement,
+      chessboardIsoRingDirections(gridType)
+    )
+  }
+  return contourRingVerticesFromObr(
+    center,
+    schritt,
+    dpi,
+    measurement,
+    CONTOUR_RAY_COUNT_ISO
+  )
+}
+
+/**
  * Hex-Ring: 6 Eckpunkte per OBR-Grid-Distanz kalibriert.
  * @param {{ x: number, y: number }} center
  * @param {number} schritt
@@ -251,13 +344,12 @@ export async function contourRingVerticesFromObr(
  * @param {import('./gridDistance.js').GridMeasurement} measurement
  */
 export async function hexRingVerticesFromObr(center, schritt, dpi, gridType, measurement) {
-  void gridType
-  return contourRingVerticesFromObr(
+  return calibrateVerticesFromDirections(
     center,
     schritt,
     dpi,
     measurement,
-    CONTOUR_RAY_COUNT_HEX
+    hexRingDirections(gridType)
   )
 }
 

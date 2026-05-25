@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { gridApi, itemsApi, shapeBuilderState, lineBuildCount } = vi.hoisted(() => ({
   gridApi: {
@@ -87,9 +87,11 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
 import {
   boxTopLeftForCenter,
   buildRingOutlineItemsAsync,
+  chessboardIsoRingDirections,
   circleTopLeftForCenter,
   CONTOUR_RAY_COUNT_ISO,
   contourRingVerticesFromObr,
+  densifyRingVertices,
   findManhattanVertexOnAxis,
   hexRingDirections,
   hexRingRotation,
@@ -125,11 +127,25 @@ describe('hexRingRotation', () => {
 })
 
 describe('hexRingDirections', () => {
-  it('liefert 6 Richtungen mit N als erste fuer beide Hex-Typen', () => {
+  it('HEX_HORIZONTAL: erste Richtung N; HEX_VERTICAL: erste Richtung NE', () => {
     expect(hexRingDirections('HEX_VERTICAL')).toHaveLength(6)
     expect(hexRingDirections('HEX_HORIZONTAL')).toHaveLength(6)
     expect(hexRingDirections('HEX_HORIZONTAL')[0]).toEqual({ x: 0, y: -1 })
-    expect(hexRingDirections('HEX_VERTICAL')[0]).toEqual({ x: 0, y: -1 })
+    const sqrt3 = Math.sqrt(3) / 2
+    expect(hexRingDirections('HEX_VERTICAL')[0].x).toBeCloseTo(0.5, 5)
+    expect(hexRingDirections('HEX_VERTICAL')[0].y).toBeCloseTo(-sqrt3, 5)
+  })
+})
+
+describe('chessboardIsoRingDirections', () => {
+  it('liefert 8 sortierte Richtungen fuer DIMETRIC', () => {
+    const dirs = chessboardIsoRingDirections('DIMETRIC')
+    expect(dirs).toHaveLength(8)
+    for (let i = 1; i < dirs.length; i++) {
+      const a = Math.atan2(dirs[i - 1].x, -dirs[i - 1].y)
+      const b = Math.atan2(dirs[i].x, -dirs[i].y)
+      expect(a).toBeLessThanOrEqual(b + 1e-9)
+    }
   })
 })
 
@@ -147,6 +163,12 @@ describe('buildRingOutlineItemsAsync', () => {
     shapeBuilderState.lastRotation = null
     shapeBuilderState.lastShapeType = null
     lineBuildCount.value = 0
+    gridApi.getDistance.mockImplementation(async (from, to) => {
+      const dx = Math.abs(to.x - from.x)
+      const dy = Math.abs(to.y - from.y)
+      if (dx === 0 || dy === 0) return (dx + dy) / 100
+      return Math.round((dx + dy) / 100)
+    })
   })
 
   it('MANHATTAN: 4 Linien-Raute, kein gedrehtes Rechteck', async () => {
@@ -179,6 +201,7 @@ describe('buildRingOutlineItemsAsync', () => {
   })
 
   it('HEX_VERTICAL: 6 Linien via getDistance, kein HEXAGON-Shape', async () => {
+    gridApi.getDistance.mockImplementation(async () => 8)
     const { items } = await buildRingOutlineItemsAsync(
       center,
       100,
@@ -206,7 +229,7 @@ describe('buildRingOutlineItemsAsync', () => {
     expect(shapeBuilderState.lastShapeType).toBeNull()
   })
 
-  it('ISOMETRIC CHEBYSHEV: 16 Linien-Kontur, kein Rechteck', async () => {
+  it('ISOMETRIC CHEBYSHEV: 8 Achs-Linien, kein Rechteck', async () => {
     const { items } = await buildRingOutlineItemsAsync(
       center,
       100,
@@ -215,8 +238,22 @@ describe('buildRingOutlineItemsAsync', () => {
       '#3d8fd1',
       { dpi: 100, measurement: 'CHEBYSHEV', type: 'ISOMETRIC' }
     )
-    expect(items).toHaveLength(16)
-    expect(lineBuildCount.value).toBe(16)
+    expect(items).toHaveLength(8)
+    expect(lineBuildCount.value).toBe(8)
+    expect(shapeBuilderState.lastShapeType).toBeNull()
+  })
+
+  it('DIMETRIC CHEBYSHEV: 8 Achs-Linien, kein Rechteck', async () => {
+    const { items } = await buildRingOutlineItemsAsync(
+      center,
+      100,
+      8,
+      'm1',
+      '#3d8fd1',
+      { dpi: 100, measurement: 'CHEBYSHEV', type: 'DIMETRIC' }
+    )
+    expect(items).toHaveLength(8)
+    expect(lineBuildCount.value).toBe(8)
     expect(shapeBuilderState.lastShapeType).toBeNull()
   })
 
@@ -232,6 +269,37 @@ describe('buildRingOutlineItemsAsync', () => {
     expect(items).toHaveLength(16)
     expect(lineBuildCount.value).toBe(16)
     expect(shapeBuilderState.lastShapeType).toBeNull()
+  })
+})
+
+describe('densifyRingVertices', () => {
+  afterEach(() => {
+    gridApi.getDistance.mockImplementation(async (from, to) => {
+      const dx = Math.abs(to.x - from.x)
+      const dy = Math.abs(to.y - from.y)
+      if (dx === 0 || dy === 0) return (dx + dy) / 100
+      return Math.round((dx + dy) / 100)
+    })
+  })
+
+  it('fuegt Punkt ein wenn Kante unter schritt liegt', async () => {
+    const center = { x: 200, y: 200 }
+    const verts = [
+      { x: 200, y: 120 },
+      { x: 280, y: 200 },
+      { x: 200, y: 280 },
+      { x: 120, y: 200 },
+    ]
+    const mid01 = {
+      x: (verts[0].x + verts[1].x) / 2,
+      y: (verts[0].y + verts[1].y) / 2,
+    }
+    gridApi.getDistance.mockImplementation(async (_from, to) => {
+      if (Math.hypot(to.x - mid01.x, to.y - mid01.y) < 0.01) return 7
+      return 8
+    })
+    const dense = await densifyRingVertices(center, verts, 8, 100, 'CHEBYSHEV')
+    expect(dense.length).toBeGreaterThan(verts.length)
   })
 })
 
