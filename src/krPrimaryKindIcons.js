@@ -74,3 +74,36 @@ export function primaryKindSvgDataUrl(kind) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
+/** @type {Record<string, string>} */
+const KIND_MAP_SYMBOL = Object.freeze({
+  ang: '\u2694',
+  sra: '\u2605',
+  lh: '\u2726',
+  uo: '\u21c4',
+  par: '\u26e8',
+})
+
+/** @type {Record<string, { fillColor: string, backgroundColor: string, backgroundOpacity: number }>} */
+const KIND_MAP_STYLE = Object.freeze({
+  ang: { fillColor: '#f5f5f5', backgroundColor: '#6d0718', backgroundOpacity: 0.9 },
+  sra: { fillColor: '#fffde7', backgroundColor: '#ef6c00', backgroundOpacity: 0.9 },
+  lh: { fillColor: '#fffde7', backgroundColor: '#1f6b4a', backgroundOpacity: 0.9 },
+  uo: { fillColor: '#ffffff', backgroundColor: '#3949ab', backgroundOpacity: 0.9 },
+  par: { fillColor: '#e0e0e0', backgroundColor: '#263238', backgroundOpacity: 0.9 },
+})
+
+/**
+ * Unicode-Symbol für Map-Badge (OBR buildLabel, kein Bild).
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
+ */
+export function primaryKindMapSymbol(kind) {
+  return KIND_MAP_SYMBOL[kind] ?? KIND_MAP_SYMBOL.ang
+}
+
+/**
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
+ * @returns {{ fillColor: string, backgroundColor: string, backgroundOpacity: number }}
+ */
+export function primaryKindMapStyle(kind) {
+  return KIND_MAP_STYLE[kind] ?? KIND_MAP_STYLE.ang
+}

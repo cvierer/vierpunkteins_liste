@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   combatOverlayKey,
+  primaryKindMapStyle,
+  primaryKindMapSymbol,
   primaryKindSvgMarkup,
   primaryKindSvgDataUrl,
   resolvePrimaryKindForNav,
@@ -68,6 +70,31 @@ describe('primaryKindSvgDataUrl', () => {
     expect(decodeURIComponent(url.slice('data:image/svg+xml,'.length))).toContain(
       'init-kr-primary-kind__svg--ang'
     )
+  })
+})
+
+describe('primaryKindMapSymbol', () => {
+  it('liefert je kind ein nicht-leeres Zeichen', () => {
+    for (const k of ['ang', 'sra', 'lh', 'uo', 'par']) {
+      expect(primaryKindMapSymbol(k).length).toBeGreaterThan(0)
+    }
+  })
+
+  it('ang ist Schwert-Symbol', () => {
+    expect(primaryKindMapSymbol('ang')).toBe('\u2694')
+  })
+
+  it('lh unterscheidet sich von sra', () => {
+    expect(primaryKindMapSymbol('lh')).not.toBe(primaryKindMapSymbol('sra'))
+  })
+})
+
+describe('primaryKindMapStyle', () => {
+  it('liefert Farben für ang', () => {
+    const s = primaryKindMapStyle('ang')
+    expect(s.fillColor).toMatch(/^#/)
+    expect(s.backgroundColor).toMatch(/^#/)
+    expect(s.backgroundOpacity).toBeGreaterThan(0)
   })
 })
 

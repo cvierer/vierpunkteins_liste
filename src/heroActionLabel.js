@@ -1,10 +1,11 @@
-import OBR, { buildImage } from '@owlbear-rodeo/sdk'
-import { assetUrl } from './assetUrl.js'
+import OBR, { buildLabel } from '@owlbear-rodeo/sdk'
 import { getCombat, onCombatChange } from './combatRoom.js'
 import { isGmSync } from './editAccess.js'
 import {
   combatOverlayKey,
   KIND_LABEL,
+  primaryKindMapStyle,
+  primaryKindMapSymbol,
   resolvePrimaryKindForNav,
 } from './krPrimaryKindIcons.js'
 import {
@@ -17,25 +18,10 @@ import { TRACKER_ITEM_META_KEY } from './participants.js'
 export const TURN_ACTION_LABEL_ID = 'vierpunkteins/turn-action-label'
 const TURN_ACTION_LABEL_META = 'vierpunkteins_kampf.turnActionLabel'
 
-// Native SVG viewBox dimensions; DPI controls rendered size on the map.
-// At scene DPI 150: image appears 24/48 * 150 = 75 scene-px wide (~0.5 grid cells).
-const ICON_W = 24
-const ICON_H = 34
-const ICON_DPI = 48
-const ICON_GAP = 10
+const LABEL_EST_HEIGHT = 40
+const LABEL_GAP = 10
 
 export { KIND_LABEL }
-
-/** @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind */
-function primaryKindAssetUrl(kind) {
-  const file =
-    kind === 'sra' ? 'icon-kind-sra.svg'
-    : kind === 'lh' ? 'icon-kind-lh.svg'
-    : kind === 'uo' ? 'icon-kind-uo.svg'
-    : kind === 'par' ? 'icon-kind-par.svg'
-    : 'icon-kind-ang.svg'
-  return assetUrl(file)
-}
 
 /**
  * @param {unknown} meta
@@ -76,13 +62,11 @@ function tokenItemForLabel(items, target) {
 /**
  * @param {{ center: { x: number, y: number }, height?: number }} bounds
  */
-function iconPositionAboveToken(bounds) {
-  const sceneDpi = bounds.dpi ?? 150
-  const renderedH = (ICON_H / ICON_DPI) * sceneDpi
+function labelPositionAboveToken(bounds) {
   const tokenHalfH = (bounds.height ?? 0) / 2
   return {
-    x: bounds.center.x - (ICON_W / ICON_DPI) * sceneDpi / 2,
-    y: bounds.center.y - tokenHalfH - renderedH - ICON_GAP,
+    x: bounds.center.x,
+    y: bounds.center.y - tokenHalfH - LABEL_EST_HEIGHT - LABEL_GAP,
   }
 }
 
@@ -90,10 +74,10 @@ function iconPositionAboveToken(bounds) {
  * @param {string} tokenId
  * @returns {Promise<{ x: number, y: number } | null>}
  */
-async function resolveIconPosition(tokenId) {
+async function resolveLabelPosition(tokenId) {
   try {
     const bounds = await OBR.scene.items.getItemBounds([tokenId])
-    if (bounds?.center) return iconPositionAboveToken(bounds)
+    if (bounds?.center) return labelPositionAboveToken(bounds)
   } catch {
     /* fallback */
   }
@@ -105,23 +89,31 @@ async function resolveIconPosition(tokenId) {
  * @param {import('@owlbear-rodeo/sdk').Item} tokenItem
  * @param {{ x: number, y: number }} position
  */
-function buildTurnActionImageItem(kind, tokenItem, position) {
-  const url = primaryKindAssetUrl(kind)
-  const label = KIND_LABEL[kind] ?? 'Aktion'
-  return buildImage(
-    { width: ICON_W, height: ICON_H, url, mime: 'image/svg+xml' },
-    { dpi: ICON_DPI, offset: { x: 0, y: 0 } }
-  )
+function buildTurnActionLabelItem(kind, tokenItem, position) {
+  const style = primaryKindMapStyle(kind)
+  const ariaName = KIND_LABEL[kind] ?? 'Aktion'
+  return buildLabel()
     .id(TURN_ACTION_LABEL_ID)
+    .plainText(primaryKindMapSymbol(kind))
     .position(position)
+    .fontSize(26)
+    .fontWeight(700)
+    .textAlign('CENTER')
+    .textAlignVertical('MIDDLE')
+    .fillColor(style.fillColor)
+    .backgroundColor(style.backgroundColor)
+    .backgroundOpacity(style.backgroundOpacity)
+    .cornerRadius(6)
+    .padding(4)
     .layer('TEXT')
     .locked(true)
     .disableHit(true)
     .visible(tokenItem.visible !== false)
-    .name(label)
+    .name(ariaName)
     .metadata({
       [TURN_ACTION_LABEL_META]: true,
       turnActionOwnerId: tokenItem.id,
+      turnActionKind: kind,
     })
     .build()
 }
@@ -135,7 +127,7 @@ async function deleteTurnActionLabelIfPresent(items) {
   try {
     await OBR.scene.items.deleteItems([TURN_ACTION_LABEL_ID])
   } catch (e) {
-    console.warn('[vierpunkteins_kampf] Aktions-Icon entfernen', e)
+    console.warn('[vierpunkteins_kampf] Aktions-Symbol entfernen', e)
   }
   lastOverlayKey = ''
   lastOverlayOwnerId = ''
@@ -151,7 +143,7 @@ async function updateTurnActionLabelPositionOnly(items, target) {
   if (!existing) return
   const tokenItem = tokenItemForLabel(items, target)
   if (!tokenItem) return
-  const position = await resolveIconPosition(target.ownerId)
+  const position = await resolveLabelPosition(target.ownerId)
   if (!position) return
   try {
     await OBR.scene.items.updateItems([TURN_ACTION_LABEL_ID], (drafts) => {
@@ -161,7 +153,7 @@ async function updateTurnActionLabelPositionOnly(items, target) {
       }
     })
   } catch (e) {
-    console.warn('[vierpunkteins_kampf] Aktions-Icon Position', e)
+    console.warn('[vierpunkteins_kampf] Aktions-Symbol Position', e)
   }
 }
 
@@ -192,10 +184,10 @@ async function refreshTurnActionLabel(itemsIn) {
     return
   }
   const position =
-    (await resolveIconPosition(target.ownerId)) ??
+    (await resolveLabelPosition(target.ownerId)) ??
     tokenItem.position ??
     { x: 0, y: 0 }
-  const imageItem = buildTurnActionImageItem(kind, tokenItem, position)
+  const labelItem = buildTurnActionLabelItem(kind, tokenItem, position)
   const existing = items.find((i) => i.id === TURN_ACTION_LABEL_ID)
   const ownerChanged =
     lastOverlayOwnerId !== '' && lastOverlayOwnerId !== target.ownerId
@@ -204,27 +196,33 @@ async function refreshTurnActionLabel(itemsIn) {
   try {
     if (existing && (ownerChanged || keyChanged)) {
       await OBR.scene.items.deleteItems([TURN_ACTION_LABEL_ID])
-      await OBR.scene.items.addItems([imageItem])
+      await OBR.scene.items.addItems([labelItem])
     } else if (existing) {
+      const style = primaryKindMapStyle(kind)
       await OBR.scene.items.updateItems([TURN_ACTION_LABEL_ID], (drafts) => {
         for (const d of drafts) {
-          if (d.image) {
-            d.image.url = imageItem.image.url
-            d.image.mime = imageItem.image.mime
+          const symbol = primaryKindMapSymbol(kind)
+          d.position = labelItem.position
+          d.visible = labelItem.visible
+          d.name = labelItem.name
+          d.metadata = labelItem.metadata
+          if (d.text) {
+            d.text.plainText = symbol
+            d.text.fillColor = style.fillColor
           }
-          d.position = imageItem.position
-          d.visible = imageItem.visible
-          d.name = imageItem.name
-          d.metadata = imageItem.metadata
+          if (d.style) {
+            d.style.backgroundColor = style.backgroundColor
+            d.style.backgroundOpacity = style.backgroundOpacity
+          }
         }
       })
     } else {
-      await OBR.scene.items.addItems([imageItem])
+      await OBR.scene.items.addItems([labelItem])
     }
     lastOverlayKey = overlayKey
     lastOverlayOwnerId = target.ownerId
   } catch (e) {
-    console.warn('[vierpunkteins_kampf] Aktions-Icon aktualisieren', e)
+    console.warn('[vierpunkteins_kampf] Aktions-Symbol aktualisieren', e)
   }
 }
 
