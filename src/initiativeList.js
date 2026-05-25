@@ -2860,7 +2860,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   async function refreshDistanceProbeRings() {
     if (!distanceProbeItemId) return
     const item = lastItems.find((i) => i.id === distanceProbeItemId)
-    const gridContext = await getGridContext()
+    const gridContext = await getGridContext({ forceRefresh: true })
     if (!item || !gridContext) return
     const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
     const combat = getCombat()

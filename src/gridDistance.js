@@ -34,10 +34,12 @@ export function invalidateGridContextCache() {
 }
 
 /**
+ * @param {{ forceRefresh?: boolean } | undefined} [options]
  * @returns {Promise<GridContext | null>}
  */
-export async function getGridContext() {
-  if (cachedGridContext) return cachedGridContext
+export async function getGridContext(options) {
+  const forceRefresh = options?.forceRefresh === true
+  if (cachedGridContext && !forceRefresh) return cachedGridContext
   try {
     const [dpi, measurement, type] = await Promise.all([
       OBR.scene.grid.getDpi(),

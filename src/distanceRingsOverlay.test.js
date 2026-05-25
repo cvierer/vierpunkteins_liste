@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { gridApi, itemsApi } = vi.hoisted(() => ({
+const { gridApi, itemsApi, shapeBuilderState } = vi.hoisted(() => ({
   gridApi: {
     snapPosition: vi.fn(async (pos) => ({ x: pos.x, y: pos.y })),
     getDistance: vi.fn(async (from, to) => {
@@ -13,6 +13,7 @@ const { gridApi, itemsApi } = vi.hoisted(() => ({
   itemsApi: {
     getItemBounds: vi.fn(async () => ({ center: { x: 100, y: 100 } })),
   },
+  shapeBuilderState: { lastRotation: null, lastShapeType: null },
 }))
 
 vi.mock('@owlbear-rodeo/sdk', () => ({
@@ -65,18 +66,26 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
     zIndex: vi.fn().mockReturnThis(),
     name: vi.fn().mockReturnThis(),
     id: vi.fn().mockReturnThis(),
-    shapeType: vi.fn().mockReturnThis(),
+    shapeType: vi.fn(function (type) {
+      shapeBuilderState.lastShapeType = type
+      return this
+    }),
     width: vi.fn().mockReturnThis(),
     height: vi.fn().mockReturnThis(),
-    rotation: vi.fn().mockReturnThis(),
+    rotation: vi.fn(function (deg) {
+      shapeBuilderState.lastRotation = deg
+      return this
+    }),
     build: vi.fn(() => ({})),
   })),
 }))
 
 import {
   boxTopLeftForCenter,
+  buildRingOutlineItemsAsync,
   circleTopLeftForCenter,
   findManhattanVertexOnAxis,
+  hexRingRotation,
   isHexGridType,
   manhattanDiamondVertices,
   manhattanRingVerticesFromObr,
@@ -96,6 +105,63 @@ describe('ringShapePosition', () => {
   it('liefert Mittelpunkt fuer CIRCLE und HEXAGON', () => {
     expect(ringShapePosition(center, 50, 'CIRCLE')).toEqual(center)
     expect(ringShapePosition(center, 50, 'HEXAGON')).toEqual(center)
+  })
+})
+
+describe('hexRingRotation', () => {
+  it('liefert 90 fuer HEX_HORIZONTAL und 0 fuer HEX_VERTICAL', () => {
+    expect(hexRingRotation('HEX_HORIZONTAL')).toBe(90)
+    expect(hexRingRotation('HEX_VERTICAL')).toBe(0)
+  })
+})
+
+describe('buildRingOutlineItemsAsync', () => {
+  const center = { x: 200, y: 200 }
+
+  beforeEach(() => {
+    shapeBuilderState.lastRotation = null
+    shapeBuilderState.lastShapeType = null
+  })
+
+  it('MANHATTAN: gedrehtes Rechteck 45 Grad, kein buildLine', async () => {
+    const { items } = await buildRingOutlineItemsAsync(
+      center,
+      100,
+      8,
+      'm1',
+      '#3d8fd1',
+      { dpi: 100, measurement: 'MANHATTAN', type: 'SQUARE' }
+    )
+    expect(items).toHaveLength(1)
+    expect(shapeBuilderState.lastShapeType).toBe('RECTANGLE')
+    expect(shapeBuilderState.lastRotation).toBe(45)
+  })
+
+  it('CHEBYSHEV: Rechteck ohne 45-Grad-Drehung', async () => {
+    const { items } = await buildRingOutlineItemsAsync(
+      center,
+      100,
+      8,
+      'm1',
+      '#3d8fd1',
+      { dpi: 100, measurement: 'CHEBYSHEV', type: 'SQUARE' }
+    )
+    expect(items).toHaveLength(1)
+    expect(shapeBuilderState.lastShapeType).toBe('RECTANGLE')
+    expect(shapeBuilderState.lastRotation).toBeNull()
+  })
+
+  it('HEX_HORIZONTAL: Hexagon mit 90-Grad-Rotation', async () => {
+    await buildRingOutlineItemsAsync(
+      center,
+      100,
+      8,
+      'm1',
+      '#3d8fd1',
+      { dpi: 100, measurement: 'CHEBYSHEV', type: 'HEX_HORIZONTAL' }
+    )
+    expect(shapeBuilderState.lastShapeType).toBe('HEXAGON')
+    expect(shapeBuilderState.lastRotation).toBe(90)
   })
 })
 

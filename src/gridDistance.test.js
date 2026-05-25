@@ -20,6 +20,7 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
 
 import {
   computeGridSchrittFromCenters,
+  getGridContext,
   invalidateGridContextCache,
   normalizeGridDistanceRaw,
 } from './gridDistance.js'
@@ -80,5 +81,31 @@ describe('computeGridSchrittFromCenters', () => {
       { x: 100, y: 0 }
     )
     expect(schritt).toBe(1)
+  })
+})
+
+describe('getGridContext', () => {
+  beforeEach(() => {
+    invalidateGridContextCache()
+    gridApi.getDpi.mockClear()
+    gridApi.getMeasurement.mockClear()
+    gridApi.getType.mockClear()
+    gridApi.getDpi.mockResolvedValue(100)
+    gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
+    gridApi.getType.mockResolvedValue('SQUARE')
+  })
+
+  it('forceRefresh ignoriert Cache und liest erneut von OBR', async () => {
+    await getGridContext()
+    expect(gridApi.getMeasurement).toHaveBeenCalledTimes(1)
+
+    gridApi.getMeasurement.mockResolvedValue('MANHATTAN')
+    const cached = await getGridContext()
+    expect(cached?.measurement).toBe('CHEBYSHEV')
+    expect(gridApi.getMeasurement).toHaveBeenCalledTimes(1)
+
+    const fresh = await getGridContext({ forceRefresh: true })
+    expect(fresh?.measurement).toBe('MANHATTAN')
+    expect(gridApi.getMeasurement).toHaveBeenCalledTimes(2)
   })
 })

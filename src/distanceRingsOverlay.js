@@ -1,4 +1,4 @@
-import OBR, { buildLabel, buildLine, buildShape } from '@owlbear-rodeo/sdk'
+import OBR, { buildLabel, buildShape } from '@owlbear-rodeo/sdk'
 import { getGridContext, normalizeGridDistanceRaw } from './gridDistance.js'
 import { tokenCenterScene } from './heroOrientationRingsOverlay.js'
 import {
@@ -77,6 +77,31 @@ export function isHexGridType(gridContext) {
     gridContext.type === 'HEX_VERTICAL' ||
     gridContext.type === 'HEX_HORIZONTAL'
   )
+}
+
+/** @param {import('./gridDistance.js').GridType} gridType */
+export function hexRingRotation(gridType) {
+  if (gridType === 'HEX_HORIZONTAL') return 90
+  if (gridType === 'HEX_VERTICAL') return 0
+  return 0
+}
+
+/**
+ * Kalibrierter Rauten-Radius (px): Minimum der vier Achs-Abstaende via getDistance.
+ * @param {{ x: number, y: number }} center
+ * @param {number} schritt
+ * @param {number} dpi
+ */
+export async function calibrateManhattanRadiusPx(center, schritt, dpi) {
+  const verts = await manhattanRingVerticesFromObr(center, schritt, dpi)
+  const radii = [
+    Math.abs(center.y - verts[0].y),
+    Math.abs(verts[1].x - center.x),
+    Math.abs(verts[2].y - center.y),
+    Math.abs(center.x - verts[3].x),
+  ].filter((n) => n > 0)
+  if (radii.length === 0) return ringRadiusPx(dpi, schritt)
+  return Math.min(...radii)
 }
 
 /**
@@ -220,38 +245,26 @@ export async function buildRingOutlineItemsAsync(
   const { measurement, type } = gridContext
 
   if (measurement === 'MANHATTAN') {
-    const pts = await manhattanRingVerticesFromObr(center, schritt, dpi)
-    /** @type {import('@owlbear-rodeo/sdk').Item[]} */
-    const edges = []
-    for (let i = 0; i < pts.length; i++) {
-      const start = pts[i]
-      const end = pts[(i + 1) % pts.length]
-      edges.push(
-        buildLine()
-          .id(ringId('e', code, i))
-          .startPosition(start)
-          .endPosition(end)
-          .strokeColor(color)
-          .strokeOpacity(0.85)
-          .strokeWidth(2)
-          .strokeDash([8, 6])
-          .layer('DRAWING')
-          .locked(true)
-          .disableHit(true)
-          .zIndex(-1000)
-          .name(`Distanz ${code}`)
-          .build()
-      )
-    }
+    const rPx = await calibrateManhattanRadiusPx(center, schritt, dpi)
+    const diameter = rPx * 2
+    const northLabel = { x: center.x, y: center.y - rPx }
     return {
-      items: edges,
-      labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
+      items: [
+        commonShape(center)
+          .id(ringId('c', code))
+          .shapeType('RECTANGLE')
+          .width(diameter)
+          .height(diameter)
+          .rotation(45)
+          .build(),
+      ],
+      labelPos: ringLabelPosition(center, rPx, gridContext, northLabel),
     }
   }
 
   if (measurement !== 'EUCLIDEAN' && isHexGridType(gridContext)) {
     const diameter = r * 2
-    const rotation = type === 'HEX_HORIZONTAL' ? 0 : 30
+    const rotation = hexRingRotation(type)
     return {
       items: [
         commonShape(ringShapePosition(center, r, 'HEXAGON'))
@@ -314,35 +327,21 @@ export function buildRingOutlineItems(center, r, code, color, gridContext) {
   const { measurement, type } = gridContext
 
   if (measurement === 'MANHATTAN') {
-    const pts = manhattanDiamondVertices(center, r)
-    /** @type {import('@owlbear-rodeo/sdk').Item[]} */
-    const edges = []
-    for (let i = 0; i < pts.length; i++) {
-      const start = pts[i]
-      const end = pts[(i + 1) % pts.length]
-      edges.push(
-        buildLine()
-          .id(ringId('e', code, i))
-          .startPosition(start)
-          .endPosition(end)
-          .strokeColor(color)
-          .strokeOpacity(0.85)
-          .strokeWidth(2)
-          .strokeDash([8, 6])
-          .layer('DRAWING')
-          .locked(true)
-          .disableHit(true)
-          .zIndex(-1000)
-          .name(`Distanz ${code}`)
-          .build()
-      )
-    }
-    return edges
+    const diameter = r * 2
+    return [
+      commonShape(center)
+        .id(ringId('c', code))
+        .shapeType('RECTANGLE')
+        .width(diameter)
+        .height(diameter)
+        .rotation(45)
+        .build(),
+    ]
   }
 
   if (measurement !== 'EUCLIDEAN' && isHexGridType(gridContext)) {
     const diameter = r * 2
-    const rotation = type === 'HEX_HORIZONTAL' ? 0 : 30
+    const rotation = hexRingRotation(type)
     return [
       commonShape(ringShapePosition(center, r, 'HEXAGON'))
         .id(ringId('c', code))
@@ -487,7 +486,7 @@ export async function showDistanceRingsFor(
   ringVisible = defaultDistRingVisible(),
   classXSchritt = null
 ) {
-  const gridContext = await getGridContext()
+  const gridContext = await getGridContext({ forceRefresh: true })
   if (!item || !gridContext) return
   const { dpi } = gridContext
   await hideDistanceRings()
