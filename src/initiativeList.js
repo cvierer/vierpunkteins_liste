@@ -42,7 +42,9 @@ import {
   resolveDistanceCenter,
 } from './gridDistance.js'
 import { hideDistanceRings, showDistanceRingsFor } from './distanceRingsOverlay.js'
+import { advanceProbeMapDragState } from './distanceProbeDrag.js'
 import {
+  hideDistanceMovementLine,
   hideDistanceSpokes,
   showDistanceSpokesFor,
   syncDistanceMovementLine,
@@ -2848,10 +2850,97 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   let distanceProbeItemId = null
   /** @type {{ x: number, y: number } | null} */
-  let distanceProbeDragStart = null
+  let probeLastCenter = null
+  /** @type {{ x: number, y: number } | null} */
+  let probeMapDragAnchor = null
+  let probeMapDragActive = false
   let distanceProbeRefreshPending = false
+  let probeMovementRafId = 0
 
   initGridDistance()
+
+  function resetProbeMapDragState() {
+    probeLastCenter = null
+    probeMapDragAnchor = null
+    probeMapDragActive = false
+  }
+
+  function stopProbeMovementLoop() {
+    if (probeMovementRafId) {
+      cancelAnimationFrame(probeMovementRafId)
+      probeMovementRafId = 0
+    }
+  }
+
+  function startProbeMovementLoop() {
+    stopProbeMovementLoop()
+    const tick = () => {
+      probeMovementRafId = 0
+      if (!distanceProbeItemId) return
+      void runDistanceProbeMovementTick()
+        .catch((err) => {
+          console.error('[vierpunkteins] distance probe movement tick failed', err)
+        })
+        .finally(() => {
+          if (distanceProbeItemId) {
+            probeMovementRafId = requestAnimationFrame(tick)
+          }
+        })
+    }
+    probeMovementRafId = requestAnimationFrame(tick)
+  }
+
+  /**
+   * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} probeItem
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   */
+  async function updateProbeMapDragFromCenter(probeItem, gridContext) {
+    const center = await resolveDistanceCenter(probeItem, gridContext)
+    const advanced = advanceProbeMapDragState(
+      probeLastCenter,
+      center,
+      probeMapDragActive,
+      probeMapDragAnchor
+    )
+    probeLastCenter = advanced.lastCenter
+    probeMapDragActive = advanced.dragActive
+    probeMapDragAnchor = advanced.dragAnchor
+    return advanced.movementAnchor
+  }
+
+  /**
+   * @param {{ id?: string, metadata?: Record<string, unknown> } | null | undefined} probeItem
+   * @param {number | null | undefined} probeXSchritt
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   */
+  async function syncProbeMovementLine(probeItem, probeXSchritt, gridContext) {
+    const movementAnchor = await updateProbeMapDragFromCenter(
+      probeItem,
+      gridContext
+    )
+    if (movementAnchor) {
+      await syncDistanceMovementLine(probeItem, movementAnchor, probeXSchritt)
+    } else {
+      await hideDistanceMovementLine()
+    }
+  }
+
+  async function runDistanceProbeMovementTick() {
+    if (!distanceProbeItemId) return
+    let sceneItems = []
+    try {
+      sceneItems = await OBR.scene.items.getItems()
+    } catch {
+      return
+    }
+    const probeItem = findDistanceProbeItem(sceneItems)
+    if (!probeItem) return
+    const gridContext = await getGridContext()
+    if (!gridContext) return
+    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
+    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
+    await syncProbeMovementLine(probeItem, probeXSchritt, gridContext)
+  }
 
   /** @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems */
   function findDistanceProbeItem(sceneItems) {
@@ -2906,11 +2995,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       classXSchritt
     )
     await showDistanceSpokesFor(probeItem, others, probeXSchritt)
-    await syncDistanceMovementLine(
-      probeItem,
-      distanceProbeDragStart,
-      probeXSchritt
-    )
+    await syncProbeMovementLine(probeItem, probeXSchritt, gridContext)
   }
 
   function scheduleDistanceProbeRefresh() {
@@ -3020,7 +3105,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   function deactivateDistanceProbe() {
     distanceProbeItemId = null
-    distanceProbeDragStart = null
+    stopProbeMovementLoop()
+    resetProbeMapDragState()
     applyDistanceOverlay()
     void hideDistanceRings()
     void hideDistanceSpokes()
@@ -3028,18 +3114,21 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   async function activateDistanceProbe(itemId) {
     if (distanceProbeItemId && distanceProbeItemId !== itemId) {
+      stopProbeMovementLoop()
       void hideDistanceRings()
       void hideDistanceSpokes()
     }
     distanceProbeItemId = itemId
+    resetProbeMapDragState()
     const probeAtDown = lastItems.find((i) => i.id === itemId)
     const gridContext = await getGridContext({ forceRefresh: true })
-    distanceProbeDragStart = probeAtDown
-      ? { ...(await resolveDistanceCenter(probeAtDown, gridContext)) }
-      : null
+    if (probeAtDown && gridContext) {
+      probeLastCenter = await resolveDistanceCenter(probeAtDown, gridContext)
+    }
     applyDistanceOverlay()
     const item = lastItems.find((i) => i.id === itemId)
     if (!item || !gridContext) return
+    startProbeMovementLoop()
     await runDistanceProbeRefresh()
   }
 
@@ -6885,6 +6974,8 @@ function bindStampContextRemove(el, stamp, items) {
     detachGlobalDragListeners()
     swapOverlay.remove()
     iniFloat.remove()
+    stopProbeMovementLoop()
+    resetProbeMapDragState()
     void hideDistanceRings()
   }
 }
