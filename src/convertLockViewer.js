@@ -25,16 +25,56 @@ export function isHeroConvertAnytimeMode(m) {
  *   - Navigation steht auf Beginn/Ende der Kampfrunde → erlaubt.
  *   - Sonst greifen die Helden-Ansageoptionen:
  *     · `convertAllowEntireRound` → erlaubt (gesamte KR).
- *     · `convertAllowFirstPhase`  → erlaubt, solange die Navigation noch nicht
- *       hinter die erste INI-Phase des Helden gewandert ist
- *       (`currentNavIni >= heroIni`).
+ *     · `convertAllowFirstPhase`  → erlaubt bis einschließlich Mutter-Zug in der
+ *       globalen Zugreihenfolge (nicht nur gleiche INI-Zahl).
  *     · andernfalls → nicht erlaubt.
+ */
+
+/**
+ * @param {string} ownerId
+ * @param {ReturnType<typeof buildConvertListVisibilityCtx>} ctx
+ */
+export function hasPassedHeroMotherTurnStep(ownerId, ctx) {
+  if (!ownerId || !ctx?.turnSteps) return false
+  const idx = ctx.combatStepIndex
+  if (idx == null || idx < 0) return false
+  const motherIdx = ctx.turnSteps.findIndex(
+    (s) => s.kind === 'token' && s.id === ownerId
+  )
+  if (motherIdx < 0) return false
+  return idx > motherIdx
+}
+
+function isFirstPhaseConvertAllowed(
+  trackerMeta,
+  ownerItemId,
+  visibilityCtx,
+  currentNavIni
+) {
+  if (ownerItemId && visibilityCtx?.turnSteps && visibilityCtx.combatStepIndex != null) {
+    return !hasPassedHeroMotherTurnStep(ownerItemId, visibilityCtx)
+  }
+  if (currentNavIni == null) return true
+  const heroIni = Number(
+    String(trackerMeta.initiative ?? '').trim().replace(',', '.')
+  )
+  if (!Number.isFinite(heroIni)) return false
+  return currentNavIni >= heroIni
+}
+
+/**
+ * @param {unknown} trackerMeta
+ * @param {string | null | undefined} rowActiveId
+ * @param {string | null | undefined} rowActivePhaseLinkId
+ * @param {number | null | undefined} currentNavIni
+ * @param {{ ownerItemId?: string | null, visibilityCtx?: ReturnType<typeof buildConvertListVisibilityCtx> | null } | null | undefined} [options]
  */
 export function isHeroConvertAllowedForViewer(
   trackerMeta,
   rowActiveId,
   rowActivePhaseLinkId,
-  currentNavIni
+  currentNavIni,
+  options = null
 ) {
   if (isGmSync()) return true
   const lock = getRoomSettings().convertLockState
@@ -48,12 +88,14 @@ export function isHeroConvertAllowedForViewer(
   if (!trackerMeta) return false
   if (trackerMeta.convertAllowEntireRound) return true
   if (trackerMeta.convertAllowFirstPhase) {
-    if (currentNavIni == null) return true
-    const heroIni = Number(
-      String(trackerMeta.initiative ?? '').trim().replace(',', '.')
+    const ownerItemId = options?.ownerItemId ?? null
+    const visibilityCtx = options?.visibilityCtx ?? null
+    return isFirstPhaseConvertAllowed(
+      trackerMeta,
+      ownerItemId,
+      visibilityCtx,
+      currentNavIni
     )
-    if (!Number.isFinite(heroIni)) return false
-    return currentNavIni >= heroIni
   }
   return false
 }
@@ -119,7 +161,10 @@ export function isConvertListAtRoundBoundary(ctx) {
  * @param {{ id?: string, parentId?: string | null, heroExtra?: string, lhEnd?: boolean }} link
  * @param {ReturnType<typeof buildConvertListVisibilityCtx>} ctx
  */
-export function shouldHideEmptySecondActionRow(meta, link, ctx) {
+/**
+ * @param {string | null | undefined} [ownerItemId]
+ */
+export function shouldHideEmptySecondActionRow(meta, link, ctx, ownerItemId = null) {
   if (isGmSync()) return false
   if (!ctx || !isRegularZaoRootLink(link)) return false
   if (!isRegularZaoUnset(meta, link)) return false
@@ -134,7 +179,8 @@ export function shouldHideEmptySecondActionRow(meta, link, ctx) {
     meta,
     ctx.rowActiveId,
     ctx.rowActivePhaseLinkId,
-    ctx.currentNavIni
+    ctx.currentNavIni,
+    { ownerItemId, visibilityCtx: ctx }
   )
   return !convertAllowed
 }
@@ -148,10 +194,13 @@ export function shouldHideEmptySecondActionRow(meta, link, ctx) {
  *   currentNavIni?: number | null
  *   roundStartStepId?: string
  *   roundEndStepId?: string
+ *   turnSteps?: Array<{ kind: string, id?: string, ownerId?: string, linkId?: string }>
+ *   combatStepIndex?: number | null
  * }} params
  */
 export function buildConvertListVisibilityCtx(params) {
   const p = params ?? {}
+  const stepIdx = p.combatStepIndex
   return {
     combatStarted: Boolean(p.combatStarted),
     roundIntroPending: Boolean(p.roundIntroPending),
@@ -160,5 +209,8 @@ export function buildConvertListVisibilityCtx(params) {
     currentNavIni: p.currentNavIni ?? null,
     roundStartStepId: p.roundStartStepId ?? ROUND_START_STEP_ID,
     roundEndStepId: p.roundEndStepId ?? ROUND_END_STEP_ID,
+    turnSteps: Array.isArray(p.turnSteps) ? p.turnSteps : null,
+    combatStepIndex:
+      stepIdx != null && Number.isFinite(Number(stepIdx)) ? Number(stepIdx) : null,
   }
 }

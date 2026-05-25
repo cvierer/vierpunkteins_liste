@@ -427,13 +427,18 @@ function findZaoRootLink(link, links) {
 }
 
 /** Regulaere 2.AO nach Schloss; z.AT nur via {@link shouldShowHeroExtraLink}. */
-export function shouldShowPhaseLinkInList(meta, link, visibilityCtx = null) {
+export function shouldShowPhaseLinkInList(
+  meta,
+  link,
+  visibilityCtx = null,
+  ownerId = null
+) {
   if (link?.heroExtra) return shouldShowHeroExtraLink(meta, link)
   if (visibilityCtx) {
     const phases = normalizePhases(meta?.phases)
     const root =
       link.parentId === null ? link : findZaoRootLink(link, phases.links)
-    if (root && shouldHideEmptySecondActionRow(meta, root, visibilityCtx)) {
+    if (root && shouldHideEmptySecondActionRow(meta, root, visibilityCtx, ownerId)) {
       return false
     }
   }
@@ -1181,10 +1186,11 @@ export function orderedZaoRootIdsForBadge(
   meta,
   phasesNormalized,
   ownerIniStr,
-  visibilityCtx = null
+  visibilityCtx = null,
+  ownerId = null
 ) {
   const visibleLinks = sortedLinksForLayout(phasesNormalized.links).filter((l) =>
-    shouldShowPhaseLinkInList(meta, l, visibilityCtx)
+    shouldShowPhaseLinkInList(meta, l, visibilityCtx, ownerId)
   )
   // Alle regulären ZAO-Links (Mutter-Kette 2, 3, …) — z.AT und L.H.-Ende
   // ausblenden, damit die Badge-Nummern mit der Aktionskette übereinstimmen.
@@ -1231,10 +1237,11 @@ export function orderedAllZaoRootIdsForBadge(
   meta,
   phasesNormalized,
   ownerIniStr,
-  visibilityCtx = null
+  visibilityCtx = null,
+  ownerId = null
 ) {
   const visibleLinks = sortedLinksForLayout(phasesNormalized.links).filter((l) =>
-    shouldShowPhaseLinkInList(meta, l, visibilityCtx)
+    shouldShowPhaseLinkInList(meta, l, visibilityCtx, ownerId)
   )
   const allRoots = visibleLinks.filter(
     (l) => l.parentId === null && l.lhEnd !== true
@@ -1310,7 +1317,7 @@ export function buildMergedDisplayRows(
     const phases = normalizePhases(meta?.phases)
 
     const visibleLinks = sortedLinksForLayout(phases.links).filter((l) =>
-      shouldShowPhaseLinkInList(meta, l, visibilityCtx)
+      shouldShowPhaseLinkInList(meta, l, visibilityCtx, row.id)
     )
     const roots = visibleLinks.filter((l) => l.parentId === null)
     rootOrderByOwner.set(

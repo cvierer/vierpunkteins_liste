@@ -13,6 +13,7 @@ import { isGmSync } from './editAccess.js'
 import { getRoomSettings } from './roomSettings.js'
 import {
   buildConvertListVisibilityCtx,
+  hasPassedHeroMotherTurnStep,
   isHeroConvertAllowedForViewer,
   isRegularZaoUnset,
   shouldHideEmptySecondActionRow,
@@ -107,6 +108,79 @@ describe('isHeroConvertAllowedForViewer', () => {
       )
     ).toBe(true)
   })
+
+  it('auto + erste Phase: auf 2.AO-Zug trotz gleicher INI nicht erlaubt', () => {
+    const ctx = buildConvertListVisibilityCtx({
+      turnSteps: [
+        { kind: 'token', id: 'hero-A' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+      ],
+      combatStepIndex: 1,
+    })
+    expect(
+      isHeroConvertAllowedForViewer(
+        { convertAllowFirstPhase: true, initiative: 15 },
+        'hero-A',
+        'zao1',
+        15,
+        { ownerItemId: 'hero-A', visibilityCtx: ctx }
+      )
+    ).toBe(false)
+  })
+
+  it('auto + erste Phase: auf Mutter-Zug erlaubt', () => {
+    const ctx = buildConvertListVisibilityCtx({
+      turnSteps: [
+        { kind: 'token', id: 'hero-A' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+      ],
+      combatStepIndex: 0,
+    })
+    expect(
+      isHeroConvertAllowedForViewer(
+        { convertAllowFirstPhase: true, initiative: 15 },
+        'hero-A',
+        null,
+        15,
+        { ownerItemId: 'hero-A', visibilityCtx: ctx }
+      )
+    ).toBe(true)
+  })
+
+  it('auto + erste Phase: ohne Zugindex Fallback INI-Vergleich', () => {
+    expect(
+      isHeroConvertAllowedForViewer(
+        { convertAllowFirstPhase: true, initiative: 10 },
+        'hero-1',
+        'phase-link',
+        12
+      )
+    ).toBe(true)
+    expect(
+      isHeroConvertAllowedForViewer(
+        { convertAllowFirstPhase: true, initiative: 10 },
+        'hero-1',
+        'phase-link',
+        8
+      )
+    ).toBe(false)
+  })
+})
+
+describe('hasPassedHeroMotherTurnStep', () => {
+  it('true wenn Kampfindex hinter Mutter-Token', () => {
+    const ctx = buildConvertListVisibilityCtx({
+      turnSteps: [
+        { kind: 'token', id: 'hero-A' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+      ],
+      combatStepIndex: 1,
+    })
+    expect(hasPassedHeroMotherTurnStep('hero-A', ctx)).toBe(true)
+    expect(hasPassedHeroMotherTurnStep('hero-A', { ...ctx, combatStepIndex: 0 })).toBe(
+      false
+    )
+  })
 })
 
 describe('shouldHideEmptySecondActionRow', () => {
@@ -170,5 +244,51 @@ describe('shouldHideEmptySecondActionRow', () => {
         runningCtx
       )
     ).toBe(true)
+  })
+
+  it('auto + erste Phase: auf 2.AO-Zug sofort ausblenden (gleiche INI)', () => {
+    const ctx = buildConvertListVisibilityCtx({
+      combatStarted: true,
+      roundIntroPending: false,
+      rowActiveId: 'hero-A',
+      rowActivePhaseLinkId: 'zao1',
+      currentNavIni: 15,
+      turnSteps: [
+        { kind: 'token', id: 'hero-A' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+      ],
+      combatStepIndex: 1,
+    })
+    expect(
+      shouldHideEmptySecondActionRow(
+        { convertAllowFirstPhase: true, initiative: 15 },
+        regLink,
+        ctx,
+        'hero-A'
+      )
+    ).toBe(true)
+  })
+
+  it('auto + erste Phase: auf Mutter-Zug unset sichtbar', () => {
+    const ctx = buildConvertListVisibilityCtx({
+      combatStarted: true,
+      roundIntroPending: false,
+      rowActiveId: 'hero-A',
+      rowActivePhaseLinkId: null,
+      currentNavIni: 15,
+      turnSteps: [
+        { kind: 'token', id: 'hero-A' },
+        { kind: 'phase', ownerId: 'hero-A', linkId: 'zao1' },
+      ],
+      combatStepIndex: 0,
+    })
+    expect(
+      shouldHideEmptySecondActionRow(
+        { convertAllowFirstPhase: true, initiative: 15 },
+        regLink,
+        ctx,
+        'hero-A'
+      )
+    ).toBe(false)
   })
 })

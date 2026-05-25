@@ -254,6 +254,8 @@ const PHASE_DRAG_MARK = 'vierpphase|'
  * `null`: keine laufende Navigation (Kampf nicht gestartet oder vor Intro).
  */
 let currentNavIniForRender = null
+/** Sichtbarkeits-/Schloss-Kontext des aktuellen Render-Passes (FirstPhase-Zugindex). */
+let visibilityCtxForRender = null
 
 /**
  * Nav-basierter L.H.-Bruch (passive Mechanik): gleiche Logik wie
@@ -1915,7 +1917,11 @@ function appendKrCounterPair(
       trackerMeta,
       rowActiveId,
       rowActivePhaseLinkId,
-      currentNavIniForRender
+      currentNavIniForRender,
+      {
+        ownerItemId: ownerItemId,
+        visibilityCtx: visibilityCtxForRender,
+      }
     )
   )
   if (showDistanceCell && typeof wireDistanceProbeCell === 'function') {
@@ -3403,7 +3409,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         </label>
         <label class="kampf-settings-radio-label">
           <input type="radio" name="kampf-hero-convert-announce" value="firstPhase" />
-          <span><strong>Bis einschließlich erster INI-Phase:</strong> Solange die Listen-Navigation noch nicht hinter die erste INI-Phase dieses Helden gewandert ist, darf der Spieler die Umwandlungs-Pfeile nutzen.</span>
+          <span><strong>Bis einschließlich erster INI-Phase:</strong> Solange die globale Kampf-Navigation noch nicht den Mutter-Zug dieses Helden verlassen hat (einschließlich seiner 2.-Aktionszeilen mit gleicher INI), darf der Spieler die Umwandlungs-Pfeile nutzen.</span>
         </label>
         <label class="kampf-settings-radio-label">
           <input type="radio" name="kampf-hero-convert-announce" value="entireRound" />
@@ -5310,6 +5316,17 @@ function bindStampContextRemove(el, stamp, items) {
       combatRoundForMerged,
       combat
     )
+    const stepsForNav = buildCombatTurnSteps(
+      tokenRows,
+      listItems,
+      getIniTieOrder(),
+      combatRoundForMerged,
+      null
+    )
+    const combatStepIndex =
+      combat.started && !combat.roundIntroPending
+        ? findCombatStepIndex(stepsForNav, combat)
+        : null
     const visibilityCtx = buildConvertListVisibilityCtx({
       combatStarted: combat.started,
       roundIntroPending: combat.roundIntroPending,
@@ -5318,7 +5335,11 @@ function bindStampContextRemove(el, stamp, items) {
       currentNavIni: currentNavIniForRender,
       roundStartStepId: ROUND_START_STEP_ID,
       roundEndStepId: ROUND_END_STEP_ID,
+      turnSteps: stepsForNav,
+      combatStepIndex:
+        combatStepIndex != null && combatStepIndex >= 0 ? combatStepIndex : null,
     })
+    visibilityCtxForRender = visibilityCtx
     const merged = buildMergedDisplayRows(
       tokenRows,
       listItems,
@@ -5394,7 +5415,7 @@ function bindStampContextRemove(el, stamp, items) {
           (l) =>
             l.parentId === null &&
             l.lhEnd !== true &&
-            shouldShowPhaseLinkInList(meta, l, visibilityCtx)
+            shouldShowPhaseLinkInList(meta, l, visibilityCtx, row.id)
         ).length
         const secondActionBadgeUi =
           allVisibleRootCount > 0
@@ -6127,7 +6148,8 @@ function bindStampContextRemove(el, stamp, items) {
               ownerTrackerMeta,
               ownerPhasesNorm,
               ownerIniStr,
-              visibilityCtx
+              visibilityCtx,
+              ownerId
             )
           : null
         const zaoPhaseNum =
