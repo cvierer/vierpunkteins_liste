@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { gridApi, itemsApi } = vi.hoisted(() => ({
   gridApi: {
-    snapPosition: vi.fn(async (pos) => ({ x: pos.x + 5, y: pos.y + 5 })),
+    snapPosition: vi.fn(async (pos) => ({ x: pos.x, y: pos.y })),
     getDistance: vi.fn(async (from, to) => {
       const dx = Math.abs(to.x - from.x)
       const dy = Math.abs(to.y - from.y)
@@ -131,14 +131,39 @@ describe('findManhattanVertexOnAxis', () => {
       if (dx === 0 || dy === 0) return (dx + dy) / 100
       return Math.round((dx + dy) / 100)
     }
+    const axisPointFn = async (c, dir, px) => ({
+      x: c.x + dir.x * px,
+      y: c.y + dir.y * px,
+    })
     const north = await findManhattanVertexOnAxis(
       center,
       { x: 0, y: -1 },
       8,
       100,
-      getDistanceFn
+      getDistanceFn,
+      axisPointFn
     )
     expect(north).toEqual({ x: 100, y: 100 - 800 })
+  })
+
+  it('findet Grenze per Binärsuche auch bei groben Zellspruengen', async () => {
+    const center = { x: 100, y: 100 }
+    const getDistanceFn = async (from, to) => {
+      const dy = Math.abs(to.y - from.y)
+      if (dy < 800) return 5
+      if (dy <= 800) return 8
+      return 9
+    }
+    const axisPointFn = async (c, _dir, px) => ({ x: c.x, y: c.y - px })
+    const north = await findManhattanVertexOnAxis(
+      center,
+      { x: 0, y: -1 },
+      8,
+      100,
+      getDistanceFn,
+      axisPointFn
+    )
+    expect(north.y).toBe(100 - 800)
   })
 })
 
@@ -209,7 +234,11 @@ describe('resolveRingCenter', () => {
     expect(gridApi.snapPosition).not.toHaveBeenCalled()
   })
 
-  it('snappt auf Grid bei CHEBYSHEV und ALTERNATING', async () => {
+  it('snappt CHEBYSHEV und ALTERNATING auf Grid', async () => {
+    gridApi.snapPosition.mockImplementation(async (pos) => ({
+      x: pos.x + 5,
+      y: pos.y + 5,
+    }))
     const cheb = await resolveRingCenter(
       { id: 't1', position: { x: 0, y: 0 }, width: 100, height: 100 },
       { dpi: 100, measurement: 'CHEBYSHEV', type: 'SQUARE' }
@@ -228,6 +257,7 @@ describe('resolveRingCenter', () => {
     )
     expect(gridApi.snapPosition).toHaveBeenCalled()
     expect(alt).toEqual({ x: 105, y: 105 })
+    gridApi.snapPosition.mockImplementation(async (pos) => ({ x: pos.x, y: pos.y }))
   })
 
   it('nutzt Token-Bounds bei MANHATTAN ohne Snap', async () => {

@@ -1,5 +1,6 @@
 import OBR, { buildLabel, buildLine, buildShape } from '@owlbear-rodeo/sdk'
 import { getGridContext, normalizeGridDistanceRaw } from './gridDistance.js'
+import { tokenCenterScene } from './heroOrientationRingsOverlay.js'
 import {
   defaultDistRingVisible,
   isClassRingVisible,
@@ -92,32 +93,56 @@ export function manhattanDiamondVertices(center, r) {
 }
 
 /**
+ * Kandidat auf der Achse, Gitter-Y/X an snapPosition ausgerichtet (Maßband-Konsistenz).
+ * @param {{ x: number, y: number }} center
+ * @param {{ x: number, y: number }} dir
+ * @param {number} px
+ */
+export async function manhattanAxisPoint(center, dir, px) {
+  const raw = { x: center.x + dir.x * px, y: center.y + dir.y * px }
+  try {
+    const snapped = await OBR.scene.grid.snapPosition(raw, 1, true, true)
+    if (dir.x !== 0) return { x: snapped.x, y: center.y }
+    return { x: center.x, y: snapped.y }
+  } catch {
+    return raw
+  }
+}
+
+/**
+ * Letzter Punkt auf der Achse mit getDistance <= schritt (Binärsuche, fein statt dpi/4-Schritte).
  * @param {{ x: number, y: number }} center
  * @param {{ x: number, y: number }} dir
  * @param {number} schritt
  * @param {number} dpi
  * @param {(from: { x: number, y: number }, to: { x: number, y: number }) => Promise<number>} getDistanceFn
+ * @param {(center: { x: number, y: number }, dir: { x: number, y: number }, px: number) => Promise<{ x: number, y: number }>} [axisPointFn]
  */
 export async function findManhattanVertexOnAxis(
   center,
   dir,
   schritt,
   dpi,
-  getDistanceFn
+  getDistanceFn,
+  axisPointFn = manhattanAxisPoint
 ) {
-  const stepPx = Math.max(1, dpi / 4)
-  const maxPx = (schritt + 2) * dpi
-  let best = { ...center }
-  for (let px = stepPx; px <= maxPx; px += stepPx) {
-    const p = { x: center.x + dir.x * px, y: center.y + dir.y * px }
+  const maxPx = Math.ceil((Math.ceil(schritt) + 2) * dpi)
+  let lo = 0
+  let hi = maxPx
+  let bestPx = 0
+  for (let i = 0; i < 32; i++) {
+    if (lo > hi) break
+    const mid = Math.floor((lo + hi) / 2)
+    const p = await axisPointFn(center, dir, mid)
     const raw = await getDistanceFn(center, p)
     if (raw <= schritt) {
-      best = p
+      bestPx = mid
+      lo = mid + 1
     } else {
-      break
+      hi = mid - 1
     }
   }
-  return best
+  return axisPointFn(center, dir, bestPx)
 }
 
 /**
@@ -355,7 +380,7 @@ export function buildRingOutlineItems(center, r, code, color, gridContext) {
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
  * @returns {Promise<{ x: number, y: number }>}
  */
-async function resolveTokenRingCenter(item) {
+async function resolveTokenRingCenter(item, gridContext) {
   if (item?.id) {
     try {
       const bounds = await OBR.scene.items.getItemBounds([item.id])
@@ -365,6 +390,10 @@ async function resolveTokenRingCenter(item) {
     } catch {
       /* fallback */
     }
+  }
+  const dpi = gridContext?.dpi
+  if (dpi && item) {
+    return tokenCenterScene(item, dpi)
   }
   return tokenCenter(item)
 }
@@ -376,7 +405,7 @@ async function resolveTokenRingCenter(item) {
  * @returns {Promise<{ x: number, y: number }>}
  */
 export async function resolveRingCenter(item, gridContext) {
-  const center = await resolveTokenRingCenter(item)
+  const center = await resolveTokenRingCenter(item, gridContext)
   if (
     gridContext.measurement === 'EUCLIDEAN' ||
     gridContext.measurement === 'MANHATTAN'
