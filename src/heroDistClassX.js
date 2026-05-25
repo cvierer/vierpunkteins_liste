@@ -1,3 +1,5 @@
+import { CUSTOM_DIST_MAX_SCHRITT } from './heroCustomDist.js'
+
 export const HERO_DIST_CLASS_X_SCHRITT = 'heroDistClassXSchritt'
 
 /** @param {unknown} raw */
@@ -5,7 +7,7 @@ function parseXSchritt(raw) {
   const t = String(raw ?? '').trim()
   if (!t || !/^\d+$/.test(t)) return null
   const n = parseInt(t, 10)
-  if (!Number.isFinite(n) || n < 1 || n > 99) return null
+  if (!Number.isFinite(n) || n < 1 || n > CUSTOM_DIST_MAX_SCHRITT) return null
   return n
 }
 

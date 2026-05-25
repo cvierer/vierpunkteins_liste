@@ -4,6 +4,7 @@ import {
   customDistRingCode,
   CUSTOM_DIST_MAX_BANDS,
   CUSTOM_DIST_MAX_PROFILES,
+  CUSTOM_DIST_MAX_SCHRITT,
   defaultCustomDistProfiles,
   HERO_CUSTOM_DIST,
   readCustomDistProfiles,
@@ -74,6 +75,24 @@ describe('readCustomDistProfiles', () => {
     }
     const got = readCustomDistProfiles(meta)
     expect(got[0].bands[0].schritt).toBeNull()
+    expect(got[0].bands[1].schritt).toBeNull()
+  })
+
+  it('akzeptiert Schritt bis CUSTOM_DIST_MAX_SCHRITT', () => {
+    const meta = {
+      [HERO_CUSTOM_DIST]: [
+        {
+          enabled: true,
+          name: 'Test',
+          bands: [
+            { label: 'Max', schritt: CUSTOM_DIST_MAX_SCHRITT },
+            { label: 'Zu viel', schritt: CUSTOM_DIST_MAX_SCHRITT + 1 },
+          ],
+        },
+      ],
+    }
+    const got = readCustomDistProfiles(meta)
+    expect(got[0].bands[0].schritt).toBe(CUSTOM_DIST_MAX_SCHRITT)
     expect(got[0].bands[1].schritt).toBeNull()
   })
 })

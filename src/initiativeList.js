@@ -3582,8 +3582,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       <h3 class="kampf-settings-panel__sub">Distanzkreise auf der Karte</h3>
       <p class="kampf-settings-panel__microhint">Beim Halten des Dist-Kästchens nur aktivierte Ring-Typen anzeigen.</p>
       <div class="kampf-hero-dist-ring__grid" data-kampf-hero-dist-ring-host></div>
-      <label class="init-row-extra-label kampf-hero-dist-class-x__label" for="kampf-hero-dist-class-x-schritt">Grenze Klasse X (Schritt, 1–99)</label>
-      <input type="text" id="kampf-hero-dist-class-x-schritt" class="init-row-extra-input kampf-hero-dist-class-x__input" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" title="Leer = Klasse X aus. Ring X nur mit gesetztem Wert und aktivierter Checkbox." />
+      <label class="init-row-extra-label kampf-hero-dist-class-x__label" for="kampf-hero-dist-class-x-schritt">Grenze Klasse X (Schritt, 1–999)</label>
+      <input type="text" id="kampf-hero-dist-class-x-schritt" class="init-row-extra-input kampf-hero-dist-class-x__input" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="3" title="Leer = Klasse X aus. Ring X nur mit gesetztem Wert und aktivierter Checkbox." />
     </div>
     <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-custom-dist-section>
       <h3 class="kampf-settings-panel__sub">Reichweiten-Profile</h3>
@@ -3842,8 +3842,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     schritt.inputMode = 'numeric'
     schritt.autocomplete = 'off'
     schritt.spellcheck = false
-    schritt.maxLength = 2
-    schritt.title = 'Schritt 1–99'
+    schritt.maxLength = 3
+    schritt.title = 'Schritt 1–999'
     const removeBtn = document.createElement('button')
     removeBtn.type = 'button'
     removeBtn.className = 'btn kampf-hero-custom-dist__band-remove'

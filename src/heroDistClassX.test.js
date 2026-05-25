@@ -11,14 +11,15 @@ describe('readHeroDistClassXSchritt', () => {
     expect(readHeroDistClassXSchritt({})).toBeNull()
   })
 
-  it('liest 1–99', () => {
+  it('liest 1–999', () => {
     expect(readHeroDistClassXSchritt({ [HERO_DIST_CLASS_X_SCHRITT]: '12' })).toBe(12)
     expect(readHeroDistClassXSchritt({ [HERO_DIST_CLASS_X_SCHRITT]: '99' })).toBe(99)
+    expect(readHeroDistClassXSchritt({ [HERO_DIST_CLASS_X_SCHRITT]: '999' })).toBe(999)
   })
 
   it('ignoriert ungueltige Werte', () => {
     expect(readHeroDistClassXSchritt({ [HERO_DIST_CLASS_X_SCHRITT]: '0' })).toBeNull()
-    expect(readHeroDistClassXSchritt({ [HERO_DIST_CLASS_X_SCHRITT]: '100' })).toBeNull()
+    expect(readHeroDistClassXSchritt({ [HERO_DIST_CLASS_X_SCHRITT]: '1000' })).toBeNull()
   })
 })
 

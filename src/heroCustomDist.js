@@ -2,6 +2,8 @@ export const HERO_CUSTOM_DIST = 'heroCustomDist'
 
 export const CUSTOM_DIST_MAX_PROFILES = 24
 export const CUSTOM_DIST_MAX_BANDS = 99
+/** Maximaler Schritt-Wert pro Distanzstufe (Reichweiten-Profile, Klasse X). */
+export const CUSTOM_DIST_MAX_SCHRITT = 999
 export const CUSTOM_DIST_MIN_BANDS = 1
 
 /** @deprecated Nur fuer Alt-Import; neue Helden nutzen variable Profile. */
@@ -67,7 +69,7 @@ function parseSchritt(raw) {
   const t = String(raw ?? '').trim()
   if (!t || !/^\d+$/.test(t)) return null
   const n = parseInt(t, 10)
-  return Number.isFinite(n) && n >= 1 && n <= CUSTOM_DIST_MAX_BANDS ? n : null
+  return Number.isFinite(n) && n >= 1 && n <= CUSTOM_DIST_MAX_SCHRITT ? n : null
 }
 
 /** @param {unknown} raw @param {number} bandIndex */
