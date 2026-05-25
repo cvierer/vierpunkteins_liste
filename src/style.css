@@ -7749,7 +7749,7 @@ select.init-row-extra-select {
 /* Hauptzeile mit Helden-Rahmenfarbe — transparenter Hintergrund, farbiger Rand. */
 .init-row-main--hero-border {
   border-color: var(--init-hero-border-color, currentColor);
-  border-width: 2px;
+  border-width: 4px;
   background: transparent;
 }
 
