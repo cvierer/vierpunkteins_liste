@@ -1,12 +1,10 @@
 import OBR, { buildImage } from '@owlbear-rodeo/sdk'
+import { assetUrl } from './assetUrl.js'
 import { getCombat, onCombatChange } from './combatRoom.js'
 import { isGmSync } from './editAccess.js'
 import {
   combatOverlayKey,
   KIND_LABEL,
-  MAP_PRIMARY_ICON_H,
-  MAP_PRIMARY_ICON_W,
-  primaryKindPngDataUrl,
   resolvePrimaryKindForNav,
 } from './krPrimaryKindIcons.js'
 import {
@@ -14,17 +12,30 @@ import {
   ROUND_END_STEP_ID,
   ROUND_START_STEP_ID,
 } from './phaseLinks.js'
-
 import { TRACKER_ITEM_META_KEY } from './participants.js'
 
 export const TURN_ACTION_LABEL_ID = 'vierpunkteins/turn-action-label'
 const TURN_ACTION_LABEL_META = 'vierpunkteins_kampf.turnActionLabel'
 
-const ICON_W = MAP_PRIMARY_ICON_W
-const ICON_H = MAP_PRIMARY_ICON_H
+// Native SVG viewBox dimensions; DPI controls rendered size on the map.
+// At scene DPI 150: image appears 24/48 * 150 = 75 scene-px wide (~0.5 grid cells).
+const ICON_W = 24
+const ICON_H = 34
+const ICON_DPI = 48
 const ICON_GAP = 10
 
 export { KIND_LABEL }
+
+/** @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind */
+function primaryKindAssetUrl(kind) {
+  const file =
+    kind === 'sra' ? 'icon-kind-sra.svg'
+    : kind === 'lh' ? 'icon-kind-lh.svg'
+    : kind === 'uo' ? 'icon-kind-uo.svg'
+    : kind === 'par' ? 'icon-kind-par.svg'
+    : 'icon-kind-ang.svg'
+  return assetUrl(file)
+}
 
 /**
  * @param {unknown} meta
@@ -62,25 +73,16 @@ function tokenItemForLabel(items, target) {
   return items.find((i) => i.id === target.ownerId) ?? null
 }
 
-/** @returns {Promise<number>} */
-async function sceneDpi() {
-  try {
-    const dpi = await OBR.scene.grid.getDpi()
-    if (Number.isFinite(dpi) && dpi > 0) return dpi
-  } catch {
-    /* fallback */
-  }
-  return 100
-}
-
 /**
  * @param {{ center: { x: number, y: number }, height?: number }} bounds
  */
 function iconPositionAboveToken(bounds) {
+  const sceneDpi = bounds.dpi ?? 150
+  const renderedH = (ICON_H / ICON_DPI) * sceneDpi
   const tokenHalfH = (bounds.height ?? 0) / 2
   return {
-    x: bounds.center.x - ICON_W / 2,
-    y: bounds.center.y - tokenHalfH - ICON_H - ICON_GAP,
+    x: bounds.center.x - (ICON_W / ICON_DPI) * sceneDpi / 2,
+    y: bounds.center.y - tokenHalfH - renderedH - ICON_GAP,
   }
 }
 
@@ -102,14 +104,13 @@ async function resolveIconPosition(tokenId) {
  * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par'} kind
  * @param {import('@owlbear-rodeo/sdk').Item} tokenItem
  * @param {{ x: number, y: number }} position
- * @param {number} dpi
- * @param {string} url
  */
-function buildTurnActionImageItem(kind, tokenItem, position, dpi, url) {
+function buildTurnActionImageItem(kind, tokenItem, position) {
+  const url = primaryKindAssetUrl(kind)
   const label = KIND_LABEL[kind] ?? 'Aktion'
   return buildImage(
-    { width: ICON_W, height: ICON_H, url, mime: 'image/png' },
-    { dpi, offset: { x: 0, y: 0 } }
+    { width: ICON_W, height: ICON_H, url, mime: 'image/svg+xml' },
+    { dpi: ICON_DPI, offset: { x: 0, y: 0 } }
   )
     .id(TURN_ACTION_LABEL_ID)
     .position(position)
@@ -190,23 +191,11 @@ async function refreshTurnActionLabel(itemsIn) {
     await deleteTurnActionLabelIfPresent(items)
     return
   }
-  const pngUrl = await primaryKindPngDataUrl(kind)
-  if (!pngUrl) {
-    console.warn('[vierpunkteins_kampf] Aktions-Icon Raster fehlgeschlagen', kind)
-    return
-  }
   const position =
     (await resolveIconPosition(target.ownerId)) ??
     tokenItem.position ??
     { x: 0, y: 0 }
-  const dpi = await sceneDpi()
-  const imageItem = buildTurnActionImageItem(
-    kind,
-    tokenItem,
-    position,
-    dpi,
-    pngUrl
-  )
+  const imageItem = buildTurnActionImageItem(kind, tokenItem, position)
   const existing = items.find((i) => i.id === TURN_ACTION_LABEL_ID)
   const ownerChanged =
     lastOverlayOwnerId !== '' && lastOverlayOwnerId !== target.ownerId
@@ -222,8 +211,6 @@ async function refreshTurnActionLabel(itemsIn) {
           if (d.image) {
             d.image.url = imageItem.image.url
             d.image.mime = imageItem.image.mime
-            d.image.width = imageItem.image.width
-            d.image.height = imageItem.image.height
           }
           d.position = imageItem.position
           d.visible = imageItem.visible

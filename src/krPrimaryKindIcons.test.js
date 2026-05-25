@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   combatOverlayKey,
-  MAP_PRIMARY_ICON_H,
-  MAP_PRIMARY_ICON_W,
   primaryKindSvgMarkup,
+  primaryKindSvgDataUrl,
   resolvePrimaryKindForNav,
 } from './krPrimaryKindIcons.js'
 
@@ -62,10 +61,13 @@ describe('primaryKindSvgMarkup', () => {
   })
 })
 
-describe('MAP_PRIMARY_ICON dimensions', () => {
-  it('entspricht viewBox 24:34 skaliert', () => {
-    expect(MAP_PRIMARY_ICON_W).toBe(48)
-    expect(MAP_PRIMARY_ICON_H).toBe(68)
+describe('primaryKindSvgDataUrl', () => {
+  it('liefert data-URL für ang', () => {
+    const url = primaryKindSvgDataUrl('ang')
+    expect(url.startsWith('data:image/svg+xml,')).toBe(true)
+    expect(decodeURIComponent(url.slice('data:image/svg+xml,'.length))).toContain(
+      'init-kr-primary-kind__svg--ang'
+    )
   })
 })
 

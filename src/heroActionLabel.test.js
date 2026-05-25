@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { combatOverlayKey, primaryKindSvgDataUrl } from './krPrimaryKindIcons.js'
+import { combatOverlayKey } from './krPrimaryKindIcons.js'
 import {
   KIND_LABEL,
   resolveTurnActionLabelTarget,
@@ -37,16 +37,6 @@ describe('resolveTurnActionLabelText', () => {
         'zat1'
       )
     ).toBe(KIND_LABEL.ang)
-  })
-})
-
-describe('primaryKindSvgDataUrl', () => {
-  it('liefert data-URL für ang', () => {
-    const url = primaryKindSvgDataUrl('ang')
-    expect(url.startsWith('data:image/svg+xml,')).toBe(true)
-    expect(decodeURIComponent(url.slice('data:image/svg+xml,'.length))).toContain(
-      'init-kr-primary-kind__svg--ang'
-    )
   })
 })
 
