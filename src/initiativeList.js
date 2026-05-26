@@ -2912,70 +2912,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   /**
    * @param {{ id?: string, metadata?: Record<string, unknown> } | null | undefined} probeItem
-   * @param {number | null | undefined} probeXSchritt
+   * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
    * @param {import('./gridDistance.js').GridContext} gridContext
    */
-  async function syncProbeMovementLine(probeItem, probeXSchritt, gridContext) {
-    if (!probeMovementAnchor) {
-      await hideDistanceMovementLine()
-      return
-    }
-    const center = await resolveDistanceCenter(probeItem, gridContext)
-    const latch = latchProbeMapDrag(
-      probeMapDragging,
-      probeMovementAnchor,
-      center
-    )
-    probeMapDragging = latch.mapDragging
-    if (latch.showLine) {
-      await syncDistanceMovementLine(
-        probeItem,
-        probeMovementAnchor,
-        probeXSchritt
-      )
-    } else {
-      await hideDistanceMovementLine()
-    }
-  }
-
-  async function runDistanceProbeMovementTick() {
-    if (!distanceProbeItemId) return
-    let sceneItems = []
-    try {
-      sceneItems = await OBR.scene.items.getItems()
-    } catch {
-      return
-    }
-    const probeItem = findDistanceProbeItem(sceneItems)
-    if (!probeItem) return
-    const gridContext = await getGridContext()
-    if (!gridContext) return
-    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
-    const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
-    await syncProbeMovementLine(probeItem, probeXSchritt, gridContext)
-  }
-
-  /** @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems */
-  function findDistanceProbeItem(sceneItems) {
-    if (!distanceProbeItemId) return null
-    const listItems = filterItemsForListViewer(sceneItems ?? [], isGmSync())
-    return (
-      listItems.find((i) => i.id === distanceProbeItemId) ??
-      sceneItems.find((i) => i.id === distanceProbeItemId) ??
-      null
-    )
-  }
-
-  async function runDistanceProbeRefresh() {
-    if (!distanceProbeItemId) return
-    let sceneItems = []
-    try {
-      sceneItems = await OBR.scene.items.getItems()
-    } catch {
-      return
-    }
-    const probeItem = findDistanceProbeItem(sceneItems)
-    if (!probeItem) return
+  async function refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext) {
     const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     const others = sceneItems.filter(
@@ -2983,8 +2923,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         i.id !== distanceProbeItemId &&
         i.metadata?.[TRACKER_ITEM_META_KEY] != null
     )
-    const gridContext = await getGridContext({ forceRefresh: true })
-    if (!gridContext) return
     const meta = probeMeta
     const combat = getCombat()
     const gsSchritt = meta
@@ -3008,7 +2946,74 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       classXSchritt
     )
     await showDistanceSpokesFor(probeItem, others, probeXSchritt)
-    await syncProbeMovementLine(probeItem, probeXSchritt, gridContext)
+  }
+
+  /**
+   * @param {{ id?: string, metadata?: Record<string, unknown> } | null | undefined} probeItem
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   */
+  async function syncProbeMovementLine(probeItem, gridContext) {
+    if (!probeMovementAnchor) {
+      await hideDistanceMovementLine()
+      return
+    }
+    const center = await resolveDistanceCenter(probeItem, gridContext)
+    const latch = latchProbeMapDrag(
+      probeMapDragging,
+      probeMovementAnchor,
+      center
+    )
+    probeMapDragging = latch.mapDragging
+    if (latch.showLine) {
+      await syncDistanceMovementLine(probeItem, probeMovementAnchor)
+    } else {
+      await hideDistanceMovementLine()
+    }
+  }
+
+  async function runDistanceProbeMovementTick() {
+    if (!distanceProbeItemId) return
+    let sceneItems = []
+    try {
+      sceneItems = await OBR.scene.items.getItems()
+    } catch {
+      return
+    }
+    const probeItem = findDistanceProbeItem(sceneItems)
+    if (!probeItem) return
+    const gridContext = await getGridContext()
+    if (!gridContext) return
+    await syncProbeMovementLine(probeItem, gridContext)
+    if (probeMapDragging) {
+      await refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext)
+    }
+  }
+
+  /** @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems */
+  function findDistanceProbeItem(sceneItems) {
+    if (!distanceProbeItemId) return null
+    const listItems = filterItemsForListViewer(sceneItems ?? [], isGmSync())
+    return (
+      listItems.find((i) => i.id === distanceProbeItemId) ??
+      sceneItems.find((i) => i.id === distanceProbeItemId) ??
+      null
+    )
+  }
+
+  async function runDistanceProbeRefresh() {
+    if (!distanceProbeItemId) return
+    let sceneItems = []
+    try {
+      sceneItems = await OBR.scene.items.getItems()
+    } catch {
+      return
+    }
+    const probeItem = findDistanceProbeItem(sceneItems)
+    if (!probeItem) return
+    const gridContext = await getGridContext({ forceRefresh: true })
+    if (!gridContext) return
+    await refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext)
+    await syncProbeMovementLine(probeItem, gridContext)
   }
 
   function scheduleDistanceProbeRefresh() {

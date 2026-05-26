@@ -6,7 +6,7 @@ import {
 } from './gridDistance.js'
 import { readHeroBgColor } from './heroColors.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
-import { formatSchrittWithClass } from './tokenDistance.js'
+import { formatSchritt, formatSchrittWithClass } from './tokenDistance.js'
 
 const SPOKE_ID_PREFIX = 'vierpunkteins/dist-spoke/'
 export const MOVEMENT_SPOKE_LINE_ID = `${SPOKE_ID_PREFIX}move/line`
@@ -209,13 +209,8 @@ async function ensureMovementSpokeItems(start, end, color, text) {
 /**
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} probeItem
  * @param {{ x: number, y: number } | null | undefined} dragStartCenter
- * @param {number | null | undefined} classXSchritt
  */
-export async function syncDistanceMovementLine(
-  probeItem,
-  dragStartCenter,
-  classXSchritt = null
-) {
+export async function syncDistanceMovementLine(probeItem, dragStartCenter) {
   if (!probeItem || !dragStartCenter) {
     await hideDistanceMovementLine()
     return
@@ -229,7 +224,7 @@ export async function syncDistanceMovementLine(
   }
   const meta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
   const color = resolveSpokeColor(meta)
-  const text = formatSchrittWithClass(schritt, classXSchritt)
+  const text = formatSchritt(schritt)
   if (!text) {
     await hideDistanceMovementLine()
     return

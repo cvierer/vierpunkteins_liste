@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { gridApi, localApi } = vi.hoisted(() => ({
+const { gridApi, localApi, lastMovementLabelText } = vi.hoisted(() => ({
+  lastMovementLabelText: { value: '' },
   gridApi: {
     getDistance: vi.fn(async () => 8),
     getDpi: vi.fn(async () => 100),
@@ -31,7 +32,10 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
   },
   buildLabel: vi.fn(() => ({
     id: vi.fn().mockReturnThis(),
-    plainText: vi.fn().mockReturnThis(),
+    plainText: vi.fn(function (text) {
+      lastMovementLabelText.value = text
+      return this
+    }),
     position: vi.fn().mockReturnThis(),
     fillColor: vi.fn().mockReturnThis(),
     backgroundColor: vi.fn().mockReturnThis(),
@@ -163,7 +167,16 @@ describe('syncDistanceMovementLine update path', () => {
     resetDistanceSpokeOverlayStateForTests()
     localApi.addItems.mockClear()
     localApi.updateItems.mockClear()
+    lastMovementLabelText.value = ''
     gridApi.getDistance.mockResolvedValue(800)
+  })
+
+  it('Bewegungslabel ohne Distanzklasse HNSP', async () => {
+    gridApi.getDistance.mockResolvedValue(8)
+    const start = { x: 200, y: 200 }
+    await syncDistanceMovementLine(probe, start)
+    expect(lastMovementLabelText.value).toBe('8,0')
+    expect(lastMovementLabelText.value).not.toMatch(/[HNSPX]$/)
   })
 
   it('zweiter Aufruf aktualisiert Bewegungslinie per updateItems', async () => {
