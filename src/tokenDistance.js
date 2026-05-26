@@ -92,8 +92,7 @@ export function computeSchrittFromCenters(a, b, dpi) {
 /** @param {number} n */
 export function formatSchritt(n) {
   if (!Number.isFinite(n)) return ''
-  if (n >= 100) return String(Math.round(n))
-  return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',')
+  return String(Math.round(n))
 }
 
 /**

@@ -104,17 +104,13 @@ describe('computeSchrittFromCenters', () => {
 })
 
 describe('formatSchritt', () => {
-  it('formatiert mit einer Nachkommastelle und Komma', () => {
-    expect(formatSchritt(0)).toBe('0,0')
-    expect(formatSchritt(1.45)).toBe('1,5')
-    expect(formatSchritt(1.44)).toBe('1,4')
-    expect(formatSchritt(99.9)).toBe('99,9')
-  })
-
-  it('rundet ab 100 Schritt auf Ganzzahlen', () => {
+  it('formatiert als ganze Schritt ohne Kommastelle', () => {
+    expect(formatSchritt(0)).toBe('0')
+    expect(formatSchritt(1.45)).toBe('1')
+    expect(formatSchritt(1.44)).toBe('1')
+    expect(formatSchritt(99.9)).toBe('100')
     expect(formatSchritt(100)).toBe('100')
     expect(formatSchritt(123.4)).toBe('123')
-    expect(formatSchritt(99.99)).toBe('100,0')
   })
 
   it('gibt leer bei NaN zurueck', () => {
@@ -124,10 +120,10 @@ describe('formatSchritt', () => {
 
 describe('formatSchrittWithClass', () => {
   it('haengt Klasse in Klammern an den Wert', () => {
-    expect(formatSchrittWithClass(1.2)).toBe('1,2(N)')
-    expect(formatSchrittWithClass(0.5, null, { isTouching: true })).toBe('0,5(H)')
-    expect(formatSchrittWithClass(10)).toBe('10,0')
-    expect(formatSchrittWithClass(5.5, 8)).toBe('5,5(X)')
+    expect(formatSchrittWithClass(1.2)).toBe('1(N)')
+    expect(formatSchrittWithClass(0.5, null, { isTouching: true })).toBe('1(H)')
+    expect(formatSchrittWithClass(10)).toBe('10')
+    expect(formatSchrittWithClass(5.5, 8)).toBe('6(X)')
     expect(formatSchrittWithClass(105.2, 120)).toBe('105(X)')
   })
 

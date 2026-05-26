@@ -130,38 +130,24 @@ describe('areTokensTouching', () => {
     gridApi.getDistance.mockResolvedValue(1)
   })
 
-  it('true bei benachbarten Zellen', async () => {
-    itemsApi.getItemBounds
-      .mockResolvedValueOnce({
-        min: { x: 0, y: 0 },
-        max: { x: 99, y: 99 },
-        center: { x: 50, y: 50 },
-      })
-      .mockResolvedValueOnce({
-        min: { x: 100, y: 0 },
-        max: { x: 199, y: 99 },
-        center: { x: 150, y: 50 },
-      })
+  it('true bei benachbarten Mittelzellen', async () => {
+    itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
     expect(
-      await areTokensTouching({ id: 'a' }, { id: 'b' })
+      await areTokensTouching(
+        { position: { x: 0, y: 0 }, width: 100, height: 100 },
+        { position: { x: 100, y: 0 }, width: 100, height: 100 }
+      )
     ).toBe(true)
   })
 
-  it('false bei entfernten Zellen', async () => {
-    itemsApi.getItemBounds
-      .mockResolvedValueOnce({
-        min: { x: 0, y: 0 },
-        max: { x: 99, y: 99 },
-        center: { x: 50, y: 50 },
-      })
-      .mockResolvedValueOnce({
-        min: { x: 300, y: 0 },
-        max: { x: 399, y: 99 },
-        center: { x: 350, y: 50 },
-      })
-    gridApi.getDistance.mockResolvedValue(3)
+  it('false bei entfernten Mittelzellen auch wenn getDistance 1', async () => {
+    itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
+    gridApi.getDistance.mockResolvedValue(1)
     expect(
-      await areTokensTouching({ id: 'a' }, { id: 'b' })
+      await areTokensTouching(
+        { position: { x: 0, y: 0 }, width: 100, height: 100 },
+        { position: { x: 200, y: 0 }, width: 100, height: 100 }
+      )
     ).toBe(false)
   })
 })
@@ -182,24 +168,19 @@ describe('formatGridDistWithClass', () => {
         { position: { x: 0, y: 0 }, width: 100, height: 100 },
         { position: { x: 300, y: 0 }, width: 100, height: 100 }
       )
-    ).toBe('1,5(N)')
+    ).toBe('2(N)')
   })
 
   it('liefert (H) bei Berührung', async () => {
     gridApi.getDistance.mockResolvedValue(1)
     gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
-    itemsApi.getItemBounds
-      .mockResolvedValueOnce({
-        min: { x: 0, y: 0 },
-        max: { x: 99, y: 99 },
-        center: { x: 50, y: 50 },
-      })
-      .mockResolvedValueOnce({
-        min: { x: 100, y: 0 },
-        max: { x: 199, y: 99 },
-        center: { x: 150, y: 50 },
-      })
-    expect(await formatGridDistWithClass({ id: 'a' }, { id: 'b' })).toBe('1,0(H)')
+    itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
+    expect(
+      await formatGridDistWithClass(
+        { position: { x: 0, y: 0 }, width: 100, height: 100 },
+        { position: { x: 100, y: 0 }, width: 100, height: 100 }
+      )
+    ).toBe('1(H)')
   })
 })
 

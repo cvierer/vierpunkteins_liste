@@ -175,34 +175,12 @@ export function cellSetsTouching(cellsA, cellsB, gridType) {
 }
 
 /**
+ * Eine Rasterzelle am Token-Mittelpunkt (für Handnah/Berührung).
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
  * @param {GridContext} gridContext
  */
-async function getOccupiedGridCells(item, gridContext) {
-  /** @type {Set<string>} */
-  const cells = new Set()
+async function getTokenCenterGridCell(item, gridContext) {
   const dpi = gridContext.dpi
-  /** @type {{ min?: { x: number, y: number }, max?: { x: number, y: number }, center?: { x: number, y: number } } | null} */
-  let bounds = null
-  if (item?.id) {
-    try {
-      bounds = await OBR.scene.items.getItemBounds([item.id])
-    } catch {
-      /* fallback */
-    }
-  }
-  if (bounds?.min && bounds?.max) {
-    const minCx = Math.floor(bounds.min.x / dpi)
-    const maxCx = Math.floor(bounds.max.x / dpi)
-    const minCy = Math.floor(bounds.min.y / dpi)
-    const maxCy = Math.floor(bounds.max.y / dpi)
-    for (let cx = minCx; cx <= maxCx; cx++) {
-      for (let cy = minCy; cy <= maxCy; cy++) {
-        cells.add(cellKey(cx, cy))
-      }
-    }
-    return cells
-  }
   const center = await resolveDistanceCenter(item, gridContext)
   let snapped = center
   try {
@@ -210,8 +188,7 @@ async function getOccupiedGridCells(item, gridContext) {
   } catch {
     /* fallback */
   }
-  cells.add(cellKey(Math.round(snapped.x / dpi), Math.round(snapped.y / dpi)))
-  return cells
+  return cellKey(Math.round(snapped.x / dpi), Math.round(snapped.y / dpi))
 }
 
 /**
@@ -224,19 +201,18 @@ export async function areTokensTouching(itemA, itemB) {
   const ctx = await getGridContext()
   if (!ctx) return false
   try {
-    const [cellsA, cellsB, centerA, centerB] = await Promise.all([
-      getOccupiedGridCells(itemA, ctx),
-      getOccupiedGridCells(itemB, ctx),
+    const [cellA, cellB, centerA, centerB] = await Promise.all([
+      getTokenCenterGridCell(itemA, ctx),
+      getTokenCenterGridCell(itemB, ctx),
       resolveDistanceCenter(itemA, ctx),
       resolveDistanceCenter(itemB, ctx),
     ])
+    const cellsA = new Set([cellA])
+    const cellsB = new Set([cellB])
     if (cellSetsTouching(cellsA, cellsB, ctx.type)) return true
     const dist = await computeGridSchrittFromCenters(centerA, centerB)
     if (!Number.isFinite(dist)) return false
-    if (ctx.measurement === 'CHEBYSHEV' || ctx.measurement === 'MANHATTAN') {
-      return dist <= 1
-    }
-    return dist < 0.05
+    return dist < 0.01
   } catch {
     return false
   }

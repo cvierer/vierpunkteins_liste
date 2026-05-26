@@ -2853,7 +2853,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let lastTurnScrollKey = ''
 
   let distanceProbeItemId = null
-  /** Feste Referenz: Token-Zentrum beim Dist-Anklicken. */
+  /** Ursprung Bewegungslinie: letzte Absetz-Position des Helden (Dist aktiv). */
   /** @type {{ x: number, y: number } | null} */
   let probeMovementAnchor = null
   /** Bis pointerup nach Karten-Drag. */
@@ -2879,7 +2879,19 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probeMapDragging = false
     probeMapDragReleased = true
     void hideDistanceMovementLine()
-    scheduleDistanceProbeRefresh()
+    void (async () => {
+      try {
+        const sceneItems = await OBR.scene.items.getItems()
+        const probeItem = findDistanceProbeItem(sceneItems)
+        const gridContext = await getGridContext()
+        if (probeItem && gridContext) {
+          await syncProbeMovementAnchorAfterPlacement(probeItem, gridContext)
+        }
+      } catch {
+        /* ignore */
+      }
+      scheduleDistanceProbeRefresh()
+    })()
   }
 
   function attachProbePointerListeners() {
@@ -2927,6 +2939,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         })
     }
     probeMovementRafId = requestAnimationFrame(tick)
+  }
+
+  /**
+   * Nach Absetzen / ohne aktiven Drag: Ursprung = aktuelles Token-Zentrum.
+   * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} probeItem
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   */
+  async function syncProbeMovementAnchorAfterPlacement(probeItem, gridContext) {
+    if (!distanceProbeItemId || probeMapDragging || !probeItem) return
+    probeMovementAnchor = await resolveDistanceCenter(probeItem, gridContext)
   }
 
   /**
@@ -3046,6 +3068,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!probeItem) return
     const gridContext = await getGridContext({ forceRefresh: true })
     if (!gridContext) return
+    if (!probeMapDragging) {
+      await syncProbeMovementAnchorAfterPlacement(probeItem, gridContext)
+    }
     await refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext)
     await syncProbeMovementLine(probeItem, gridContext)
   }

@@ -175,7 +175,7 @@ describe('syncDistanceMovementLine update path', () => {
     gridApi.getDistance.mockResolvedValue(8)
     const start = { x: 200, y: 200 }
     await syncDistanceMovementLine(probe, start)
-    expect(lastMovementLabelText.value).toBe('8,0')
+    expect(lastMovementLabelText.value).toBe('8')
     expect(lastMovementLabelText.value).not.toMatch(/[HNSPX]$/)
   })
 
