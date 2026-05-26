@@ -19,6 +19,18 @@
 
 Heavy subsystems are mostly reached via initiative/combat/phase links, not separate apps. Prefer **dynamic `import()`** from `main.js` for peripheral modules before removing features.
 
+## DIST-Ringe H/N/S/P (Owlbear-Checkliste)
+
+Nach Änderungen an [`src/distanceRingsOverlay.js`](src/distanceRingsOverlay.js) / [`src/tokenDistance.js`](src/tokenDistance.js):
+
+1. **Square + CHEBYSHEV** (häufig): Maßband an N/O/S/W — Ring **N** ≈ 2, **S** ≈ 4, **P** ≈ 5 Schritt.
+2. **Square + MANHATTAN**: Raute-Ecken auf Schwelle.
+3. **Hex + CHEBYSHEV**: 6-Eck-Ecken.
+4. **EUCLIDEAN** auf Hex/Iso: Kontur-Polygon (nicht Kreis).
+5. **(H)** in Spokes nur bei Zellberührung; H-Ring zeigt 1-Schritt-Grenze der Berührungszone.
+
+Automatisiert: [`src/distRingClassCalibration.test.js`](src/distRingClassCalibration.test.js).
+
 ## Naming and push hygiene
 
 - Never use the blocked personal-name identifier (spaced or compact variant) in code, docs, comments, commit messages, PR text, or push-related notes.

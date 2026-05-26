@@ -583,6 +583,34 @@ export async function buildRingOutlineItemsAsync(
     }
   }
 
+  if (measurement === 'EUCLIDEAN' && isHexGridType(gridContext)) {
+    const pts = await contourRingVerticesFromObr(
+      center,
+      schritt,
+      dpi,
+      'EUCLIDEAN',
+      CONTOUR_RAY_COUNT_HEX
+    )
+    return {
+      items: buildCalibratedRingEdges(pts, code, color),
+      labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
+    }
+  }
+
+  if (measurement === 'EUCLIDEAN' && isIsoGridType(gridContext)) {
+    const pts = await contourRingVerticesFromObr(
+      center,
+      schritt,
+      dpi,
+      'EUCLIDEAN',
+      CONTOUR_RAY_COUNT_ISO
+    )
+    return {
+      items: buildCalibratedRingEdges(pts, code, color),
+      labelPos: ringLabelPosition(center, r, gridContext, pts[0]),
+    }
+  }
+
   if (measurement === 'CHEBYSHEV' || measurement === 'ALTERNATING') {
     const diameter = r * 2
     return {

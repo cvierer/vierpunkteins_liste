@@ -8,7 +8,11 @@ export const DIST_CLASS_BANDS = [
   { code: 'P', min: 4, maxInclusive: 5 },
 ]
 
-/** Kartenring-Radien (äußere Grenze in Schritt). H = Berührungszone. */
+/**
+ * Kartenring-Radien (äußere Grenze in Schritt).
+ * H = äußere Grenze der Berührungszone (1 Schritt); Klasse (H) in der Liste
+ * gilt nur bei Zellberührung (areTokensTouching), nicht bei D=1 ohne Berührung.
+ */
 export const DIST_CLASS_RING_RADIUS = {
   H: 1,
   N: 2,
