@@ -42,6 +42,7 @@ import {
 } from './gridDistance.js'
 import {
   hideDistanceRings,
+  shiftDistanceRingsCenter,
   showDistanceRingsFor,
 } from './distanceRingsOverlay.js'
 import {
@@ -2869,43 +2870,69 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let distanceProbeRefreshPending = false
   let probeMovementRafId = 0
   let probePointerListenersAttached = false
+  let probeRestEnding = false
 
   initGridDistance()
 
+  /** @param {Event} [event] */
+  function isProbePointerFromExtensionUI(event) {
+    const t = event?.target
+    return t instanceof Node && element.contains(t)
+  }
+
+  function isProbeMapDragActive() {
+    return probeLineStrokeActive || probeMapDragging
+  }
+
   /**
-   * Ruheposition erreicht oder optional pointerup: Linie aus, Anker + Ringe neu.
+   * Ruheposition erreicht oder optional pointerup: Linie aus, Ringe per shift.
    * @param {{ x: number, y: number }} [restCenter]
    */
   async function endProbeMapDragAtRest(restCenter) {
-    if (!distanceProbeItemId) return
+    if (!distanceProbeItemId || probeRestEnding) return
     if (!probeLineStrokeActive && !probeMapDragging) return
+    probeRestEnding = true
     probeLineStrokeActive = false
     probeLineStrokeOrigin = null
     probeMapDragging = false
+    probePlacementState = createProbePlacementState()
     void hideDistanceMovementLine()
     try {
+      let sceneItems = []
+      try {
+        sceneItems = await OBR.scene.items.getItems()
+      } catch {
+        /* ignore */
+      }
+      const probeItem = findDistanceProbeItem(sceneItems)
+      const gridContext = await getGridContext()
       if (restCenter) {
         probeMovementAnchor = restCenter
-      } else {
-        const sceneItems = await OBR.scene.items.getItems()
-        const probeItem = findDistanceProbeItem(sceneItems)
-        const gridContext = await getGridContext()
-        if (probeItem && gridContext) {
-          probeMovementAnchor = await resolveDistanceCenter(
-            probeItem,
-            gridContext
-          )
+      } else if (probeItem && gridContext) {
+        probeMovementAnchor = await resolveDistanceCenter(probeItem, gridContext)
+      }
+      if (probeItem && probeMovementAnchor) {
+        const shifted = await shiftDistanceRingsCenter(probeMovementAnchor)
+        if (!shifted) {
+          await refreshProbeRingsForItem(probeItem)
+        }
+        if (sceneItems.length > 0) {
+          await refreshProbeSpokesOnly(probeItem, sceneItems)
         }
       }
     } catch {
       /* ignore */
+    } finally {
+      probeRestEnding = false
     }
-    scheduleDistanceProbeRefresh()
+    applyDistanceOverlay()
   }
 
-  const onProbePointerEnd = () => {
+  /** @param {PointerEvent} event */
+  const onProbePointerEnd = (event) => {
     if (!distanceProbeItemId) return
-    if (!probeLineStrokeActive && !probeMapDragging) return
+    if (!probeLineStrokeActive) return
+    if (isProbePointerFromExtensionUI(event)) return
     void endProbeMapDragAtRest()
   }
 
@@ -3086,8 +3113,15 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     )
   }
 
-  async function runDistanceProbeRefresh() {
+  /**
+   * @param {{ redrawRings?: boolean, checkPlacement?: boolean, syncLine?: boolean }} [options]
+   */
+  async function runDistanceProbeRefresh(options = {}) {
     if (!distanceProbeItemId) return
+    const redrawRings =
+      options.redrawRings ?? !isProbeMapDragActive()
+    const checkPlacement = options.checkPlacement ?? false
+    const syncLine = options.syncLine ?? true
     let sceneItems = []
     try {
       sceneItems = await OBR.scene.items.getItems()
@@ -3098,17 +3132,34 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!probeItem) return
     const gridContext = await getGridContext({ forceRefresh: true })
     if (!gridContext) return
-    await updateProbePlacementFromScene(probeItem, gridContext)
-    await refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext)
-    await syncProbeMovementLine(probeItem, gridContext)
+    if (checkPlacement) {
+      await updateProbePlacementFromScene(probeItem, gridContext)
+    }
+    if (redrawRings) {
+      await refreshProbeRingsForItem(probeItem)
+    }
+    await refreshProbeSpokesOnly(probeItem, sceneItems)
+    if (syncLine) {
+      await syncProbeMovementLine(probeItem, gridContext)
+    }
   }
 
-  function scheduleDistanceProbeRefresh() {
+  /**
+   * @param {{ redrawRings?: boolean, checkPlacement?: boolean, syncLine?: boolean }} [options]
+   */
+  function scheduleDistanceProbeRefresh(options = {}) {
     if (!distanceProbeItemId || distanceProbeRefreshPending) return
+    const dragging = isProbeMapDragActive()
+    const refreshOptions = {
+      redrawRings: options.redrawRings ?? !dragging,
+      checkPlacement: options.checkPlacement ?? false,
+      syncLine: options.syncLine ?? !dragging,
+      ...options,
+    }
     distanceProbeRefreshPending = true
     requestAnimationFrame(() => {
       distanceProbeRefreshPending = false
-      void runDistanceProbeRefresh().catch((err) => {
+      void runDistanceProbeRefresh(refreshOptions).catch((err) => {
         console.error('[vierpunkteins] distance probe refresh failed', err)
       })
     })
@@ -3121,11 +3172,19 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     '<svg class="init-dist-cell__target-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="5.5" opacity="0.5"/><circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.25"/></svg>'
 
   async function refreshDistanceProbeRings() {
-    await runDistanceProbeRefresh()
+    await runDistanceProbeRefresh({
+      redrawRings: true,
+      checkPlacement: false,
+      syncLine: true,
+    })
   }
 
   async function refreshDistanceProbeMapOverlays() {
-    await runDistanceProbeRefresh()
+    await runDistanceProbeRefresh({
+      redrawRings: true,
+      checkPlacement: false,
+      syncLine: true,
+    })
   }
 
   async function applyDistanceOverlayAsync() {
@@ -3177,7 +3236,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   onGridDistanceChange(() => {
     if (!distanceProbeItemId) return
     applyDistanceOverlay()
-    scheduleDistanceProbeRefresh()
+    scheduleDistanceProbeRefresh({
+      redrawRings: !isProbeMapDragActive(),
+      syncLine: false,
+    })
   })
 
   function applyDistCellIdleState(cell) {
@@ -3241,7 +3303,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const item = lastItems.find((i) => i.id === itemId)
     if (!item || !gridContext) return
     startProbeMovementLoop()
-    await runDistanceProbeRefresh()
+    await runDistanceProbeRefresh({
+      redrawRings: true,
+      checkPlacement: false,
+      syncLine: true,
+    })
   }
 
   function wireDistanceProbeCell(cell, itemId) {
@@ -7011,7 +7077,12 @@ function bindStampContextRemove(el, stamp, items) {
       console.error('[vierpunkteins] applyDistanceOverlay failed', err)
     }
 
-    scheduleDistanceProbeRefresh()
+    if (distanceProbeItemId) {
+      scheduleDistanceProbeRefresh({
+        redrawRings: !isProbeMapDragActive(),
+        syncLine: false,
+      })
+    }
 
     onListChange?.(items)
 
@@ -7020,7 +7091,12 @@ function bindStampContextRemove(el, stamp, items) {
   }
 
   const safeRenderList = (items) => {
-    scheduleDistanceProbeRefresh()
+    if (distanceProbeItemId) {
+      scheduleDistanceProbeRefresh({
+        redrawRings: !isProbeMapDragActive(),
+        syncLine: false,
+      })
+    }
     void renderList(items).catch((err) => {
       console.error('[vierpunkteins] renderList failed', err)
       if (err instanceof Error && err.stack) {

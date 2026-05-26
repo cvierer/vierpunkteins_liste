@@ -2,7 +2,7 @@
 export const PROBE_MAP_DRAG_MOVE_EPS = 0.5
 
 /** Ruhezeit (ms) mit unverändertem Zentrum = Token in Ruheposition. */
-export const PROBE_PLACE_STABLE_MS = 250
+export const PROBE_PLACE_STABLE_MS = 500
 
 /**
  * @typedef {{ x: number, y: number }} Point
