@@ -55,6 +55,7 @@ import {
   hasProbeAnchorToken,
   removeProbeAnchorToken,
 } from './probeAnchorToken.js'
+import { isProbePointerFromListRows } from './probeListBackgroundClick.js'
 import {
   hideDistanceSpokes,
   hideProbeAnchorSpoke,
@@ -2879,8 +2880,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   /** @param {Event} [event] */
   function isProbePointerFromExtensionUI(event) {
-    const t = event?.target
-    return t instanceof Node && element.contains(t)
+    return isProbePointerFromListRows(element, event?.target)
   }
 
   function isProbeMapDragActive() {
@@ -2963,6 +2963,38 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     applyDistanceOverlay()
   }
 
+  /**
+   * Karten-Drag beenden (Linie/Anker), DIST-Probe bleibt aktiv.
+   * @param {{ x: number, y: number }} [restCenter]
+   */
+  function finishProbeMapPlacement(restCenter) {
+    if (!distanceProbeItemId || probeRestEnding) return
+    if (!probeMapDragging && !hasProbeAnchorToken()) return
+    void endProbeMapDragAtRest(restCenter)
+  }
+
+  /** Simuliert pointerup auf Listen-Scroll-Hintergrund (Owlbear-Map-release-Fallback). */
+  function simulateEmptyListPointerUp() {
+    const target = listScrollEl ?? listContentRoot
+    if (!target) return
+    const rect = target.getBoundingClientRect()
+    const clientX = rect.left + 12
+    const clientY = rect.top + 12
+    const init = {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX,
+      clientY,
+      button: 0,
+      buttons: 0,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+    }
+    target.dispatchEvent(new PointerEvent('pointerup', init))
+  }
+
   /** @param {PointerEvent} event */
   const onProbePointerDown = (event) => {
     if (!distanceProbeItemId) return
@@ -2978,7 +3010,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probePointerDownPending = false
     if (!probePointerHeld && !probeMapDragging && !hasProbeAnchorToken()) return
     if (isProbePointerFromExtensionUI(event)) return
-    void endProbeMapDragAtRest()
+    finishProbeMapPlacement()
   }
 
   function attachProbePlayerListener() {
@@ -3076,7 +3108,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       }
     }
     probePlacementState = tick.nextState
-    if (tick.mapDragging) {
+    if (tick.placed && (probeMapDragging || hasProbeAnchorToken())) {
+      simulateEmptyListPointerUp()
+    } else if (tick.mapDragging) {
       probeMapDragging = true
     }
   }
