@@ -108,8 +108,6 @@ import {
   MOVEMENT_RING_SPECS,
   resolveRingCenter,
   ringId,
-  areDistanceRingsAtCenter,
-  getDistanceRingDrawCenter,
   setDistanceRingShiftStateForTests,
   hideDistanceRings,
   shiftDistanceRingsCenter,
@@ -456,23 +454,6 @@ describe('boxTopLeftForCenter', () => {
       x: 50,
       y: 50,
     })
-  })
-})
-
-describe('areDistanceRingsAtCenter', () => {
-  beforeEach(async () => {
-    await hideDistanceRings()
-  })
-
-  it('true wenn Ring-Zentrum dem Ziel entspricht', () => {
-    setDistanceRingShiftStateForTests([], { x: 100, y: 100 }, ['H'])
-    expect(areDistanceRingsAtCenter({ x: 100, y: 100 })).toBe(true)
-    expect(getDistanceRingDrawCenter()).toEqual({ x: 100, y: 100 })
-  })
-
-  it('false wenn Ringe noch am Ursprung', () => {
-    setDistanceRingShiftStateForTests([], { x: 50, y: 50 }, ['H'])
-    expect(areDistanceRingsAtCenter({ x: 200, y: 200 })).toBe(false)
   })
 })
 

@@ -2930,6 +2930,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probePointerHeld = false
     probePointerDownPending = false
     probePlacementState = createProbePlacementState()
+    void hideProbeAnchorSpoke()
+    await removeProbeAnchorToken()
     try {
       let sceneItems = []
       try {
@@ -2949,11 +2951,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         if (!shifted) {
           await refreshProbeRingsForItem(probeItem)
         }
-      }
-      await hideProbeAnchorSpoke()
-      await removeProbeAnchorToken()
-      if (probeItem && sceneItems.length > 0) {
-        await refreshProbeSpokesOnly(probeItem, sceneItems)
+        if (sceneItems.length > 0) {
+          await refreshProbeSpokesOnly(probeItem, sceneItems)
+        }
       }
     } catch {
       /* ignore */
@@ -3051,7 +3051,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   /**
-   * Szene: Bewegung + Ruheposition (Fallback wenn Map-pointerup fehlt).
+   * Szene: Bewegung erkennen (Ring-Shift); Ende nur per pointerup.
    * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} probeItem
    * @param {import('./gridDistance.js').GridContext} gridContext
    */
@@ -3078,9 +3078,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probePlacementState = tick.nextState
     if (tick.mapDragging) {
       probeMapDragging = true
-    }
-    if (tick.placed) {
-      await endProbeMapDragAtRest(center)
     }
   }
 
@@ -3137,7 +3134,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!hasProbeAnchorToken()) return
     const anchorPseudo = getProbeAnchorPseudoItem()
     if (!anchorPseudo || !probeItem) return
-    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
+    const probeMeta = probeItem?.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     await syncProbeAnchorSpoke(anchorPseudo, probeItem, probeXSchritt)
   }
