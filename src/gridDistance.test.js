@@ -6,6 +6,7 @@ const { gridApi, itemsApi } = vi.hoisted(() => ({
     getMeasurement: vi.fn(),
     getType: vi.fn(),
     getDistance: vi.fn(),
+    snapPosition: vi.fn(async (pos) => ({ x: pos.x, y: pos.y })),
     onChange: vi.fn(() => () => {}),
   },
   itemsApi: {
@@ -23,7 +24,10 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
 }))
 
 import {
+  areTokensTouching,
+  cellSetsTouching,
   computeGridSchrittFromCenters,
+  formatGridDistWithClass,
   getGridContext,
   invalidateGridContextCache,
   normalizeGridDistanceRaw,
@@ -103,6 +107,99 @@ describe('computeGridSchrittFromCenters', () => {
       { x: 100, y: 0 }
     )
     expect(schritt).toBe(1)
+  })
+})
+
+describe('cellSetsTouching', () => {
+  it('erkennt Zellenueberlappung', () => {
+    expect(cellSetsTouching(new Set(['0,0']), new Set(['0,0']), 'SQUARE')).toBe(true)
+  })
+
+  it('erkennt Nachbarzellen auf Square', () => {
+    expect(cellSetsTouching(new Set(['0,0']), new Set(['1,0']), 'SQUARE')).toBe(true)
+    expect(cellSetsTouching(new Set(['0,0']), new Set(['2,0']), 'SQUARE')).toBe(false)
+  })
+})
+
+describe('areTokensTouching', () => {
+  beforeEach(() => {
+    invalidateGridContextCache()
+    gridApi.getDpi.mockResolvedValue(100)
+    gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
+    gridApi.getType.mockResolvedValue('SQUARE')
+    gridApi.getDistance.mockResolvedValue(1)
+  })
+
+  it('true bei benachbarten Zellen', async () => {
+    itemsApi.getItemBounds
+      .mockResolvedValueOnce({
+        min: { x: 0, y: 0 },
+        max: { x: 99, y: 99 },
+        center: { x: 50, y: 50 },
+      })
+      .mockResolvedValueOnce({
+        min: { x: 100, y: 0 },
+        max: { x: 199, y: 99 },
+        center: { x: 150, y: 50 },
+      })
+    expect(
+      await areTokensTouching({ id: 'a' }, { id: 'b' })
+    ).toBe(true)
+  })
+
+  it('false bei entfernten Zellen', async () => {
+    itemsApi.getItemBounds
+      .mockResolvedValueOnce({
+        min: { x: 0, y: 0 },
+        max: { x: 99, y: 99 },
+        center: { x: 50, y: 50 },
+      })
+      .mockResolvedValueOnce({
+        min: { x: 300, y: 0 },
+        max: { x: 399, y: 99 },
+        center: { x: 350, y: 50 },
+      })
+    gridApi.getDistance.mockResolvedValue(3)
+    expect(
+      await areTokensTouching({ id: 'a' }, { id: 'b' })
+    ).toBe(false)
+  })
+})
+
+describe('formatGridDistWithClass', () => {
+  beforeEach(() => {
+    invalidateGridContextCache()
+    gridApi.getDpi.mockResolvedValue(100)
+    gridApi.getMeasurement.mockResolvedValue('EUCLIDEAN')
+    gridApi.getType.mockResolvedValue('SQUARE')
+    gridApi.getDistance.mockResolvedValue(1.5)
+    itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
+  })
+
+  it('formatiert Schritt mit Klasse in Klammern', async () => {
+    expect(
+      await formatGridDistWithClass(
+        { position: { x: 0, y: 0 }, width: 100, height: 100 },
+        { position: { x: 300, y: 0 }, width: 100, height: 100 }
+      )
+    ).toBe('1,5(N)')
+  })
+
+  it('liefert (H) bei Berührung', async () => {
+    gridApi.getDistance.mockResolvedValue(1)
+    gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
+    itemsApi.getItemBounds
+      .mockResolvedValueOnce({
+        min: { x: 0, y: 0 },
+        max: { x: 99, y: 99 },
+        center: { x: 50, y: 50 },
+      })
+      .mockResolvedValueOnce({
+        min: { x: 100, y: 0 },
+        max: { x: 199, y: 99 },
+        center: { x: 150, y: 50 },
+      })
+    expect(await formatGridDistWithClass({ id: 'a' }, { id: 'b' })).toBe('1,0(H)')
   })
 })
 

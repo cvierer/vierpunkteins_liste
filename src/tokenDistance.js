@@ -1,16 +1,51 @@
-/** DSA-Distanzklassen-Schwellen (Schritt). Distanzmessung nutzt Owlbear-Grid via gridDistance.js. */
-export const DIST_CLASS_THRESHOLDS = [
-  { max: 0.8, code: 'H' },
-  { max: 1.5, code: 'N' },
-  { max: 3, code: 'S' },
-  { max: 4.5, code: 'P' },
+/**
+ * DSA-Distanzklassen (Schritt). Distanzmessung nutzt Owlbear-Grid via gridDistance.js.
+ * Notation „D≤1 bis <2“ etc.: Nah ab 1 Schritt bis unter 2 → 1 ≤ D < 2 (analog S, P).
+ */
+export const DIST_CLASS_BANDS = [
+  { code: 'N', min: 1, maxExclusive: 2 },
+  { code: 'S', min: 2, maxExclusive: 4 },
+  { code: 'P', min: 4, maxInclusive: 5 },
 ]
 
-/** @returns {'' | 'H' | 'N' | 'S' | 'P' | 'X'} */
-export function classifyDistance(schritt, classXSchritt = null) {
+/** Kartenring-Radien (äußere Grenze in Schritt). H = Berührungszone. */
+export const DIST_CLASS_RING_RADIUS = {
+  H: 1,
+  N: 2,
+  S: 4,
+  P: 5,
+}
+
+export const DIST_CLASS_RING_CODES = ['H', 'N', 'S', 'P']
+
+/** @deprecated Nur Abwärtskompatibilität in Tests — nutze DIST_CLASS_BANDS. */
+export const DIST_CLASS_THRESHOLDS = DIST_CLASS_BANDS.map((b) => ({
+  max: b.maxExclusive ?? b.maxInclusive ?? b.min,
+  code: b.code,
+}))
+
+/**
+ * @param {string} code
+ * @returns {string}
+ */
+export function formatDistClassLabel(code) {
+  return `(${code})`
+}
+
+/**
+ * @param {number} schritt
+ * @param {number | null | undefined} [classXSchritt]
+ * @param {{ isTouching?: boolean }} [options]
+ * @returns {'' | 'H' | 'N' | 'S' | 'P' | 'X'}
+ */
+export function classifyDistance(schritt, classXSchritt = null, options = {}) {
+  const { isTouching = false } = options
+  if (isTouching) return 'H'
   if (!Number.isFinite(schritt) || schritt < 0) return ''
-  for (const { max, code } of DIST_CLASS_THRESHOLDS) {
-    if (schritt <= max) return code
+  for (const band of DIST_CLASS_BANDS) {
+    if (schritt < band.min) continue
+    if (band.maxExclusive != null && schritt < band.maxExclusive) return band.code
+    if (band.maxInclusive != null && schritt <= band.maxInclusive) return band.code
   }
   const xMax =
     classXSchritt != null && Number.isFinite(classXSchritt) && classXSchritt > 0
@@ -61,10 +96,15 @@ export function formatSchritt(n) {
   return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',')
 }
 
-/** Schritt + Distanzklasse ohne Leerzeichen, z. B. „1,2N“. */
-export function formatSchrittWithClass(n, classXSchritt = null) {
+/**
+ * Schritt + Distanzklasse in Klammern, z. B. „1,2(N)“.
+ * @param {number} n
+ * @param {number | null | undefined} [classXSchritt]
+ * @param {{ isTouching?: boolean }} [options]
+ */
+export function formatSchrittWithClass(n, classXSchritt = null, options = {}) {
   const s = formatSchritt(n)
   if (!s) return ''
-  const cls = classifyDistance(n, classXSchritt)
-  return cls ? `${s}${cls}` : s
+  const cls = classifyDistance(n, classXSchritt, options)
+  return cls ? `${s}${formatDistClassLabel(cls)}` : s
 }

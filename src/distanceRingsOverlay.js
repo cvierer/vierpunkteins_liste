@@ -10,7 +10,7 @@ import {
   isCustomRingsEnabled,
   isMovementRingVisible,
 } from './heroDistRingPrefs.js'
-import { DIST_CLASS_THRESHOLDS } from './tokenDistance.js'
+import { DIST_CLASS_RING_CODES, formatDistClassLabel, DIST_CLASS_RING_RADIUS } from './tokenDistance.js'
 
 const RING_ID_PREFIX = 'vierpunkteins/dist-ring/'
 
@@ -794,9 +794,19 @@ export async function showDistanceRingsFor(
   /** @type {import('@owlbear-rodeo/sdk').Item[]} */
   const items = []
   lastShownRingCodes.clear()
-  for (const { max, code } of DIST_CLASS_THRESHOLDS) {
+  for (const code of DIST_CLASS_RING_CODES) {
     if (!isClassRingVisible(prefs, code)) continue
-    await appendRingPair(items, c, dpi, max, code, code, RING_COLORS[code] ?? '#888888', gridContext)
+    const radius = DIST_CLASS_RING_RADIUS[code]
+    await appendRingPair(
+      items,
+      c,
+      dpi,
+      radius,
+      code,
+      formatDistClassLabel(code),
+      RING_COLORS[code] ?? '#888888',
+      gridContext
+    )
     lastShownRingCodes.add(code)
   }
   if (
@@ -805,7 +815,7 @@ export async function showDistanceRingsFor(
     Number.isFinite(classXSchritt) &&
     classXSchritt > 0
   ) {
-    await appendRingPair(items, c, dpi, classXSchritt, 'X', 'X', RING_COLORS.X ?? '#888888', gridContext)
+    await appendRingPair(items, c, dpi, classXSchritt, 'X', formatDistClassLabel('X'), RING_COLORS.X ?? '#888888', gridContext)
     lastShownRingCodes.add('X')
   }
   if (Number.isFinite(gsSchritt) && gsSchritt > 0) {
@@ -897,7 +907,7 @@ export function setDistanceRingShiftStateForTests(
 
 export async function hideDistanceRings() {
   const ids = []
-  for (const { code } of DIST_CLASS_THRESHOLDS) {
+  for (const code of DIST_CLASS_RING_CODES) {
     ids.push(ringId('c', code), ringId('l', code))
     for (let i = 0; i < 6; i++) ids.push(ringId('e', code, i))
   }

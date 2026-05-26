@@ -1,12 +1,13 @@
 import OBR, { buildLabel, buildLine } from '@owlbear-rodeo/sdk'
 import {
   computeGridSchrittFromCenters,
+  formatGridDistWithClass,
   getGridContext,
   resolveDistanceCenter,
 } from './gridDistance.js'
 import { readHeroBgColor } from './heroColors.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
-import { formatSchritt, formatSchrittWithClass } from './tokenDistance.js'
+import { formatSchritt } from './tokenDistance.js'
 
 const SPOKE_ID_PREFIX = 'vierpunkteins/dist-spoke/'
 export const MOVEMENT_SPOKE_LINE_ID = `${SPOKE_ID_PREFIX}move/line`
@@ -249,8 +250,7 @@ export async function showDistanceSpokesFor(
     otherItems.map(async (other) => {
       if (!other?.id || other.id === probeItem.id) return null
       const end = await resolveDistanceCenter(other, ctx)
-      const n = await computeGridSchrittFromCenters(start, end)
-      const text = formatSchrittWithClass(n, classXSchritt)
+      const text = await formatGridDistWithClass(probeItem, other, classXSchritt)
       if (!text) return null
       const meta = other.metadata?.[TRACKER_ITEM_META_KEY]
       const color = resolveSpokeColor(meta)

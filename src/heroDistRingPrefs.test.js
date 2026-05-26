@@ -11,10 +11,10 @@ import {
 } from './heroDistRingPrefs.js'
 
 describe('defaultDistRingVisible', () => {
-  it('aktiviert N und GS-Bewegungsringe, nicht H/S/P/X/custom', () => {
+  it('deaktiviert alle Klassen-Ringe, GS-Bewegungsringe an', () => {
     expect(defaultDistRingVisible()).toEqual({
       H: false,
-      N: true,
+      N: false,
       S: false,
       P: false,
       X: false,
@@ -46,7 +46,7 @@ describe('readDistRingVisible', () => {
 describe('filter helpers', () => {
   it('filtert Klassen- und Bewegungsringe', () => {
     const p = defaultDistRingVisible()
-    expect(isClassRingVisible(p, 'N')).toBe(true)
+    expect(isClassRingVisible(p, 'N')).toBe(false)
     expect(isClassRingVisible(p, 'H')).toBe(false)
     expect(isClassRingVisible(p, 'X')).toBe(false)
     expect(isMovementRingVisible(p, 'sp')).toBe(true)
@@ -55,7 +55,7 @@ describe('filter helpers', () => {
 })
 
 describe('isDistMapRingsInactive', () => {
-  it('false bei Standard-Defaults (N + GS aktiv)', () => {
+  it('false bei Standard-Defaults (nur GS-Ringe aktiv)', () => {
     expect(isDistMapRingsInactive(defaultDistRingVisible(), null)).toBe(false)
     expect(isDistMapRingsInactive(defaultDistRingVisible(), 10)).toBe(false)
   })
@@ -81,7 +81,7 @@ describe('isDistMapRingsInactive', () => {
   })
 
   it('X zaehlt nur mit Schwelle', () => {
-    const p = { ...defaultDistRingVisible(), N: false, m1: false, m2: false, sp: false, X: true }
+    const p = { ...defaultDistRingVisible(), m1: false, m2: false, sp: false, X: true }
     expect(isDistMapRingsInactive(p, null)).toBe(true)
     expect(isDistMapRingsInactive(p, 12)).toBe(false)
   })

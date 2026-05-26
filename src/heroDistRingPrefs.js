@@ -9,7 +9,7 @@ const MOVEMENT_CODES = ['m1', 'm2', 'sp']
 export function defaultDistRingVisible() {
   return {
     H: false,
-    N: true,
+    N: false,
     S: false,
     P: false,
     X: false,

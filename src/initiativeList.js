@@ -31,11 +31,10 @@ import {
 } from './manualIniTieOverrides.js'
 import { setTrackedParticipantIds } from './listState.js'
 import {
-  formatSchrittWithClass,
   tokenCenter,
 } from './tokenDistance.js'
 import {
-  computeGridSchritt,
+  formatGridDistWithClass,
   getGridContext,
   initGridDistance,
   onGridDistanceChange,
@@ -3107,8 +3106,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         c.classList.remove('init-dist-cell--probe', 'init-dist-cell--idle-rings')
         c.classList.add('init-dist-cell--target')
         pending.push(
-          computeGridSchritt(probeItem, other).then((n) => {
-            valEl.textContent = formatSchrittWithClass(n, probeXSchritt)
+          formatGridDistWithClass(probeItem, other, probeXSchritt).then((text) => {
+            valEl.textContent = text
           })
         )
       }
@@ -3890,11 +3889,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const heroDistClassXInp = heroSettingsPanel.querySelector('#kampf-hero-dist-class-x-schritt')
 
   const DIST_RING_LABELS = {
-    H: 'H',
-    N: 'N',
-    S: 'S',
-    P: 'P',
-    X: 'X (frei)',
+    H: '(H) Handnah',
+    N: '(N) Nah',
+    S: '(S) Mittel',
+    P: '(P) Fern',
+    X: '(X) frei',
     m1: '1 Akt. Bewegen',
     m2: '2 Akt. Bewegen',
     sp: 'Sprint',

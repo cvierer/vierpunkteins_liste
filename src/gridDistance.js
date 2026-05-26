@@ -1,6 +1,10 @@
 import OBR from '@owlbear-rodeo/sdk'
 import { tokenCenterScene } from './heroOrientationRingsOverlay.js'
-import { computeSchrittFromCenters, tokenCenter } from './tokenDistance.js'
+import {
+  computeSchrittFromCenters,
+  formatSchrittWithClass,
+  tokenCenter,
+} from './tokenDistance.js'
 
 /** @typedef {'SQUARE' | 'HEX_VERTICAL' | 'HEX_HORIZONTAL' | 'DIMETRIC' | 'ISOMETRIC'} GridType */
 /** @typedef {'CHEBYSHEV' | 'ALTERNATING' | 'EUCLIDEAN' | 'MANHATTAN'} GridMeasurement */
@@ -114,6 +118,141 @@ export async function computeGridSchritt(itemA, itemB) {
     resolveDistanceCenter(itemB, ctx),
   ])
   return computeGridSchrittFromCenters(a, b)
+}
+
+/** @param {number} cx @param {number} cy */
+function cellKey(cx, cy) {
+  return `${cx},${cy}`
+}
+
+/** @param {string} key */
+function parseCellKey(key) {
+  const [cx, cy] = key.split(',').map(Number)
+  return { cx, cy }
+}
+
+/** @param {GridType} gridType */
+function neighborDeltas(gridType) {
+  if (gridType === 'HEX_VERTICAL' || gridType === 'HEX_HORIZONTAL') {
+    return [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, -1],
+      [-1, 1],
+    ]
+  }
+  return [
+    [-1, -1],
+    [-1, 0],
+    [-1, 1],
+    [0, -1],
+    [0, 1],
+    [1, -1],
+    [1, 0],
+    [1, 1],
+  ]
+}
+
+/**
+ * @param {Set<string>} cellsA
+ * @param {Set<string>} cellsB
+ * @param {GridType} gridType
+ */
+export function cellSetsTouching(cellsA, cellsB, gridType) {
+  for (const key of cellsA) {
+    if (cellsB.has(key)) return true
+  }
+  const deltas = neighborDeltas(gridType)
+  for (const key of cellsA) {
+    const { cx, cy } = parseCellKey(key)
+    for (const [dx, dy] of deltas) {
+      if (cellsB.has(cellKey(cx + dx, cy + dy))) return true
+    }
+  }
+  return false
+}
+
+/**
+ * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
+ * @param {GridContext} gridContext
+ */
+async function getOccupiedGridCells(item, gridContext) {
+  /** @type {Set<string>} */
+  const cells = new Set()
+  const dpi = gridContext.dpi
+  /** @type {{ min?: { x: number, y: number }, max?: { x: number, y: number }, center?: { x: number, y: number } } | null} */
+  let bounds = null
+  if (item?.id) {
+    try {
+      bounds = await OBR.scene.items.getItemBounds([item.id])
+    } catch {
+      /* fallback */
+    }
+  }
+  if (bounds?.min && bounds?.max) {
+    const minCx = Math.floor(bounds.min.x / dpi)
+    const maxCx = Math.floor(bounds.max.x / dpi)
+    const minCy = Math.floor(bounds.min.y / dpi)
+    const maxCy = Math.floor(bounds.max.y / dpi)
+    for (let cx = minCx; cx <= maxCx; cx++) {
+      for (let cy = minCy; cy <= maxCy; cy++) {
+        cells.add(cellKey(cx, cy))
+      }
+    }
+    return cells
+  }
+  const center = await resolveDistanceCenter(item, gridContext)
+  let snapped = center
+  try {
+    snapped = await OBR.scene.grid.snapPosition(center)
+  } catch {
+    /* fallback */
+  }
+  cells.add(cellKey(Math.round(snapped.x / dpi), Math.round(snapped.y / dpi)))
+  return cells
+}
+
+/**
+ * Berührung = Zellen überlappen oder Nachbarzellen (Handnah/H).
+ * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemA
+ * @param {typeof itemA} itemB
+ */
+export async function areTokensTouching(itemA, itemB) {
+  if (!itemA || !itemB) return false
+  const ctx = await getGridContext()
+  if (!ctx) return false
+  try {
+    const [cellsA, cellsB, centerA, centerB] = await Promise.all([
+      getOccupiedGridCells(itemA, ctx),
+      getOccupiedGridCells(itemB, ctx),
+      resolveDistanceCenter(itemA, ctx),
+      resolveDistanceCenter(itemB, ctx),
+    ])
+    if (cellSetsTouching(cellsA, cellsB, ctx.type)) return true
+    const dist = await computeGridSchrittFromCenters(centerA, centerB)
+    if (!Number.isFinite(dist)) return false
+    if (ctx.measurement === 'CHEBYSHEV' || ctx.measurement === 'MANHATTAN') {
+      return dist <= 1
+    }
+    return dist < 0.05
+  } catch {
+    return false
+  }
+}
+
+/**
+ * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} itemA
+ * @param {typeof itemA} itemB
+ * @param {number | null | undefined} [classXSchritt]
+ */
+export async function formatGridDistWithClass(itemA, itemB, classXSchritt = null) {
+  const [schritt, touching] = await Promise.all([
+    computeGridSchritt(itemA, itemB),
+    areTokensTouching(itemA, itemB),
+  ])
+  return formatSchrittWithClass(schritt, classXSchritt, { isTouching: touching })
 }
 
 /** @param {() => void} callback */

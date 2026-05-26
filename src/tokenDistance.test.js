@@ -3,35 +3,52 @@ import {
   classifyDistance,
   computeSchritt,
   computeSchrittFromCenters,
+  formatDistClassLabel,
   formatSchritt,
   formatSchrittWithClass,
   tokenCenter,
 } from './tokenDistance.js'
 
 describe('classifyDistance', () => {
-  it('ordnet Schwellen H/N/S/P zu', () => {
-    expect(classifyDistance(0)).toBe('H')
-    expect(classifyDistance(0.8)).toBe('H')
-    expect(classifyDistance(0.81)).toBe('N')
+  it('H nur bei Berührung', () => {
+    expect(classifyDistance(0, null, { isTouching: true })).toBe('H')
+    expect(classifyDistance(3, null, { isTouching: true })).toBe('H')
+    expect(classifyDistance(0)).toBe('')
+    expect(classifyDistance(0.8)).toBe('')
+  })
+
+  it('ordnet Schritt-Bänder N/S/P zu', () => {
+    expect(classifyDistance(0.9)).toBe('')
+    expect(classifyDistance(1)).toBe('N')
     expect(classifyDistance(1.5)).toBe('N')
-    expect(classifyDistance(1.51)).toBe('S')
+    expect(classifyDistance(1.99)).toBe('N')
+    expect(classifyDistance(2)).toBe('S')
     expect(classifyDistance(3)).toBe('S')
-    expect(classifyDistance(3.01)).toBe('P')
-    expect(classifyDistance(4.5)).toBe('P')
-    expect(classifyDistance(4.51)).toBe('')
+    expect(classifyDistance(3.99)).toBe('S')
+    expect(classifyDistance(4)).toBe('P')
+    expect(classifyDistance(5)).toBe('P')
+    expect(classifyDistance(5.01)).toBe('')
     expect(classifyDistance(10)).toBe('')
   })
 
   it('nutzt Klasse X bis zur konfigurierten Grenze', () => {
-    expect(classifyDistance(5, 6)).toBe('X')
+    expect(classifyDistance(5.01, 6)).toBe('X')
     expect(classifyDistance(6, 6)).toBe('X')
     expect(classifyDistance(6.01, 6)).toBe('')
     expect(classifyDistance(4.5, 6)).toBe('P')
+    expect(classifyDistance(5, 6)).toBe('P')
   })
 
   it('gibt leer bei ungueltigen Werten zurueck', () => {
     expect(classifyDistance(NaN)).toBe('')
     expect(classifyDistance(-1)).toBe('')
+  })
+})
+
+describe('formatDistClassLabel', () => {
+  it('setzt Klasse in Klammern', () => {
+    expect(formatDistClassLabel('N')).toBe('(N)')
+    expect(formatDistClassLabel('H')).toBe('(H)')
   })
 })
 
@@ -106,12 +123,12 @@ describe('formatSchritt', () => {
 })
 
 describe('formatSchrittWithClass', () => {
-  it('haengt Klasse direkt an den Wert', () => {
-    expect(formatSchrittWithClass(1.2)).toBe('1,2N')
-    expect(formatSchrittWithClass(0.5)).toBe('0,5H')
+  it('haengt Klasse in Klammern an den Wert', () => {
+    expect(formatSchrittWithClass(1.2)).toBe('1,2(N)')
+    expect(formatSchrittWithClass(0.5, null, { isTouching: true })).toBe('0,5(H)')
     expect(formatSchrittWithClass(10)).toBe('10,0')
-    expect(formatSchrittWithClass(5.5, 8)).toBe('5,5X')
-    expect(formatSchrittWithClass(105.2, 120)).toBe('105X')
+    expect(formatSchrittWithClass(5.5, 8)).toBe('5,5(X)')
+    expect(formatSchrittWithClass(105.2, 120)).toBe('105(X)')
   })
 
   it('gibt leer bei NaN zurueck', () => {
