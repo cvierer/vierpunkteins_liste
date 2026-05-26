@@ -24,6 +24,9 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
           const id = ids[0]
           if (id === 'probe') return { center: { x: 200, y: 200 } }
           if (id === 'other') return { center: { x: 300, y: 200 } }
+          if (id === 'vierpunkteins/dist-probe-anchor') {
+            return { center: { x: 200, y: 200 } }
+          }
           return { center: { x: 0, y: 0 } }
         }),
       },
@@ -68,6 +71,8 @@ import {
   MOVEMENT_MIN_SCHRITT,
   MOVEMENT_SPOKE_LABEL_ID,
   MOVEMENT_SPOKE_LINE_ID,
+  PROBE_ANCHOR_SPOKE_LABEL_ID,
+  PROBE_ANCHOR_SPOKE_LINE_ID,
   resetDistanceSpokeOverlayStateForTests,
   resolveSpokeColor,
   shouldShowMovementSpoke,
@@ -76,7 +81,9 @@ import {
   spokeItemId,
   spokeLabelPosition,
   syncDistanceMovementLine,
+  syncProbeAnchorSpoke,
 } from './distanceSpokesOverlay.js'
+import { PROBE_ANCHOR_TOKEN_ID } from './probeAnchorToken.js'
 
 describe('spokeItemId', () => {
   it('stabile IDs für Linie und Label', () => {
@@ -190,6 +197,47 @@ describe('syncDistanceMovementLine update path', () => {
     expect(localApi.updateItems.mock.calls[0][0]).toEqual([
       MOVEMENT_SPOKE_LINE_ID,
       MOVEMENT_SPOKE_LABEL_ID,
+    ])
+  })
+})
+
+describe('syncProbeAnchorSpoke', () => {
+  const anchor = {
+    id: PROBE_ANCHOR_TOKEN_ID,
+    position: { x: 150, y: 150 },
+    width: 100,
+    height: 100,
+  }
+  const hero = {
+    id: 'other',
+    position: { x: 250, y: 150 },
+    width: 100,
+    height: 100,
+    metadata: { [TRACKER_ITEM_META_KEY]: {} },
+  }
+
+  beforeEach(() => {
+    resetDistanceSpokeOverlayStateForTests()
+    localApi.addItems.mockClear()
+    localApi.updateItems.mockClear()
+    lastMovementLabelText.value = ''
+    gridApi.getDistance.mockResolvedValue(8)
+  })
+
+  it('zeichnet Spoke mit Distanzklassen-Label wie zu anderem Token', async () => {
+    await syncProbeAnchorSpoke(anchor, hero, null)
+    expect(localApi.addItems).toHaveBeenCalledTimes(1)
+    expect(lastMovementLabelText.value).toMatch(/^8\([HNSPX]\)$/)
+  })
+
+  it('zweiter Aufruf aktualisiert per updateItems', async () => {
+    await syncProbeAnchorSpoke(anchor, hero, null)
+    await syncProbeAnchorSpoke(anchor, hero, null)
+    expect(localApi.addItems).toHaveBeenCalledTimes(1)
+    expect(localApi.updateItems).toHaveBeenCalledTimes(1)
+    expect(localApi.updateItems.mock.calls[0][0]).toEqual([
+      PROBE_ANCHOR_SPOKE_LINE_ID,
+      PROBE_ANCHOR_SPOKE_LABEL_ID,
     ])
   })
 })

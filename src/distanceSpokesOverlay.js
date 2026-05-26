@@ -7,6 +7,7 @@ import {
 } from './gridDistance.js'
 import { readHeroBgColor } from './heroColors.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
+import { PROBE_ANCHOR_TOKEN_ID } from './probeAnchorToken.js'
 import { formatSchritt } from './tokenDistance.js'
 
 const SPOKE_ID_PREFIX = 'vierpunkteins/dist-spoke/'
@@ -20,11 +21,15 @@ const SPOKE_LABEL_BG_OPACITY = 0.88
 /** @type {Set<string>} */
 const lastSpokeOtherIds = new Set()
 let movementLineActive = false
+let probeAnchorSpokeActive = false
 
 /** @param {string} otherId @param {'line' | 'label'} kind */
 export function spokeItemId(otherId, kind) {
   return `${SPOKE_ID_PREFIX}${kind}/${otherId}`
 }
+
+export const PROBE_ANCHOR_SPOKE_LINE_ID = spokeItemId(PROBE_ANCHOR_TOKEN_ID, 'line')
+export const PROBE_ANCHOR_SPOKE_LABEL_ID = spokeItemId(PROBE_ANCHOR_TOKEN_ID, 'label')
 
 /**
  * @param {unknown} meta
@@ -233,6 +238,63 @@ export async function syncDistanceMovementLine(probeItem, dragStartCenter) {
   await ensureMovementSpokeItems(dragStartCenter, end, color, text)
 }
 
+export async function hideProbeAnchorSpoke() {
+  probeAnchorSpokeActive = false
+  await deleteLocalSpokeIds([
+    PROBE_ANCHOR_SPOKE_LINE_ID,
+    PROBE_ANCHOR_SPOKE_LABEL_ID,
+  ])
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} anchorPseudo
+ * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} heroItem
+ * @param {number | null | undefined} classXSchritt
+ */
+export async function syncProbeAnchorSpoke(anchorPseudo, heroItem, classXSchritt = null) {
+  if (!anchorPseudo || !heroItem) {
+    await hideProbeAnchorSpoke()
+    return
+  }
+  const ctx = await getGridContext()
+  const [start, end] = await Promise.all([
+    resolveDistanceCenter(anchorPseudo, ctx),
+    resolveDistanceCenter(heroItem, ctx),
+  ])
+  const text = await formatGridDistWithClass(anchorPseudo, heroItem, classXSchritt)
+  if (!text) {
+    await hideProbeAnchorSpoke()
+    return
+  }
+  const meta = heroItem.metadata?.[TRACKER_ITEM_META_KEY]
+  const color = resolveSpokeColor(meta)
+  if (probeAnchorSpokeActive) {
+    try {
+      await updateOtherSpokeItems(
+        PROBE_ANCHOR_TOKEN_ID,
+        start,
+        end,
+        color,
+        text
+      )
+      return
+    } catch {
+      probeAnchorSpokeActive = false
+    }
+  }
+  await hideProbeAnchorSpoke()
+  await OBR.scene.local.addItems([
+    buildSpokeLine(start, end, PROBE_ANCHOR_SPOKE_LINE_ID, color),
+    buildSpokeLabel(
+      text,
+      spokeLabelPosition(start, end),
+      PROBE_ANCHOR_SPOKE_LABEL_ID,
+      color
+    ),
+  ])
+  probeAnchorSpokeActive = true
+}
+
 /**
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} probeItem
  * @param {typeof probeItem[]} otherItems
@@ -325,10 +387,12 @@ export async function showDistanceSpokesFor(
 export async function hideDistanceSpokes() {
   await hideOtherDistanceSpokes()
   await hideDistanceMovementLine()
+  await hideProbeAnchorSpoke()
 }
 
 /** Nur fuer Tests: Spoke-/Movement-Tracking zuruecksetzen. */
 export function resetDistanceSpokeOverlayStateForTests() {
   lastSpokeOtherIds.clear()
   movementLineActive = false
+  probeAnchorSpokeActive = false
 }
