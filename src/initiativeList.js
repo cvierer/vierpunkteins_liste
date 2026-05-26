@@ -2873,7 +2873,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   const onProbePointerEnd = () => {
-    if (!distanceProbeItemId) return
+    // Nur nach einem echten Dist-Drag freigeben:
+    // sonst würde ein simples Aktivierungs-Pointerup (ohne Drag)
+    // die Linie für den nächsten echten Drag blockieren.
+    if (!distanceProbeItemId || !probeMapDragging) return
     probeMapDragging = false
     probeMapDragReleased = true
     void hideDistanceMovementLine()

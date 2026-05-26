@@ -236,11 +236,14 @@ export async function syncHeroOrientationRings(items, options = {}) {
     const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
     if (!meta) continue
     if (!isSceneItemVisibleOnMap(item)) continue
-    if (hideForeign && !canEditSceneItem(item)) continue
+    const canEdit = canEditSceneItem(item)
 
     const center = tokenCenterScene(item, sceneDpi)
     const diameter = ringDiameter(item, sceneDpi)
-    const color = resolveRingStrokeColor(meta)
+    let color = resolveRingStrokeColor(meta)
+    // "Fremde Heldenfarben ausblenden" soll nur die Farbe ausblenden,
+    // aber Ring + Dreieck weiterhin sichtbar lassen.
+    if (hideForeign && !canEdit) color = ORIENTATION_RING_COLOR_FALLBACK
     overlayItems.push(
       buildOrientationRing(item, center, diameter, color),
       buildOrientationMarker(item, center, diameter, color)
