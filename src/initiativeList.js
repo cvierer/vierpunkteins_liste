@@ -46,11 +46,15 @@ import {
   showDistanceRingsFor,
 } from './distanceRingsOverlay.js'
 import {
-  beginProbeLineStroke,
   createProbePlacementState,
-  latchProbeMapDrag,
   trackProbePlacementCenter,
 } from './distanceProbeDrag.js'
+import {
+  ensureProbeAnchorToken,
+  getProbeAnchorCenter,
+  hasProbeAnchorToken,
+  removeProbeAnchorToken,
+} from './probeAnchorToken.js'
 import {
   hideDistanceMovementLine,
   hideDistanceSpokes,
@@ -2860,12 +2864,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   /** Ursprung Bewegungslinie: letzte Absetz-Position des Helden (Dist aktiv). */
   /** @type {{ x: number, y: number } | null} */
   let probeMovementAnchor = null
-  /** Karten-Drag aktiv (Spokes live, Ringe bleiben am Ursprung). */
+  /** Karten-Drag aktiv (Ringe + Spokes folgen dem Helden). */
   let probeMapDragging = false
-  /** Startpunkt aktueller Zug = Ring-Ursprung (eingefroren beim ersten Bewegen). */
-  /** @type {{ x: number, y: number } | null} */
-  let probeLineStrokeOrigin = null
-  let probeLineStrokeActive = false
   let probePlacementState = createProbePlacementState()
   let distanceProbeRefreshPending = false
   let probeMovementRafId = 0
@@ -2881,7 +2881,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   function isProbeMapDragActive() {
-    return probeLineStrokeActive || probeMapDragging
+    return probeMapDragging || hasProbeAnchorToken()
   }
 
   /**
@@ -2890,13 +2890,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    */
   async function endProbeMapDragAtRest(restCenter) {
     if (!distanceProbeItemId || probeRestEnding) return
-    if (!probeLineStrokeActive && !probeMapDragging) return
+    if (!probeMapDragging && !hasProbeAnchorToken()) return
     probeRestEnding = true
-    probeLineStrokeActive = false
-    probeLineStrokeOrigin = null
     probeMapDragging = false
     probePlacementState = createProbePlacementState()
     void hideDistanceMovementLine()
+    await removeProbeAnchorToken()
     try {
       let sceneItems = []
       try {
@@ -2931,7 +2930,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   /** @param {PointerEvent} event */
   const onProbePointerEnd = (event) => {
     if (!distanceProbeItemId) return
-    if (!probeLineStrokeActive) return
+    if (!probeMapDragging && !hasProbeAnchorToken()) return
     if (isProbePointerFromExtensionUI(event)) return
     void endProbeMapDragAtRest()
   }
@@ -2953,9 +2952,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   function resetProbeMapDragState() {
     probeMovementAnchor = null
     probeMapDragging = false
-    probeLineStrokeOrigin = null
-    probeLineStrokeActive = false
     probePlacementState = createProbePlacementState()
+    void removeProbeAnchorToken()
   }
 
   function stopProbeMovementLoop() {
@@ -2991,7 +2989,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   async function updateProbePlacementFromScene(probeItem, gridContext) {
     if (!distanceProbeItemId || !probeItem) return
     const center = await resolveDistanceCenter(probeItem, gridContext)
-    const tick = trackProbePlacementCenter(center, probePlacementState)
+    const prevState = probePlacementState
+    const tick = trackProbePlacementCenter(center, prevState)
+    if (tick.mapDragging && !prevState.mapDragging && prevState.lastCenter) {
+      await ensureProbeAnchorToken(prevState.lastCenter, distanceProbeItemId)
+    }
     probePlacementState = tick.nextState
     if (tick.mapDragging) {
       probeMapDragging = true
@@ -3051,36 +3053,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    * @param {{ id?: string, metadata?: Record<string, unknown> } | null | undefined} probeItem
    * @param {import('./gridDistance.js').GridContext} gridContext
    */
-  async function syncProbeMovementLine(probeItem, gridContext) {
-    if (!probeMovementAnchor) {
+  async function syncProbeMovementLine(probeItem, _gridContext) {
+    const ghostCenter = getProbeAnchorCenter()
+    if (!ghostCenter || !probeMapDragging) {
       await hideDistanceMovementLine()
       return
     }
-    const center = await resolveDistanceCenter(probeItem, gridContext)
-    const latch = latchProbeMapDrag(
-      probeMapDragging,
-      probeMovementAnchor,
-      center
-    )
-    if (latch.mapDragging || latch.showLine) {
-      probeMapDragging = true
-    }
-    const stroke = beginProbeLineStroke(
-      probeMovementAnchor,
-      center,
-      probeLineStrokeActive
-    )
-    if (stroke.strokeOrigin) {
-      probeLineStrokeOrigin = stroke.strokeOrigin
-    }
-    if (stroke.strokeActive) {
-      probeLineStrokeActive = true
-    }
-    if (probeLineStrokeActive && probeLineStrokeOrigin) {
-      await syncDistanceMovementLine(probeItem, probeLineStrokeOrigin)
-    } else {
-      await hideDistanceMovementLine()
-    }
+    await syncDistanceMovementLine(probeItem, ghostCenter)
   }
 
   async function runDistanceProbeMovementTick() {
@@ -3096,6 +3075,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const gridContext = await getGridContext()
     if (!gridContext) return
     await updateProbePlacementFromScene(probeItem, gridContext)
+    if (probeMapDragging) {
+      const center = await resolveDistanceCenter(probeItem, gridContext)
+      const shifted = await shiftDistanceRingsCenter(center)
+      if (!shifted) {
+        await refreshProbeRingsForItem(probeItem)
+      }
+    }
     await syncProbeMovementLine(probeItem, gridContext)
     if (probeMapDragging) {
       await refreshProbeSpokesOnly(probeItem, sceneItems)
@@ -3279,12 +3265,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     void hideDistanceMovementLine()
     void hideDistanceRings()
     void hideDistanceSpokes()
+    void removeProbeAnchorToken()
   }
 
   async function activateDistanceProbe(itemId) {
     if (distanceProbeItemId && distanceProbeItemId !== itemId) {
       stopProbeMovementLoop()
       detachProbePointerListeners()
+      void removeProbeAnchorToken()
       void hideDistanceRings()
       void hideDistanceSpokes()
     }
@@ -7172,6 +7160,7 @@ function bindStampContextRemove(el, stamp, items) {
     stopProbeMovementLoop()
     detachProbePointerListeners()
     resetProbeMapDragState()
+    void removeProbeAnchorToken()
     void hideDistanceRings()
   }
 }

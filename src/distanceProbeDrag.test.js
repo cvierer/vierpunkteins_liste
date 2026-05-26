@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  beginProbeLineStroke,
   createProbePlacementState,
   latchProbeMapDrag,
   PROBE_MAP_DRAG_MOVE_EPS,
@@ -63,27 +62,6 @@ describe('latchProbeMapDrag', () => {
     const far = { x: 200, y: 100 }
     expect(latchProbeMapDrag(false, clickRef, far)).toEqual({
       mapDragging: true,
-      showLine: true,
-    })
-  })
-})
-
-describe('beginProbeLineStroke', () => {
-  const anchor = { x: 0, y: 0 }
-  const moved = { x: 10, y: 0 }
-
-  it('friert Ring-Ursprung beim ersten Zug ein', () => {
-    expect(beginProbeLineStroke(anchor, moved, false)).toEqual({
-      strokeActive: true,
-      strokeOrigin: { x: 0, y: 0 },
-      showLine: true,
-    })
-  })
-
-  it('haelt Stroke bei weiterer Bewegung', () => {
-    expect(beginProbeLineStroke(anchor, moved, true)).toEqual({
-      strokeActive: true,
-      strokeOrigin: null,
       showLine: true,
     })
   })

@@ -87,41 +87,6 @@ export function trackProbePlacementCenter(currentCenter, state, options = {}) {
 }
 
 /**
- * Startpunkt eines Zugs einfrieren (Ring-Ursprung), sobald sich das Token vom Anker bewegt.
- * @param {Point | null} movementAnchor
- * @param {Point} currentCenter
- * @param {boolean} strokeActive
- * @param {number} [epsilon]
- * @returns {{ strokeActive: boolean, strokeOrigin: Point | null, showLine: boolean }}
- */
-export function beginProbeLineStroke(
-  movementAnchor,
-  currentCenter,
-  strokeActive,
-  epsilon = PROBE_MAP_DRAG_MOVE_EPS
-) {
-  if (!movementAnchor) {
-    return { strokeActive: false, strokeOrigin: null, showLine: false }
-  }
-  const moved =
-    Math.hypot(
-      currentCenter.x - movementAnchor.x,
-      currentCenter.y - movementAnchor.y
-    ) > epsilon
-  if (!strokeActive && moved) {
-    return {
-      strokeActive: true,
-      strokeOrigin: { x: movementAnchor.x, y: movementAnchor.y },
-      showLine: true,
-    }
-  }
-  if (strokeActive) {
-    return { strokeActive: true, strokeOrigin: null, showLine: true }
-  }
-  return { strokeActive: false, strokeOrigin: null, showLine: false }
-}
-
-/**
  * Linie ab erster Bewegung; mapDragging latched bis Ruheposition (placed).
  * @param {boolean} mapDragging
  * @param {Point | null} movementAnchor
