@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { gridApi, itemsApi, shapeBuilderState, lineBuildCount } = vi.hoisted(() => ({
+const { gridApi, itemsApi, shapeBuilderState, lineBuildCount, localApi } = vi.hoisted(() => ({
   gridApi: {
     snapPosition: vi.fn(async (pos) => ({ x: pos.x, y: pos.y })),
     getDistance: vi.fn(async (from, to) => {
@@ -15,6 +15,11 @@ const { gridApi, itemsApi, shapeBuilderState, lineBuildCount } = vi.hoisted(() =
   },
   shapeBuilderState: { lastRotation: null, lastShapeType: null },
   lineBuildCount: { value: 0 },
+  localApi: {
+    addItems: vi.fn(),
+    deleteItems: vi.fn(),
+    updateItems: vi.fn(),
+  },
 }))
 
 vi.mock('@owlbear-rodeo/sdk', () => ({
@@ -22,7 +27,7 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
     scene: {
       grid: gridApi,
       items: itemsApi,
-      local: { addItems: vi.fn(), deleteItems: vi.fn() },
+      local: localApi,
     },
   },
   buildLabel: vi.fn(() => ({
@@ -102,6 +107,10 @@ import {
   manhattanRingVerticesFromObr,
   MOVEMENT_RING_SPECS,
   resolveRingCenter,
+  ringId,
+  setDistanceRingShiftStateForTests,
+  hideDistanceRings,
+  shiftDistanceRingsCenter,
   ringRadiusPx,
   ringShapePosition,
 } from './distanceRingsOverlay.js'
@@ -445,6 +454,73 @@ describe('boxTopLeftForCenter', () => {
       x: 50,
       y: 50,
     })
+  })
+})
+
+describe('shiftDistanceRingsCenter', () => {
+  const lineId = ringId('e', 'H', 0)
+  const labelId = ringId('l', 'H')
+
+  beforeEach(async () => {
+    await hideDistanceRings()
+    localApi.updateItems.mockReset()
+    localApi.deleteItems.mockReset()
+    localApi.updateItems.mockImplementation(async (ids, mutator) => {
+      const drafts = ids.map((id) => {
+        if (id === lineId) {
+          return {
+            id,
+            type: 'LINE',
+            startPosition: { x: 0, y: 0 },
+            endPosition: { x: 100, y: 0 },
+          }
+        }
+        if (id === labelId) {
+          return { id, type: 'LABEL', position: { x: 50, y: -10 } }
+        }
+        return { id, type: 'SHAPE', position: { x: 10, y: 10 } }
+      })
+      mutator(drafts)
+    })
+  })
+
+  it('verschiebt Line- und Label-Positionen per updateItems ohne deleteItems', async () => {
+    /** @type {Record<string, unknown>[]} */
+    let shiftedDrafts = []
+    localApi.updateItems.mockImplementation(async (_ids, mutator) => {
+      shiftedDrafts = [
+        {
+          id: lineId,
+          type: 'LINE',
+          startPosition: { x: 0, y: 0 },
+          endPosition: { x: 100, y: 0 },
+        },
+        { id: labelId, type: 'LABEL', position: { x: 50, y: -10 } },
+      ]
+      mutator(shiftedDrafts)
+    })
+    setDistanceRingShiftStateForTests(
+      [lineId, labelId],
+      { x: 100, y: 100 },
+      ['H']
+    )
+    const ok = await shiftDistanceRingsCenter({ x: 110, y: 105 })
+    expect(ok).toBe(true)
+    expect(localApi.updateItems).toHaveBeenCalledTimes(1)
+    expect(localApi.deleteItems).not.toHaveBeenCalled()
+    const lineDraft = /** @type {{ startPosition: { x: number; y: number }; endPosition: { x: number; y: number } }} */ (
+      shiftedDrafts[0]
+    )
+    const labelDraft = /** @type {{ position: { x: number; y: number } }} */ (shiftedDrafts[1])
+    expect(lineDraft.startPosition).toEqual({ x: 10, y: 5 })
+    expect(lineDraft.endPosition).toEqual({ x: 110, y: 5 })
+    expect(labelDraft.position).toEqual({ x: 60, y: -5 })
+  })
+
+  it('gibt false zurueck wenn keine Ringe sichtbar', async () => {
+    const ok = await shiftDistanceRingsCenter({ x: 0, y: 0 })
+    expect(ok).toBe(false)
+    expect(localApi.updateItems).not.toHaveBeenCalled()
   })
 })
 

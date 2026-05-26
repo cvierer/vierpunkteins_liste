@@ -41,7 +41,12 @@ import {
   onGridDistanceChange,
   resolveDistanceCenter,
 } from './gridDistance.js'
-import { hideDistanceRings, showDistanceRingsFor } from './distanceRingsOverlay.js'
+import {
+  hideDistanceRings,
+  resolveRingCenter,
+  shiftDistanceRingsCenter,
+  showDistanceRingsFor,
+} from './distanceRingsOverlay.js'
 import { latchProbeMapDrag } from './distanceProbeDrag.js'
 import {
   hideDistanceMovementLine,
@@ -2915,7 +2920,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
    * @param {import('./gridDistance.js').GridContext} gridContext
    */
-  async function refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext) {
+  async function refreshProbeSpokesOnly(probeItem, sceneItems) {
     const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     const others = sceneItems.filter(
@@ -2923,7 +2928,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         i.id !== distanceProbeItemId &&
         i.metadata?.[TRACKER_ITEM_META_KEY] != null
     )
-    const meta = probeMeta
+    await showDistanceSpokesFor(probeItem, others, probeXSchritt)
+  }
+
+  async function refreshProbeRingsForItem(probeItem) {
+    const meta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const combat = getCombat()
     const gsSchritt = meta
       ? readHeroGsSchritt(meta, {
@@ -2945,7 +2954,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       ringVisible,
       classXSchritt
     )
-    await showDistanceSpokesFor(probeItem, others, probeXSchritt)
+  }
+
+  async function refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext) {
+    await refreshProbeRingsForItem(probeItem)
+    await refreshProbeSpokesOnly(probeItem, sceneItems)
   }
 
   /**
@@ -2985,7 +2998,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!gridContext) return
     await syncProbeMovementLine(probeItem, gridContext)
     if (probeMapDragging) {
-      await refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext)
+      await refreshProbeSpokesOnly(probeItem, sceneItems)
+      const center = await resolveRingCenter(probeItem, gridContext)
+      const shifted = await shiftDistanceRingsCenter(center)
+      if (!shifted) {
+        await refreshProbeRingsForItem(probeItem)
+      }
     }
   }
 

@@ -26,6 +26,12 @@ const RING_COLORS = {
 /** @type {Set<string>} */
 const lastShownRingCodes = new Set()
 
+/** @type {{ x: number; y: number } | null} */
+let lastRingDrawCenter = null
+
+/** @type {string[]} */
+let lastRingItemIds = []
+
 /** @type {Record<string, string>} */
 export const MOVEMENT_RING_COLORS = {
   m1: '#3d8fd1',
@@ -826,6 +832,67 @@ export async function showDistanceRingsFor(
   }
   if (items.length === 0) return
   await OBR.scene.local.addItems(items)
+  lastRingItemIds = items
+    .map((it) => it.id)
+    .filter((id) => typeof id === 'string')
+  lastRingDrawCenter = { x: c.x, y: c.y }
+}
+
+/**
+ * Verschiebt sichtbare Distanzringe per updateItems (ohne hide/add) — fuer Drag-rAF.
+ * @param {{ x: number; y: number }} newCenter
+ * @returns {Promise<boolean>} false wenn keine Ringe zum Verschieben vorhanden
+ */
+export async function shiftDistanceRingsCenter(newCenter) {
+  if (
+    !lastRingDrawCenter ||
+    lastRingItemIds.length === 0 ||
+    lastShownRingCodes.size === 0
+  ) {
+    return false
+  }
+  const dx = newCenter.x - lastRingDrawCenter.x
+  const dy = newCenter.y - lastRingDrawCenter.y
+  if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return true
+  try {
+    await OBR.scene.local.updateItems(lastRingItemIds, (drafts) => {
+      for (const d of drafts) {
+        if (!d) continue
+        if (d.type === 'LINE') {
+          if (d.startPosition) {
+            d.startPosition = {
+              x: d.startPosition.x + dx,
+              y: d.startPosition.y + dy,
+            }
+          }
+          if (d.endPosition) {
+            d.endPosition = {
+              x: d.endPosition.x + dx,
+              y: d.endPosition.y + dy,
+            }
+          }
+        } else if (d.position) {
+          d.position = { x: d.position.x + dx, y: d.position.y + dy }
+        }
+      }
+    })
+  } catch {
+    return false
+  }
+  lastRingDrawCenter = { x: newCenter.x, y: newCenter.y }
+  return true
+}
+
+/** @internal Vitest: Ring-Verschiebe-State setzen */
+export function setDistanceRingShiftStateForTests(
+  itemIds,
+  center,
+  codes = ['H']
+) {
+  lastRingItemIds = [...itemIds]
+  lastRingDrawCenter = { x: center.x, y: center.y }
+  lastShownRingCodes.clear()
+  for (const code of codes) lastShownRingCodes.add(code)
 }
 
 export async function hideDistanceRings() {
@@ -847,6 +914,8 @@ export async function hideDistanceRings() {
     }
   }
   lastShownRingCodes.clear()
+  lastRingDrawCenter = null
+  lastRingItemIds = []
   try {
     await OBR.scene.local.deleteItems(ids)
   } catch {
