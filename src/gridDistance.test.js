@@ -158,7 +158,7 @@ describe('formatGridDistWithClass', () => {
     gridApi.getDpi.mockResolvedValue(100)
     gridApi.getMeasurement.mockResolvedValue('EUCLIDEAN')
     gridApi.getType.mockResolvedValue('SQUARE')
-    gridApi.getDistance.mockResolvedValue(1.5)
+    gridApi.getDistance.mockResolvedValue(1.2)
     itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
   })
 
@@ -168,10 +168,10 @@ describe('formatGridDistWithClass', () => {
         { position: { x: 0, y: 0 }, width: 100, height: 100 },
         { position: { x: 300, y: 0 }, width: 100, height: 100 }
       )
-    ).toBe('2(N)')
+    ).toBe('1,2(N)')
   })
 
-  it('liefert (H) bei Berührung und Schritt unter 1', async () => {
+  it('liefert (H) bei Schritt unter 0,9', async () => {
     gridApi.getDistance.mockResolvedValue(0.5)
     gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
     itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
@@ -180,10 +180,10 @@ describe('formatGridDistWithClass', () => {
         { position: { x: 0, y: 0 }, width: 100, height: 100 },
         { position: { x: 100, y: 0 }, width: 100, height: 100 }
       )
-    ).toBe('1(H)')
+    ).toBe('0,5(H)')
   })
 
-  it('Nachbar + 2 Schritt: (S) auch bei Zellberührung', async () => {
+  it('Nachbar + 2 Schritt: (S) nach Maßband', async () => {
     gridApi.getDistance.mockResolvedValue(2)
     gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
     itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
@@ -192,7 +192,7 @@ describe('formatGridDistWithClass', () => {
         { position: { x: 0, y: 0 }, width: 100, height: 100 },
         { position: { x: 100, y: 0 }, width: 100, height: 100 }
       )
-    ).toBe('2(S)')
+    ).toBe('2,0(S)')
   })
 
   it('Nachbar + 1 Schritt: (N) nicht (H)', async () => {
@@ -204,7 +204,7 @@ describe('formatGridDistWithClass', () => {
         { position: { x: 0, y: 0 }, width: 100, height: 100 },
         { position: { x: 100, y: 0 }, width: 100, height: 100 }
       )
-    ).toBe('1(N)')
+    ).toBe('1,0(N)')
   })
 })
 

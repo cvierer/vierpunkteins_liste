@@ -229,7 +229,7 @@ describe('syncProbeAnchorSpoke', () => {
     gridApi.getDistance.mockResolvedValue(2)
     await syncProbeAnchorSpoke(anchor, hero, null)
     expect(localApi.addItems).toHaveBeenCalledTimes(1)
-    expect(lastMovementLabelText.value).toBe('2(S)')
+    expect(lastMovementLabelText.value).toBe('2,0(S)')
   })
 
   it('zweiter Aufruf aktualisiert per updateItems', async () => {

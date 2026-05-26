@@ -10,26 +10,24 @@ import {
 } from './tokenDistance.js'
 
 describe('classifyDistance', () => {
-  it('H nur bei Berührung und Schritt unter 1', () => {
-    expect(classifyDistance(0, null, { isTouching: true })).toBe('H')
+  it('H nur bei Schritt unter 0,9 (Maßband, ohne Berührungs-Override)', () => {
+    expect(classifyDistance(0)).toBe('H')
+    expect(classifyDistance(0.8)).toBe('H')
+    expect(classifyDistance(0.89)).toBe('H')
     expect(classifyDistance(0.8, null, { isTouching: true })).toBe('H')
     expect(classifyDistance(1, null, { isTouching: true })).toBe('N')
-    expect(classifyDistance(1.5, null, { isTouching: true })).toBe('N')
     expect(classifyDistance(2, null, { isTouching: true })).toBe('S')
-    expect(classifyDistance(3, null, { isTouching: true })).toBe('S')
-    expect(classifyDistance(0)).toBe('')
-    expect(classifyDistance(0.8)).toBe('')
   })
 
   it('ordnet Schritt-Bänder N/S/P zu', () => {
-    expect(classifyDistance(0.9)).toBe('')
+    expect(classifyDistance(0.9)).toBe('N')
     expect(classifyDistance(1)).toBe('N')
-    expect(classifyDistance(1.5)).toBe('N')
-    expect(classifyDistance(1.99)).toBe('N')
+    expect(classifyDistance(1.49)).toBe('N')
+    expect(classifyDistance(1.5)).toBe('S')
     expect(classifyDistance(2)).toBe('S')
-    expect(classifyDistance(3)).toBe('S')
-    expect(classifyDistance(3.99)).toBe('S')
-    expect(classifyDistance(4)).toBe('P')
+    expect(classifyDistance(2.99)).toBe('S')
+    expect(classifyDistance(3)).toBe('P')
+    expect(classifyDistance(4.5)).toBe('P')
     expect(classifyDistance(5)).toBe('P')
     expect(classifyDistance(5.01)).toBe('')
     expect(classifyDistance(10)).toBe('')
@@ -108,10 +106,15 @@ describe('computeSchrittFromCenters', () => {
 })
 
 describe('formatSchritt', () => {
-  it('formatiert als ganze Schritt ohne Kommastelle', () => {
-    expect(formatSchritt(0)).toBe('0')
-    expect(formatSchritt(1.45)).toBe('1')
-    expect(formatSchritt(1.44)).toBe('1')
+  it('formatiert bis 5 mit einer Nachkommastelle (Komma)', () => {
+    expect(formatSchritt(0)).toBe('0,0')
+    expect(formatSchritt(1.45)).toBe('1,4')
+    expect(formatSchritt(1.44)).toBe('1,4')
+    expect(formatSchritt(5)).toBe('5,0')
+    expect(formatSchritt(5.01)).toBe('5')
+  })
+
+  it('formatiert ueber 5 als ganze Schritt', () => {
     expect(formatSchritt(99.9)).toBe('100')
     expect(formatSchritt(100)).toBe('100')
     expect(formatSchritt(123.4)).toBe('123')
@@ -124,8 +127,9 @@ describe('formatSchritt', () => {
 
 describe('formatSchrittWithClass', () => {
   it('haengt Klasse in Klammern an den Wert', () => {
-    expect(formatSchrittWithClass(1.2)).toBe('1(N)')
-    expect(formatSchrittWithClass(0.5, null, { isTouching: true })).toBe('1(H)')
+    expect(formatSchrittWithClass(1.2)).toBe('1,2(N)')
+    expect(formatSchrittWithClass(0.5)).toBe('0,5(H)')
+    expect(formatSchrittWithClass(0.5, null, { isTouching: true })).toBe('0,5(H)')
     expect(formatSchrittWithClass(10)).toBe('10')
     expect(formatSchrittWithClass(5.5, 8)).toBe('6(X)')
     expect(formatSchrittWithClass(105.2, 120)).toBe('105(X)')

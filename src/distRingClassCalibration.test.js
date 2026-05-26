@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DIST_CLASS_RING_CODES, DIST_CLASS_RING_RADIUS } from './tokenDistance.js'
+import {
+  DIST_CLASS_RING_CODES,
+  DIST_CLASS_RING_RADIUS,
+} from './tokenDistance.js'
 
 const { gridApi, itemsApi, lineBuildCount } = vi.hoisted(() => ({
   gridApi: {
@@ -179,7 +182,7 @@ describe('H/N/S/P class rings per grid', () => {
     const { items } = await buildRingOutlineItemsAsync(
       CENTER,
       DPI,
-      2,
+      DIST_CLASS_RING_RADIUS.N,
       'N',
       '#000',
       ctx
@@ -194,7 +197,7 @@ describe('H/N/S/P class rings per grid', () => {
     const { items } = await buildRingOutlineItemsAsync(
       CENTER,
       DPI,
-      4,
+      DIST_CLASS_RING_RADIUS.S,
       'S',
       '#000',
       ctx

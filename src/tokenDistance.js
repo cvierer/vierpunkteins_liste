@@ -1,29 +1,26 @@
 /**
  * DSA-Distanzklassen (Schritt). Distanzmessung nutzt Owlbear-Grid via gridDistance.js.
- * Notation „D≤1 bis <2“ etc.: Nah ab 1 Schritt bis unter 2 → 1 ≤ D < 2 (analog S, P).
+ * H < 0,9 | N 0,9–<1,5 | S 1,5–<3 | P 3–5 Schritt (nur Maßband).
  */
+export const DIST_CLASS_H_MAX_EXCLUSIVE_SCHRITT = 0.9
+
 export const DIST_CLASS_BANDS = [
-  { code: 'N', min: 1, maxExclusive: 2 },
-  { code: 'S', min: 2, maxExclusive: 4 },
-  { code: 'P', min: 4, maxInclusive: 5 },
+  { code: 'N', min: 0.9, maxExclusive: 1.5 },
+  { code: 'S', min: 1.5, maxExclusive: 3 },
+  { code: 'P', min: 3, maxInclusive: 5 },
 ]
 
 /**
  * Kartenring-Radien (äußere Grenze in Schritt).
- * H = äußere Grenze der Berührungszone (1 Schritt).
- * Klasse (H) in Spokes/Liste: Berührung und gemessener Schritt unter 1; ab 1 Schritt N/S/P.
  */
 export const DIST_CLASS_RING_RADIUS = {
-  H: 1,
-  N: 2,
-  S: 4,
+  H: 0.9,
+  N: 1.5,
+  S: 3,
   P: 5,
 }
 
 export const DIST_CLASS_RING_CODES = ['H', 'N', 'S', 'P']
-
-/** (H) nur bei Berührung und Schritt unter Nah (ab 1 → N/S/P nach Maßband). */
-export const TOUCHING_CLASS_MAX_EXCLUSIVE_SCHRITT = 1
 
 /** @deprecated Nur Abwärtskompatibilität in Tests — nutze DIST_CLASS_BANDS. */
 export const DIST_CLASS_THRESHOLDS = DIST_CLASS_BANDS.map((b) => ({
@@ -46,15 +43,9 @@ export function formatDistClassLabel(code) {
  * @returns {'' | 'H' | 'N' | 'S' | 'P' | 'X'}
  */
 export function classifyDistance(schritt, classXSchritt = null, options = {}) {
-  const { isTouching = false } = options
-  if (
-    isTouching &&
-    Number.isFinite(schritt) &&
-    schritt < TOUCHING_CLASS_MAX_EXCLUSIVE_SCHRITT
-  ) {
-    return 'H'
-  }
+  void options
   if (!Number.isFinite(schritt) || schritt < 0) return ''
+  if (schritt < DIST_CLASS_H_MAX_EXCLUSIVE_SCHRITT) return 'H'
   for (const band of DIST_CLASS_BANDS) {
     if (schritt < band.min) continue
     if (band.maxExclusive != null && schritt < band.maxExclusive) return band.code
@@ -104,8 +95,9 @@ export function computeSchrittFromCenters(a, b, dpi) {
 
 /** @param {number} n */
 export function formatSchritt(n) {
-  if (!Number.isFinite(n)) return ''
-  return String(Math.round(n))
+  if (!Number.isFinite(n) || n < 0) return ''
+  if (n > 5) return String(Math.round(n))
+  return n.toFixed(1).replace('.', ',')
 }
 
 /**

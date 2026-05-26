@@ -224,11 +224,8 @@ export async function areTokensTouching(itemA, itemB) {
  * @param {number | null | undefined} [classXSchritt]
  */
 export async function formatGridDistWithClass(itemA, itemB, classXSchritt = null) {
-  const [schritt, touching] = await Promise.all([
-    computeGridSchritt(itemA, itemB),
-    areTokensTouching(itemA, itemB),
-  ])
-  return formatSchrittWithClass(schritt, classXSchritt, { isTouching: touching })
+  const schritt = await computeGridSchritt(itemA, itemB)
+  return formatSchrittWithClass(schritt, classXSchritt)
 }
 
 /** @param {() => void} callback */
