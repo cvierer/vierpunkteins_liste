@@ -1,10 +1,92 @@
 /** Mindest-Verschiebung (px) bis die Bewegungslinie erscheint. */
 export const PROBE_MAP_DRAG_MOVE_EPS = 0.5
 
+/** Frames mit unverändertem Zentrum nach Bewegung = Token abgesetzt. */
+export const PROBE_PLACE_STABLE_FRAMES = 2
+
 /**
  * @typedef {{ x: number, y: number }} Point
  * @typedef {{ mapDragging: boolean, showLine: boolean }} ProbeMovementLatch
+ * @typedef {{
+ *   lastCenter: Point | null,
+ *   mapDragging: boolean,
+ *   unchangedFrames: number,
+ * }} ProbePlacementState
+ * @typedef {{
+ *   nextState: ProbePlacementState,
+ *   mapDragging: boolean,
+ *   placed: boolean,
+ *   currentCenter: Point,
+ * }} ProbePlacementTickResult
  */
+
+/** @returns {ProbePlacementState} */
+export function createProbePlacementState() {
+  return { lastCenter: null, mapDragging: false, unchangedFrames: 0 }
+}
+
+/**
+ * Erkennt Karten-Drag/Absetzen über Token-Zentrum (ohne document-pointerup).
+ * @param {Point} currentCenter
+ * @param {ProbePlacementState} state
+ * @param {{ epsilon?: number, stableFrames?: number }} [options]
+ * @returns {ProbePlacementTickResult}
+ */
+export function trackProbePlacementCenter(currentCenter, state, options = {}) {
+  const epsilon = options.epsilon ?? PROBE_MAP_DRAG_MOVE_EPS
+  const stableFrames = options.stableFrames ?? PROBE_PLACE_STABLE_FRAMES
+  const lastCenter = state.lastCenter
+
+  if (!lastCenter) {
+    return {
+      nextState: {
+        lastCenter: currentCenter,
+        mapDragging: false,
+        unchangedFrames: 0,
+      },
+      mapDragging: false,
+      placed: false,
+      currentCenter,
+    }
+  }
+
+  const frameMoved =
+    Math.hypot(currentCenter.x - lastCenter.x, currentCenter.y - lastCenter.y) >
+    epsilon
+
+  if (frameMoved) {
+    return {
+      nextState: {
+        lastCenter: currentCenter,
+        mapDragging: true,
+        unchangedFrames: 0,
+      },
+      mapDragging: true,
+      placed: false,
+      currentCenter,
+    }
+  }
+
+  let mapDragging = state.mapDragging
+  let unchangedFrames = state.unchangedFrames + 1
+  let placed = false
+  if (mapDragging && unchangedFrames >= stableFrames) {
+    placed = true
+    mapDragging = false
+    unchangedFrames = 0
+  }
+
+  return {
+    nextState: {
+      lastCenter: currentCenter,
+      mapDragging,
+      unchangedFrames,
+    },
+    mapDragging,
+    placed,
+    currentCenter,
+  }
+}
 
 /**
  * Feste Referenz = Dist-Klick-Position. Linie ab erster Bewegung bis pointerup (mapDragging).

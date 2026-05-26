@@ -80,10 +80,10 @@ export function onHideForeignHeroColorsForViewerChange(fn) {
 export function getShowHeroOrientationRings() {
   try {
     const v = localStorage.getItem(SHOW_HERO_ORIENTATION_RINGS_KEY)
-    if (v === null) return false
+    if (v === null) return true
     return v !== '0'
   } catch {
-    return false
+    return true
   }
 }
 

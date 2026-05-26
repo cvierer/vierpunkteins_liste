@@ -46,7 +46,11 @@ import {
   shiftDistanceRingsCenter,
   showDistanceRingsFor,
 } from './distanceRingsOverlay.js'
-import { latchProbeMapDrag } from './distanceProbeDrag.js'
+import {
+  createProbePlacementState,
+  latchProbeMapDrag,
+  trackProbePlacementCenter,
+} from './distanceProbeDrag.js'
 import {
   hideDistanceMovementLine,
   hideDistanceSpokes,
@@ -2860,6 +2864,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let probeMapDragging = false
   /** Nach Loslassen: keine Bewegungslinie bis neuer pointerdown. */
   let probeMapDragReleased = false
+  /** Szene: Drag/Absetzen über stabiles Token-Zentrum (ohne document-pointerup). */
+  let probePlacementState = createProbePlacementState()
   let distanceProbeRefreshPending = false
   let probeMovementRafId = 0
   let probePointerListenersAttached = false
@@ -2914,6 +2920,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probeMovementAnchor = null
     probeMapDragging = false
     probeMapDragReleased = false
+    probePlacementState = createProbePlacementState()
   }
 
   function stopProbeMovementLoop() {
@@ -2949,6 +2956,26 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   async function syncProbeMovementAnchorAfterPlacement(probeItem, gridContext) {
     if (!distanceProbeItemId || probeMapDragging || !probeItem) return
     probeMovementAnchor = await resolveDistanceCenter(probeItem, gridContext)
+  }
+
+  /**
+   * Karten-Drag/Absetzen: Anker und mapDragging aus Token-Zentrum (nicht nur document-pointerup).
+   * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} probeItem
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   */
+  async function updateProbePlacementFromScene(probeItem, gridContext) {
+    if (!distanceProbeItemId || !probeItem) return
+    const center = await resolveDistanceCenter(probeItem, gridContext)
+    const tick = trackProbePlacementCenter(center, probePlacementState)
+    probePlacementState = tick.nextState
+    if (tick.mapDragging) {
+      probeMapDragging = true
+    }
+    if (tick.placed) {
+      probeMovementAnchor = center
+      probeMapDragging = false
+      probeMapDragReleased = false
+    }
   }
 
   /**
@@ -3034,6 +3061,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!probeItem) return
     const gridContext = await getGridContext()
     if (!gridContext) return
+    await updateProbePlacementFromScene(probeItem, gridContext)
     await syncProbeMovementLine(probeItem, gridContext)
     if (probeMapDragging) {
       await refreshProbeSpokesOnly(probeItem, sceneItems)
@@ -3068,9 +3096,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!probeItem) return
     const gridContext = await getGridContext({ forceRefresh: true })
     if (!gridContext) return
-    if (!probeMapDragging) {
-      await syncProbeMovementAnchorAfterPlacement(probeItem, gridContext)
-    }
+    await updateProbePlacementFromScene(probeItem, gridContext)
     await refreshProbeSpokesAndRings(probeItem, sceneItems, gridContext)
     await syncProbeMovementLine(probeItem, gridContext)
   }

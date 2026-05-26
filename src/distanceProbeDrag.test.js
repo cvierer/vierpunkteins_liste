@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createProbePlacementState,
   latchProbeMapDrag,
   PROBE_MAP_DRAG_MOVE_EPS,
+  PROBE_PLACE_STABLE_FRAMES,
+  trackProbePlacementCenter,
 } from './distanceProbeDrag.js'
 
 describe('latchProbeMapDrag', () => {
@@ -69,5 +72,51 @@ describe('latchProbeMapDrag', () => {
       mapDragging: false,
       showLine: false,
     })
+  })
+})
+
+describe('trackProbePlacementCenter', () => {
+  const a = { x: 0, y: 0 }
+  const b = { x: 10, y: 0 }
+  const c = { x: 10, y: 0 }
+
+  it('erkennt Bewegung und Absetzen ohne document-Events', () => {
+    let state = createProbePlacementState()
+    let r = trackProbePlacementCenter(a, state)
+    state = r.nextState
+    expect(r.placed).toBe(false)
+    expect(r.mapDragging).toBe(false)
+
+    r = trackProbePlacementCenter(b, state)
+    state = r.nextState
+    expect(r.mapDragging).toBe(true)
+    expect(r.placed).toBe(false)
+
+    for (let i = 0; i < PROBE_PLACE_STABLE_FRAMES - 1; i++) {
+      r = trackProbePlacementCenter(c, state)
+      state = r.nextState
+      expect(r.placed).toBe(false)
+    }
+    r = trackProbePlacementCenter(c, state)
+    expect(r.placed).toBe(true)
+    expect(r.mapDragging).toBe(false)
+  })
+
+  it('nach Absetzen kann erneute Bewegung erkannt werden', () => {
+    let state = createProbePlacementState()
+    state = trackProbePlacementCenter(a, state).nextState
+    state = trackProbePlacementCenter(b, state).nextState
+    let placed = false
+    for (let i = 0; i < PROBE_PLACE_STABLE_FRAMES; i++) {
+      const r = trackProbePlacementCenter(c, state)
+      state = r.nextState
+      placed = r.placed
+    }
+    expect(placed).toBe(true)
+
+    const d = { x: 30, y: 0 }
+    const drag = trackProbePlacementCenter(d, state)
+    expect(drag.mapDragging).toBe(true)
+    expect(drag.placed).toBe(false)
   })
 })
