@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  beginProbeLineStroke,
   createProbePlacementState,
   latchProbeMapDrag,
   PROBE_MAP_DRAG_MOVE_EPS,
-  PROBE_PLACE_STABLE_FRAMES,
+  PROBE_PLACE_STABLE_MS,
   trackProbePlacementCenter,
 } from './distanceProbeDrag.js'
 
@@ -58,19 +59,32 @@ describe('latchProbeMapDrag', () => {
     })
   })
 
-  it('nach Loslassen: keine erneute Linie trotz Abstand zur Referenz', () => {
+  it('erneute Bewegung nach Ruhe: Linie wieder moeglich', () => {
     const far = { x: 200, y: 100 }
-    expect(
-      latchProbeMapDrag(false, clickRef, moved, PROBE_MAP_DRAG_MOVE_EPS, true)
-    ).toEqual({
-      mapDragging: false,
-      showLine: false,
+    expect(latchProbeMapDrag(false, clickRef, far)).toEqual({
+      mapDragging: true,
+      showLine: true,
     })
-    expect(
-      latchProbeMapDrag(true, clickRef, far, PROBE_MAP_DRAG_MOVE_EPS, true)
-    ).toEqual({
-      mapDragging: false,
-      showLine: false,
+  })
+})
+
+describe('beginProbeLineStroke', () => {
+  const anchor = { x: 0, y: 0 }
+  const moved = { x: 10, y: 0 }
+
+  it('friert Ring-Ursprung beim ersten Zug ein', () => {
+    expect(beginProbeLineStroke(anchor, moved, false)).toEqual({
+      strokeActive: true,
+      strokeOrigin: { x: 0, y: 0 },
+      showLine: true,
+    })
+  })
+
+  it('haelt Stroke bei weiterer Bewegung', () => {
+    expect(beginProbeLineStroke(anchor, moved, true)).toEqual({
+      strokeActive: true,
+      strokeOrigin: null,
+      showLine: true,
     })
   })
 })
@@ -79,44 +93,35 @@ describe('trackProbePlacementCenter', () => {
   const a = { x: 0, y: 0 }
   const b = { x: 10, y: 0 }
   const c = { x: 10, y: 0 }
+  const fast = { stableMs: 0 }
 
-  it('erkennt Bewegung und Absetzen ohne document-Events', () => {
+  it('erkennt Ruheposition nach Bewegung', () => {
     let state = createProbePlacementState()
-    let r = trackProbePlacementCenter(a, state)
-    state = r.nextState
-    expect(r.placed).toBe(false)
-    expect(r.mapDragging).toBe(false)
-
-    r = trackProbePlacementCenter(b, state)
-    state = r.nextState
-    expect(r.mapDragging).toBe(true)
-    expect(r.placed).toBe(false)
-
-    for (let i = 0; i < PROBE_PLACE_STABLE_FRAMES - 1; i++) {
-      r = trackProbePlacementCenter(c, state)
-      state = r.nextState
-      expect(r.placed).toBe(false)
-    }
-    r = trackProbePlacementCenter(c, state)
+    state = trackProbePlacementCenter(a, state, { now: 0, ...fast }).nextState
+    state = trackProbePlacementCenter(b, state, { now: 0, ...fast }).nextState
+    const r = trackProbePlacementCenter(c, state, { now: 1, ...fast })
     expect(r.placed).toBe(true)
-    expect(r.mapDragging).toBe(false)
+    expect(r.mapDragging).toBe(true)
   })
 
-  it('nach Absetzen kann erneute Bewegung erkannt werden', () => {
+  it('kurze Pause waehrend Drag: kein placed', () => {
     let state = createProbePlacementState()
-    state = trackProbePlacementCenter(a, state).nextState
-    state = trackProbePlacementCenter(b, state).nextState
-    let placed = false
-    for (let i = 0; i < PROBE_PLACE_STABLE_FRAMES; i++) {
-      const r = trackProbePlacementCenter(c, state)
-      state = r.nextState
-      placed = r.placed
-    }
-    expect(placed).toBe(true)
+    state = trackProbePlacementCenter(a, state, { now: 0 }).nextState
+    state = trackProbePlacementCenter(b, state, { now: 100 }).nextState
+    const r = trackProbePlacementCenter(c, state, {
+      now: 100 + PROBE_PLACE_STABLE_MS - 1,
+    })
+    expect(r.placed).toBe(false)
+    expect(r.mapDragging).toBe(true)
+  })
 
-    const d = { x: 30, y: 0 }
-    const drag = trackProbePlacementCenter(d, state)
-    expect(drag.mapDragging).toBe(true)
-    expect(drag.placed).toBe(false)
+  it('Ruhe >= stableMs: placed', () => {
+    let state = createProbePlacementState()
+    state = trackProbePlacementCenter(a, state, { now: 0 }).nextState
+    state = trackProbePlacementCenter(b, state, { now: 100 }).nextState
+    const r = trackProbePlacementCenter(c, state, {
+      now: 100 + PROBE_PLACE_STABLE_MS,
+    })
+    expect(r.placed).toBe(true)
   })
 })

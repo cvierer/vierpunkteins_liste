@@ -1,8 +1,8 @@
 /** Mindest-Verschiebung (px) bis die Bewegungslinie erscheint. */
 export const PROBE_MAP_DRAG_MOVE_EPS = 0.5
 
-/** Frames mit unverändertem Zentrum nach Bewegung = Token abgesetzt. */
-export const PROBE_PLACE_STABLE_FRAMES = 2
+/** Ruhezeit (ms) mit unverändertem Zentrum = Token in Ruheposition. */
+export const PROBE_PLACE_STABLE_MS = 250
 
 /**
  * @typedef {{ x: number, y: number }} Point
@@ -10,7 +10,7 @@ export const PROBE_PLACE_STABLE_FRAMES = 2
  * @typedef {{
  *   lastCenter: Point | null,
  *   mapDragging: boolean,
- *   unchangedFrames: number,
+ *   lastMoveAt: number,
  * }} ProbePlacementState
  * @typedef {{
  *   nextState: ProbePlacementState,
@@ -22,19 +22,20 @@ export const PROBE_PLACE_STABLE_FRAMES = 2
 
 /** @returns {ProbePlacementState} */
 export function createProbePlacementState() {
-  return { lastCenter: null, mapDragging: false, unchangedFrames: 0 }
+  return { lastCenter: null, mapDragging: false, lastMoveAt: 0 }
 }
 
 /**
- * Erkennt Karten-Drag/Absetzen über Token-Zentrum (ohne document-pointerup).
+ * Erkennt Token-Bewegung und Ruheposition (ohne document-pointerup).
  * @param {Point} currentCenter
  * @param {ProbePlacementState} state
- * @param {{ epsilon?: number, stableFrames?: number }} [options]
+ * @param {{ epsilon?: number, stableMs?: number, now?: number }} [options]
  * @returns {ProbePlacementTickResult}
  */
 export function trackProbePlacementCenter(currentCenter, state, options = {}) {
   const epsilon = options.epsilon ?? PROBE_MAP_DRAG_MOVE_EPS
-  const stableFrames = options.stableFrames ?? PROBE_PLACE_STABLE_FRAMES
+  const stableMs = options.stableMs ?? PROBE_PLACE_STABLE_MS
+  const now = options.now ?? Date.now()
   const lastCenter = state.lastCenter
 
   if (!lastCenter) {
@@ -42,7 +43,7 @@ export function trackProbePlacementCenter(currentCenter, state, options = {}) {
       nextState: {
         lastCenter: currentCenter,
         mapDragging: false,
-        unchangedFrames: 0,
+        lastMoveAt: 0,
       },
       mapDragging: false,
       placed: false,
@@ -59,7 +60,7 @@ export function trackProbePlacementCenter(currentCenter, state, options = {}) {
       nextState: {
         lastCenter: currentCenter,
         mapDragging: true,
-        unchangedFrames: 0,
+        lastMoveAt: now,
       },
       mapDragging: true,
       placed: false,
@@ -67,44 +68,74 @@ export function trackProbePlacementCenter(currentCenter, state, options = {}) {
     }
   }
 
-  let mapDragging = state.mapDragging
-  let unchangedFrames = state.unchangedFrames + 1
-  let placed = false
-  if (mapDragging && unchangedFrames >= stableFrames) {
-    placed = true
-    mapDragging = false
-    unchangedFrames = 0
-  }
+  const mapDragging = state.mapDragging
+  const settled =
+    mapDragging &&
+    (stableMs === 0 || state.lastMoveAt > 0) &&
+    now - state.lastMoveAt >= stableMs
 
   return {
     nextState: {
       lastCenter: currentCenter,
-      mapDragging,
-      unchangedFrames,
+      mapDragging: settled ? false : mapDragging,
+      lastMoveAt: state.lastMoveAt,
     },
     mapDragging,
-    placed,
+    placed: settled,
     currentCenter,
   }
 }
 
 /**
- * Feste Referenz = Dist-Klick-Position. Linie ab erster Bewegung bis pointerup (mapDragging).
- * @param {boolean} mapDragging bereits gezogen (latched bis Loslassen)
- * @param {Point | null} movementAnchor Referenz beim Dist-Anklicken
- * @param {Point} currentCenter aktuelles Token-Zentrum
+ * Startpunkt eines Zugs einfrieren (Ring-Ursprung), sobald sich das Token vom Anker bewegt.
+ * @param {Point | null} movementAnchor
+ * @param {Point} currentCenter
+ * @param {boolean} strokeActive
  * @param {number} [epsilon]
- * @param {boolean} [dragReleased] nach pointerup: keine erneute Latch bis pointerdown
+ * @returns {{ strokeActive: boolean, strokeOrigin: Point | null, showLine: boolean }}
+ */
+export function beginProbeLineStroke(
+  movementAnchor,
+  currentCenter,
+  strokeActive,
+  epsilon = PROBE_MAP_DRAG_MOVE_EPS
+) {
+  if (!movementAnchor) {
+    return { strokeActive: false, strokeOrigin: null, showLine: false }
+  }
+  const moved =
+    Math.hypot(
+      currentCenter.x - movementAnchor.x,
+      currentCenter.y - movementAnchor.y
+    ) > epsilon
+  if (!strokeActive && moved) {
+    return {
+      strokeActive: true,
+      strokeOrigin: { x: movementAnchor.x, y: movementAnchor.y },
+      showLine: true,
+    }
+  }
+  if (strokeActive) {
+    return { strokeActive: true, strokeOrigin: null, showLine: true }
+  }
+  return { strokeActive: false, strokeOrigin: null, showLine: false }
+}
+
+/**
+ * Linie ab erster Bewegung; mapDragging latched bis Ruheposition (placed).
+ * @param {boolean} mapDragging
+ * @param {Point | null} movementAnchor
+ * @param {Point} currentCenter
+ * @param {number} [epsilon]
  * @returns {ProbeMovementLatch}
  */
 export function latchProbeMapDrag(
   mapDragging,
   movementAnchor,
   currentCenter,
-  epsilon = PROBE_MAP_DRAG_MOVE_EPS,
-  dragReleased = false
+  epsilon = PROBE_MAP_DRAG_MOVE_EPS
 ) {
-  if (!movementAnchor || dragReleased) {
+  if (!movementAnchor) {
     return { mapDragging: false, showLine: false }
   }
   if (mapDragging) {
