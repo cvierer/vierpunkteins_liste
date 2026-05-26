@@ -2859,21 +2859,31 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let probeMovementAnchor = null
   /** Bis pointerup nach Karten-Drag. */
   let probeMapDragging = false
+  /** Nach Loslassen: keine Bewegungslinie bis neuer pointerdown. */
+  let probeMapDragReleased = false
   let distanceProbeRefreshPending = false
   let probeMovementRafId = 0
   let probePointerListenersAttached = false
 
   initGridDistance()
 
+  const onProbePointerDown = () => {
+    if (!distanceProbeItemId) return
+    probeMapDragReleased = false
+  }
+
   const onProbePointerEnd = () => {
-    if (!distanceProbeItemId || !probeMapDragging) return
+    if (!distanceProbeItemId) return
     probeMapDragging = false
+    probeMapDragReleased = true
     void hideDistanceMovementLine()
+    scheduleDistanceProbeRefresh()
   }
 
   function attachProbePointerListeners() {
     if (probePointerListenersAttached) return
     probePointerListenersAttached = true
+    document.addEventListener('pointerdown', onProbePointerDown, true)
     document.addEventListener('pointerup', onProbePointerEnd, true)
     document.addEventListener('pointercancel', onProbePointerEnd, true)
   }
@@ -2881,6 +2891,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   function detachProbePointerListeners() {
     if (!probePointerListenersAttached) return
     probePointerListenersAttached = false
+    document.removeEventListener('pointerdown', onProbePointerDown, true)
     document.removeEventListener('pointerup', onProbePointerEnd, true)
     document.removeEventListener('pointercancel', onProbePointerEnd, true)
   }
@@ -2888,6 +2899,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   function resetProbeMapDragState() {
     probeMovementAnchor = null
     probeMapDragging = false
+    probeMapDragReleased = false
   }
 
   function stopProbeMovementLoop() {
@@ -2974,7 +2986,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const latch = latchProbeMapDrag(
       probeMapDragging,
       probeMovementAnchor,
-      center
+      center,
+      undefined,
+      probeMapDragReleased
     )
     probeMapDragging = latch.mapDragging
     if (latch.showLine) {

@@ -54,4 +54,20 @@ describe('latchProbeMapDrag', () => {
       showLine: false,
     })
   })
+
+  it('nach Loslassen: keine erneute Linie trotz Abstand zur Referenz', () => {
+    const far = { x: 200, y: 100 }
+    expect(
+      latchProbeMapDrag(false, clickRef, moved, PROBE_MAP_DRAG_MOVE_EPS, true)
+    ).toEqual({
+      mapDragging: false,
+      showLine: false,
+    })
+    expect(
+      latchProbeMapDrag(true, clickRef, far, PROBE_MAP_DRAG_MOVE_EPS, true)
+    ).toEqual({
+      mapDragging: false,
+      showLine: false,
+    })
+  })
 })

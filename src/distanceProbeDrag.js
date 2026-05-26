@@ -12,15 +12,17 @@ export const PROBE_MAP_DRAG_MOVE_EPS = 0.5
  * @param {Point | null} movementAnchor Referenz beim Dist-Anklicken
  * @param {Point} currentCenter aktuelles Token-Zentrum
  * @param {number} [epsilon]
+ * @param {boolean} [dragReleased] nach pointerup: keine erneute Latch bis pointerdown
  * @returns {ProbeMovementLatch}
  */
 export function latchProbeMapDrag(
   mapDragging,
   movementAnchor,
   currentCenter,
-  epsilon = PROBE_MAP_DRAG_MOVE_EPS
+  epsilon = PROBE_MAP_DRAG_MOVE_EPS,
+  dragReleased = false
 ) {
-  if (!movementAnchor) {
+  if (!movementAnchor || dragReleased) {
     return { mapDragging: false, showLine: false }
   }
   if (mapDragging) {
