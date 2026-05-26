@@ -3131,15 +3131,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    * @param {{ id?: string, metadata?: Record<string, unknown> } | null | undefined} probeItem
    */
   async function syncProbeAnchorSpokeLine(probeItem) {
-    if (!hasProbeAnchorToken() || !probePointerHeld) {
-      await hideProbeAnchorSpoke()
-      return
-    }
+    if (!hasProbeAnchorToken()) return
     const anchorPseudo = getProbeAnchorPseudoItem()
-    if (!anchorPseudo) {
-      await hideProbeAnchorSpoke()
-      return
-    }
+    if (!anchorPseudo || !probeItem) return
     const probeMeta = probeItem?.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     await syncProbeAnchorSpoke(anchorPseudo, probeItem, probeXSchritt)

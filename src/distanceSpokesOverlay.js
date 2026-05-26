@@ -253,7 +253,6 @@ export async function hideProbeAnchorSpoke() {
  */
 export async function syncProbeAnchorSpoke(anchorPseudo, heroItem, classXSchritt = null) {
   if (!anchorPseudo || !heroItem) {
-    await hideProbeAnchorSpoke()
     return
   }
   const ctx = await getGridContext()
@@ -261,11 +260,8 @@ export async function syncProbeAnchorSpoke(anchorPseudo, heroItem, classXSchritt
     resolveDistanceCenter(anchorPseudo, ctx),
     resolveDistanceCenter(heroItem, ctx),
   ])
-  const text = await formatGridDistWithClass(anchorPseudo, heroItem, classXSchritt)
-  if (!text) {
-    await hideProbeAnchorSpoke()
-    return
-  }
+  const text =
+    (await formatGridDistWithClass(anchorPseudo, heroItem, classXSchritt)) || ''
   const meta = heroItem.metadata?.[TRACKER_ITEM_META_KEY]
   const color = resolveSpokeColor(meta)
   if (probeAnchorSpokeActive) {
@@ -282,7 +278,10 @@ export async function syncProbeAnchorSpoke(anchorPseudo, heroItem, classXSchritt
       probeAnchorSpokeActive = false
     }
   }
-  await hideProbeAnchorSpoke()
+  await deleteLocalSpokeIds([
+    PROBE_ANCHOR_SPOKE_LINE_ID,
+    PROBE_ANCHOR_SPOKE_LABEL_ID,
+  ])
   await OBR.scene.local.addItems([
     buildSpokeLine(start, end, PROBE_ANCHOR_SPOKE_LINE_ID, color),
     buildSpokeLabel(

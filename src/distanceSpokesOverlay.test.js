@@ -220,6 +220,7 @@ describe('syncProbeAnchorSpoke', () => {
     resetDistanceSpokeOverlayStateForTests()
     localApi.addItems.mockClear()
     localApi.updateItems.mockClear()
+    localApi.deleteItems.mockClear()
     lastMovementLabelText.value = ''
     gridApi.getDistance.mockResolvedValue(8)
   })
@@ -239,5 +240,15 @@ describe('syncProbeAnchorSpoke', () => {
       PROBE_ANCHOR_SPOKE_LINE_ID,
       PROBE_ANCHOR_SPOKE_LABEL_ID,
     ])
+  })
+
+  it('leerer Distanztext blendet Spoke nicht aus', async () => {
+    await syncProbeAnchorSpoke(anchor, hero, null)
+    localApi.deleteItems.mockClear()
+    localApi.updateItems.mockClear()
+    gridApi.getDistance.mockResolvedValue(NaN)
+    await syncProbeAnchorSpoke(anchor, hero, null)
+    expect(localApi.deleteItems).not.toHaveBeenCalled()
+    expect(localApi.updateItems).toHaveBeenCalledTimes(1)
   })
 })
