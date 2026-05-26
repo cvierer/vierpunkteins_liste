@@ -41,6 +41,7 @@ import {
   resolveDistanceCenter,
 } from './gridDistance.js'
 import {
+  areDistanceRingsAtCenter,
   hideDistanceRings,
   shiftDistanceRingsCenter,
   showDistanceRingsFor,
@@ -2930,8 +2931,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probePointerHeld = false
     probePointerDownPending = false
     probePlacementState = createProbePlacementState()
-    void hideProbeAnchorSpoke()
-    await removeProbeAnchorToken()
     try {
       let sceneItems = []
       try {
@@ -2951,9 +2950,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         if (!shifted) {
           await refreshProbeRingsForItem(probeItem)
         }
-        if (sceneItems.length > 0) {
-          await refreshProbeSpokesOnly(probeItem, sceneItems)
-        }
+      }
+      await hideProbeAnchorSpoke()
+      await removeProbeAnchorToken()
+      if (probeItem && sceneItems.length > 0) {
+        await refreshProbeSpokesOnly(probeItem, sceneItems)
       }
     } catch {
       /* ignore */
@@ -3132,9 +3133,17 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    */
   async function syncProbeAnchorSpokeLine(probeItem) {
     if (!hasProbeAnchorToken()) return
+    if (!probeItem) return
+    const gridContext = await getGridContext()
+    if (!gridContext) return
+    const heroCenter = await resolveDistanceCenter(probeItem, gridContext)
+    if (areDistanceRingsAtCenter(heroCenter)) {
+      await hideProbeAnchorSpoke()
+      return
+    }
     const anchorPseudo = getProbeAnchorPseudoItem()
-    if (!anchorPseudo || !probeItem) return
-    const probeMeta = probeItem?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!anchorPseudo) return
+    const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     await syncProbeAnchorSpoke(anchorPseudo, probeItem, probeXSchritt)
   }
@@ -3152,13 +3161,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const gridContext = await getGridContext()
     if (!gridContext) return
     await updateProbePlacementFromScene(probeItem, gridContext)
-    if (probeMapDragging) {
-      const center = await resolveDistanceCenter(probeItem, gridContext)
-      const shifted = await shiftDistanceRingsCenter(center)
-      if (!shifted) {
-        await refreshProbeRingsForItem(probeItem)
-      }
-    }
     await syncProbeAnchorSpokeLine(probeItem)
     if (probeMapDragging) {
       await refreshProbeSpokesOnly(probeItem, sceneItems)

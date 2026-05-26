@@ -848,6 +848,24 @@ export async function showDistanceRingsFor(
   lastRingDrawCenter = { x: c.x, y: c.y }
 }
 
+/** @returns {{ x: number, y: number } | null} */
+export function getDistanceRingDrawCenter() {
+  if (!lastRingDrawCenter) return null
+  return { x: lastRingDrawCenter.x, y: lastRingDrawCenter.y }
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number} [epsilon]
+ */
+export function areDistanceRingsAtCenter(center, epsilon = 0.5) {
+  if (!lastRingDrawCenter || !center) return false
+  return (
+    Math.hypot(lastRingDrawCenter.x - center.x, lastRingDrawCenter.y - center.y) <=
+    epsilon
+  )
+}
+
 /**
  * Verschiebt sichtbare Distanzringe per updateItems (ohne hide/add) — fuer Drag-rAF.
  * @param {{ x: number; y: number }} newCenter
