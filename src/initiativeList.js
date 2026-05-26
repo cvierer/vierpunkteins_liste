@@ -41,7 +41,6 @@ import {
   resolveDistanceCenter,
 } from './gridDistance.js'
 import {
-  areDistanceRingsAtCenter,
   hideDistanceRings,
   shiftDistanceRingsCenter,
   showDistanceRingsFor,
@@ -3052,7 +3051,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   /**
-   * Szene: Bewegung erkennen (Ring-Shift); Ende nur per pointerup.
+   * Szene: Bewegung + Ruheposition (Fallback wenn Map-pointerup fehlt).
    * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} probeItem
    * @param {import('./gridDistance.js').GridContext} gridContext
    */
@@ -3079,6 +3078,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probePlacementState = tick.nextState
     if (tick.mapDragging) {
       probeMapDragging = true
+    }
+    if (tick.placed) {
+      await endProbeMapDragAtRest(center)
     }
   }
 
@@ -3133,16 +3135,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    */
   async function syncProbeAnchorSpokeLine(probeItem) {
     if (!hasProbeAnchorToken()) return
-    if (!probeItem) return
-    const gridContext = await getGridContext()
-    if (!gridContext) return
-    const heroCenter = await resolveDistanceCenter(probeItem, gridContext)
-    if (areDistanceRingsAtCenter(heroCenter)) {
-      await hideProbeAnchorSpoke()
-      return
-    }
     const anchorPseudo = getProbeAnchorPseudoItem()
-    if (!anchorPseudo) return
+    if (!anchorPseudo || !probeItem) return
     const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     await syncProbeAnchorSpoke(anchorPseudo, probeItem, probeXSchritt)
@@ -3161,6 +3155,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const gridContext = await getGridContext()
     if (!gridContext) return
     await updateProbePlacementFromScene(probeItem, gridContext)
+    if (probeMapDragging) {
+      const center = await resolveDistanceCenter(probeItem, gridContext)
+      const shifted = await shiftDistanceRingsCenter(center)
+      if (!shifted) {
+        await refreshProbeRingsForItem(probeItem)
+      }
+    }
     await syncProbeAnchorSpokeLine(probeItem)
     if (probeMapDragging) {
       await refreshProbeSpokesOnly(probeItem, sceneItems)
