@@ -192,8 +192,12 @@ import {
   undoLastZaoSlotStamp,
 } from './krCounters.js'
 import {
+  areOrientationRingsAtTokenCenter,
+} from './heroOrientationRingsOverlay.js'
+import {
   getHideForeignHeroColorsForViewer,
   getShowActionStamps,
+  getShowHeroOrientationRings,
   onHideForeignHeroColorsForViewerChange,
   onShowActionStampsChange,
 } from './localUiPrefs.js'
@@ -2875,8 +2879,17 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let probePointerHeld = false
   let probePointerDownPending = false
   let probeRestEnding = false
+  /** Nach tick.placed: simulierter Listen-Klick erst wenn Orientierungsring am Helden. */
+  let probePlacementEndPending = false
+  let probePlacementEndPendingAt = 0
+  const PROBE_PLACEMENT_END_FALLBACK_MS = 2000
 
   initGridDistance()
+
+  function clearProbePlacementEndPending() {
+    probePlacementEndPending = false
+    probePlacementEndPendingAt = 0
+  }
 
   /** @param {Event} [event] */
   function isProbePointerFromExtensionUI(event) {
@@ -2925,6 +2938,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   async function endProbeMapDragAtRest(restCenter) {
     if (!distanceProbeItemId || probeRestEnding) return
     if (!probeMapDragging && !hasProbeAnchorToken()) return
+    clearProbePlacementEndPending()
     probeRestEnding = true
     probeMapDragging = false
     probePointerHeld = false
@@ -2995,6 +3009,39 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     target.dispatchEvent(new PointerEvent('pointerup', init))
   }
 
+  /**
+   * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} probeItem
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   */
+  async function tryFinishProbePlacementWhenOrientationSynced(
+    probeItem,
+    gridContext
+  ) {
+    if (!probePlacementEndPending || !distanceProbeItemId || !probeItem) return
+    const now = Date.now()
+    const center = await resolveDistanceCenter(probeItem, gridContext)
+
+    if (!getShowHeroOrientationRings()) {
+      clearProbePlacementEndPending()
+      simulateEmptyListPointerUp()
+      return
+    }
+
+    if (areOrientationRingsAtTokenCenter(distanceProbeItemId, center)) {
+      clearProbePlacementEndPending()
+      simulateEmptyListPointerUp()
+      return
+    }
+
+    if (
+      probePlacementEndPendingAt > 0 &&
+      now - probePlacementEndPendingAt >= PROBE_PLACEMENT_END_FALLBACK_MS
+    ) {
+      clearProbePlacementEndPending()
+      finishProbeMapPlacement(center)
+    }
+  }
+
   /** @param {PointerEvent} event */
   const onProbePointerDown = (event) => {
     if (!distanceProbeItemId) return
@@ -3052,6 +3099,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probeMapDragging = false
     probePointerHeld = false
     probePointerDownPending = false
+    clearProbePlacementEndPending()
     probePlacementState = createProbePlacementState()
     void hideProbeAnchorSpoke()
     void removeProbeAnchorToken()
@@ -3109,7 +3157,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
     probePlacementState = tick.nextState
     if (tick.placed && (probeMapDragging || hasProbeAnchorToken())) {
-      simulateEmptyListPointerUp()
+      if (!probePlacementEndPending) {
+        probePlacementEndPendingAt = Date.now()
+      }
+      probePlacementEndPending = true
     } else if (tick.mapDragging) {
       probeMapDragging = true
     }
@@ -3197,6 +3248,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (probeMapDragging) {
       await refreshProbeSpokesOnly(probeItem, sceneItems)
     }
+    await tryFinishProbePlacementWhenOrientationSynced(probeItem, gridContext)
   }
 
   /** @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems */

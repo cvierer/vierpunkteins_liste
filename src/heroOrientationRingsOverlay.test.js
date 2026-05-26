@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, afterEach } from 'vitest'
 import {
+  areOrientationRingsAtTokenCenter,
+  clearOrientationRingCentersForTests,
+  getOrientationRingDrawCenter,
   imageRenderSize,
   markerOutsideOffset,
   markerScenePosition,
@@ -8,6 +11,7 @@ import {
   ORIENTATION_RING_COLOR_FALLBACK,
   resolveRingStrokeColor,
   ringDiameter,
+  setOrientationRingCenterForTests,
   tokenCenterScene,
 } from './heroOrientationRingsOverlay.js'
 
@@ -129,6 +133,30 @@ describe('markerScenePosition', () => {
       x: 100 + radius + extra,
       y: 100,
     })
+  })
+})
+
+describe('areOrientationRingsAtTokenCenter', () => {
+  afterEach(() => {
+    clearOrientationRingCentersForTests()
+  })
+
+  it('true wenn Draw-Center am Token-Zentrum', () => {
+    setOrientationRingCenterForTests('hero-1', { x: 100, y: 200 })
+    expect(areOrientationRingsAtTokenCenter('hero-1', { x: 100, y: 200 })).toBe(
+      true
+    )
+    expect(getOrientationRingDrawCenter('hero-1')).toEqual({ x: 100, y: 200 })
+  })
+
+  it('false bei Abweichung oder fehlendem Token', () => {
+    setOrientationRingCenterForTests('hero-1', { x: 0, y: 0 })
+    expect(areOrientationRingsAtTokenCenter('hero-1', { x: 5, y: 0 })).toBe(
+      false
+    )
+    expect(areOrientationRingsAtTokenCenter('missing', { x: 0, y: 0 })).toBe(
+      false
+    )
   })
 })
 

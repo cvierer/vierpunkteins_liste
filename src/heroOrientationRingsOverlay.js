@@ -29,6 +29,45 @@ const MARKER_Z_INDEX = -999
 /** @type {Set<string>} */
 const lastTokenIds = new Set()
 
+/** @type {Map<string, { x: number, y: number }>} */
+const lastOrientationCenterByTokenId = new Map()
+
+/**
+ * @param {string} tokenId
+ * @returns {{ x: number, y: number } | null}
+ */
+export function getOrientationRingDrawCenter(tokenId) {
+  const c = lastOrientationCenterByTokenId.get(tokenId)
+  return c ? { x: c.x, y: c.y } : null
+}
+
+/**
+ * @param {string} tokenId
+ * @param {{ x: number, y: number }} tokenCenter
+ * @param {number} [epsilon]
+ */
+export function areOrientationRingsAtTokenCenter(tokenId, tokenCenter, epsilon = 1) {
+  const draw = lastOrientationCenterByTokenId.get(tokenId)
+  if (!draw || !tokenCenter) return false
+  return (
+    Math.hypot(draw.x - tokenCenter.x, draw.y - tokenCenter.y) <= epsilon
+  )
+}
+
+/** @internal Vitest */
+export function setOrientationRingCenterForTests(tokenId, center) {
+  if (center) {
+    lastOrientationCenterByTokenId.set(tokenId, { x: center.x, y: center.y })
+  } else {
+    lastOrientationCenterByTokenId.delete(tokenId)
+  }
+}
+
+/** @internal Vitest */
+export function clearOrientationRingCentersForTests() {
+  lastOrientationCenterByTokenId.clear()
+}
+
 /**
  * @param {string} tokenId
  */
@@ -249,6 +288,7 @@ export async function syncHeroOrientationRings(items, options = {}) {
       buildOrientationMarker(item, center, diameter, color)
     )
     lastTokenIds.add(item.id)
+    lastOrientationCenterByTokenId.set(item.id, { x: center.x, y: center.y })
   }
 
   if (overlayItems.length === 0) return
@@ -262,6 +302,7 @@ export async function hideHeroOrientationRings() {
     ids.push(ring, marker)
   }
   lastTokenIds.clear()
+  lastOrientationCenterByTokenId.clear()
   if (ids.length === 0) return
   try {
     await OBR.scene.local.deleteItems(ids)
