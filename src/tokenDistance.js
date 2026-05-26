@@ -1,13 +1,13 @@
 /**
  * DSA-Distanzklassen (Schritt). Distanzmessung nutzt Owlbear-Grid via gridDistance.js.
- * H < 0,9 | N 0,9–<1,5 | S 1,5–<3 | P 3–5 Schritt (nur Maßband).
+ * H < 0,9 | N 0,9–<1,7 | S 1,7–<3,5 | P 3,5–5 Schritt (nur Maßband).
  */
 export const DIST_CLASS_H_MAX_EXCLUSIVE_SCHRITT = 0.9
 
 export const DIST_CLASS_BANDS = [
-  { code: 'N', min: 0.9, maxExclusive: 1.5 },
-  { code: 'S', min: 1.5, maxExclusive: 3 },
-  { code: 'P', min: 3, maxInclusive: 5 },
+  { code: 'N', min: 0.9, maxExclusive: 1.7 },
+  { code: 'S', min: 1.7, maxExclusive: 3.5 },
+  { code: 'P', min: 3.5, maxInclusive: 5 },
 ]
 
 /**
@@ -15,8 +15,8 @@ export const DIST_CLASS_BANDS = [
  */
 export const DIST_CLASS_RING_RADIUS = {
   H: 0.9,
-  N: 1.5,
-  S: 3,
+  N: 1.7,
+  S: 3.5,
   P: 5,
 }
 
