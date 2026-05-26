@@ -10,9 +10,13 @@ import {
 } from './tokenDistance.js'
 
 describe('classifyDistance', () => {
-  it('H nur bei Berührung', () => {
+  it('H nur bei Berührung und Schritt unter 1', () => {
     expect(classifyDistance(0, null, { isTouching: true })).toBe('H')
-    expect(classifyDistance(3, null, { isTouching: true })).toBe('H')
+    expect(classifyDistance(0.8, null, { isTouching: true })).toBe('H')
+    expect(classifyDistance(1, null, { isTouching: true })).toBe('N')
+    expect(classifyDistance(1.5, null, { isTouching: true })).toBe('N')
+    expect(classifyDistance(2, null, { isTouching: true })).toBe('S')
+    expect(classifyDistance(3, null, { isTouching: true })).toBe('S')
     expect(classifyDistance(0)).toBe('')
     expect(classifyDistance(0.8)).toBe('')
   })

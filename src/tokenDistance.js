@@ -10,8 +10,8 @@ export const DIST_CLASS_BANDS = [
 
 /**
  * Kartenring-Radien (äußere Grenze in Schritt).
- * H = äußere Grenze der Berührungszone (1 Schritt); Klasse (H) in der Liste
- * gilt nur bei Zellberührung (areTokensTouching), nicht bei D=1 ohne Berührung.
+ * H = äußere Grenze der Berührungszone (1 Schritt).
+ * Klasse (H) in Spokes/Liste: Berührung und gemessener Schritt unter 1; ab 1 Schritt N/S/P.
  */
 export const DIST_CLASS_RING_RADIUS = {
   H: 1,
@@ -21,6 +21,9 @@ export const DIST_CLASS_RING_RADIUS = {
 }
 
 export const DIST_CLASS_RING_CODES = ['H', 'N', 'S', 'P']
+
+/** (H) nur bei Berührung und Schritt unter Nah (ab 1 → N/S/P nach Maßband). */
+export const TOUCHING_CLASS_MAX_EXCLUSIVE_SCHRITT = 1
 
 /** @deprecated Nur Abwärtskompatibilität in Tests — nutze DIST_CLASS_BANDS. */
 export const DIST_CLASS_THRESHOLDS = DIST_CLASS_BANDS.map((b) => ({
@@ -44,7 +47,13 @@ export function formatDistClassLabel(code) {
  */
 export function classifyDistance(schritt, classXSchritt = null, options = {}) {
   const { isTouching = false } = options
-  if (isTouching) return 'H'
+  if (
+    isTouching &&
+    Number.isFinite(schritt) &&
+    schritt < TOUCHING_CLASS_MAX_EXCLUSIVE_SCHRITT
+  ) {
+    return 'H'
+  }
   if (!Number.isFinite(schritt) || schritt < 0) return ''
   for (const band of DIST_CLASS_BANDS) {
     if (schritt < band.min) continue

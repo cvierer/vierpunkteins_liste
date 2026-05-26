@@ -171,8 +171,8 @@ describe('formatGridDistWithClass', () => {
     ).toBe('2(N)')
   })
 
-  it('liefert (H) bei Berührung', async () => {
-    gridApi.getDistance.mockResolvedValue(1)
+  it('liefert (H) bei Berührung und Schritt unter 1', async () => {
+    gridApi.getDistance.mockResolvedValue(0.5)
     gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
     itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
     expect(
@@ -181,6 +181,30 @@ describe('formatGridDistWithClass', () => {
         { position: { x: 100, y: 0 }, width: 100, height: 100 }
       )
     ).toBe('1(H)')
+  })
+
+  it('Nachbar + 2 Schritt: (S) auch bei Zellberührung', async () => {
+    gridApi.getDistance.mockResolvedValue(2)
+    gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
+    itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
+    expect(
+      await formatGridDistWithClass(
+        { position: { x: 0, y: 0 }, width: 100, height: 100 },
+        { position: { x: 100, y: 0 }, width: 100, height: 100 }
+      )
+    ).toBe('2(S)')
+  })
+
+  it('Nachbar + 1 Schritt: (N) nicht (H)', async () => {
+    gridApi.getDistance.mockResolvedValue(1)
+    gridApi.getMeasurement.mockResolvedValue('CHEBYSHEV')
+    itemsApi.getItemBounds.mockRejectedValue(new Error('no bounds'))
+    expect(
+      await formatGridDistWithClass(
+        { position: { x: 0, y: 0 }, width: 100, height: 100 },
+        { position: { x: 100, y: 0 }, width: 100, height: 100 }
+      )
+    ).toBe('1(N)')
   })
 })
 

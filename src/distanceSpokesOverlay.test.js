@@ -226,9 +226,10 @@ describe('syncProbeAnchorSpoke', () => {
   })
 
   it('zeichnet Spoke mit Distanzklassen-Label wie zu anderem Token', async () => {
+    gridApi.getDistance.mockResolvedValue(2)
     await syncProbeAnchorSpoke(anchor, hero, null)
     expect(localApi.addItems).toHaveBeenCalledTimes(1)
-    expect(lastMovementLabelText.value).toMatch(/^8\([HNSPX]\)$/)
+    expect(lastMovementLabelText.value).toBe('2(S)')
   })
 
   it('zweiter Aufruf aktualisiert per updateItems', async () => {
