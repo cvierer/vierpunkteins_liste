@@ -83,8 +83,8 @@ describe('primaryKindMapSymbol', () => {
     }
   })
 
-  it('ang ist gedrehter Dolch (Unicode TURNED DAGGER)', () => {
-    expect(primaryKindMapSymbol('ang')).toBe('\u2E38')
+  it('ang ist Dolch (U+2020, OBR-tauglich)', () => {
+    expect(primaryKindMapSymbol('ang')).toBe('\u2020')
   })
 
   it('ang: weisse Fuellung, feinere Schrift, kein Rotations-Overlay', () => {

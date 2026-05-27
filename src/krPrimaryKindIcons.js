@@ -74,10 +74,9 @@ export function primaryKindSvgDataUrl(kind) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
-/** @type {Record<string, string>} */
-/** Angriff: U+2E38 TURNED DAGGER (wie † um 180°), ohne Label-Rotation. */
+/** Angriff: † (U+2020) — in OBR-Map-Schriften verfügbar; U+2E38 fehlt (□/x). */
 const KIND_MAP_SYMBOL = Object.freeze({
-  ang: '\u2E38',
+  ang: '\u2020',
   sra: '\u2605',
   lh: '\u2605',
   uo: '\u21c4',
