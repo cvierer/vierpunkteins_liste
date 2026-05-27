@@ -5552,7 +5552,7 @@ select.init-row-extra-select {
   height: var(--init-dist-cell-h);
   margin-left: var(--init-action-dist-gap);
   padding: 0 2px;
-  border: 1px solid rgba(127, 127, 127, 0.35);
+  border: none;
   border-radius: 3px;
   font-family: var(--font-body);
   font-size: var(--init-dist-cell-font-size);
@@ -5563,6 +5563,9 @@ select.init-row-extra-select {
   touch-action: none;
   box-sizing: border-box;
   color: var(--color-ink);
+  transition:
+    background 140ms ease,
+    color 140ms ease;
 }
 
 .init-dist-cell__value {
@@ -5575,12 +5578,15 @@ select.init-row-extra-select {
 .init-dist-cell--probe .init-dist-cell__value {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
-.init-dist-cell--probe .init-dist-cell__value svg {
-  width: calc(10px * var(--init-ui-scale));
-  height: calc(10px * var(--init-ui-scale));
+.init-dist-cell__probe-eye {
+  width: calc(14px * var(--init-ui-scale));
+  height: calc(14px * var(--init-ui-scale));
+  color: rgba(255, 210, 90, 0.95);
+  filter: drop-shadow(0 0 3px rgba(255, 190, 60, 0.5));
+  flex-shrink: 0;
 }
 
 .init-dist-cell--target {
@@ -5589,8 +5595,12 @@ select.init-row-extra-select {
 
 .init-dist-cell--idle-rings {
   color: rgba(127, 127, 127, 0.55);
-  border-color: rgba(127, 127, 127, 0.22);
   background: rgba(127, 127, 127, 0.06);
+}
+
+.init-dist-cell--idle-rings:hover {
+  background: rgba(255, 210, 90, 0.12);
+  color: rgba(255, 200, 80, 0.9);
 }
 
 .init-dist-cell--idle-rings .init-dist-cell__value {
@@ -5602,7 +5612,19 @@ select.init-row-extra-select {
 .init-dist-cell__target-svg {
   width: calc(12px * var(--init-ui-scale));
   height: calc(12px * var(--init-ui-scale));
-  opacity: 0.62;
+  opacity: 0.75;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    color 140ms ease,
+    filter 140ms ease;
+}
+
+.init-dist-cell--idle-rings:hover .init-dist-cell__target-svg {
+  opacity: 1;
+  transform: scale(1.2);
+  color: rgba(255, 200, 80, 0.95);
+  filter: drop-shadow(0 0 4px rgba(255, 190, 60, 0.45));
 }
 
 .init-kr-reaction-store__frei-spacer {
