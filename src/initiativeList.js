@@ -3559,6 +3559,32 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     void hideDistanceSpokes()
   }
 
+  /** Popover schließen / iframe entladen: keine eingefrorenen DIST-Overlays auf der Karte. */
+  function clearDistanceProbeForPanelHide() {
+    if (distanceProbeItemId) {
+      deactivateDistanceProbe()
+      return
+    }
+    stopProbeMovementLoop()
+    detachProbePointerListeners()
+    void resetProbeMapDragState()
+    void hideDistanceRings()
+    void hideDistanceSpokes()
+  }
+
+  const onDistanceProbePanelHide = () => {
+    clearDistanceProbeForPanelHide()
+  }
+
+  const onDistanceProbeVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      clearDistanceProbeForPanelHide()
+    }
+  }
+
+  document.addEventListener('visibilitychange', onDistanceProbeVisibilityChange)
+  window.addEventListener('pagehide', onDistanceProbePanelHide)
+
   async function activateDistanceProbe(itemId) {
     if (distanceProbeItemId && distanceProbeItemId !== itemId) {
       stopProbeMovementLoop()
@@ -7448,9 +7474,11 @@ function bindStampContextRemove(el, stamp, items) {
     detachGlobalDragListeners()
     swapOverlay.remove()
     iniFloat.remove()
-    stopProbeMovementLoop()
-    detachProbePointerListeners()
-    resetProbeMapDragState()
-    void hideDistanceRings()
+    document.removeEventListener(
+      'visibilitychange',
+      onDistanceProbeVisibilityChange
+    )
+    window.removeEventListener('pagehide', onDistanceProbePanelHide)
+    clearDistanceProbeForPanelHide()
   }
 }
