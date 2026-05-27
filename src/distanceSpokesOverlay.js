@@ -334,37 +334,35 @@ export async function showDistanceSpokesFor(
   const nextIds = new Set()
   /** @type {import('@owlbear-rodeo/sdk').Item[]} */
   const toAdd = []
-  /** @type {Promise<void>[]} */
-  const updateTasks = []
 
   for (const pair of spokePairs) {
     if (!pair) continue
     nextIds.add(pair.otherId)
     if (lastSpokeOtherIds.has(pair.otherId)) {
-      updateTasks.push(
-        updateOtherSpokeItems(
+      try {
+        await updateOtherSpokeItems(
           pair.otherId,
           start,
           pair.end,
           pair.color,
           pair.text
-        ).catch(() => {
-          toAdd.push(
-            buildSpokeLine(
-              start,
-              pair.end,
-              spokeItemId(pair.otherId, 'line'),
-              pair.color
-            ),
-            buildSpokeLabel(
-              pair.text,
-              spokeLabelPosition(start, pair.end),
-              spokeItemId(pair.otherId, 'label'),
-              pair.color
-            )
+        )
+      } catch {
+        toAdd.push(
+          buildSpokeLine(
+            start,
+            pair.end,
+            spokeItemId(pair.otherId, 'line'),
+            pair.color
+          ),
+          buildSpokeLabel(
+            pair.text,
+            spokeLabelPosition(start, pair.end),
+            spokeItemId(pair.otherId, 'label'),
+            pair.color
           )
-        })
-      )
+        )
+      }
     } else {
       toAdd.push(
         buildSpokeLine(
@@ -382,8 +380,6 @@ export async function showDistanceSpokesFor(
       )
     }
   }
-
-  await Promise.all(updateTasks)
 
   const removeIds = []
   for (const oldId of lastSpokeOtherIds) {

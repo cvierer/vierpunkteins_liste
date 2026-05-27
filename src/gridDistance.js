@@ -84,30 +84,6 @@ export async function resolveDistanceCenter(item, gridContext) {
 }
 
 /**
- * Frische Szene-Position fuer Bewegungserkennung (Bounds, sonst item.position).
- * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number } | null | undefined} item
- * @param {GridContext | null | undefined} [gridContext]
- * @returns {Promise<{ x: number, y: number }>}
- */
-export async function resolveDistanceCenterLive(item, gridContext) {
-  if (item?.id) {
-    try {
-      const bounds = await OBR.scene.items.getItemBounds([item.id])
-      if (bounds?.center) {
-        return bounds.center
-      }
-    } catch {
-      /* fallback */
-    }
-  }
-  const dpi = gridContext?.dpi ?? (await getGridContext())?.dpi
-  if (dpi && item) {
-    return tokenCenterScene(item, dpi)
-  }
-  return tokenCenter(item)
-}
-
-/**
  * @param {{ x: number, y: number }} a
  * @param {{ x: number, y: number }} b
  */

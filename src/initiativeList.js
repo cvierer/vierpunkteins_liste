@@ -39,7 +39,6 @@ import {
   initGridDistance,
   onGridDistanceChange,
   resolveDistanceCenter,
-  resolveDistanceCenterLive,
 } from './gridDistance.js'
 import {
   hideDistanceRings,
@@ -2876,8 +2875,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let probeMapDragging = false
   let probePlacementState = createProbePlacementState()
   let externalPlacementState = createProbePlacementState()
-  /** @type {string | null} */
-  let externalDragItemId = null
   /** @type {Map<string, { x: number, y: number }>} */
   let lastTrackerCentersById = new Map()
   let distanceProbeRefreshPending = false
@@ -3110,7 +3107,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     clearProbePlacementEndPending()
     probePlacementState = createProbePlacementState()
     externalPlacementState = createProbePlacementState()
-    externalDragItemId = null
     lastTrackerCentersById = new Map()
     await hideProbeAnchorSpoke()
     await removeProbeAnchorToken()
@@ -3125,7 +3121,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const centers = new Map()
     for (const item of sceneItems) {
       if (!item?.id || item.metadata?.[TRACKER_ITEM_META_KEY] == null) continue
-      const center = await resolveDistanceCenterLive(item, gridContext)
+      const center = await resolveDistanceCenter(item, gridContext)
       centers.set(item.id, center)
     }
     return centers
@@ -3133,83 +3129,47 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   /**
    * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
-   * @returns {Promise<string | null>}
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   * @param {{ id?: string, metadata?: Record<string, unknown> } | null | undefined} probeItem
    */
-  async function pickExternalTrackerIdFromSelection(sceneItems) {
+  async function updateExternalTrackerDragFromScene(
+    sceneItems,
+    gridContext,
+    probeItem
+  ) {
+    if (!distanceProbeItemId || probeMapDragging || !probeItem) return
+
     let selection = []
     try {
       selection = await OBR.player.getSelection()
     } catch {
-      return null
+      selection = []
     }
+
+    let externalItem = null
     for (const id of selection) {
       if (!id || id === distanceProbeItemId) continue
       const item =
         sceneItems.find((i) => i.id === id) ??
         lastItems.find((i) => i.id === id)
       if (item?.metadata?.[TRACKER_ITEM_META_KEY] != null) {
-        return id
+        externalItem = item
+        break
       }
-    }
-    return null
-  }
-
-  /**
-   * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
-   * @param {string} id
-   */
-  function findTrackerSceneItem(sceneItems, id) {
-    return (
-      sceneItems.find((i) => i.id === id) ??
-      lastItems.find((i) => i.id === id) ??
-      null
-    )
-  }
-
-  /**
-   * Fremd-Helden-Drag: primär movedIds, Selection nur Fallback.
-   * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
-   * @param {import('./gridDistance.js').GridContext} gridContext
-   * @param {{ id?: string, metadata?: Record<string, unknown> } | null | undefined} probeItem
-   * @param {string[]} movedIds
-   */
-  async function updateExternalTrackerDragByMotion(
-    sceneItems,
-    gridContext,
-    probeItem,
-    movedIds
-  ) {
-    if (!distanceProbeItemId || probeMapDragging || !probeItem) return
-
-    const probeId = distanceProbeItemId
-    const externalMoved = movedIds.filter((id) => id !== probeId)
-
-    let targetId = externalDragItemId
-    if (targetId && externalMoved.includes(targetId)) {
-      /* latched drag continues */
-    } else if (externalMoved.length > 0) {
-      targetId = externalMoved[0]
-    } else if (targetId && externalPlacementState.mapDragging) {
-      /* drag latched, no delta this frame */
-    } else if (!targetId) {
-      targetId = await pickExternalTrackerIdFromSelection(sceneItems)
-    }
-
-    if (!targetId) {
-      externalDragItemId = null
-      externalPlacementState = createProbePlacementState()
-      return
-    }
-
-    const externalItem = findTrackerSceneItem(sceneItems, targetId)
-    if (!externalItem?.id) {
-      externalDragItemId = null
-      externalPlacementState = createProbePlacementState()
-      return
     }
 
     const anchorOwner = getProbeAnchorOwnerId()
-    const center = await resolveDistanceCenterLive(externalItem, gridContext)
+
+    if (!externalItem?.id) {
+      if (anchorOwner && anchorOwner !== distanceProbeItemId) {
+        await hideProbeAnchorSpoke()
+        await removeProbeAnchorToken()
+      }
+      externalPlacementState = createProbePlacementState()
+      return
+    }
+
+    const center = await resolveDistanceCenter(externalItem, gridContext)
     const prevState = externalPlacementState
     const tick = trackProbePlacementCenter(center, prevState)
 
@@ -3227,29 +3187,26 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
 
     externalPlacementState = tick.nextState
-    externalDragItemId = targetId
 
     if (tick.placed) {
-      if (getProbeAnchorOwnerId() === externalItem.id) {
+      if (anchorOwner === externalItem.id) {
         await hideProbeAnchorSpoke()
         await removeProbeAnchorToken()
       }
-      externalDragItemId = null
       externalPlacementState = createProbePlacementState()
       return
     }
 
-    if (
-      tick.mapDragging &&
-      hasProbeAnchorToken() &&
-      getProbeAnchorOwnerId() === externalItem.id
-    ) {
+    if (tick.mapDragging && hasProbeAnchorToken() && anchorOwner === externalItem.id) {
       const anchorPseudo = getProbeAnchorPseudoItem()
       const meta = externalItem.metadata?.[TRACKER_ITEM_META_KEY]
       const xSchritt = meta ? readHeroDistClassXSchritt(meta) : null
       if (anchorPseudo) {
         await syncProbeAnchorSpoke(anchorPseudo, externalItem, xSchritt)
       }
+    } else if (anchorOwner && anchorOwner !== distanceProbeItemId) {
+      await hideProbeAnchorSpoke()
+      await removeProbeAnchorToken()
     }
   }
 
@@ -3373,68 +3330,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     await syncProbeAnchorSpoke(anchorPseudo, probeItem, probeXSchritt)
   }
 
-  /**
-   * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
-   * @param {{
-   *   gridContext?: import('./gridDistance.js').GridContext | null,
-   *   redrawRings?: boolean,
-   *   checkPlacement?: boolean,
-   *   alwaysRefreshSpokes?: boolean,
-   *   syncLine?: boolean,
-   * }} [options]
-   */
-  async function refreshDistanceProbeLive(sceneItems, options = {}) {
-    if (!distanceProbeItemId) return
-    const probeItem = findDistanceProbeItem(sceneItems)
-    if (!probeItem) return
-    const gridContext = options.gridContext ?? (await getGridContext())
-    if (!gridContext) return
-
-    const trackerCenters = await collectTrackerCenterMap(sceneItems, gridContext)
-    const { anyMoved: anyTrackerMoved, nextCenters, movedIds } =
-      detectTrackerCenterMoves(lastTrackerCentersById, trackerCenters)
-    lastTrackerCentersById = nextCenters
-
-    if (options.checkPlacement ?? true) {
-      await updateProbePlacementFromScene(probeItem, gridContext)
-    }
-
-    if (probeMapDragging) {
-      const center = await resolveDistanceCenter(probeItem, gridContext)
-      const shifted = await shiftDistanceRingsCenter(center)
-      if (!shifted) {
-        await refreshProbeRingsForItem(probeItem)
-      }
-      if (options.syncLine !== false) {
-        await syncProbeAnchorSpokeLine(probeItem)
-      }
-    } else {
-      await updateExternalTrackerDragByMotion(
-        sceneItems,
-        gridContext,
-        probeItem,
-        movedIds
-      )
-      if (options.redrawRings) {
-        await refreshProbeRingsForItem(probeItem)
-      }
-      if (options.syncLine !== false) {
-        await syncProbeAnchorSpokeLine(probeItem)
-      }
-    }
-
-    if (
-      probeMapDragging ||
-      anyTrackerMoved ||
-      options.alwaysRefreshSpokes
-    ) {
-      await refreshProbeSpokesOnly(probeItem, sceneItems)
-      applyDistanceOverlay()
-    }
-
-    await tryFinishProbePlacementWhenOrientationSynced(probeItem, gridContext)
-  }
-
   async function runDistanceProbeMovementTick() {
     if (!distanceProbeItemId) return
     let sceneItems = []
@@ -3443,7 +3338,36 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     } catch {
       return
     }
-    await refreshDistanceProbeLive(sceneItems)
+    const probeItem = findDistanceProbeItem(sceneItems)
+    if (!probeItem) return
+    const gridContext = await getGridContext()
+    if (!gridContext) return
+
+    const trackerCenters = await collectTrackerCenterMap(sceneItems, gridContext)
+    const { anyMoved: anyTrackerMoved, nextCenters } = detectTrackerCenterMoves(
+      lastTrackerCentersById,
+      trackerCenters
+    )
+    lastTrackerCentersById = nextCenters
+
+    await updateProbePlacementFromScene(probeItem, gridContext)
+    if (probeMapDragging) {
+      const center = await resolveDistanceCenter(probeItem, gridContext)
+      const shifted = await shiftDistanceRingsCenter(center)
+      if (!shifted) {
+        await refreshProbeRingsForItem(probeItem)
+      }
+      await syncProbeAnchorSpokeLine(probeItem)
+    } else {
+      await updateExternalTrackerDragFromScene(sceneItems, gridContext, probeItem)
+    }
+
+    if (probeMapDragging || anyTrackerMoved) {
+      await refreshProbeSpokesOnly(probeItem, sceneItems)
+      applyDistanceOverlay()
+    }
+
+    await tryFinishProbePlacementWhenOrientationSynced(probeItem, gridContext)
   }
 
   /** @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems */
@@ -3472,15 +3396,20 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     } catch {
       return
     }
+    const probeItem = findDistanceProbeItem(sceneItems)
+    if (!probeItem) return
     const gridContext = await getGridContext({ forceRefresh: true })
     if (!gridContext) return
-    await refreshDistanceProbeLive(sceneItems, {
-      gridContext,
-      redrawRings,
-      checkPlacement,
-      alwaysRefreshSpokes: true,
-      syncLine,
-    })
+    if (checkPlacement) {
+      await updateProbePlacementFromScene(probeItem, gridContext)
+    }
+    if (redrawRings) {
+      await refreshProbeRingsForItem(probeItem)
+    }
+    await refreshProbeSpokesOnly(probeItem, sceneItems)
+    if (syncLine) {
+      await syncProbeAnchorSpokeLine(probeItem)
+    }
   }
 
   /**
