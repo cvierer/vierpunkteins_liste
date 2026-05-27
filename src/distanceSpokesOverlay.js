@@ -287,8 +287,14 @@ async function ensureProbeAnchorSpokeItems(start, end, color, text) {
  * @param {Record<string, unknown> | null | undefined} anchorPseudo
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} heroItem
  * @param {number | null | undefined} classXSchritt
+ * @param {{ withClass?: boolean } | undefined} [options]
  */
-export async function syncProbeAnchorSpoke(anchorPseudo, heroItem, classXSchritt = null) {
+export async function syncProbeAnchorSpoke(
+  anchorPseudo,
+  heroItem,
+  classXSchritt = null,
+  options = undefined
+) {
   if (!anchorPseudo || !heroItem) {
     return
   }
@@ -299,7 +305,10 @@ export async function syncProbeAnchorSpoke(anchorPseudo, heroItem, classXSchritt
   const ctx = await getGridContext()
   const end = await resolveDistanceCenter(heroItem, ctx)
   const schritt = await computeGridSchrittFromCenters(start, end)
-  const text = formatSchrittWithClass(schritt, classXSchritt) || ''
+  const withClass = options?.withClass ?? true
+  const text = withClass
+    ? formatSchrittWithClass(schritt, classXSchritt) || ''
+    : formatSchritt(schritt) || ''
   const meta = heroItem.metadata?.[TRACKER_ITEM_META_KEY]
   const color = resolveSpokeColor(meta)
   await ensureProbeAnchorSpokeItems(start, end, color, text)

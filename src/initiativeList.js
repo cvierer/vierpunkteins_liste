@@ -3327,7 +3327,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!anchorPseudo || !probeItem) return
     const probeMeta = probeItem?.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
-    await syncProbeAnchorSpoke(anchorPseudo, probeItem, probeXSchritt)
+    await syncProbeAnchorSpoke(anchorPseudo, probeItem, probeXSchritt, {
+      withClass: false,
+    })
   }
 
   async function runDistanceProbeMovementTick() {
