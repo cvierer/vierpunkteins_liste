@@ -3,7 +3,6 @@ import {
   combatOverlayKey,
   primaryKindMapStyle,
   primaryKindMapSymbol,
-  primaryKindMapRotation,
   primaryKindSvgMarkup,
   primaryKindSvgDataUrl,
   resolvePrimaryKindForNav,
@@ -82,13 +81,12 @@ describe('primaryKindMapSymbol', () => {
     }
   })
 
-  it('ang ist aufrechter Dolch (Text-Darstellung)', () => {
-    expect(primaryKindMapSymbol('ang')).toBe('\u{1F5E1}\uFE0E')
+  it('ang ist typografischer Dolch nach oben', () => {
+    expect(primaryKindMapSymbol('ang')).toBe('\u2020')
   })
 
-  it('ang: weiße Fuellung und Rotation nach oben', () => {
+  it('ang: weisse Fuellung', () => {
     expect(primaryKindMapStyle('ang').fillColor).toBe('#ffffff')
-    expect(primaryKindMapRotation('ang')).toBe(-45)
   })
 
   it('lh teilt Stern mit sra', () => {
