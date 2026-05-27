@@ -6,6 +6,7 @@ import {
   KIND_LABEL,
   primaryKindMapStyle,
   primaryKindMapSymbol,
+  primaryKindMapRotation,
   resolvePrimaryKindForNav,
   shouldShowTurnActionMapBadge,
 } from './krPrimaryKindIcons.js'
@@ -92,8 +93,9 @@ async function resolveLabelPosition(tokenId) {
  */
 function buildTurnActionLabelItem(kind, tokenItem, position) {
   const style = primaryKindMapStyle(kind)
+  const rotation = primaryKindMapRotation(kind)
   const ariaName = KIND_LABEL[kind] ?? 'Aktion'
-  return buildLabel()
+  const builder = buildLabel()
     .id(TURN_ACTION_LABEL_ID)
     .plainText(primaryKindMapSymbol(kind))
     .position(position)
@@ -116,7 +118,8 @@ function buildTurnActionLabelItem(kind, tokenItem, position) {
       turnActionOwnerId: tokenItem.id,
       turnActionKind: kind,
     })
-    .build()
+  if (rotation !== 0) builder.rotation(rotation)
+  return builder.build()
 }
 
 let lastOverlayKey = ''
@@ -200,6 +203,7 @@ async function refreshTurnActionLabel(itemsIn) {
       await OBR.scene.items.addItems([labelItem])
     } else if (existing) {
       const style = primaryKindMapStyle(kind)
+      const rotation = primaryKindMapRotation(kind)
       await OBR.scene.items.updateItems([TURN_ACTION_LABEL_ID], (drafts) => {
         for (const d of drafts) {
           const symbol = primaryKindMapSymbol(kind)
@@ -207,6 +211,7 @@ async function refreshTurnActionLabel(itemsIn) {
           d.visible = labelItem.visible
           d.name = labelItem.name
           d.metadata = labelItem.metadata
+          d.rotation = rotation
           if (d.text) {
             d.text.plainText = symbol
             d.text.fillColor = style.fillColor

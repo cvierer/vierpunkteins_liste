@@ -76,16 +76,21 @@ export function primaryKindSvgDataUrl(kind) {
 
 /** @type {Record<string, string>} */
 const KIND_MAP_SYMBOL = Object.freeze({
-  ang: '\u{1F5E1}',
+  ang: '\u{1F5E1}\uFE0E',
   sra: '\u2605',
   lh: '\u2605',
   uo: '\u21c4',
   par: '\u26e8',
 })
 
+/** @type {Record<string, number>} */
+const KIND_MAP_ROTATION = Object.freeze({
+  ang: -45,
+})
+
 /** @type {Record<string, { fillColor: string, backgroundColor: string, backgroundOpacity: number }>} */
 const KIND_MAP_STYLE = Object.freeze({
-  ang: { fillColor: '#f5f5f5', backgroundColor: '#6d0718', backgroundOpacity: 0.9 },
+  ang: { fillColor: '#ffffff', backgroundColor: '#6d0718', backgroundOpacity: 0.9 },
   sra: { fillColor: '#fffde7', backgroundColor: '#ef6c00', backgroundOpacity: 0.9 },
   lh: { fillColor: '#fffde7', backgroundColor: '#1f6b4a', backgroundOpacity: 0.9 },
   uo: { fillColor: '#ffffff', backgroundColor: '#3949ab', backgroundOpacity: 0.9 },
@@ -106,6 +111,13 @@ export function primaryKindMapSymbol(kind) {
  */
 export function primaryKindMapStyle(kind) {
   return KIND_MAP_STYLE[kind] ?? KIND_MAP_STYLE.ang
+}
+
+/**
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
+ */
+export function primaryKindMapRotation(kind) {
+  return KIND_MAP_ROTATION[kind] ?? 0
 }
 
 /**
