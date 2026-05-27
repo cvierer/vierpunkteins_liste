@@ -369,10 +369,12 @@ body {
   --init-btn-name-gap: calc(var(--init-grid-gap) * 2);
   --init-dist-cell-w: calc(var(--init-obj-cell) * 1.12);
   --init-dist-cell-h: var(--init-obj-cell);
-  /* Einheitliche Beschriftung Aktions-Spalte bis INI (Zähler, DIST, Offset, INI-Feld) */
-  --init-row-strip-font-size: calc(0.62rem * var(--init-ui-scale));
+  /* Zeilenstreifen: Zähler, DIST, Offset-Präfix (INI-Feld separat über --init-micro-inp-*) */
+  --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
   --init-row-strip-line-height: 1.15;
   --init-dist-cell-font-size: var(--init-row-strip-font-size);
+  --init-col-head-font-size: calc(0.6rem * var(--init-ui-scale));
+  --init-col-head-line-height: 1;
   --init-action-dist-gap: calc(var(--init-grid-gap) * 0.6);
   --init-lh-ini-gap: calc(0.95rem * var(--init-ui-scale));
   --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
@@ -412,13 +414,13 @@ body {
 
 .kampf-col-label {
   font-family: var(--font-heading);
-  font-size: calc(0.6rem * var(--init-ui-scale));
+  font-size: var(--init-col-head-font-size, calc(0.6rem * var(--init-ui-scale)));
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--color-ink-muted);
   opacity: 0.72;
-  line-height: 1;
+  line-height: var(--init-col-head-line-height, 1);
 }
 
 .kampf-col-label--za {
@@ -468,7 +470,6 @@ body {
   text-align: center;
   text-transform: none;
   letter-spacing: 0.01em;
-  font-size: calc(0.46rem * var(--init-ui-scale));
   box-sizing: border-box;
 }
 
@@ -478,7 +479,6 @@ body {
 
 .kampf-col-label--ini {
   text-align: center;
-  align-self: start;
   justify-self: end;
   width: var(--init-col-ini-field);
   box-sizing: border-box;
@@ -779,7 +779,7 @@ html:not(.v4-is-gm) .kampf-settings-gear-host {
   padding: 0;
   box-sizing: border-box;
   font-family: var(--font-body);
-  font-size: var(--init-row-strip-font-size, calc(0.62rem * var(--init-ui-scale)));
+  font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
   font-weight: 600;
   line-height: var(--init-row-strip-line-height, 1.15);
   text-align: center;
@@ -5513,7 +5513,7 @@ select.init-row-extra-select {
   width: calc(2 * var(--init-obj-cell));
   height: var(--init-obj-cell);
   padding-left: var(--init-obj-cell);
-  font-size: var(--init-row-strip-font-size, calc(0.62rem * var(--init-ui-scale)));
+  font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
   font-weight: 500;
   line-height: var(--init-row-strip-line-height, 1.15);
   color: rgba(255, 245, 225, 0.95);
@@ -5598,7 +5598,7 @@ select.init-row-extra-select {
 
 .init-dist-cell--target {
   background: rgba(255, 255, 255, 0.06);
-  font-size: var(--init-row-strip-font-size, calc(0.62rem * var(--init-ui-scale)));
+  font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
   font-weight: 700;
   line-height: var(--init-row-strip-line-height, 1.15);
   color: rgba(26, 23, 20, 0.68);
@@ -5851,7 +5851,7 @@ select.init-row-extra-select {
 
 .init-phase-offset-prefix {
   flex-shrink: 0;
-  font-size: var(--init-row-strip-font-size, calc(0.62rem * var(--init-ui-scale)));
+  font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
   font-weight: 400;
   line-height: var(--init-row-strip-line-height, 1.15);
   color: var(--color-ink-muted);
@@ -6475,7 +6475,7 @@ select.init-row-extra-select {
 
 .init-row-kr-counter--has-digit .init-row-kr-counter__digit {
   opacity: 1;
-  font-size: var(--init-row-strip-font-size, calc(0.62rem * var(--init-ui-scale)));
+  font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
   letter-spacing: -0.03em;
 }
 
@@ -6645,7 +6645,7 @@ select.init-row-extra-select {
   background: #fff;
   color: inherit;
   font-family: var(--font-body);
-  font-size: var(--init-row-strip-font-size, calc(0.62rem * var(--init-ui-scale)));
+  font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
   line-height: var(--init-row-strip-line-height, 1.15);
   text-align: center;
   z-index: 1;
@@ -7264,7 +7264,7 @@ select.init-row-extra-select {
   background: #fff;
   color: #121212;
   font-family: var(--font-body);
-  font-size: var(--init-row-strip-font-size, var(--init-micro-inp-font-size));
+  font-size: var(--init-micro-inp-font-size);
   font-weight: 800;
   line-height: var(--init-micro-inp-line-height);
   text-align: center;
