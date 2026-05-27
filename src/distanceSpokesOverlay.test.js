@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { gridApi, localApi, lastMovementLabelText } = vi.hoisted(() => ({
+const { gridApi, localApi, lastMovementLabelText, lastSpokeLineStart } = vi.hoisted(() => ({
   lastMovementLabelText: { value: '' },
+  lastSpokeLineStart: { value: null },
   gridApi: {
     getDistance: vi.fn(async () => 8),
     getDpi: vi.fn(async () => 100),
@@ -50,20 +51,34 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
     name: vi.fn().mockReturnThis(),
     build: vi.fn(() => ({})),
   })),
-  buildLine: vi.fn(() => ({
-    id: vi.fn().mockReturnThis(),
-    startPosition: vi.fn().mockReturnThis(),
-    endPosition: vi.fn().mockReturnThis(),
-    strokeColor: vi.fn().mockReturnThis(),
-    strokeOpacity: vi.fn().mockReturnThis(),
-    strokeWidth: vi.fn().mockReturnThis(),
-    layer: vi.fn().mockReturnThis(),
-    locked: vi.fn().mockReturnThis(),
-    disableHit: vi.fn().mockReturnThis(),
-    zIndex: vi.fn().mockReturnThis(),
-    name: vi.fn().mockReturnThis(),
-    build: vi.fn(() => ({})),
-  })),
+  buildLine: vi.fn(() => {
+    /** @type {{ start?: { x: number, y: number }, end?: { x: number, y: number } }} */
+    const state = {}
+    const chain = {
+      id: vi.fn().mockReturnThis(),
+      startPosition: vi.fn((p) => {
+        state.start = p
+        return chain
+      }),
+      endPosition: vi.fn((p) => {
+        state.end = p
+        return chain
+      }),
+      strokeColor: vi.fn().mockReturnThis(),
+      strokeOpacity: vi.fn().mockReturnThis(),
+      strokeWidth: vi.fn().mockReturnThis(),
+      layer: vi.fn().mockReturnThis(),
+      locked: vi.fn().mockReturnThis(),
+      disableHit: vi.fn().mockReturnThis(),
+      zIndex: vi.fn().mockReturnThis(),
+      name: vi.fn().mockReturnThis(),
+      build: vi.fn(() => {
+        lastSpokeLineStart.value = state.start ?? null
+        return {}
+      }),
+    }
+    return chain
+  }),
 }))
 
 import { TRACKER_ITEM_META_KEY } from './participants.js'
@@ -83,7 +98,10 @@ import {
   syncDistanceMovementLine,
   syncProbeAnchorSpoke,
 } from './distanceSpokesOverlay.js'
-import { PROBE_ANCHOR_TOKEN_ID } from './probeAnchorToken.js'
+import {
+  PROBE_ANCHOR_TOKEN_ID,
+  setProbeAnchorStateForTests,
+} from './probeAnchorToken.js'
 
 describe('spokeItemId', () => {
   it('stabile IDs für Linie und Label', () => {
@@ -202,6 +220,7 @@ describe('syncDistanceMovementLine update path', () => {
 })
 
 describe('syncProbeAnchorSpoke', () => {
+  const anchorCenter = { x: 100, y: 100 }
   const anchor = {
     id: PROBE_ANCHOR_TOKEN_ID,
     position: { x: 150, y: 150 },
@@ -218,11 +237,17 @@ describe('syncProbeAnchorSpoke', () => {
 
   beforeEach(() => {
     resetDistanceSpokeOverlayStateForTests()
+    setProbeAnchorStateForTests(anchorCenter, 'probe', anchor)
     localApi.addItems.mockClear()
     localApi.updateItems.mockClear()
     localApi.deleteItems.mockClear()
     lastMovementLabelText.value = ''
+    lastSpokeLineStart.value = null
     gridApi.getDistance.mockResolvedValue(8)
+  })
+
+  afterEach(() => {
+    setProbeAnchorStateForTests(null)
   })
 
   it('zeichnet Spoke mit Distanzklassen-Label wie zu anderem Token', async () => {
@@ -230,6 +255,12 @@ describe('syncProbeAnchorSpoke', () => {
     await syncProbeAnchorSpoke(anchor, hero, null)
     expect(localApi.addItems).toHaveBeenCalledTimes(1)
     expect(lastMovementLabelText.value).toBe('2,0(S)')
+  })
+
+  it('nutzt gecachten Anker-Mittelpunkt statt getItemBounds auf Pseudo-ID', async () => {
+    gridApi.getDistance.mockResolvedValue(2)
+    await syncProbeAnchorSpoke(anchor, hero, null)
+    expect(lastSpokeLineStart.value).toEqual(anchorCenter)
   })
 
   it('zweiter Aufruf aktualisiert per updateItems', async () => {

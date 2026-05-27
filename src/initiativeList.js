@@ -2944,7 +2944,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probePointerHeld = false
     probePointerDownPending = false
     probePlacementState = createProbePlacementState()
-    void hideProbeAnchorSpoke()
+    await hideProbeAnchorSpoke()
     await removeProbeAnchorToken()
     try {
       let sceneItems = []
@@ -3094,15 +3094,15 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     detachProbePlayerListener()
   }
 
-  function resetProbeMapDragState() {
+  async function resetProbeMapDragState() {
     probeMovementAnchor = null
     probeMapDragging = false
     probePointerHeld = false
     probePointerDownPending = false
     clearProbePlacementEndPending()
     probePlacementState = createProbePlacementState()
-    void hideProbeAnchorSpoke()
-    void removeProbeAnchorToken()
+    await hideProbeAnchorSpoke()
+    await removeProbeAnchorToken()
   }
 
   function stopProbeMovementLoop() {
