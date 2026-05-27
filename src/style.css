@@ -432,15 +432,19 @@ body {
 
 .kampf-col-za-group {
   display: grid;
+  /* Spaltenbreiten wie .init-phase-slot-row (Aktion, Dist, Frei, Reakt) */
   grid-template-columns:
     calc(var(--init-obj-cell) * 1.5)
-    var(--init-action-dist-gap)
+    calc(var(--init-grid-gap) + var(--init-action-dist-gap))
     var(--init-dist-cell-w)
-    var(--init-action-reaction-gap)
-    minmax(0, 1fr)
+    calc(var(--init-grid-gap) + var(--init-action-reaction-gap))
+    calc(var(--init-obj-cell) * 1.5)
     var(--init-reaction-frei-gap)
-    minmax(0, 1fr);
-  gap: var(--init-grid-gap);
+    minmax(
+      calc(var(--init-obj-cell) * 0.78),
+      calc(var(--init-obj-cell) * 1.55)
+    );
+  gap: 0;
   align-items: flex-end;
   min-width: 0;
   box-sizing: border-box;
@@ -465,16 +469,25 @@ body {
 }
 
 .kampf-col-label--counter {
-  flex: 1;
   min-width: 0;
+  justify-self: center;
   text-align: center;
   text-transform: none;
   letter-spacing: 0.01em;
   box-sizing: border-box;
 }
 
+/* Frei / Reakt: mittig über F.A.-Kästchen bzw. Abwehr-Schilde */
+.kampf-col-za-group > .kampf-col-label--counter:nth-child(5),
+.kampf-col-za-group > .kampf-col-label--counter:nth-child(7) {
+  width: 100%;
+}
+
 .kampf-col-label--name {
   min-width: 0;
+  margin-left: var(--init-btn-name-gap);
+  text-align: left;
+  justify-self: start;
 }
 
 .kampf-col-label--ini {
