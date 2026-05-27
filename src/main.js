@@ -9,10 +9,8 @@ appRoot.innerHTML = `
   <header class="app-header">
     <div class="combat-bar" data-combat-root>
       <div class="combat-toolbar combat-toolbar--grid">
-        <div class="combat-toolbar__head">
-          <span class="kampf-settings-gear-host" id="kampf-settings-gear-host"></span>
-          <span class="combat-round-label" data-combat-round hidden>Kampfrunde —</span>
-        </div>
+        <span class="kampf-settings-gear-host" id="kampf-settings-gear-host"></span>
+        <span class="combat-round-label" data-combat-round hidden>Kampfrunde —</span>
         <button
           type="button"
           class="btn btn--nav"

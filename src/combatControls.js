@@ -158,8 +158,6 @@ export async function setupCombatControls(root) {
       }
     }
 
-    toolbar?.classList.toggle('combat-toolbar--combat-active', c.started)
-
     if (btnNext) {
       btnNext.title =
         c.started && c.roundIntroPending
