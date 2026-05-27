@@ -62,6 +62,7 @@ import {
   hideDistanceSpokes,
   hideProbeAnchorSpoke,
   showDistanceSpokesFor,
+  showDistanceSpokesToTarget,
   syncProbeAnchorSpoke,
 } from './distanceSpokesOverlay.js'
 import {
@@ -2868,6 +2869,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let lastTurnScrollKey = ''
 
   let distanceProbeItemId = null
+  let distanceProbeTargetOnlyId = null
   /** Ursprung Bewegungslinie: letzte Absetz-Position des Helden (Dist aktiv). */
   /** @type {{ x: number, y: number } | null} */
   let probeMovementAnchor = null
@@ -2903,6 +2905,25 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   function isProbeMapDragActive() {
     return probeMapDragging || hasProbeAnchorToken()
+  }
+
+  /**
+   * @param {import('@owlbear-rodeo/sdk').Item | null | undefined} item
+   */
+  function isViewerOwnedTrackerItem(item) {
+    if (!item?.id || item.metadata?.[TRACKER_ITEM_META_KEY] == null) return false
+    return isGmSync() || canEditSceneItem(item)
+  }
+
+  /**
+   * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
+   */
+  function getViewerOwnedTrackerItems(sceneItems) {
+    return (sceneItems ?? []).filter((item) => isViewerOwnedTrackerItem(item))
+  }
+
+  function isTargetOnlyDistanceProbeActive() {
+    return !isGmSync() && !!distanceProbeTargetOnlyId
   }
 
   /**
@@ -3107,6 +3128,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     clearProbePlacementEndPending()
     probePlacementState = createProbePlacementState()
     externalPlacementState = createProbePlacementState()
+    distanceProbeTargetOnlyId = null
     lastTrackerCentersById = new Map()
     await hideProbeAnchorSpoke()
     await removeProbeAnchorToken()
@@ -3278,6 +3300,23 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    * @param {import('./gridDistance.js').GridContext} gridContext
    */
   async function refreshProbeSpokesOnly(probeItem, sceneItems) {
+    if (isTargetOnlyDistanceProbeActive()) {
+      const target =
+        sceneItems.find((i) => i.id === distanceProbeTargetOnlyId) ??
+        sceneItems.find((i) => i.id === distanceProbeItemId) ??
+        probeItem
+      const sourceDefs = getViewerOwnedTrackerItems(sceneItems)
+        .filter((item) => item.id !== target?.id)
+        .map((item) => {
+          const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
+          return {
+            item,
+            classXSchritt: meta ? readHeroDistClassXSchritt(meta) : null,
+          }
+        })
+      await showDistanceSpokesToTarget(sourceDefs, target)
+      return
+    }
     const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     const others = sceneItems.filter(
@@ -3289,6 +3328,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   async function refreshProbeRingsForItem(probeItem) {
+    if (!isGmSync() && !canEditSceneItem(probeItem)) {
+      await hideDistanceRings()
+      return
+    }
     const meta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const combat = getCombat()
     const gsSchritt = meta
@@ -3405,11 +3448,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (checkPlacement) {
       await updateProbePlacementFromScene(probeItem, gridContext)
     }
-    if (redrawRings) {
+    if (redrawRings && !isTargetOnlyDistanceProbeActive()) {
       await refreshProbeRingsForItem(probeItem)
     }
     await refreshProbeSpokesOnly(probeItem, sceneItems)
-    if (syncLine) {
+    if (syncLine && !isTargetOnlyDistanceProbeActive()) {
       await syncProbeAnchorSpokeLine(probeItem)
     }
   }
@@ -3467,6 +3510,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       return
     }
     const probeItem = lastItems.find((i) => i.id === distanceProbeItemId)
+    const targetOnly = isTargetOnlyDistanceProbeActive()
+    const ownedIds = new Set(getViewerOwnedTrackerItems(lastItems).map((i) => i.id))
     const probeMeta = probeItem?.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     /** @type {Promise<void>[]} */
@@ -3475,6 +3520,23 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       const id = c.dataset.distCellItemId
       const valEl = c.querySelector('.init-dist-cell__value')
       if (!valEl) return
+      if (targetOnly) {
+        if (ownedIds.has(id)) {
+          c.classList.add('init-dist-cell--probe')
+          c.classList.remove('init-dist-cell--target', 'init-dist-cell--idle-rings')
+          valEl.innerHTML = DIST_PROBE_EYE_SVG
+          return
+        }
+        if (id === distanceProbeTargetOnlyId) {
+          c.classList.remove('init-dist-cell--probe', 'init-dist-cell--idle-rings')
+          c.classList.add('init-dist-cell--target')
+          valEl.innerHTML = DIST_CELL_TARGET_SVG
+          return
+        }
+        c.classList.remove('init-dist-cell--probe', 'init-dist-cell--target')
+        applyDistCellIdleState(c)
+        return
+      }
       if (id === distanceProbeItemId) {
         c.classList.add('init-dist-cell--probe')
         c.classList.remove('init-dist-cell--target', 'init-dist-cell--idle-rings')
@@ -3542,6 +3604,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   function deactivateDistanceProbe() {
     distanceProbeItemId = null
+    distanceProbeTargetOnlyId = null
     stopProbeMovementLoop()
     detachProbePointerListeners()
     resetProbeMapDragState()
@@ -3551,6 +3614,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   async function activateDistanceProbe(itemId) {
+    const probeTargetItem = lastItems.find((i) => i.id === itemId) ?? null
+    const targetIsOwned = isViewerOwnedTrackerItem(probeTargetItem)
     if (distanceProbeItemId && distanceProbeItemId !== itemId) {
       stopProbeMovementLoop()
       detachProbePointerListeners()
@@ -3559,6 +3624,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       void hideDistanceSpokes()
     }
     distanceProbeItemId = itemId
+    distanceProbeTargetOnlyId = !isGmSync() && !targetIsOwned ? itemId : null
     resetProbeMapDragState()
     const probeAtDown = lastItems.find((i) => i.id === itemId)
     const gridContext = await getGridContext({ forceRefresh: true })
@@ -3572,6 +3638,17 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     applyDistanceOverlay()
     const item = lastItems.find((i) => i.id === itemId)
     if (!item || !gridContext) return
+    if (isTargetOnlyDistanceProbeActive()) {
+      stopProbeMovementLoop()
+      detachProbePointerListeners()
+      await hideDistanceRings()
+      await runDistanceProbeRefresh({
+        redrawRings: false,
+        checkPlacement: false,
+        syncLine: false,
+      })
+      return
+    }
     startProbeMovementLoop()
     await runDistanceProbeRefresh({
       redrawRings: true,
