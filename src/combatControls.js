@@ -124,6 +124,7 @@ export async function setupCombatControls(root) {
   const btnToggle = root.querySelector('[data-combat-toggle]')
   const btnPrev = root.querySelector('[data-combat-prev]')
   const btnNext = root.querySelector('[data-combat-next]')
+  const toolbar = root.querySelector('.combat-toolbar--grid')
 
   const setGmDisabled = (btn, disabled) => {
     if (!btn) return
@@ -136,22 +137,28 @@ export async function setupCombatControls(root) {
     const ids = getTrackedParticipantIds()
 
     if (btnToggle) {
-      btnToggle.textContent = c.started ? 'Beenden' : 'Start'
+      const toggleLabel = c.started ? 'Kampf beenden' : 'Kampf beginnen'
+      btnToggle.textContent = toggleLabel
+      btnToggle.setAttribute('aria-label', toggleLabel)
     }
 
     if (elRound) {
-      if (!c.started) {
-        elRound.textContent = 'Kampfrunde —'
-      } else if (c.roundIntroPending) {
-        const base =
-          typeof c.roundIntroPrevRound === 'number' && c.roundIntroPrevRound >= 1
-            ? c.roundIntroPrevRound
-            : c.round
-        elRound.textContent = `Kampfrunde ${base + 1}`
-      } else {
-        elRound.textContent = `Kampfrunde ${c.round}`
+      elRound.hidden = !c.started
+      if (c.started) {
+        if (c.roundIntroPending) {
+          const base =
+            typeof c.roundIntroPrevRound === 'number' &&
+            c.roundIntroPrevRound >= 1
+              ? c.roundIntroPrevRound
+              : c.round
+          elRound.textContent = `Kampfrunde ${base + 1}`
+        } else {
+          elRound.textContent = `Kampfrunde ${c.round}`
+        }
       }
     }
+
+    toolbar?.classList.toggle('combat-toolbar--combat-active', c.started)
 
     if (btnNext) {
       btnNext.title =

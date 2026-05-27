@@ -10,14 +10,19 @@ appRoot.innerHTML = `
   <header class="app-header">
     <div class="combat-bar" data-combat-root>
       <div class="combat-toolbar combat-toolbar--grid">
-        <span class="combat-round-label" data-combat-round>Kampfrunde —</span>
+        <span class="combat-round-label" data-combat-round hidden>Kampfrunde —</span>
         <button
           type="button"
           class="btn btn--nav"
           data-combat-prev
           aria-label="Zurück: Stempel an diesem Zug rückgängig oder vorheriger Zug"
         >Zurück</button>
-        <button type="button" class="btn btn--nav btn--primary btn--combat-toggle" data-combat-toggle>Start</button>
+        <button
+          type="button"
+          class="btn btn--nav btn--primary btn--combat-toggle"
+          data-combat-toggle
+          aria-label="Kampf beginnen"
+        >Kampf beginnen</button>
         <button
           type="button"
           class="btn btn--nav"

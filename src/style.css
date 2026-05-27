@@ -221,6 +221,20 @@ body {
   justify-self: end;
 }
 
+.combat-toolbar--grid:not(.combat-toolbar--combat-active) {
+  grid-template-rows: auto;
+}
+
+.combat-toolbar--grid:not(.combat-toolbar--combat-active) > [data-combat-round] {
+  display: none;
+}
+
+.combat-toolbar--grid:not(.combat-toolbar--combat-active) > [data-combat-toggle],
+.combat-toolbar--grid:not(.combat-toolbar--combat-active) > [data-combat-prev],
+.combat-toolbar--grid:not(.combat-toolbar--combat-active) > [data-combat-next] {
+  grid-row: 1;
+}
+
 .combat-toolbar--grid > [data-combat-prev],
 .combat-toolbar--grid > [data-combat-next] {
   width: var(--combat-side-btn-w);
@@ -249,7 +263,7 @@ body {
 }
 
 .combat-toolbar--grid .btn--combat-toggle {
-  min-width: calc(6.75rem * var(--init-ui-scale));
+  min-width: calc(8.25rem * var(--init-ui-scale));
   max-width: min(100%, 14rem);
 }
 
