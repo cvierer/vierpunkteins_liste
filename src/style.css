@@ -5563,6 +5563,18 @@ select.init-row-extra-select {
   touch-action: none;
   box-sizing: border-box;
   color: var(--color-ink);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.init-dist-cell:hover:not(.init-dist-cell--probe):not(.init-dist-cell--target) {
+  background: rgba(255, 210, 90, 0.14);
+  border-color: rgba(255, 190, 60, 0.65);
+  box-shadow: 0 0 0 1px rgba(255, 190, 60, 0.28);
+  transform: scale(1.06);
 }
 
 .init-dist-cell__value {
@@ -5570,6 +5582,11 @@ select.init-row-extra-select {
   text-align: center;
   line-height: 1;
   white-space: nowrap;
+}
+
+.init-dist-cell--probe,
+.init-dist-cell--target {
+  border: none;
 }
 
 .init-dist-cell--probe .init-dist-cell__value {
