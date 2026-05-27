@@ -83,8 +83,8 @@ describe('primaryKindMapSymbol', () => {
     }
   })
 
-  it('ang ist Dolch (U+2020, OBR-tauglich)', () => {
-    expect(primaryKindMapSymbol('ang')).toBe('\u2020')
+  it('ang ist Dolch-Emoji (U+1F5E1)', () => {
+    expect(primaryKindMapSymbol('ang')).toBe('\u{1F5E1}')
   })
 
   it('ang: weisse Fuellung, feinere Schrift, kein Rotations-Overlay', () => {
