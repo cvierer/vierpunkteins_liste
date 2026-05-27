@@ -107,6 +107,8 @@ export function detectTrackerCenterMoves(
   const prev = centersById ?? new Map()
   /** @type {Map<string, Point>} */
   const nextCenters = new Map()
+  /** @type {string[]} */
+  const movedIds = []
   let anyMoved = false
 
   for (const [id, center] of sceneCenters) {
@@ -117,10 +119,11 @@ export function detectTrackerCenterMoves(
       Math.hypot(center.x - last.x, center.y - last.y) > epsilon
     ) {
       anyMoved = true
+      movedIds.push(id)
     }
   }
 
-  return { anyMoved, nextCenters }
+  return { anyMoved, nextCenters, movedIds }
 }
 
 export function latchProbeMapDrag(

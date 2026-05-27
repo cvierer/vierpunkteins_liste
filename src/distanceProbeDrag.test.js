@@ -80,13 +80,16 @@ describe('detectTrackerCenterMoves', () => {
     ])
     const r = detectTrackerCenterMoves(prev, scene)
     expect(r.anyMoved).toBe(true)
+    expect(r.movedIds).toEqual(['b'])
     expect(r.nextCenters.get('b')).toEqual({ x: 11, y: 0 })
   })
 
   it('ignoriert Jitter unter epsilon', () => {
     const prev = new Map([['a', { x: 0, y: 0 }]])
     const scene = new Map([['a', { x: 0.2, y: 0.2 }]])
-    expect(detectTrackerCenterMoves(prev, scene).anyMoved).toBe(false)
+    const r = detectTrackerCenterMoves(prev, scene)
+    expect(r.anyMoved).toBe(false)
+    expect(r.movedIds).toEqual([])
   })
 
   it('keine Bewegung bei erstem Snapshot', () => {
