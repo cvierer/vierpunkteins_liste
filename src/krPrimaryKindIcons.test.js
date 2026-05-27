@@ -6,6 +6,7 @@ import {
   primaryKindSvgMarkup,
   primaryKindSvgDataUrl,
   resolvePrimaryKindForNav,
+  shouldShowTurnActionMapBadge,
 } from './krPrimaryKindIcons.js'
 
 describe('resolvePrimaryKindForNav', () => {
@@ -80,12 +81,25 @@ describe('primaryKindMapSymbol', () => {
     }
   })
 
-  it('ang ist Schwert-Symbol', () => {
-    expect(primaryKindMapSymbol('ang')).toBe('\u2694')
+  it('ang ist Dolch-Symbol', () => {
+    expect(primaryKindMapSymbol('ang')).toBe('\u{1F5E1}')
   })
 
-  it('lh unterscheidet sich von sra', () => {
-    expect(primaryKindMapSymbol('lh')).not.toBe(primaryKindMapSymbol('sra'))
+  it('lh teilt Stern mit sra', () => {
+    expect(primaryKindMapSymbol('lh')).toBe(primaryKindMapSymbol('sra'))
+    expect(primaryKindMapSymbol('lh')).toBe('\u2605')
+  })
+})
+
+describe('shouldShowTurnActionMapBadge', () => {
+  it('uo blendet kein Badge ein', () => {
+    expect(shouldShowTurnActionMapBadge('uo')).toBe(false)
+  })
+
+  it('andere Kinds zeigen Badge', () => {
+    for (const k of ['ang', 'sra', 'lh', 'par']) {
+      expect(shouldShowTurnActionMapBadge(k)).toBe(true)
+    }
   })
 })
 

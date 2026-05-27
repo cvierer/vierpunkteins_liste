@@ -76,9 +76,9 @@ export function primaryKindSvgDataUrl(kind) {
 
 /** @type {Record<string, string>} */
 const KIND_MAP_SYMBOL = Object.freeze({
-  ang: '\u2694',
+  ang: '\u{1F5E1}',
   sra: '\u2605',
-  lh: '\u2726',
+  lh: '\u2605',
   uo: '\u21c4',
   par: '\u26e8',
 })
@@ -106,4 +106,11 @@ export function primaryKindMapSymbol(kind) {
  */
 export function primaryKindMapStyle(kind) {
   return KIND_MAP_STYLE[kind] ?? KIND_MAP_STYLE.ang
+}
+
+/**
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string | null | undefined} kind
+ */
+export function shouldShowTurnActionMapBadge(kind) {
+  return kind !== 'uo'
 }

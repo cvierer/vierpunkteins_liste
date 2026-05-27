@@ -7,6 +7,7 @@ import {
   primaryKindMapStyle,
   primaryKindMapSymbol,
   resolvePrimaryKindForNav,
+  shouldShowTurnActionMapBadge,
 } from './krPrimaryKindIcons.js'
 import {
   LH_DONE_STEP_ID,
@@ -179,7 +180,7 @@ async function refreshTurnActionLabel(itemsIn) {
       ? combat.currentPhaseLinkId
       : null
   const kind = resolvePrimaryKindForNav(meta, phaseLinkId)
-  if (!kind) {
+  if (!kind || !shouldShowTurnActionMapBadge(kind)) {
     await deleteTurnActionLabelIfPresent(items)
     return
   }
