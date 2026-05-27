@@ -1,5 +1,4 @@
 import './style.css'
-import { BUILD_VERSION } from './buildVersion.js'
 import OBR from '@owlbear-rodeo/sdk'
 import { initEditAccess, isGmSync } from './editAccess.js'
 import { initCombatRoom } from './combatRoom.js'
@@ -37,6 +36,7 @@ appRoot.innerHTML = `
     <div class="kampf-list-head" aria-hidden="true">
       <span class="kampf-h-spacer kampf-h-spacer--expand" aria-hidden="true"></span>
       <div class="kampf-col-za-group">
+        <span class="kampf-settings-gear-host" id="kampf-settings-gear-host"></span>
         <span class="kampf-col-label kampf-col-label--counter" title="Aktion">Aktion</span>
         <span class="kampf-h-spacer kampf-h-spacer--action-dist" aria-hidden="true"></span>
         <span class="kampf-col-label kampf-col-label--counter" title="Distanz (halten)">Dist</span>
@@ -77,25 +77,15 @@ appRoot.innerHTML = `
         </div>
       </div>
     </div>
-    <div class="kampf-list-footer">
-      <div class="kampf-settings-gear-host" id="kampf-settings-gear-host"></div>
-      <div id="kampf-build-version" class="kampf-build-version" aria-hidden="true"></div>
-    </div>
   </div>
 `
-const buildVerEl = document.getElementById('kampf-build-version')
-if (buildVerEl) {
-  buildVerEl.textContent = `V.${BUILD_VERSION}`
-}
 
 if (OBR.isAvailable) {
   OBR.onReady(async () => {
     await initCombatRoom()
     await initEditAccess()
     const syncViewerChrome = () => {
-      const gm = isGmSync()
-      document.documentElement.classList.toggle('v4-is-gm', gm)
-      if (buildVerEl) buildVerEl.hidden = !gm
+      document.documentElement.classList.toggle('v4-is-gm', isGmSync())
     }
     syncViewerChrome()
     OBR.player.onChange(() => syncViewerChrome())

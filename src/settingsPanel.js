@@ -1,4 +1,5 @@
 import OBR from '@owlbear-rodeo/sdk'
+import { BUILD_VERSION } from './buildVersion.js'
 import { isGmSync } from './editAccess.js'
 import {
   getHideForeignHeroColorsForViewer,
@@ -22,7 +23,7 @@ import { cloneDefaultWappenDefs } from './wappenDefs.js'
 export const KAMPF_GEAR_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`
 
 /**
- * Zahnrad im Listen-Footer (links); GM bearbeitet, Spieler nur lesen.
+ * Zahnrad in der Kopfzeile links vor „Aktion“; GM bearbeitet, Spieler nur lesen.
  * @param {HTMLElement | null} gearHost Eltern-Container (z. B. #kampf-settings-gear-host)
  * @returns {() => void} Aufräumen
  */
@@ -97,6 +98,7 @@ export function setupSettingsPanel(gearHost) {
         <li>INI-Schwellen der Hohen Initiative anpassbar (20/30/40)</li>
       </ul>
     </div>
+    <p class="kampf-settings-panel__version" data-kampf-settings-version aria-label="Build-Version"></p>
     <div class="kampf-settings-panel__actions">
       <button type="button" class="btn kampf-settings-panel__cancel" data-kampf-settings-cancel>Abbrechen</button>
       <button type="button" class="btn btn--primary kampf-settings-panel__save" data-kampf-settings-save>Speichern und schließen</button>
@@ -118,6 +120,7 @@ export function setupSettingsPanel(gearHost) {
     '[data-kampf-setting-hide-foreign-hero-colors]'
   )
   const roleHint = panel.querySelector('[data-kampf-settings-role-hint]')
+  const versionEl = panel.querySelector('[data-kampf-settings-version]')
   const saveBtn = panel.querySelector('button.kampf-settings-panel__save')
   const cancelBtn = panel.querySelector('button.kampf-settings-panel__cancel')
   const wappenSection = panel.querySelector('[data-kampf-settings-wappen-section]')
@@ -174,6 +177,9 @@ export function setupSettingsPanel(gearHost) {
       roleHint.textContent = isGmSync()
         ? 'Als Spielleitung kannst du die kampfbezogenen Raum-Optionen ändern; alle Spieler sehen dieselben Werte. „Aktionsstempel“, „Orientierungsringe“ und „Fremde Heldenfarben“ sind persönliche Anzeige-Optionen (nur bei dir). Änderungen greifen erst bei „Speichern und schließen“.'
         : 'Nur die Spielleitung kann die Raum-Option oben ändern. „Aktionsstempel“, „Orientierungsringe“ und „Fremde Heldenfarben“ kannst du für deine Ansicht selbst einstellen. Änderungen greifen erst bei „Speichern und schließen“.'
+    }
+    if (versionEl) {
+      versionEl.textContent = `V.${BUILD_VERSION}`
     }
     if (wappenSection instanceof HTMLElement) {
       const gm = isGmSync()

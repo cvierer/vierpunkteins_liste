@@ -9,6 +9,8 @@
   --init-hero-mod-scale: 1.12;
   /* Schwert, S.R.A./L.H.-Stern, z.AT-Schwert, blaue/schwarze Schilde (KR-Zeilen) */
   --init-combat-icon-scale: 1.3;
+  /* Nur Angriffs-Schwert (Ang.), nicht Schilde/S.R.A. */
+  --init-sword-icon-scale: 0.9;
   /* Kampf-/Helden-Einstellungen (Modal .kampf-settings-panel): Basisbreite × Faktor */
   --kampf-settings-panel-width-scale: 1.3;
   /* Gesamtskala rem-Basis (Kampfliste + Inhalt), vormals 1.5 jetzt 1.3 */
@@ -163,7 +165,7 @@ body {
 
 #app {
   margin: 0 auto;
-  padding: 0.28rem 0.5rem 0.45rem;
+  padding: 0.28rem 0.5rem 0.28rem;
   text-align: left;
   box-sizing: border-box;
   height: 100%;
@@ -436,8 +438,9 @@ body {
 
 .kampf-col-za-group {
   display: grid;
-  /* Spaltenbreiten wie .init-phase-slot-row (Aktion, Dist, Frei, Reakt) */
+  /* Spaltenbreiten wie .init-phase-slot-row (Zahnrad, Aktion, Dist, Frei, Reakt) */
   grid-template-columns:
+    calc(0.75rem * var(--init-ui-scale))
     calc(var(--init-obj-cell) * 1.5)
     calc(var(--init-grid-gap) + var(--init-action-dist-gap))
     var(--init-dist-cell-w)
@@ -479,12 +482,12 @@ body {
 }
 
 /* Frei: mittig über F.A.-Kästchen */
-.kampf-col-za-group > .kampf-col-label--counter:nth-child(5) {
+.kampf-col-za-group > .kampf-col-label--counter:nth-child(6) {
   width: 100%;
 }
 
 /* Reakt: mittig über einem Schild (nicht über der ganzen Schild-Reihe) */
-.kampf-col-za-group > .kampf-col-label--counter:nth-child(7) {
+.kampf-col-za-group > .kampf-col-label--counter:nth-child(8) {
   width: var(--init-col-head-reakt-w, calc(var(--init-obj-cell) * 0.88));
   max-width: 100%;
   justify-self: start;
@@ -613,49 +616,24 @@ body {
   z-index: 210;
 }
 
-.kampf-list-footer {
-  position: relative;
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  min-height: 1.45rem;
-  padding: 0.05rem 0.45rem 0.28rem;
-  box-sizing: border-box;
-  background: rgba(233, 220, 200, 0.42);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .kampf-list-head,
-  .initiative-list-scroll,
-  .kampf-list-footer {
+  .initiative-list-scroll {
     background: rgba(233, 220, 200, 0.88);
   }
 }
 
 .kampf-settings-gear-host {
-  position: absolute;
-  left: 0.32rem;
-  bottom: 0.2rem;
-  z-index: 2;
+  align-self: flex-end;
+  justify-self: center;
   line-height: 0;
+  max-height: 1em;
+  overflow: visible;
 }
 
 /* Spieler: globales Kampf-Einstellungszahnrad nicht anzeigen */
 html:not(.v4-is-gm) .kampf-settings-gear-host {
   display: none;
-}
-
-.kampf-build-version {
-  flex: 1;
-  text-align: center;
-  font-size: 0.62rem;
-  line-height: 1.25;
-  color: rgba(148, 118, 82, 0.58);
-  padding: 0;
-  letter-spacing: 0.08em;
 }
 
 .init-drag-ini-float {
@@ -4445,10 +4423,12 @@ select.init-row-extra-select {
 .init-kr-primary-zao-restore__glyph .init-kr-primary-kind__svg--ang {
   display: block;
   width: calc(
-    0.52rem * var(--init-ui-scale) * var(--init-combat-icon-scale)
+    0.52rem * var(--init-ui-scale) * var(--init-combat-icon-scale) *
+      var(--init-sword-icon-scale)
   );
   height: calc(
-    0.74rem * var(--init-ui-scale) * var(--init-combat-icon-scale)
+    0.74rem * var(--init-ui-scale) * var(--init-combat-icon-scale) *
+      var(--init-sword-icon-scale)
   );
 }
 
@@ -5441,6 +5421,18 @@ select.init-row-extra-select {
 
 /* Großes Schwert (AN) etwas nach links — nur Primär-Icon, nicht z.AT-Restore */
 .init-kr-primary-main__icon .init-kr-primary-kind__svg--ang {
+  height: calc(
+    min(
+        calc(33.85px * var(--init-combat-icon-scale)),
+        calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
+      ) * var(--init-sword-icon-scale)
+  );
+  width: calc(
+    min(
+        calc(33.85px * var(--init-combat-icon-scale)),
+        calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
+      ) * 24 / 34 * var(--init-sword-icon-scale)
+  );
   transform: translateX(calc(-0.07rem * var(--init-ui-scale)));
 }
 
@@ -7451,9 +7443,9 @@ select.init-row-extra-select {
   justify-content: center;
   width: auto;
   height: auto;
-  min-width: 1.15rem;
-  min-height: 1.15rem;
-  padding: 0.1rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.05rem;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -7477,8 +7469,8 @@ select.init-row-extra-select {
 }
 
 .kampf-settings-gear svg {
-  width: 13px;
-  height: 13px;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
   display: block;
 }
@@ -7625,6 +7617,15 @@ select.init-row-extra-select {
   z-index: 2;
   margin-top: 0.35rem;
   width: 100%;
+}
+
+.kampf-settings-panel__version {
+  margin: 0.5rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.04em;
 }
 
 .kampf-settings-panel__microhint {
