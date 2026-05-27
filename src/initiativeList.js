@@ -2881,7 +2881,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   /** @type {Map<string, { x: number, y: number }>} */
   let lastTrackerCentersById = new Map()
   let distanceProbeRefreshPending = false
-  let probeOverlaysPrimed = false
   let probeMovementRafId = 0
   let probePointerListenersAttached = false
   let probePlayerChangeUnsub = null
@@ -3069,30 +3068,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     finishProbeMapPlacement()
   }
 
-  async function trySwitchDistanceProbeFromMapSelection() {
-    if (!distanceProbeItemId || probeRestEnding) return
-    if (probePointerHeld || probeMapDragging || hasProbeAnchorToken()) return
-    let selection = []
-    try {
-      selection = await OBR.player.getSelection()
-    } catch {
-      return
-    }
-    let targetId = null
-    for (const id of selection) {
-      if (!id || id === distanceProbeItemId) continue
-      const item = lastItems.find((i) => i.id === id)
-      if (item?.metadata?.[TRACKER_ITEM_META_KEY] != null) {
-        targetId = id
-        break
-      }
-    }
-    if (!targetId) return
-    void activateDistanceProbe(targetId).catch((err) => {
-      console.warn('[vierpunkteins] DIST-Probe per Map-Selektion', err)
-    })
-  }
-
   function attachProbePlayerListener() {
     if (probePlayerChangeUnsub) return
     probePlayerChangeUnsub = OBR.player.onChange(() => {
@@ -3100,7 +3075,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       if (probePointerDownPending && !probePointerHeld) {
         void tryBeginProbeGrabFromSelection()
       }
-      void trySwitchDistanceProbeFromMapSelection()
     })
   }
 
@@ -3406,7 +3380,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    *   redrawRings?: boolean,
    *   checkPlacement?: boolean,
    *   alwaysRefreshSpokes?: boolean,
-   *   forceOverlays?: boolean,
    *   syncLine?: boolean,
    * }} [options]
    */
@@ -3417,22 +3390,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const gridContext = options.gridContext ?? (await getGridContext())
     if (!gridContext) return
 
-    const liveOptions =
-      !probeOverlaysPrimed && !options.forceOverlays
-        ? { ...options, forceOverlays: true }
-        : options
-
     const trackerCenters = await collectTrackerCenterMap(sceneItems, gridContext)
     const { anyMoved: anyTrackerMoved, nextCenters, movedIds } =
       detectTrackerCenterMoves(lastTrackerCentersById, trackerCenters)
     lastTrackerCentersById = nextCenters
 
-    if (liveOptions.checkPlacement === true) {
+    if (options.checkPlacement ?? true) {
       await updateProbePlacementFromScene(probeItem, gridContext)
     }
-
-    const drawRings =
-      liveOptions.redrawRings === true || liveOptions.forceOverlays === true
 
     if (probeMapDragging) {
       const center = await resolveDistanceCenter(probeItem, gridContext)
@@ -3440,7 +3405,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       if (!shifted) {
         await refreshProbeRingsForItem(probeItem)
       }
-      if (liveOptions.syncLine !== false) {
+      if (options.syncLine !== false) {
         await syncProbeAnchorSpokeLine(probeItem)
       }
     } else {
@@ -3450,10 +3415,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         probeItem,
         movedIds
       )
-      if (drawRings) {
+      if (options.redrawRings) {
         await refreshProbeRingsForItem(probeItem)
       }
-      if (liveOptions.syncLine !== false) {
+      if (options.syncLine !== false) {
         await syncProbeAnchorSpokeLine(probeItem)
       }
     }
@@ -3461,15 +3426,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (
       probeMapDragging ||
       anyTrackerMoved ||
-      liveOptions.alwaysRefreshSpokes ||
-      liveOptions.forceOverlays
+      options.alwaysRefreshSpokes
     ) {
       await refreshProbeSpokesOnly(probeItem, sceneItems)
       applyDistanceOverlay()
-    }
-
-    if (drawRings || liveOptions.forceOverlays) {
-      probeOverlaysPrimed = true
     }
 
     await tryFinishProbePlacementWhenOrientationSynced(probeItem, gridContext)
@@ -3483,7 +3443,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     } catch {
       return
     }
-    await refreshDistanceProbeLive(sceneItems, { checkPlacement: true })
+    await refreshDistanceProbeLive(sceneItems)
   }
 
   /** @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems */
@@ -3518,8 +3478,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       gridContext,
       redrawRings,
       checkPlacement,
-      alwaysRefreshSpokes: options.alwaysRefreshSpokes ?? true,
-      forceOverlays: options.forceOverlays ?? false,
+      alwaysRefreshSpokes: true,
       syncLine,
     })
   }
@@ -3652,7 +3611,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   function deactivateDistanceProbe() {
     distanceProbeItemId = null
-    probeOverlaysPrimed = false
     stopProbeMovementLoop()
     detachProbePointerListeners()
     resetProbeMapDragState()
@@ -3670,7 +3628,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       void hideDistanceSpokes()
     }
     distanceProbeItemId = itemId
-    probeOverlaysPrimed = false
     resetProbeMapDragState()
     const probeAtDown = lastItems.find((i) => i.id === itemId)
     const gridContext = await getGridContext({ forceRefresh: true })
@@ -3684,14 +3641,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     applyDistanceOverlay()
     const item = lastItems.find((i) => i.id === itemId)
     if (!item || !gridContext) return
+    startProbeMovementLoop()
     await runDistanceProbeRefresh({
       redrawRings: true,
       checkPlacement: false,
       syncLine: true,
-      alwaysRefreshSpokes: true,
-      forceOverlays: true,
     })
-    startProbeMovementLoop()
   }
 
   function wireDistanceProbeCell(cell, itemId) {
