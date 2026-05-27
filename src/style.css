@@ -16,7 +16,7 @@
   /* LE-Popover (Klick auf S): etwas breiter; JS verteilt minimal links, mehr rechts */
   --init-hero-le-pop-width-scale: 1.54;
   /* Kästchengröße: 0.96 × Basis × UI-Skala */
-  --init-box-scale: calc(0.96 * var(--init-ui-scale));
+  --init-box-scale: calc(0.9 * var(--init-ui-scale));
   --init-obj-cell: calc(1.22rem * var(--init-box-scale));
   /* Mod-UI: wie .init-hero-ex__micro (4px : Zellhöhe) — global, u. a. Mod-Leiste (sibling) + INI-Zeile M-Badge */
   --init-hero-box-radius: 4px;
@@ -381,7 +381,7 @@ body {
   --init-col-head-reakt-w: calc(var(--init-obj-cell) * 0.88);
   --init-action-dist-gap: calc(var(--init-grid-gap) * 0.6);
   --init-lh-ini-gap: calc(0.95rem * var(--init-ui-scale));
-  --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
+  --init-list-row-gap: calc(0.26rem * var(--init-ui-scale));
 }
 
 .kampf-h-spacer--expand {
@@ -769,7 +769,7 @@ html:not(.v4-is-gm) .kampf-settings-gear-host {
   align-items: center;
   width: 100%;
   box-sizing: border-box;
-  padding: calc(0.08rem * var(--init-ui-scale)) 0;
+  padding: calc(0.03rem * var(--init-ui-scale)) 0;
   border-radius: calc(var(--radius) - 1px);
   border: 1px solid transparent;
   position: relative;
