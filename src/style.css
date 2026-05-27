@@ -375,6 +375,8 @@ body {
   --init-dist-cell-font-size: var(--init-row-strip-font-size);
   --init-col-head-font-size: calc(0.42rem * var(--init-ui-scale));
   --init-col-head-line-height: 1;
+  /* wie .init-kr-reaction-store .init-kr-abw-split-shell[data-shield-count='1'] */
+  --init-col-head-reakt-w: calc(var(--init-obj-cell) * 0.88);
   --init-action-dist-gap: calc(var(--init-grid-gap) * 0.6);
   --init-lh-ini-gap: calc(0.95rem * var(--init-ui-scale));
   --init-list-row-gap: calc(0.4rem * var(--init-ui-scale));
@@ -440,10 +442,7 @@ body {
     calc(var(--init-grid-gap) + var(--init-action-reaction-gap))
     calc(var(--init-obj-cell) * 1.5)
     var(--init-reaction-frei-gap)
-    minmax(
-      calc(var(--init-obj-cell) * 0.78),
-      calc(var(--init-obj-cell) * 1.55)
-    );
+    var(--init-col-head-reakt-w);
   gap: 0;
   align-items: flex-end;
   min-width: 0;
@@ -477,10 +476,17 @@ body {
   box-sizing: border-box;
 }
 
-/* Frei / Reakt: mittig über F.A.-Kästchen bzw. Abwehr-Schilde */
-.kampf-col-za-group > .kampf-col-label--counter:nth-child(5),
-.kampf-col-za-group > .kampf-col-label--counter:nth-child(7) {
+/* Frei: mittig über F.A.-Kästchen */
+.kampf-col-za-group > .kampf-col-label--counter:nth-child(5) {
   width: 100%;
+}
+
+/* Reakt: mittig über einem Schild (nicht über der ganzen Schild-Reihe) */
+.kampf-col-za-group > .kampf-col-label--counter:nth-child(7) {
+  width: var(--init-col-head-reakt-w, calc(var(--init-obj-cell) * 0.88));
+  max-width: 100%;
+  justify-self: start;
+  text-align: center;
 }
 
 .kampf-col-label--name {
