@@ -3289,6 +3289,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   async function refreshProbeRingsForItem(probeItem) {
+    // Spieler: keine Distanzringe fuer fremde Tokens anzeigen (Owner = createdUserId).
+    if (!isGmSync() && !canEditSceneItem(probeItem)) {
+      await hideDistanceRings()
+      return
+    }
     const meta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const combat = getCombat()
     const gsSchritt = meta
@@ -3355,9 +3360,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     await updateProbePlacementFromScene(probeItem, gridContext)
     if (probeMapDragging) {
       const center = await resolveDistanceCenter(probeItem, gridContext)
-      const shifted = await shiftDistanceRingsCenter(center)
-      if (!shifted) {
-        await refreshProbeRingsForItem(probeItem)
+      if (isGmSync() || canEditSceneItem(probeItem)) {
+        const shifted = await shiftDistanceRingsCenter(center)
+        if (!shifted) {
+          await refreshProbeRingsForItem(probeItem)
+        }
+      } else {
+        await hideDistanceRings()
       }
       await syncProbeAnchorSpokeLine(probeItem)
     } else {
