@@ -19,13 +19,13 @@ export const MOVEMENT_MIN_SCHRITT = 0.05
 const SPOKE_LABEL_BG_OPACITY = 0.88
 
 /** @type {Set<string>} */
-const lastSpokeKeys = new Set()
+const lastSpokeOtherIds = new Set()
 let movementLineActive = false
 let probeAnchorSpokeActive = false
 
-/** @param {string} spokeKey @param {'line' | 'label'} kind */
-export function spokeItemId(spokeKey, kind) {
-  return `${SPOKE_ID_PREFIX}${kind}/${spokeKey}`
+/** @param {string} otherId @param {'line' | 'label'} kind */
+export function spokeItemId(otherId, kind) {
+  return `${SPOKE_ID_PREFIX}${kind}/${otherId}`
 }
 
 export const PROBE_ANCHOR_SPOKE_LINE_ID = spokeItemId(PROBE_ANCHOR_TOKEN_ID, 'line')
@@ -134,16 +134,16 @@ async function updateMovementSpokeItems(start, end, color, text) {
 }
 
 /**
- * @param {string} spokeKey
+ * @param {string} otherId
  * @param {{ x: number, y: number }} start
  * @param {{ x: number, y: number }} end
  * @param {string} color
  * @param {string} text
  */
-async function updateOtherSpokeItems(spokeKey, start, end, color, text) {
+async function updateOtherSpokeItems(otherId, start, end, color, text) {
   const labelPos = spokeLabelPosition(start, end)
   await updateLocalSpokeItems(
-    [spokeItemId(spokeKey, 'line'), spokeItemId(spokeKey, 'label')],
+    [spokeItemId(otherId, 'line'), spokeItemId(otherId, 'label')],
     (d) => {
       if (d.type === 'LINE') {
         d.startPosition = start
@@ -158,69 +158,6 @@ async function updateOtherSpokeItems(spokeKey, start, end, color, text) {
       }
     }
   )
-}
-
-/**
- * @param {{ key: string, start: { x: number, y: number }, end: { x: number, y: number }, color: string, text: string }[]} spokePairs
- */
-async function renderSpokePairs(spokePairs) {
-  /** @type {Set<string>} */
-  const nextKeys = new Set()
-  /** @type {import('@owlbear-rodeo/sdk').Item[]} */
-  const toAdd = []
-
-  for (const pair of spokePairs) {
-    if (!pair) continue
-    nextKeys.add(pair.key)
-    if (lastSpokeKeys.has(pair.key)) {
-      try {
-        await updateOtherSpokeItems(
-          pair.key,
-          pair.start,
-          pair.end,
-          pair.color,
-          pair.text
-        )
-      } catch {
-        toAdd.push(
-          buildSpokeLine(
-            pair.start,
-            pair.end,
-            spokeItemId(pair.key, 'line'),
-            pair.color
-          ),
-          buildSpokeLabel(
-            pair.text,
-            spokeLabelPosition(pair.start, pair.end),
-            spokeItemId(pair.key, 'label'),
-            pair.color
-          )
-        )
-      }
-    } else {
-      toAdd.push(
-        buildSpokeLine(pair.start, pair.end, spokeItemId(pair.key, 'line'), pair.color),
-        buildSpokeLabel(
-          pair.text,
-          spokeLabelPosition(pair.start, pair.end),
-          spokeItemId(pair.key, 'label'),
-          pair.color
-        )
-      )
-    }
-  }
-
-  const removeIds = []
-  for (const oldKey of lastSpokeKeys) {
-    if (!nextKeys.has(oldKey)) {
-      removeIds.push(spokeItemId(oldKey, 'line'), spokeItemId(oldKey, 'label'))
-    }
-  }
-  lastSpokeKeys.clear()
-  for (const key of nextKeys) lastSpokeKeys.add(key)
-
-  await deleteLocalSpokeIds(removeIds)
-  if (toAdd.length > 0) await OBR.scene.local.addItems(toAdd)
 }
 
 /** @param {string[]} ids */
@@ -398,46 +335,72 @@ export async function showDistanceSpokesFor(
       if (!text) return null
       const meta = other.metadata?.[TRACKER_ITEM_META_KEY]
       const color = resolveSpokeColor(meta)
-      return { key: other.id, start, end, color, text }
+      return { otherId: other.id, end, color, text }
     })
   )
-  await renderSpokePairs(spokePairs.filter(Boolean))
-}
 
-/**
- * @param {{ item: { id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> }, classXSchritt?: number | null }[]} sourceDefs
- * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} targetItem
- */
-export async function showDistanceSpokesToTarget(sourceDefs, targetItem) {
-  if (!targetItem?.id || !Array.isArray(sourceDefs) || sourceDefs.length === 0) {
-    await renderSpokePairs([])
-    return
-  }
-  const ctx = await getGridContext()
-  const targetCenter = await resolveDistanceCenter(targetItem, ctx)
-  const spokePairs = await Promise.all(
-    sourceDefs.map(async (sourceDef) => {
-      const source = sourceDef?.item
-      if (!source?.id || source.id === targetItem.id) return null
-      const start = await resolveDistanceCenter(source, ctx)
-      const text = await formatGridDistWithClass(
-        source,
-        targetItem,
-        sourceDef?.classXSchritt ?? null
-      )
-      if (!text) return null
-      const meta = source.metadata?.[TRACKER_ITEM_META_KEY]
-      const color = resolveSpokeColor(meta)
-      return {
-        key: `${source.id}__${targetItem.id}`,
-        start,
-        end: targetCenter,
-        color,
-        text,
+  /** @type {Set<string>} */
+  const nextIds = new Set()
+  /** @type {import('@owlbear-rodeo/sdk').Item[]} */
+  const toAdd = []
+
+  for (const pair of spokePairs) {
+    if (!pair) continue
+    nextIds.add(pair.otherId)
+    if (lastSpokeOtherIds.has(pair.otherId)) {
+      try {
+        await updateOtherSpokeItems(
+          pair.otherId,
+          start,
+          pair.end,
+          pair.color,
+          pair.text
+        )
+      } catch {
+        toAdd.push(
+          buildSpokeLine(
+            start,
+            pair.end,
+            spokeItemId(pair.otherId, 'line'),
+            pair.color
+          ),
+          buildSpokeLabel(
+            pair.text,
+            spokeLabelPosition(start, pair.end),
+            spokeItemId(pair.otherId, 'label'),
+            pair.color
+          )
+        )
       }
-    })
-  )
-  await renderSpokePairs(spokePairs.filter(Boolean))
+    } else {
+      toAdd.push(
+        buildSpokeLine(
+          start,
+          pair.end,
+          spokeItemId(pair.otherId, 'line'),
+          pair.color
+        ),
+        buildSpokeLabel(
+          pair.text,
+          spokeLabelPosition(start, pair.end),
+          spokeItemId(pair.otherId, 'label'),
+          pair.color
+        )
+      )
+    }
+  }
+
+  const removeIds = []
+  for (const oldId of lastSpokeOtherIds) {
+    if (!nextIds.has(oldId)) {
+      removeIds.push(spokeItemId(oldId, 'line'), spokeItemId(oldId, 'label'))
+    }
+  }
+  lastSpokeOtherIds.clear()
+  for (const id of nextIds) lastSpokeOtherIds.add(id)
+
+  await deleteLocalSpokeIds(removeIds)
+  if (toAdd.length > 0) await OBR.scene.local.addItems(toAdd)
 }
 
 export async function hideDistanceSpokes() {
@@ -448,7 +411,7 @@ export async function hideDistanceSpokes() {
 
 /** Nur fuer Tests: Spoke-/Movement-Tracking zuruecksetzen. */
 export function resetDistanceSpokeOverlayStateForTests() {
-  lastSpokeKeys.clear()
+  lastSpokeOtherIds.clear()
   movementLineActive = false
   probeAnchorSpokeActive = false
 }

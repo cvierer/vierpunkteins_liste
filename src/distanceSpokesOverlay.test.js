@@ -92,7 +92,6 @@ import {
   resolveSpokeColor,
   shouldShowMovementSpoke,
   showDistanceSpokesFor,
-  showDistanceSpokesToTarget,
   SPOKE_COLOR_FALLBACK,
   spokeItemId,
   spokeLabelPosition,
@@ -178,57 +177,6 @@ describe('showDistanceSpokesFor update path', () => {
     expect(localApi.updateItems.mock.calls[0][0]).toEqual([
       spokeItemId('other', 'line'),
       spokeItemId('other', 'label'),
-    ])
-  })
-})
-
-describe('showDistanceSpokesToTarget update path', () => {
-  const a = {
-    id: 'a',
-    position: { x: 0, y: 0 },
-    metadata: { [TRACKER_ITEM_META_KEY]: { heroBgColor: '#112233' } },
-  }
-  const b = {
-    id: 'b',
-    position: { x: 10, y: 10 },
-    metadata: { [TRACKER_ITEM_META_KEY]: { heroBgColor: '#223344' } },
-  }
-  const target = {
-    id: 't',
-    position: { x: 20, y: 20 },
-    metadata: { [TRACKER_ITEM_META_KEY]: {} },
-  }
-
-  beforeEach(() => {
-    resetDistanceSpokeOverlayStateForTests()
-    localApi.addItems.mockClear()
-    localApi.updateItems.mockClear()
-    localApi.deleteItems.mockClear()
-  })
-
-  it('zweiter Aufruf nutzt updateItems statt erneutes addItems', async () => {
-    await showDistanceSpokesToTarget(
-      [
-        { item: a, classXSchritt: null },
-        { item: b, classXSchritt: null },
-      ],
-      target
-    )
-    expect(localApi.addItems).toHaveBeenCalledTimes(1)
-    expect(localApi.updateItems).not.toHaveBeenCalled()
-
-    await showDistanceSpokesToTarget(
-      [
-        { item: a, classXSchritt: null },
-        { item: b, classXSchritt: null },
-      ],
-      target
-    )
-    expect(localApi.addItems).toHaveBeenCalledTimes(1)
-    expect(localApi.updateItems).toHaveBeenCalledTimes(2)
-    expect(localApi.updateItems.mock.calls[0][0]).toEqual([
-      spokeItemId('a__t', 'line'),
-      spokeItemId('a__t', 'label'),
     ])
   })
 })
