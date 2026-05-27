@@ -3,7 +3,6 @@ import {
   combatOverlayKey,
   primaryKindMapStyle,
   primaryKindMapSymbol,
-  primaryKindMapRotation,
   primaryKindMapFontWeight,
   primaryKindMapFontSize,
   primaryKindSvgMarkup,
@@ -84,20 +83,18 @@ describe('primaryKindMapSymbol', () => {
     }
   })
 
-  it('ang ist typografischer Dolch nach oben', () => {
-    expect(primaryKindMapSymbol('ang')).toBe('\u2020')
+  it('ang ist gedrehter Dolch (Unicode TURNED DAGGER)', () => {
+    expect(primaryKindMapSymbol('ang')).toBe('\u2E38')
   })
 
-  it('ang: weisse Fuellung, Rotation 180, feinere Schrift', () => {
+  it('ang: weisse Fuellung, feinere Schrift, kein Rotations-Overlay', () => {
     expect(primaryKindMapStyle('ang').fillColor).toBe('#ffffff')
-    expect(primaryKindMapRotation('ang')).toBe(180)
     expect(primaryKindMapFontWeight('ang')).toBe(500)
     expect(primaryKindMapFontSize('ang')).toBe(22)
   })
 
-  it('andere Kinds: Standard-Schrift und keine Rotation', () => {
+  it('andere Kinds: Standard-Schriftgroesse', () => {
     for (const k of ['sra', 'lh', 'par']) {
-      expect(primaryKindMapRotation(k)).toBe(0)
       expect(primaryKindMapFontWeight(k)).toBe(700)
       expect(primaryKindMapFontSize(k)).toBe(26)
     }

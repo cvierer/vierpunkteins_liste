@@ -75,17 +75,13 @@ export function primaryKindSvgDataUrl(kind) {
 }
 
 /** @type {Record<string, string>} */
+/** Angriff: U+2E38 TURNED DAGGER (wie † um 180°), ohne Label-Rotation. */
 const KIND_MAP_SYMBOL = Object.freeze({
-  ang: '\u2020',
+  ang: '\u2E38',
   sra: '\u2605',
   lh: '\u2605',
   uo: '\u21c4',
   par: '\u26e8',
-})
-
-/** @type {Record<string, number>} */
-const KIND_MAP_ROTATION = Object.freeze({
-  ang: 180,
 })
 
 /** @type {Record<string, number>} */
@@ -124,13 +120,6 @@ export function primaryKindMapSymbol(kind) {
  */
 export function primaryKindMapStyle(kind) {
   return KIND_MAP_STYLE[kind] ?? KIND_MAP_STYLE.ang
-}
-
-/**
- * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
- */
-export function primaryKindMapRotation(kind) {
-  return KIND_MAP_ROTATION[kind] ?? 0
 }
 
 /**

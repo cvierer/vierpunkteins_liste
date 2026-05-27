@@ -6,7 +6,6 @@ import {
   KIND_LABEL,
   primaryKindMapStyle,
   primaryKindMapSymbol,
-  primaryKindMapRotation,
   primaryKindMapFontWeight,
   primaryKindMapFontSize,
   resolvePrimaryKindForNav,
@@ -20,14 +19,13 @@ import {
 import { TRACKER_ITEM_META_KEY } from './participants.js'
 
 export const TURN_ACTION_LABEL_ID = 'vierpunkteins/turn-action-label'
+/** Legacy split-overlay; beim Refresh mit entfernen. */
 export const TURN_ACTION_GLYPH_ID = 'vierpunkteins/turn-action-glyph'
 const TURN_ACTION_LABEL_META = 'vierpunkteins_kampf.turnActionLabel'
 const TURN_ACTION_OVERLAY_IDS = [TURN_ACTION_LABEL_ID, TURN_ACTION_GLYPH_ID]
 
 const LABEL_EST_HEIGHT = 40
 const LABEL_GAP = 10
-const TURN_ACTION_BADGE_Z = 1000
-const TURN_ACTION_GLYPH_Z = 1001
 
 export { KIND_LABEL }
 
@@ -93,28 +91,28 @@ async function resolveLabelPosition(tokenId) {
 }
 
 /**
- * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
- */
-function needsSplitGlyphOverlay(kind) {
-  return primaryKindMapRotation(kind) !== 0
-}
-
-/**
- * @param {string} id
- * @param {{ x: number, y: number }} position
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par'} kind
  * @param {import('@owlbear-rodeo/sdk').Item} tokenItem
- * @param {string} kind
- * @param {string} ariaName
- * @param {number} zIndex
+ * @param {{ x: number, y: number }} position
  */
-function baseLabelBuilder(id, position, tokenItem, kind, ariaName, zIndex) {
+function buildTurnActionLabelItem(kind, tokenItem, position) {
+  const style = primaryKindMapStyle(kind)
+  const ariaName = KIND_LABEL[kind] ?? 'Aktion'
   return buildLabel()
-    .id(id)
+    .id(TURN_ACTION_LABEL_ID)
+    .plainText(primaryKindMapSymbol(kind))
     .position(position)
+    .fontSize(primaryKindMapFontSize(kind))
+    .fontWeight(primaryKindMapFontWeight(kind))
     .textAlign('CENTER')
     .textAlignVertical('MIDDLE')
+    .fillColor(style.fillColor)
+    .backgroundColor(style.backgroundColor)
+    .backgroundOpacity(style.backgroundOpacity)
+    .cornerRadius(6)
+    .padding(4)
     .layer('TEXT')
-    .zIndex(zIndex)
+    .rotation(0)
     .locked(true)
     .disableHit(true)
     .visible(tokenItem.visible !== false)
@@ -124,83 +122,7 @@ function baseLabelBuilder(id, position, tokenItem, kind, ariaName, zIndex) {
       turnActionOwnerId: tokenItem.id,
       turnActionKind: kind,
     })
-}
-
-/**
- * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par'} kind
- * @param {import('@owlbear-rodeo/sdk').Item} tokenItem
- * @param {{ x: number, y: number }} position
- */
-function buildTurnActionOverlayItems(kind, tokenItem, position) {
-  const style = primaryKindMapStyle(kind)
-  const fontSize = primaryKindMapFontSize(kind)
-  const fontWeight = primaryKindMapFontWeight(kind)
-  const symbol = primaryKindMapSymbol(kind)
-  const ariaName = KIND_LABEL[kind] ?? 'Aktion'
-
-  if (!needsSplitGlyphOverlay(kind)) {
-    return [
-      baseLabelBuilder(
-        TURN_ACTION_LABEL_ID,
-        position,
-        tokenItem,
-        kind,
-        ariaName,
-        TURN_ACTION_BADGE_Z
-      )
-        .plainText(symbol)
-        .fontSize(fontSize)
-        .fontWeight(fontWeight)
-        .fillColor(style.fillColor)
-        .backgroundColor(style.backgroundColor)
-        .backgroundOpacity(style.backgroundOpacity)
-        .cornerRadius(6)
-        .padding(4)
-        .build(),
-    ]
-  }
-
-  const badgeBg = style.backgroundColor
-  const badge = baseLabelBuilder(
-    TURN_ACTION_LABEL_ID,
-    position,
-    tokenItem,
-    kind,
-    ariaName,
-    TURN_ACTION_BADGE_Z
-  )
-    .plainText(symbol)
-    .fontSize(fontSize)
-    .fontWeight(fontWeight)
-    .fillColor(badgeBg)
-    .strokeColor(badgeBg)
-    .backgroundColor(badgeBg)
-    .backgroundOpacity(1)
-    .cornerRadius(6)
-    .padding(4)
     .build()
-
-  const glyph = baseLabelBuilder(
-    TURN_ACTION_GLYPH_ID,
-    position,
-    tokenItem,
-    kind,
-    ariaName,
-    TURN_ACTION_GLYPH_Z
-  )
-    .plainText(symbol)
-    .fontSize(fontSize)
-    .fontWeight(fontWeight)
-    .fillColor('#ffffff')
-    .strokeColor('#ffffff')
-    .backgroundColor(badgeBg)
-    .backgroundOpacity(0)
-    .cornerRadius(6)
-    .padding(4)
-    .rotation(primaryKindMapRotation(kind))
-    .build()
-
-  return [badge, glyph]
 }
 
 let lastOverlayKey = ''
@@ -226,16 +148,13 @@ async function deleteTurnActionLabelIfPresent(items) {
  */
 async function updateTurnActionLabelPositionOnly(items, target) {
   if (!isGmSync()) return
-  const ids = TURN_ACTION_OVERLAY_IDS.filter((id) =>
-    items.some((i) => i.id === id)
-  )
-  if (ids.length === 0) return
+  if (!items.some((i) => i.id === TURN_ACTION_LABEL_ID)) return
   const tokenItem = tokenItemForLabel(items, target)
   if (!tokenItem) return
   const position = await resolveLabelPosition(target.ownerId)
   if (!position) return
   try {
-    await OBR.scene.items.updateItems(ids, (drafts) => {
+    await OBR.scene.items.updateItems([TURN_ACTION_LABEL_ID], (drafts) => {
       for (const d of drafts) {
         d.position = position
         d.visible = tokenItem.visible !== false
@@ -243,97 +162,6 @@ async function updateTurnActionLabelPositionOnly(items, target) {
     })
   } catch (e) {
     console.warn('[vierpunkteins_kampf] Aktions-Symbol Position', e)
-  }
-}
-
-/**
- * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par'} kind
- * @param {import('@owlbear-rodeo/sdk').Item} tokenItem
- * @param {{ x: number, y: number }} position
- * @param {import('@owlbear-rodeo/sdk').Item[]} items
- */
-async function syncTurnActionOverlayItems(kind, tokenItem, position, items) {
-  const overlayItems = buildTurnActionOverlayItems(kind, tokenItem, position)
-  const style = primaryKindMapStyle(kind)
-  const fontSize = primaryKindMapFontSize(kind)
-  const fontWeight = primaryKindMapFontWeight(kind)
-  const symbol = primaryKindMapSymbol(kind)
-  const ariaName = KIND_LABEL[kind] ?? 'Aktion'
-  const split = needsSplitGlyphOverlay(kind)
-  const existingBadge = items.find((i) => i.id === TURN_ACTION_LABEL_ID)
-  const existingGlyph = items.find((i) => i.id === TURN_ACTION_GLYPH_ID)
-
-  if (split && (!existingBadge || !existingGlyph)) {
-    await OBR.scene.items.deleteItems(TURN_ACTION_OVERLAY_IDS)
-    await OBR.scene.items.addItems(overlayItems)
-    return
-  }
-
-  if (!split && existingGlyph) {
-    await OBR.scene.items.deleteItems(TURN_ACTION_OVERLAY_IDS)
-    await OBR.scene.items.addItems(overlayItems)
-    return
-  }
-
-  if (!existingBadge) {
-    await OBR.scene.items.addItems(overlayItems)
-    return
-  }
-
-  const badgeBg = style.backgroundColor
-  await OBR.scene.items.updateItems([TURN_ACTION_LABEL_ID], (drafts) => {
-    for (const d of drafts) {
-      d.position = position
-      d.visible = tokenItem.visible !== false
-      d.name = ariaName
-      d.rotation = 0
-      d.zIndex = TURN_ACTION_BADGE_Z
-      d.metadata = {
-        [TURN_ACTION_LABEL_META]: true,
-        turnActionOwnerId: tokenItem.id,
-        turnActionKind: kind,
-      }
-      if (d.text) {
-        d.text.plainText = symbol
-        d.text.fillColor = split ? badgeBg : style.fillColor
-        d.text.strokeColor = split ? badgeBg : d.text.strokeColor
-        d.text.fontSize = fontSize
-        d.text.fontWeight = fontWeight
-      }
-      if (d.style) {
-        d.style.backgroundColor = badgeBg
-        d.style.backgroundOpacity = split ? 1 : style.backgroundOpacity
-      }
-    }
-  })
-
-  if (split && existingGlyph) {
-    const rotation = primaryKindMapRotation(kind)
-    await OBR.scene.items.updateItems([TURN_ACTION_GLYPH_ID], (drafts) => {
-      for (const d of drafts) {
-        d.position = position
-        d.visible = tokenItem.visible !== false
-        d.name = ariaName
-        d.rotation = rotation
-        d.zIndex = TURN_ACTION_GLYPH_Z
-        d.metadata = {
-          [TURN_ACTION_LABEL_META]: true,
-          turnActionOwnerId: tokenItem.id,
-          turnActionKind: kind,
-        }
-        if (d.text) {
-          d.text.plainText = symbol
-          d.text.fillColor = '#ffffff'
-          d.text.strokeColor = '#ffffff'
-          d.text.fontSize = fontSize
-          d.text.fontWeight = fontWeight
-        }
-        if (d.style) {
-          d.style.backgroundColor = badgeBg
-          d.style.backgroundOpacity = 0
-        }
-      }
-    })
   }
 }
 
@@ -367,19 +195,43 @@ async function refreshTurnActionLabel(itemsIn) {
     (await resolveLabelPosition(target.ownerId)) ??
     tokenItem.position ??
     { x: 0, y: 0 }
+  const labelItem = buildTurnActionLabelItem(kind, tokenItem, position)
   const existingBadge = items.find((i) => i.id === TURN_ACTION_LABEL_ID)
+  const existingGlyph = items.find((i) => i.id === TURN_ACTION_GLYPH_ID)
   const ownerChanged =
     lastOverlayOwnerId !== '' && lastOverlayOwnerId !== target.ownerId
   const keyChanged = lastOverlayKey !== '' && lastOverlayKey !== overlayKey
+  const needsRecreate =
+    existingGlyph != null || ownerChanged || keyChanged || !existingBadge
 
   try {
-    if (existingBadge && (ownerChanged || keyChanged)) {
+    if (needsRecreate) {
       await OBR.scene.items.deleteItems(TURN_ACTION_OVERLAY_IDS)
-      await OBR.scene.items.addItems(
-        buildTurnActionOverlayItems(kind, tokenItem, position)
-      )
+      await OBR.scene.items.addItems([labelItem])
     } else {
-      await syncTurnActionOverlayItems(kind, tokenItem, position, items)
+      const style = primaryKindMapStyle(kind)
+      const fontSize = primaryKindMapFontSize(kind)
+      const fontWeight = primaryKindMapFontWeight(kind)
+      const symbol = primaryKindMapSymbol(kind)
+      await OBR.scene.items.updateItems([TURN_ACTION_LABEL_ID], (drafts) => {
+        for (const d of drafts) {
+          d.position = labelItem.position
+          d.visible = labelItem.visible
+          d.name = labelItem.name
+          d.metadata = labelItem.metadata
+          d.rotation = 0
+          if (d.text) {
+            d.text.plainText = symbol
+            d.text.fillColor = style.fillColor
+            d.text.fontSize = fontSize
+            d.text.fontWeight = fontWeight
+          }
+          if (d.style) {
+            d.style.backgroundColor = style.backgroundColor
+            d.style.backgroundOpacity = style.backgroundOpacity
+          }
+        }
+      })
     }
     lastOverlayKey = overlayKey
     lastOverlayOwnerId = target.ownerId
