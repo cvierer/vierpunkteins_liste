@@ -3549,27 +3549,32 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     })
   }
 
-  function deactivateDistanceProbe() {
+  async function clearDistanceProbeOverlaysAsync() {
     distanceProbeItemId = null
     stopProbeMovementLoop()
     detachProbePointerListeners()
-    resetProbeMapDragState()
+    await resetProbeMapDragState()
+    await hideDistanceRings()
+    await hideDistanceSpokes()
     applyDistanceOverlay()
-    void hideDistanceRings()
-    void hideDistanceSpokes()
   }
 
-  /** Popover schließen / iframe entladen: keine eingefrorenen DIST-Overlays auf der Karte. */
+  function runClearDistanceProbeOverlays(reason) {
+    void clearDistanceProbeOverlaysAsync().catch((err) => {
+      console.warn(
+        `[vierpunkteins] DIST overlay cleanup${reason ? ` (${reason})` : ''}`,
+        err
+      )
+    })
+  }
+
+  function deactivateDistanceProbe() {
+    runClearDistanceProbeOverlays()
+  }
+
+  /** Popover / Action-Panel zu: keine eingefrorenen DIST-Overlays auf der Karte. */
   function clearDistanceProbeForPanelHide() {
-    if (distanceProbeItemId) {
-      deactivateDistanceProbe()
-      return
-    }
-    stopProbeMovementLoop()
-    detachProbePointerListeners()
-    void resetProbeMapDragState()
-    void hideDistanceRings()
-    void hideDistanceSpokes()
+    runClearDistanceProbeOverlays('panel hide')
   }
 
   const onDistanceProbePanelHide = () => {
@@ -3584,6 +3589,18 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   document.addEventListener('visibilitychange', onDistanceProbeVisibilityChange)
   window.addEventListener('pagehide', onDistanceProbePanelHide)
+
+  const offActionOpenChange = OBR.action.onOpenChange((isOpen) => {
+    if (!isOpen) {
+      runClearDistanceProbeOverlays('action close')
+    }
+  })
+
+  void OBR.action.isOpen().then((isOpen) => {
+    if (!isOpen) {
+      runClearDistanceProbeOverlays('action already closed')
+    }
+  })
 
   async function activateDistanceProbe(itemId) {
     if (distanceProbeItemId && distanceProbeItemId !== itemId) {
@@ -7479,6 +7496,7 @@ function bindStampContextRemove(el, stamp, items) {
       onDistanceProbeVisibilityChange
     )
     window.removeEventListener('pagehide', onDistanceProbePanelHide)
+    offActionOpenChange()
     clearDistanceProbeForPanelHide()
   }
 }
