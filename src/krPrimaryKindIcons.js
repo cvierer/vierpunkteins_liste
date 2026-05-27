@@ -83,6 +83,24 @@ const KIND_MAP_SYMBOL = Object.freeze({
   par: '\u26e8',
 })
 
+/** @type {Record<string, number>} */
+const KIND_MAP_ROTATION = Object.freeze({
+  ang: 180,
+})
+
+/** @type {Record<string, number>} */
+const KIND_MAP_FONT_WEIGHT = Object.freeze({
+  ang: 500,
+})
+
+/** @type {Record<string, number>} */
+const KIND_MAP_FONT_SIZE = Object.freeze({
+  ang: 22,
+})
+
+const DEFAULT_MAP_FONT_WEIGHT = 700
+const DEFAULT_MAP_FONT_SIZE = 26
+
 /** @type {Record<string, { fillColor: string, backgroundColor: string, backgroundOpacity: number }>} */
 const KIND_MAP_STYLE = Object.freeze({
   ang: { fillColor: '#ffffff', backgroundColor: '#6d0718', backgroundOpacity: 0.9 },
@@ -106,6 +124,27 @@ export function primaryKindMapSymbol(kind) {
  */
 export function primaryKindMapStyle(kind) {
   return KIND_MAP_STYLE[kind] ?? KIND_MAP_STYLE.ang
+}
+
+/**
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
+ */
+export function primaryKindMapRotation(kind) {
+  return KIND_MAP_ROTATION[kind] ?? 0
+}
+
+/**
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
+ */
+export function primaryKindMapFontWeight(kind) {
+  return KIND_MAP_FONT_WEIGHT[kind] ?? DEFAULT_MAP_FONT_WEIGHT
+}
+
+/**
+ * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
+ */
+export function primaryKindMapFontSize(kind) {
+  return KIND_MAP_FONT_SIZE[kind] ?? DEFAULT_MAP_FONT_SIZE
 }
 
 /**

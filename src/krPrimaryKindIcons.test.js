@@ -3,6 +3,9 @@ import {
   combatOverlayKey,
   primaryKindMapStyle,
   primaryKindMapSymbol,
+  primaryKindMapRotation,
+  primaryKindMapFontWeight,
+  primaryKindMapFontSize,
   primaryKindSvgMarkup,
   primaryKindSvgDataUrl,
   resolvePrimaryKindForNav,
@@ -85,8 +88,19 @@ describe('primaryKindMapSymbol', () => {
     expect(primaryKindMapSymbol('ang')).toBe('\u2020')
   })
 
-  it('ang: weisse Fuellung', () => {
+  it('ang: weisse Fuellung, Rotation 180, feinere Schrift', () => {
     expect(primaryKindMapStyle('ang').fillColor).toBe('#ffffff')
+    expect(primaryKindMapRotation('ang')).toBe(180)
+    expect(primaryKindMapFontWeight('ang')).toBe(500)
+    expect(primaryKindMapFontSize('ang')).toBe(22)
+  })
+
+  it('andere Kinds: Standard-Schrift und keine Rotation', () => {
+    for (const k of ['sra', 'lh', 'par']) {
+      expect(primaryKindMapRotation(k)).toBe(0)
+      expect(primaryKindMapFontWeight(k)).toBe(700)
+      expect(primaryKindMapFontSize(k)).toBe(26)
+    }
   })
 
   it('lh teilt Stern mit sra', () => {
