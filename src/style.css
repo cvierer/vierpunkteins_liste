@@ -373,7 +373,7 @@ body {
   --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
   --init-row-strip-line-height: 1.15;
   --init-dist-cell-font-size: var(--init-row-strip-font-size);
-  --init-col-head-font-size: calc(0.6rem * var(--init-ui-scale));
+  --init-col-head-font-size: calc(0.52rem * var(--init-ui-scale));
   --init-col-head-line-height: 1;
   --init-action-dist-gap: calc(var(--init-grid-gap) * 0.6);
   --init-lh-ini-gap: calc(0.95rem * var(--init-ui-scale));
@@ -414,7 +414,7 @@ body {
 
 .kampf-col-label {
   font-family: var(--font-heading);
-  font-size: var(--init-col-head-font-size, calc(0.6rem * var(--init-ui-scale)));
+  font-size: var(--init-col-head-font-size, calc(0.52rem * var(--init-ui-scale)));
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
