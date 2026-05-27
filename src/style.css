@@ -5594,6 +5594,12 @@ select.init-row-extra-select {
 
 .init-dist-cell--target {
   background: rgba(255, 255, 255, 0.06);
+  /* wie .init-col-action-count--child (2. am Zeilenanfang bei 2.A.O.) */
+  font-size: calc(0.72rem * var(--init-ui-scale));
+  font-weight: 700;
+  line-height: 1.15;
+  color: rgba(26, 23, 20, 0.68);
+  letter-spacing: -0.02em;
 }
 
 .init-dist-cell--idle-rings {
