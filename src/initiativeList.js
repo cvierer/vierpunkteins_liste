@@ -3280,7 +3280,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   async function refreshProbeSpokesOnly(probeItem, sceneItems) {
     const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
-    const others = sceneItems.filter(
+    const listItems = filterItemsForListViewer(sceneItems ?? [], isGmSync())
+    const others = listItems.filter(
       (i) =>
         i.id !== distanceProbeItemId &&
         i.metadata?.[TRACKER_ITEM_META_KEY] != null
