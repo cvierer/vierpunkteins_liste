@@ -27,6 +27,11 @@ export function getProbeAnchorPseudoItem() {
   return cachedPseudoItem
 }
 
+/** @returns {string | null} */
+export function getProbeAnchorOwnerId() {
+  return cachedOwnerId
+}
+
 /**
  * @param {import('@owlbear-rodeo/sdk').Item} heroItem
  * @param {{ x: number, y: number }} anchorCenter

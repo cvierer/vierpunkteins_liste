@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createProbePlacementState,
+  detectTrackerCenterMoves,
   latchProbeMapDrag,
   PROBE_MAP_DRAG_MOVE_EPS,
   PROBE_PLACE_STABLE_MS,
@@ -64,6 +65,33 @@ describe('latchProbeMapDrag', () => {
       mapDragging: true,
       showLine: true,
     })
+  })
+})
+
+describe('detectTrackerCenterMoves', () => {
+  it('erkennt Bewegung ueber Schwellwert', () => {
+    const prev = new Map([
+      ['a', { x: 0, y: 0 }],
+      ['b', { x: 10, y: 0 }],
+    ])
+    const scene = new Map([
+      ['a', { x: 0, y: 0 }],
+      ['b', { x: 11, y: 0 }],
+    ])
+    const r = detectTrackerCenterMoves(prev, scene)
+    expect(r.anyMoved).toBe(true)
+    expect(r.nextCenters.get('b')).toEqual({ x: 11, y: 0 })
+  })
+
+  it('ignoriert Jitter unter epsilon', () => {
+    const prev = new Map([['a', { x: 0, y: 0 }]])
+    const scene = new Map([['a', { x: 0.2, y: 0.2 }]])
+    expect(detectTrackerCenterMoves(prev, scene).anyMoved).toBe(false)
+  })
+
+  it('keine Bewegung bei erstem Snapshot', () => {
+    const scene = new Map([['a', { x: 1, y: 2 }]])
+    expect(detectTrackerCenterMoves(null, scene).anyMoved).toBe(false)
   })
 })
 

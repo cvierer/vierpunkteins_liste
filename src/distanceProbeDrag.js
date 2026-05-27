@@ -94,6 +94,35 @@ export function trackProbePlacementCenter(currentCenter, state, options = {}) {
  * @param {number} [epsilon]
  * @returns {ProbeMovementLatch}
  */
+/**
+ * @param {Map<string, Point> | null | undefined} centersById
+ * @param {Map<string, Point> | Iterable<[string, Point]>} sceneCenters
+ * @param {number} [epsilon]
+ */
+export function detectTrackerCenterMoves(
+  centersById,
+  sceneCenters,
+  epsilon = PROBE_MAP_DRAG_MOVE_EPS
+) {
+  const prev = centersById ?? new Map()
+  /** @type {Map<string, Point>} */
+  const nextCenters = new Map()
+  let anyMoved = false
+
+  for (const [id, center] of sceneCenters) {
+    nextCenters.set(id, center)
+    const last = prev.get(id)
+    if (
+      last != null &&
+      Math.hypot(center.x - last.x, center.y - last.y) > epsilon
+    ) {
+      anyMoved = true
+    }
+  }
+
+  return { anyMoved, nextCenters }
+}
+
 export function latchProbeMapDrag(
   mapDragging,
   movementAnchor,

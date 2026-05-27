@@ -47,10 +47,12 @@ import {
 } from './distanceRingsOverlay.js'
 import {
   createProbePlacementState,
+  detectTrackerCenterMoves,
   trackProbePlacementCenter,
 } from './distanceProbeDrag.js'
 import {
   ensureProbeAnchorToken,
+  getProbeAnchorOwnerId,
   getProbeAnchorPseudoItem,
   hasProbeAnchorToken,
   removeProbeAnchorToken,
@@ -2872,6 +2874,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   /** Karten-Drag aktiv (Ringe + Spokes folgen dem Helden). */
   let probeMapDragging = false
   let probePlacementState = createProbePlacementState()
+  let externalPlacementState = createProbePlacementState()
+  /** @type {Map<string, { x: number, y: number }>} */
+  let lastTrackerCentersById = new Map()
   let distanceProbeRefreshPending = false
   let probeMovementRafId = 0
   let probePointerListenersAttached = false
@@ -3101,8 +3106,108 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     probePointerDownPending = false
     clearProbePlacementEndPending()
     probePlacementState = createProbePlacementState()
+    externalPlacementState = createProbePlacementState()
+    lastTrackerCentersById = new Map()
     await hideProbeAnchorSpoke()
     await removeProbeAnchorToken()
+  }
+
+  /**
+   * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   */
+  async function collectTrackerCenterMap(sceneItems, gridContext) {
+    /** @type {Map<string, { x: number, y: number }>} */
+    const centers = new Map()
+    for (const item of sceneItems) {
+      if (!item?.id || item.metadata?.[TRACKER_ITEM_META_KEY] == null) continue
+      const center = await resolveDistanceCenter(item, gridContext)
+      centers.set(item.id, center)
+    }
+    return centers
+  }
+
+  /**
+   * @param {import('@owlbear-rodeo/sdk').Item[]} sceneItems
+   * @param {import('./gridDistance.js').GridContext} gridContext
+   * @param {{ id?: string, metadata?: Record<string, unknown> } | null | undefined} probeItem
+   */
+  async function updateExternalTrackerDragFromScene(
+    sceneItems,
+    gridContext,
+    probeItem
+  ) {
+    if (!distanceProbeItemId || probeMapDragging || !probeItem) return
+
+    let selection = []
+    try {
+      selection = await OBR.player.getSelection()
+    } catch {
+      selection = []
+    }
+
+    let externalItem = null
+    for (const id of selection) {
+      if (!id || id === distanceProbeItemId) continue
+      const item =
+        sceneItems.find((i) => i.id === id) ??
+        lastItems.find((i) => i.id === id)
+      if (item?.metadata?.[TRACKER_ITEM_META_KEY] != null) {
+        externalItem = item
+        break
+      }
+    }
+
+    const anchorOwner = getProbeAnchorOwnerId()
+
+    if (!externalItem?.id) {
+      if (anchorOwner && anchorOwner !== distanceProbeItemId) {
+        await hideProbeAnchorSpoke()
+        await removeProbeAnchorToken()
+      }
+      externalPlacementState = createProbePlacementState()
+      return
+    }
+
+    const center = await resolveDistanceCenter(externalItem, gridContext)
+    const prevState = externalPlacementState
+    const tick = trackProbePlacementCenter(center, prevState)
+
+    if (
+      tick.mapDragging &&
+      !prevState.mapDragging &&
+      prevState.lastCenter &&
+      (!hasProbeAnchorToken() || anchorOwner !== externalItem.id)
+    ) {
+      await ensureProbeAnchorToken(
+        prevState.lastCenter,
+        externalItem.id,
+        externalItem
+      )
+    }
+
+    externalPlacementState = tick.nextState
+
+    if (tick.placed) {
+      if (anchorOwner === externalItem.id) {
+        await hideProbeAnchorSpoke()
+        await removeProbeAnchorToken()
+      }
+      externalPlacementState = createProbePlacementState()
+      return
+    }
+
+    if (tick.mapDragging && hasProbeAnchorToken() && anchorOwner === externalItem.id) {
+      const anchorPseudo = getProbeAnchorPseudoItem()
+      const meta = externalItem.metadata?.[TRACKER_ITEM_META_KEY]
+      const xSchritt = meta ? readHeroDistClassXSchritt(meta) : null
+      if (anchorPseudo) {
+        await syncProbeAnchorSpoke(anchorPseudo, externalItem, xSchritt)
+      }
+    } else if (anchorOwner && anchorOwner !== distanceProbeItemId) {
+      await hideProbeAnchorSpoke()
+      await removeProbeAnchorToken()
+    }
   }
 
   function stopProbeMovementLoop() {
@@ -3144,7 +3249,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       tick.mapDragging &&
       !prevState.mapDragging &&
       prevState.lastCenter &&
-      !hasProbeAnchorToken()
+      (!hasProbeAnchorToken() ||
+        getProbeAnchorOwnerId() !== distanceProbeItemId)
     ) {
       await ensureProbeAnchorToken(
         prevState.lastCenter,
@@ -3236,6 +3342,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!probeItem) return
     const gridContext = await getGridContext()
     if (!gridContext) return
+
+    const trackerCenters = await collectTrackerCenterMap(sceneItems, gridContext)
+    const { anyMoved: anyTrackerMoved, nextCenters } = detectTrackerCenterMoves(
+      lastTrackerCentersById,
+      trackerCenters
+    )
+    lastTrackerCentersById = nextCenters
+
     await updateProbePlacementFromScene(probeItem, gridContext)
     if (probeMapDragging) {
       const center = await resolveDistanceCenter(probeItem, gridContext)
@@ -3243,11 +3357,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       if (!shifted) {
         await refreshProbeRingsForItem(probeItem)
       }
+      await syncProbeAnchorSpokeLine(probeItem)
+    } else {
+      await updateExternalTrackerDragFromScene(sceneItems, gridContext, probeItem)
     }
-    await syncProbeAnchorSpokeLine(probeItem)
-    if (probeMapDragging) {
+
+    if (probeMapDragging || anyTrackerMoved) {
       await refreshProbeSpokesOnly(probeItem, sceneItems)
+      applyDistanceOverlay()
     }
+
     await tryFinishProbePlacementWhenOrientationSynced(probeItem, gridContext)
   }
 
