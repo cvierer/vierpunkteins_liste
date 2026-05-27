@@ -7,6 +7,7 @@ import {
   clearEphemeralExtraIniRows,
   combatPatchForStep,
   findCombatStepIndex,
+  isStampableCombatStep,
   ROUND_END_STEP_ID,
   ROUND_START_STEP_ID,
 } from './phaseLinks.js'
@@ -17,7 +18,6 @@ import {
   endSuppressStampRedoClear,
   getActionStamps,
   getCombat,
-  getCombatActionRedo,
   getIniTieOrder,
   onCombatChange,
   patchCombat,
@@ -27,7 +27,6 @@ import {
 import { getRoomSettings } from './roomSettings.js'
 import { getTrackedParticipantIds } from './listState.js'
 import {
-  reapplyActionStampForCombatRedo,
   resetAllKrCountersInScene,
   resetAllTrackerStateForCombatStart,
   undoKrActionStamp,
@@ -36,10 +35,7 @@ import { clearCombatStartHeroSessionVisuals } from './krCombatMarks.js'
 import { applyLhKrStartObjects } from './longHandlung.js'
 import { getManualIniTieOverridePairs } from './manualIniTieOverrides.js'
 import { clearCombatLog } from './combatLog.js'
-import {
-  autoStampForCombatStep,
-  shouldAutoStampActionToReaction,
-} from './combatAutoStamp.js'
+import { autoStampForCombatStep } from './combatAutoStamp.js'
 
 async function combatTurnSteps() {
   const items = await OBR.scene.items.getItems()
@@ -75,6 +71,36 @@ function stampMatchesCurrentCombatStep(e, c) {
   return rowAnchor === rid && phaseStamp === phaseCombat
 }
 
+function hasStampsAtCurrentStep(c) {
+  return getActionStamps().entries.some((e) => stampMatchesCurrentCombatStep(e, c))
+}
+
+async function undoStampsAtCurrentCombatStep(c) {
+  const matching = getActionStamps().entries.filter((e) =>
+    stampMatchesCurrentCombatStep(e, c)
+  )
+  if (matching.length === 0) return false
+  beginSuppressStampRedoClear()
+  try {
+    const batch = {
+      round: c.round,
+      currentItemId: c.currentItemId,
+      currentPhaseLinkId:
+        typeof c.currentPhaseLinkId === 'string' ? c.currentPhaseLinkId : null,
+      stamps: matching.map((e) => ({ ...e })),
+    }
+    await patchCombatActionRedo((cur) => ({
+      batches: [...cur.batches, batch],
+    }))
+    for (let i = matching.length - 1; i >= 0; i--) {
+      await undoKrActionStamp(matching[i].id)
+    }
+    return true
+  } finally {
+    endSuppressStampRedoClear()
+  }
+}
+
 /** Navigationsuntergrenze: nicht vor „Beginn der Kampfrunde 1“. */
 function isAtFirstRoundStart(c) {
   return (
@@ -98,8 +124,6 @@ export async function setupCombatControls(root) {
   const btnToggle = root.querySelector('[data-combat-toggle]')
   const btnPrev = root.querySelector('[data-combat-prev]')
   const btnNext = root.querySelector('[data-combat-next]')
-  const btnUndo = root.querySelector('[data-combat-undo]')
-  const btnRedo = root.querySelector('[data-combat-redo]')
 
   const setGmDisabled = (btn, disabled) => {
     if (!btn) return
@@ -139,32 +163,25 @@ export async function setupCombatControls(root) {
     }
 
     const canNav = isGm && c.started && ids.length > 0
-    const hasRedo = getCombatActionRedo().batches.length > 0
     const atFirstRoundStart = isAtFirstRoundStart(c)
-    const hasStampsHere = getActionStamps().entries.some((e) =>
-      stampMatchesCurrentCombatStep(e, c)
-    )
+    const hasStampsHere = hasStampsAtCurrentStep(c)
     setGmDisabled(btnToggle, !isGm || (!c.started && ids.length === 0))
-    setGmDisabled(btnPrev, !canNav || atFirstRoundStart)
+    setGmDisabled(btnPrev, !canNav || (atFirstRoundStart && !hasStampsHere))
     setGmDisabled(btnNext, !canNav)
-    setGmDisabled(btnUndo, !canNav || (atFirstRoundStart && !hasStampsHere))
-    setGmDisabled(btnRedo, !canNav || !hasRedo)
-    if (btnPrev && isGm && canNav && atFirstRoundStart) {
-      btnPrev.title = 'Beginn der Kampfrunde 1'
-    }
-    if (btnUndo && isGm) {
-      if (canNav && atFirstRoundStart && !hasStampsHere) {
-        btnUndo.title = 'Am Beginn der Kampfrunde 1 (keine Stempel an diesem Punkt)'
+    if (btnPrev && isGm && canNav) {
+      if (hasStampsHere) {
+        btnPrev.title =
+          'Aktions-Stempel an diesem Punkt rückgängig machen (Zug bleibt)'
+      } else if (atFirstRoundStart) {
+        btnPrev.title = 'Beginn der Kampfrunde 1'
       } else {
-        btnUndo.title = canNav ? 'Rückgängig' : ''
+        btnPrev.title = 'Vorheriger Zug'
       }
     }
-    if (btnRedo && isGm) {
-      if (!canNav) btnRedo.title = ''
-      else
-        btnRedo.title = hasRedo
-          ? 'Wiederherstellen'
-          : 'Keine rückgängig gemachten Schritte'
+    if (btnNext && isGm && canNav && !c.roundIntroPending) {
+      btnNext.title = hasStampsHere
+        ? 'Nächster Zug'
+        : 'Aktion stempeln (Zug bleibt) oder weiter'
     }
   }
 
@@ -322,9 +339,12 @@ export async function setupCombatControls(root) {
         return
       }
       const curRetry = stepsRetry[idxRetry]
-      const nextRetry = stepsRetry[nextIdxRetry]
-      if (shouldAutoStampActionToReaction(curRetry, nextRetry)) {
+      if (
+        isStampableCombatStep(curRetry) &&
+        !hasStampsAtCurrentStep(cRetry)
+      ) {
         await autoStampForCombatStep(curRetry)
+        return
       }
       await patchCombat({
         ...combatPatchForStep(stepsRetry[nextIdxRetry]),
@@ -351,9 +371,9 @@ export async function setupCombatControls(root) {
     }
 
     const cur = steps[idx]
-    const next = steps[nextIdx]
-    if (shouldAutoStampActionToReaction(cur, next)) {
+    if (isStampableCombatStep(cur) && !hasStampsAtCurrentStep(c)) {
       await autoStampForCombatStep(cur)
+      return
     }
     await patchCombat({
       ...combatPatchForStep(steps[nextIdx]),
@@ -403,6 +423,7 @@ export async function setupCombatControls(root) {
         })
         return
       }
+      if (await undoStampsAtCurrentCombatStep(cRetry)) return
       if (isAtFirstRoundStart(cRetry)) return
       const prevIdxRetry =
         (idxRetry - 1 + stepsRetry.length) % stepsRetry.length
@@ -416,6 +437,7 @@ export async function setupCombatControls(root) {
       })
       return
     }
+    if (await undoStampsAtCurrentCombatStep(c)) return
     if (isAtFirstRoundStart(c)) return
     const prevIdx = (idx - 1 + steps.length) % steps.length
     let round = c.round
@@ -428,92 +450,11 @@ export async function setupCombatControls(root) {
     }
   }
 
-  const applyCombatUndo = async () => {
-    const c = getCombat()
-    const matching = getActionStamps().entries.filter((e) =>
-      stampMatchesCurrentCombatStep(e, c)
-    )
-    beginSuppressStampRedoClear()
-    try {
-      if (matching.length > 0) {
-        const batch = {
-          round: c.round,
-          currentItemId: c.currentItemId,
-          currentPhaseLinkId:
-            typeof c.currentPhaseLinkId === 'string'
-              ? c.currentPhaseLinkId
-              : null,
-          stamps: matching.map((e) => ({ ...e })),
-        }
-        await patchCombatActionRedo((cur) => ({
-          batches: [...cur.batches, batch],
-        }))
-        for (let i = matching.length - 1; i >= 0; i--) {
-          await undoKrActionStamp(matching[i].id)
-        }
-      }
-      await applyCombatPrev()
-    } finally {
-      endSuppressStampRedoClear()
-    }
-  }
-
-  const applyCombatRedo = async () => {
-    beginSuppressStampRedoClear()
-    try {
-      await applyCombatNext()
-      let c = getCombat()
-      const redo = getCombatActionRedo()
-      const last = redo.batches[redo.batches.length - 1]
-      if (!last) return
-
-      const stepMatches = (state) => {
-        const pA =
-          typeof last.currentPhaseLinkId === 'string'
-            ? last.currentPhaseLinkId
-            : null
-        const pB =
-          typeof state.currentPhaseLinkId === 'string'
-            ? state.currentPhaseLinkId
-            : null
-        return (
-          last.round === state.round &&
-          last.currentItemId === state.currentItemId &&
-          pA === pB
-        )
-      }
-
-      if (
-        !stepMatches(c) &&
-        c.started &&
-        c.roundIntroPending &&
-        last.round > c.round
-      ) {
-        await applyCombatNext()
-        c = getCombat()
-      }
-      if (!stepMatches(c)) return
-
-      for (const stamp of last.stamps) {
-        await reapplyActionStampForCombatRedo(stamp)
-      }
-      await patchCombatActionRedo((cur) => ({
-        batches: cur.batches.slice(0, -1),
-      }))
-    } finally {
-      endSuppressStampRedoClear()
-    }
-  }
-
   btnToggle?.addEventListener('click', () => void applyCombatStartStop())
 
   btnNext?.addEventListener('click', () => void applyCombatNext())
 
   btnPrev?.addEventListener('click', () => void applyCombatPrev())
-
-  btnUndo?.addEventListener('click', () => void applyCombatUndo())
-
-  btnRedo?.addEventListener('click', () => void applyCombatRedo())
 
   const onCombatKeyDown = (e) => {
     if (!isGm) return

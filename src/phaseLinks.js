@@ -1454,7 +1454,7 @@ export function buildMergedDisplayRows(
 
 /**
  * @param {{ kind: string, row?: { id: string }, ownerId?: string, link?: { id: string, lhEnd?: boolean }, hookIni?: unknown }} e
- * @returns {Array<{ kind: string, id?: string, ownerId?: string, linkId?: string, sub?: 'action' | 'reaction' }>}
+ * @returns {Array<{ kind: string, id?: string, ownerId?: string, linkId?: string, sub?: 'action' }>}
  */
 function mergedEntryToCombatSteps(e) {
   if (e.kind === 'roundStart') {
@@ -1464,10 +1464,7 @@ function mergedEntryToCombatSteps(e) {
     return [{ kind: 'roundEnd', id: ROUND_END_STEP_ID }]
   }
   if (e.kind === 'token') {
-    return [
-      { kind: 'token', id: e.row.id, sub: 'action' },
-      { kind: 'token', id: e.row.id, sub: 'reaction' },
-    ]
+    return [{ kind: 'token', id: e.row.id, sub: 'action' }]
   }
   if (e.kind === 'phase') {
     if (e.link.lhEnd === true) {
@@ -1475,7 +1472,6 @@ function mergedEntryToCombatSteps(e) {
     }
     return [
       { kind: 'phase', ownerId: e.ownerId, linkId: e.link.id, sub: 'action' },
-      { kind: 'phase', ownerId: e.ownerId, linkId: e.link.id, sub: 'reaction' },
     ]
   }
   if (e.kind === 'lhDone') {
@@ -1508,9 +1504,17 @@ export function buildCombatTurnSteps(
   return steps
 }
 
-/** @param {{ sub?: 'action' | 'reaction' | null | undefined }} step */
+/** @param {{ sub?: 'action' | null | undefined }} step */
 function subStepForCombatPatch(step) {
-  return step.sub === 'reaction' ? 'reaction' : step.sub === 'action' ? 'action' : null
+  return step.sub === 'action' ? 'action' : null
+}
+
+/** @param {{ kind?: string, sub?: string } | null | undefined} step */
+export function isStampableCombatStep(step) {
+  if (!step) return false
+  if (step.kind === 'token') return step.sub === 'action'
+  if (step.kind === 'phase') return step.sub === 'action'
+  return false
 }
 
 export function combatPatchForStep(step) {
@@ -1585,11 +1589,10 @@ export function resolveCurrentNavIniForCombat(
 export function findCombatStepIndex(steps, combat) {
   const phaseId = combat.currentPhaseLinkId
   const wantSub =
+    combat.currentTurnSubStep === 'action' ||
     combat.currentTurnSubStep === 'reaction'
-      ? 'reaction'
-      : combat.currentTurnSubStep === 'action'
-        ? 'action'
-        : null
+      ? 'action'
+      : null
   return steps.findIndex((s) => {
     let positionMatch = false
     if (s.kind === 'roundStart') {
@@ -1605,7 +1608,6 @@ export function findCombatStepIndex(steps, combat) {
     if (!positionMatch) return false
     if (s.kind === 'token' || s.kind === 'phase') {
       if (!s.sub) return wantSub === null
-      if (wantSub === null) return s.sub === 'action'
       return s.sub === wantSub
     }
     return true

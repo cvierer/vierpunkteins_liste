@@ -15,6 +15,7 @@ import {
   buildCombatTurnSteps,
   combatPatchForStep,
   findCombatStepIndex,
+  isStampableCombatStep,
 } from './phaseLinks.js'
 
 function item(id, meta = {}) {
@@ -25,7 +26,7 @@ function item(id, meta = {}) {
   }
 }
 
-describe('buildCombatTurnSteps action/reaction split', () => {
+describe('buildCombatTurnSteps action step per row', () => {
   const tokenRows = [
     { id: 'hero-a', initiative: '10', name: 'A' },
     { id: 'hero-b', initiative: '5', name: 'B' },
@@ -40,7 +41,7 @@ describe('buildCombatTurnSteps action/reaction split', () => {
     item('hero-b', { initiative: '5', krFirstSlotKind: 'sra' }),
   ]
 
-  it('emittiert action/reaction-Paare für Token und 2.AO-Wurzel', () => {
+  it('emittiert einen action-Schritt pro Token und 2.AO-Wurzel', () => {
     const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
     expect(steps[0]).toEqual({ kind: 'roundStart', id: ROUND_START_STEP_ID })
     expect(steps[steps.length - 1]).toEqual({
@@ -48,10 +49,7 @@ describe('buildCombatTurnSteps action/reaction split', () => {
       id: ROUND_END_STEP_ID,
     })
     const heroAToken = steps.filter((s) => s.kind === 'token' && s.id === 'hero-a')
-    expect(heroAToken).toEqual([
-      { kind: 'token', id: 'hero-a', sub: 'action' },
-      { kind: 'token', id: 'hero-a', sub: 'reaction' },
-    ])
+    expect(heroAToken).toEqual([{ kind: 'token', id: 'hero-a', sub: 'action' }])
     const heroAZao = steps.filter(
       (s) =>
         s.kind === 'phase' && s.ownerId === 'hero-a' && s.linkId === 'zao1'
@@ -63,55 +61,58 @@ describe('buildCombatTurnSteps action/reaction split', () => {
         linkId: 'zao1',
         sub: 'action',
       },
-      {
-        kind: 'phase',
-        ownerId: 'hero-a',
-        linkId: 'zao1',
-        sub: 'reaction',
-      },
     ])
     expect(steps.filter((s) => s.kind === 'roundStart' || s.kind === 'roundEnd')).toHaveLength(2)
-    expect(steps.every((s) => s.sub === undefined || s.sub === 'action' || s.sub === 'reaction')).toBe(
-      true
-    )
   })
 
-  it('findCombatStepIndex matcht currentTurnSubStep', () => {
+  it('findCombatStepIndex: legacy reaction mappt auf action-Schritt', () => {
     const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
     const actionIdx = findCombatStepIndex(steps, {
       currentItemId: 'hero-a',
       currentPhaseLinkId: null,
       currentTurnSubStep: 'action',
     })
-    const reactionIdx = findCombatStepIndex(steps, {
+    const legacyReactionIdx = findCombatStepIndex(steps, {
       currentItemId: 'hero-a',
       currentPhaseLinkId: null,
       currentTurnSubStep: 'reaction',
     })
     expect(actionIdx).toBeGreaterThanOrEqual(0)
-    expect(reactionIdx).toBe(actionIdx + 1)
+    expect(legacyReactionIdx).toBe(actionIdx)
     expect(steps[actionIdx]).toMatchObject({
       kind: 'token',
       id: 'hero-a',
       sub: 'action',
     })
-    expect(steps[reactionIdx]).toMatchObject({
-      kind: 'token',
-      id: 'hero-a',
-      sub: 'reaction',
-    })
   })
 
-  it('combatPatchForStep setzt currentTurnSubStep', () => {
+  it('combatPatchForStep setzt currentTurnSubStep action', () => {
     expect(
-      combatPatchForStep({ kind: 'token', id: 'hero-a', sub: 'reaction' })
+      combatPatchForStep({ kind: 'token', id: 'hero-a', sub: 'action' })
     ).toMatchObject({
       currentItemId: 'hero-a',
       currentPhaseLinkId: null,
-      currentTurnSubStep: 'reaction',
+      currentTurnSubStep: 'action',
     })
     expect(
       combatPatchForStep({ kind: 'roundStart', id: ROUND_START_STEP_ID })
     ).toMatchObject({ currentTurnSubStep: null })
+  })
+
+  it('isStampableCombatStep erkennt Token und ZAO-Wurzel', () => {
+    expect(isStampableCombatStep({ kind: 'token', id: 'x', sub: 'action' })).toBe(
+      true
+    )
+    expect(
+      isStampableCombatStep({
+        kind: 'phase',
+        ownerId: 'x',
+        linkId: 'zao1',
+        sub: 'action',
+      })
+    ).toBe(true)
+    expect(isStampableCombatStep({ kind: 'roundStart', id: ROUND_START_STEP_ID })).toBe(
+      false
+    )
   })
 })

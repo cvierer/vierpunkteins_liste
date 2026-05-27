@@ -10,22 +10,20 @@ appRoot.innerHTML = `
   <header class="app-header">
     <div class="combat-bar" data-combat-root>
       <div class="combat-toolbar combat-toolbar--grid">
-        <button
-          type="button"
-          class="btn btn--nav btn--nav-icon-only"
-          data-combat-undo
-          aria-label="Rückgängig: Alle Aktions-Stempel an diesem INI-Punkt rückgängig machen und einen Schritt zurück"
-        ><span class="combat-toolbar-glyph" aria-hidden="true">↺</span></button>
         <button type="button" class="btn btn--nav btn--primary btn--combat-toggle" data-combat-toggle>Start</button>
         <button
           type="button"
-          class="btn btn--nav btn--nav-icon-only"
-          data-combat-redo
-          aria-label="Wiederherstellen: Zuvor rückgängig gemachte Stempel am Ziel-INI wiederherstellen und einen Schritt vor"
-        ><span class="combat-toolbar-glyph" aria-hidden="true">↻</span></button>
-        <button type="button" class="btn btn--nav" data-combat-prev aria-label="Vorheriger Zug">Zurück</button>
+          class="btn btn--nav"
+          data-combat-prev
+          aria-label="Zurück: Stempel an diesem Zug rückgängig oder vorheriger Zug"
+        >Zurück</button>
         <span class="combat-round-label" data-combat-round>Kampfrunde —</span>
-        <button type="button" class="btn btn--nav" data-combat-next aria-label="Nächster Zug">Weiter</button>
+        <button
+          type="button"
+          class="btn btn--nav"
+          data-combat-next
+          aria-label="Weiter: Aktion stempeln oder nächster Zug"
+        >Weiter</button>
       </div>
     </div>
   </header>

@@ -196,22 +196,10 @@ body {
   align-items: center;
 }
 
-.combat-toolbar--grid > [data-combat-undo] {
-  grid-column: 1;
-  grid-row: 1;
-  justify-self: start;
-}
-
 .combat-toolbar--grid > [data-combat-toggle] {
-  grid-column: 2;
+  grid-column: 1 / -1;
   grid-row: 1;
   justify-self: center;
-}
-
-.combat-toolbar--grid > [data-combat-redo] {
-  grid-column: 3;
-  grid-row: 1;
-  justify-self: end;
 }
 
 .combat-toolbar--grid > [data-combat-prev] {
@@ -5539,12 +5527,15 @@ select.init-row-extra-select {
   white-space: nowrap;
 }
 
-.init-kr-primary-main--stampable-now:hover {
-  filter: saturate(1.22) brightness(1.14);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.34),
-    0 0 calc(9px * var(--init-combat-icon-scale))
-      rgba(255, 235, 140, 0.6);
+.init-kr-primary-main--stampable-now:hover .init-kr-primary-main__exec {
+  border-radius: 50%;
+  filter: saturate(1.1) brightness(1.06);
+  box-shadow: 0 0 0 calc(2px * var(--init-combat-icon-scale))
+    rgba(255, 235, 170, 0.38);
+}
+
+.init-kr-primary-main--stampable-now:hover .init-kr-primary-main__icon {
+  filter: saturate(1.08) brightness(1.04);
 }
 
 /* Mutterzeile: Reaktionsspeicher (Freie Aktionen + Schilde), ohne sichtbares Kästchen */
@@ -6047,9 +6038,9 @@ select.init-row-extra-select {
 
 .init-kr-abw-split-shell--stampable-now:hover .init-kr-abw-shields,
 .init-kr-abw-split-shell.is-linked-hover .init-kr-abw-shields {
-  filter: saturate(1.24) brightness(1.16);
-  text-shadow: 0 0 calc(8px * var(--init-combat-icon-scale))
-    rgba(100, 190, 255, 0.68);
+  filter: saturate(1.1) brightness(1.06);
+  text-shadow: 0 0 calc(5px * var(--init-combat-icon-scale))
+    rgba(100, 190, 255, 0.42);
 }
 
 .init-fa-cell--stampable-now:hover .init-fa-cell__count,
