@@ -26,6 +26,8 @@ const TURN_ACTION_OVERLAY_IDS = [TURN_ACTION_LABEL_ID, TURN_ACTION_GLYPH_ID]
 
 const LABEL_EST_HEIGHT = 40
 const LABEL_GAP = 10
+const TURN_ACTION_BADGE_Z = 1000
+const TURN_ACTION_GLYPH_Z = 1001
 
 export { KIND_LABEL }
 
@@ -103,14 +105,16 @@ function needsSplitGlyphOverlay(kind) {
  * @param {import('@owlbear-rodeo/sdk').Item} tokenItem
  * @param {string} kind
  * @param {string} ariaName
+ * @param {number} zIndex
  */
-function baseLabelBuilder(id, position, tokenItem, kind, ariaName) {
+function baseLabelBuilder(id, position, tokenItem, kind, ariaName, zIndex) {
   return buildLabel()
     .id(id)
     .position(position)
     .textAlign('CENTER')
     .textAlignVertical('MIDDLE')
     .layer('TEXT')
+    .zIndex(zIndex)
     .locked(true)
     .disableHit(true)
     .visible(tokenItem.visible !== false)
@@ -136,7 +140,14 @@ function buildTurnActionOverlayItems(kind, tokenItem, position) {
 
   if (!needsSplitGlyphOverlay(kind)) {
     return [
-      baseLabelBuilder(TURN_ACTION_LABEL_ID, position, tokenItem, kind, ariaName)
+      baseLabelBuilder(
+        TURN_ACTION_LABEL_ID,
+        position,
+        tokenItem,
+        kind,
+        ariaName,
+        TURN_ACTION_BADGE_Z
+      )
         .plainText(symbol)
         .fontSize(fontSize)
         .fontWeight(fontWeight)
@@ -149,19 +160,22 @@ function buildTurnActionOverlayItems(kind, tokenItem, position) {
     ]
   }
 
+  const badgeBg = style.backgroundColor
   const badge = baseLabelBuilder(
     TURN_ACTION_LABEL_ID,
     position,
     tokenItem,
     kind,
-    ariaName
+    ariaName,
+    TURN_ACTION_BADGE_Z
   )
     .plainText(symbol)
     .fontSize(fontSize)
     .fontWeight(fontWeight)
-    .fillColor(style.backgroundColor)
-    .backgroundColor(style.backgroundColor)
-    .backgroundOpacity(style.backgroundOpacity)
+    .fillColor(badgeBg)
+    .strokeColor(badgeBg)
+    .backgroundColor(badgeBg)
+    .backgroundOpacity(1)
     .cornerRadius(6)
     .padding(4)
     .build()
@@ -171,15 +185,17 @@ function buildTurnActionOverlayItems(kind, tokenItem, position) {
     position,
     tokenItem,
     kind,
-    ariaName
+    ariaName,
+    TURN_ACTION_GLYPH_Z
   )
     .plainText(symbol)
     .fontSize(fontSize)
     .fontWeight(fontWeight)
-    .fillColor(style.fillColor)
-    .backgroundColor(style.backgroundColor)
+    .fillColor('#ffffff')
+    .strokeColor('#ffffff')
+    .backgroundColor(badgeBg)
     .backgroundOpacity(0)
-    .cornerRadius(0)
+    .cornerRadius(6)
     .padding(4)
     .rotation(primaryKindMapRotation(kind))
     .build()
@@ -264,12 +280,14 @@ async function syncTurnActionOverlayItems(kind, tokenItem, position, items) {
     return
   }
 
+  const badgeBg = style.backgroundColor
   await OBR.scene.items.updateItems([TURN_ACTION_LABEL_ID], (drafts) => {
     for (const d of drafts) {
       d.position = position
       d.visible = tokenItem.visible !== false
       d.name = ariaName
       d.rotation = 0
+      d.zIndex = TURN_ACTION_BADGE_Z
       d.metadata = {
         [TURN_ACTION_LABEL_META]: true,
         turnActionOwnerId: tokenItem.id,
@@ -277,13 +295,14 @@ async function syncTurnActionOverlayItems(kind, tokenItem, position, items) {
       }
       if (d.text) {
         d.text.plainText = symbol
-        d.text.fillColor = split ? style.backgroundColor : style.fillColor
+        d.text.fillColor = split ? badgeBg : style.fillColor
+        d.text.strokeColor = split ? badgeBg : d.text.strokeColor
         d.text.fontSize = fontSize
         d.text.fontWeight = fontWeight
       }
       if (d.style) {
-        d.style.backgroundColor = style.backgroundColor
-        d.style.backgroundOpacity = style.backgroundOpacity
+        d.style.backgroundColor = badgeBg
+        d.style.backgroundOpacity = split ? 1 : style.backgroundOpacity
       }
     }
   })
@@ -296,6 +315,7 @@ async function syncTurnActionOverlayItems(kind, tokenItem, position, items) {
         d.visible = tokenItem.visible !== false
         d.name = ariaName
         d.rotation = rotation
+        d.zIndex = TURN_ACTION_GLYPH_Z
         d.metadata = {
           [TURN_ACTION_LABEL_META]: true,
           turnActionOwnerId: tokenItem.id,
@@ -303,11 +323,13 @@ async function syncTurnActionOverlayItems(kind, tokenItem, position, items) {
         }
         if (d.text) {
           d.text.plainText = symbol
-          d.text.fillColor = style.fillColor
+          d.text.fillColor = '#ffffff'
+          d.text.strokeColor = '#ffffff'
           d.text.fontSize = fontSize
           d.text.fontWeight = fontWeight
         }
         if (d.style) {
+          d.style.backgroundColor = badgeBg
           d.style.backgroundOpacity = 0
         }
       }
