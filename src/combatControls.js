@@ -181,7 +181,7 @@ export async function setupCombatControls(root) {
     if (btnNext && isGm && canNav && !c.roundIntroPending) {
       btnNext.title = hasStampsHere
         ? 'Nächster Zug'
-        : 'Aktion stempeln (Zug bleibt) oder weiter'
+        : 'Nächster Zug oder Aktion stempeln (Zug bleibt)'
     }
   }
 
@@ -343,8 +343,8 @@ export async function setupCombatControls(root) {
         isStampableCombatStep(curRetry) &&
         !hasStampsAtCurrentStep(cRetry)
       ) {
-        await autoStampForCombatStep(curRetry)
-        return
+        const stamped = await autoStampForCombatStep(curRetry)
+        if (stamped) return
       }
       await patchCombat({
         ...combatPatchForStep(stepsRetry[nextIdxRetry]),
@@ -372,8 +372,8 @@ export async function setupCombatControls(root) {
 
     const cur = steps[idx]
     if (isStampableCombatStep(cur) && !hasStampsAtCurrentStep(c)) {
-      await autoStampForCombatStep(cur)
-      return
+      const stamped = await autoStampForCombatStep(cur)
+      if (stamped) return
     }
     await patchCombat({
       ...combatPatchForStep(steps[nextIdx]),
