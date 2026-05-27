@@ -182,7 +182,8 @@ body {
 
 .combat-bar {
   --combat-side-btn-w: calc(3.85rem * var(--init-ui-scale));
-  padding: calc(0.14rem * var(--init-ui-scale)) calc(0.38rem * var(--init-ui-scale));
+  --combat-toolbar-head-h: calc(0.82rem * var(--init-ui-scale));
+  padding: calc(0.1rem * var(--init-ui-scale)) calc(0.38rem * var(--init-ui-scale));
   border-radius: var(--radius);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -198,11 +199,34 @@ body {
   align-items: center;
 }
 
-.combat-toolbar--grid > [data-combat-round] {
+.combat-toolbar__head {
   grid-column: 1 / -1;
   grid-row: 1;
-  justify-self: stretch;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: calc(0.2rem * var(--init-ui-scale));
+  min-height: var(--combat-toolbar-head-h);
+  box-sizing: border-box;
+}
+
+.combat-toolbar__head .kampf-settings-gear-host {
+  flex-shrink: 0;
+  align-self: center;
+  line-height: 0;
+}
+
+.combat-toolbar__head .combat-round-label {
+  flex: 1;
   min-width: 0;
+  text-align: center;
+  line-height: 1;
+  padding: 0;
+}
+
+.combat-toolbar__head .combat-round-label[hidden] {
+  display: none;
 }
 
 .combat-toolbar--grid > [data-combat-toggle] {
@@ -221,20 +245,6 @@ body {
   grid-column: 3;
   grid-row: 2;
   justify-self: end;
-}
-
-.combat-toolbar--grid:not(.combat-toolbar--combat-active) {
-  grid-template-rows: auto;
-}
-
-.combat-toolbar--grid:not(.combat-toolbar--combat-active) > [data-combat-round] {
-  display: none;
-}
-
-.combat-toolbar--grid:not(.combat-toolbar--combat-active) > [data-combat-toggle],
-.combat-toolbar--grid:not(.combat-toolbar--combat-active) > [data-combat-prev],
-.combat-toolbar--grid:not(.combat-toolbar--combat-active) > [data-combat-next] {
-  grid-row: 1;
 }
 
 .combat-toolbar--grid > [data-combat-prev],
@@ -272,13 +282,14 @@ body {
 .combat-round-label {
   text-align: center;
   font-family: var(--font-heading);
-  font-size: calc(0.72rem * var(--init-ui-scale));
+  font-size: calc(0.58rem * var(--init-ui-scale));
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-ink-muted);
   min-width: 0;
   white-space: nowrap;
+  line-height: 1;
 }
 
 .btn {
@@ -438,9 +449,8 @@ body {
 
 .kampf-col-za-group {
   display: grid;
-  /* Spaltenbreiten wie .init-phase-slot-row (Zahnrad, Aktion, Dist, Frei, Reakt) */
+  /* Spaltenbreiten wie .init-phase-slot-row (Aktion, Dist, Frei, Reakt) */
   grid-template-columns:
-    calc(0.75rem * var(--init-ui-scale))
     calc(var(--init-obj-cell) * 1.5)
     calc(var(--init-grid-gap) + var(--init-action-dist-gap))
     var(--init-dist-cell-w)
@@ -482,12 +492,12 @@ body {
 }
 
 /* Frei: mittig über F.A.-Kästchen */
-.kampf-col-za-group > .kampf-col-label--counter:nth-child(6) {
+.kampf-col-za-group > .kampf-col-label--counter:nth-child(5) {
   width: 100%;
 }
 
 /* Reakt: mittig über einem Schild (nicht über der ganzen Schild-Reihe) */
-.kampf-col-za-group > .kampf-col-label--counter:nth-child(8) {
+.kampf-col-za-group > .kampf-col-label--counter:nth-child(7) {
   width: var(--init-col-head-reakt-w, calc(var(--init-obj-cell) * 0.88));
   max-width: 100%;
   justify-self: start;
@@ -623,16 +633,8 @@ body {
   }
 }
 
-.kampf-settings-gear-host {
-  align-self: flex-end;
-  justify-self: center;
-  line-height: 0;
-  max-height: 1em;
-  overflow: visible;
-}
-
 /* Spieler: globales Kampf-Einstellungszahnrad nicht anzeigen */
-html:not(.v4-is-gm) .kampf-settings-gear-host {
+html:not(.v4-is-gm) .combat-toolbar__head .kampf-settings-gear-host {
   display: none;
 }
 

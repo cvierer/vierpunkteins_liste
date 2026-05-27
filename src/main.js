@@ -9,7 +9,10 @@ appRoot.innerHTML = `
   <header class="app-header">
     <div class="combat-bar" data-combat-root>
       <div class="combat-toolbar combat-toolbar--grid">
-        <span class="combat-round-label" data-combat-round hidden>Kampfrunde —</span>
+        <div class="combat-toolbar__head">
+          <span class="kampf-settings-gear-host" id="kampf-settings-gear-host"></span>
+          <span class="combat-round-label" data-combat-round hidden>Kampfrunde —</span>
+        </div>
         <button
           type="button"
           class="btn btn--nav"
@@ -36,7 +39,6 @@ appRoot.innerHTML = `
     <div class="kampf-list-head" aria-hidden="true">
       <span class="kampf-h-spacer kampf-h-spacer--expand" aria-hidden="true"></span>
       <div class="kampf-col-za-group">
-        <span class="kampf-settings-gear-host" id="kampf-settings-gear-host"></span>
         <span class="kampf-col-label kampf-col-label--counter" title="Aktion">Aktion</span>
         <span class="kampf-h-spacer kampf-h-spacer--action-dist" aria-hidden="true"></span>
         <span class="kampf-col-label kampf-col-label--counter" title="Distanz (halten)">Dist</span>
