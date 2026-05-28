@@ -2821,6 +2821,36 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const runSwapLayout = () =>
     layoutIniSwapBetween(element, listContentRoot, swapOverlay)
 
+  /** Max-Höhe = verfügbarer Platz in `.kampf-list-section` unter Spaltenkopf (wie bisher flex:1). */
+  function measureListScrollMaxHeight() {
+    const section = listScrollEl?.closest('.kampf-list-section')
+    const listHead = section?.querySelector('.kampf-list-head')
+    if (!section || !listScrollEl) return 0
+    const sectionH = section.clientHeight
+    const headH = listHead?.getBoundingClientRect().height ?? 0
+    return Math.max(0, Math.floor(sectionH - headH))
+  }
+
+  /** Listen-Scrollbereich an belegte Zeilen anpassen, bis zur bisherigen Maximalhöhe. */
+  function syncListScrollHeight() {
+    if (!listScrollEl || !listContentRoot) return
+    const host = listScrollEl.closest('.initiative-list-host')
+    const maxH = measureListScrollMaxHeight()
+    if (maxH > 0) {
+      host?.style.setProperty('--init-list-scroll-max-h', `${maxH}px`)
+      listScrollEl.style.maxHeight = `${maxH}px`
+    }
+    const cap = maxH > 0 ? maxH : listScrollEl.clientHeight
+    if (!cap || cap <= 0) return
+    const contentH = listContentRoot.scrollHeight
+    listScrollEl.style.height = `${Math.min(contentH, cap)}px`
+  }
+
+  const onListLayoutResize = () => {
+    syncListScrollHeight()
+    runSwapLayout()
+  }
+
   if (listScrollEl) {
     listScrollEl.addEventListener('scroll', runSwapLayout, { passive: true })
   }
@@ -7352,11 +7382,14 @@ function bindStampContextRemove(el, stamp, items) {
     if (shouldRestoreScroll) {
       listScrollEl.scrollTop = savedListScrollTop
     }
+    syncListScrollHeight()
     runSwapLayout()
 
     requestAnimationFrame(() => {
+      syncListScrollHeight()
       runSwapLayout()
       requestAnimationFrame(() => {
+        syncListScrollHeight()
         const didScroll = scrollActiveRowIfTurnChanged()
         if (!didScroll && shouldRestoreScroll) {
           listScrollEl.scrollTop = savedListScrollTop
@@ -7366,10 +7399,14 @@ function bindStampContextRemove(el, stamp, items) {
     })
     if (typeof ResizeObserver !== 'undefined') {
       if (!swapLayoutRo) {
-        swapLayoutRo = new ResizeObserver(runSwapLayout)
+        swapLayoutRo = new ResizeObserver(onListLayoutResize)
         swapLayoutRo.observe(element)
         if (listContentRoot) swapLayoutRo.observe(listContentRoot)
         if (listScrollEl) swapLayoutRo.observe(listScrollEl)
+        const appEl = document.querySelector('#app')
+        const listSection = listScrollEl?.closest('.kampf-list-section')
+        if (appEl) swapLayoutRo.observe(appEl)
+        if (listSection) swapLayoutRo.observe(listSection)
       }
     }
 

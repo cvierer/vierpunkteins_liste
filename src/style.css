@@ -507,7 +507,7 @@ body {
 .initiative-list-host {
   margin: 0;
   padding: 0;
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -516,8 +516,9 @@ body {
 
 .initiative-list-scroll {
   position: relative;
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
+  max-height: var(--init-list-scroll-max-h, none);
   overflow-x: hidden;
   overflow-y: auto;
   overflow-anchor: none;
