@@ -373,6 +373,8 @@ body {
   --init-dist-cell-w: calc(var(--init-obj-cell) * 1.42);
   --init-dist-cell-h: var(--init-obj-cell);
   --init-fa-bolt-visual-scale: 1.14;
+  --init-primary-switch-gap: calc(var(--init-grid-gap) * 0.55);
+  --init-primary-switch-svg-scale: 1.22;
   /* Zeilenstreifen: Zähler, DIST, Offset-Präfix (INI-Feld separat über --init-micro-inp-*) */
   --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
   --init-row-strip-line-height: 1.15;
@@ -4565,7 +4567,10 @@ select.init-row-extra-select {
   position: relative;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: calc(var(--init-obj-cell) * 0.5) var(--init-obj-cell);
+  grid-template-columns:
+    calc(var(--init-obj-cell) * 0.5 - var(--init-primary-switch-gap))
+    var(--init-obj-cell);
+  column-gap: var(--init-primary-switch-gap);
   border-radius: 4px;
   border: 0;
   overflow: visible;
@@ -4626,6 +4631,7 @@ select.init-row-extra-select {
 .init-kr-primary-switch__btn:hover:not(:disabled) {
   color: var(--color-accent);
   background: transparent;
+  filter: brightness(1.2);
 }
 
 .init-kr-primary-switch__btn:disabled {
@@ -4643,6 +4649,8 @@ select.init-row-extra-select {
   display: block;
   width: 12px;
   height: 8px;
+  transform: scale(var(--init-primary-switch-svg-scale, 1));
+  transform-origin: center center;
 }
 
 /* Play-Button (ersetzt Tauschpfeile, solange eine L.H. ausgewählt aber noch
@@ -4685,7 +4693,10 @@ select.init-row-extra-select {
   height: 18px;
 }
 .init-kr-primary-shell--play {
-  grid-template-columns: calc(var(--init-obj-cell) * 0.5) var(--init-obj-cell);
+  grid-template-columns:
+    calc(var(--init-obj-cell) * 0.5 - var(--init-primary-switch-gap))
+    var(--init-obj-cell);
+  column-gap: var(--init-primary-switch-gap);
 }
 /* Play-Button im Schacht der Umwandlungspfeile: nutzt die volle Zellenbreite. */
 .init-kr-convert-cell--lh-play {
@@ -4865,6 +4876,13 @@ select.init-row-extra-select {
 .init-kr-primary-main--stamp-hi .init-kr-primary-main__exec {
   position: relative;
   z-index: 1;
+}
+
+/* AN / S.R.A.: kein radialer Stempel-Hintergrund — nur Icon-Feedback per Hover */
+.init-kr-primary-main--ang.init-kr-primary-main--stamp-hi::before,
+.init-kr-primary-main--sra.init-kr-primary-main--stamp-hi::before {
+  content: none;
+  display: none;
 }
 
 /* =========================================================
@@ -5536,6 +5554,31 @@ select.init-row-extra-select {
 
 .init-kr-primary-main--stampable-now:hover .init-kr-primary-main__icon {
   filter: saturate(1.08) brightness(1.04);
+}
+
+/* AN / S.R.A.: Hover nur am Icon, kein runder Hintergrund auf der Button-Fläche */
+.init-kr-primary-main--ang.init-kr-primary-main--stampable-now:hover
+  .init-kr-primary-main__exec,
+.init-kr-primary-main--sra.init-kr-primary-main--stampable-now:hover
+  .init-kr-primary-main__exec {
+  border-radius: 0;
+  filter: none;
+  box-shadow: none;
+}
+
+.init-kr-primary-main--ang:hover .init-kr-primary-main__exec,
+.init-kr-primary-main--sra:hover .init-kr-primary-main__exec,
+.init-kr-primary-main--ang .init-kr-primary-main__exec:hover:not(:disabled),
+.init-kr-primary-main--sra .init-kr-primary-main__exec:hover:not(:disabled) {
+  filter: none;
+}
+
+.init-kr-primary-main--ang.init-kr-primary-main--stampable-now:hover
+  .init-kr-primary-main__icon,
+.init-kr-primary-main--sra.init-kr-primary-main--stampable-now:hover
+  .init-kr-primary-main__icon {
+  filter: saturate(1.12) brightness(1.08)
+    drop-shadow(0 0 calc(4px * var(--init-combat-icon-scale)) rgba(var(--rgb-accent), 0.45));
 }
 
 /* Mutterzeile: Reaktionsspeicher (Freie Aktionen + Schilde), ohne sichtbares Kästchen */
