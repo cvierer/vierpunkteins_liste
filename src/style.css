@@ -379,6 +379,7 @@ body {
   --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
   --init-row-strip-line-height: 1.15;
   --init-dist-cell-font-size: calc(0.76rem * var(--init-ui-scale));
+  --init-dist-idle-ring-y-nudge: calc(0.08rem * var(--init-ui-scale));
   --init-col-head-font-size: calc(0.42rem * var(--init-ui-scale));
   --init-col-head-line-height: 1;
   /* wie .init-kr-reaction-store .init-kr-abw-split-shell[data-shield-count='1'] */
@@ -5675,11 +5676,12 @@ select.init-row-extra-select {
   display: flex;
   align-items: center;
   justify-content: center;
+  transform: translateY(var(--init-dist-idle-ring-y-nudge));
 }
 
 .init-dist-cell__target-svg {
-  width: calc(16px * var(--init-ui-scale));
-  height: calc(16px * var(--init-ui-scale));
+  width: calc(17px * var(--init-ui-scale));
+  height: calc(17px * var(--init-ui-scale));
   opacity: 0.82;
   transition:
     opacity 140ms ease,
