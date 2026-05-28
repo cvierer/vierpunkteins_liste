@@ -379,7 +379,6 @@ body {
   --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
   --init-row-strip-line-height: 1.15;
   --init-dist-cell-font-size: calc(0.76rem * var(--init-ui-scale));
-  --init-dist-idle-ring-y-nudge: calc(0.08rem * var(--init-ui-scale));
   --init-col-head-font-size: calc(0.42rem * var(--init-ui-scale));
   --init-col-head-line-height: 1;
   /* wie .init-kr-reaction-store .init-kr-abw-split-shell[data-shield-count='1'] */
@@ -5605,9 +5604,8 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  display: block;
   align-self: center;
   flex-shrink: 0;
   width: var(--init-dist-cell-w);
@@ -5620,6 +5618,7 @@ select.init-row-extra-select {
   font-size: var(--init-dist-cell-font-size);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 0;
   user-select: none;
   cursor: pointer;
   touch-action: none;
@@ -5636,19 +5635,21 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell__value {
-  min-width: 0;
-  text-align: center;
-  line-height: var(--init-row-strip-line-height, 1.15);
-  white-space: nowrap;
-}
-
-.init-dist-cell--probe .init-dist-cell__value {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  text-align: center;
+  line-height: 0;
+  white-space: nowrap;
 }
 
 .init-dist-cell__probe-eye {
+  display: block;
   width: calc(17px * var(--init-ui-scale));
   height: calc(17px * var(--init-ui-scale));
   color: rgba(78, 47, 24, 0.98);
@@ -5660,11 +5661,14 @@ select.init-row-extra-select {
 
 .init-dist-cell--target {
   background: rgba(255, 255, 255, 0.06);
-  font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
   font-weight: 700;
-  line-height: var(--init-row-strip-line-height, 1.15);
   color: rgba(26, 23, 20, 0.68);
   letter-spacing: -0.02em;
+}
+
+.init-dist-cell--target .init-dist-cell__value {
+  font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
+  line-height: var(--init-row-strip-line-height, 1.15);
 }
 
 .init-dist-cell--idle-rings {
@@ -5672,17 +5676,12 @@ select.init-row-extra-select {
   background: rgba(var(--rgb-accent), 0.06);
 }
 
-.init-dist-cell--idle-rings .init-dist-cell__value {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: translateY(var(--init-dist-idle-ring-y-nudge));
-}
-
 .init-dist-cell__target-svg {
+  display: block;
   width: calc(17px * var(--init-ui-scale));
   height: calc(17px * var(--init-ui-scale));
   opacity: 0.82;
+  flex-shrink: 0;
   transition:
     opacity 140ms ease,
     transform 140ms ease,
