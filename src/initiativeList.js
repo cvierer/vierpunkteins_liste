@@ -1908,7 +1908,7 @@ function appendKrCounterPair(
     roundIntroPending = false,
     /** 2.A.-Zeile: Schilde nur Spiegel des Mutter-`KR_ABW`, kein Stempeln hier. */
     abwMirrorLinkUi = false,
-    /** Mutter-Zeile: Distanz-Kästchen zwischen Aktion und Frei. */
+    /** Mutter-Zeile: Distanz-Kästchen vor der Aktionsspalte. */
     showDistanceCell = false,
     wireDistanceProbeCell = null,
     refreshDistCellIdle = null,
@@ -1936,6 +1936,21 @@ function appendKrCounterPair(
     primaryLadungAllowed || abwLadungAllowed || atRoundBoundaryNav
   const abwRoundBoundaryShell = !abwLadungAllowed && !atRoundBoundaryNav
   const lhRoundLockedVisual = !faLadungAllowed && !atRoundBoundaryNav
+  if (showDistanceCell && typeof wireDistanceProbeCell === 'function') {
+    const distCell = document.createElement('div')
+    distCell.className = 'init-dist-cell'
+    distCell.dataset.distCellItemId = ownerItemId
+    distCell.setAttribute('role', 'button')
+    distCell.setAttribute('aria-label', 'Distanzen anzeigen (halten)')
+    const valEl = document.createElement('span')
+    valEl.className = 'init-dist-cell__value'
+    distCell.appendChild(valEl)
+    wireDistanceProbeCell(distCell, ownerItemId)
+    if (typeof refreshDistCellIdle === 'function') {
+      refreshDistCellIdle(distCell)
+    }
+    container.appendChild(distCell)
+  }
   appendKrPrimarySplitCell(
     container,
     ownerItemId,
@@ -1958,21 +1973,6 @@ function appendKrCounterPair(
       }
     )
   )
-  if (showDistanceCell && typeof wireDistanceProbeCell === 'function') {
-    const distCell = document.createElement('div')
-    distCell.className = 'init-dist-cell'
-    distCell.dataset.distCellItemId = ownerItemId
-    distCell.setAttribute('role', 'button')
-    distCell.setAttribute('aria-label', 'Distanzen anzeigen (halten)')
-    const valEl = document.createElement('span')
-    valEl.className = 'init-dist-cell__value'
-    distCell.appendChild(valEl)
-    wireDistanceProbeCell(distCell, ownerItemId)
-    if (typeof refreshDistCellIdle === 'function') {
-      refreshDistCellIdle(distCell)
-    }
-    container.appendChild(distCell)
-  }
   // Schildplatz: entweder L.H.-Counter-Eingabe (vor Werte-Setzung),
   // L.H.-Fortschritts-Kuchen (nach Werte-Setzung), Schilde oder Replacement.
   // Die L.H. kann in Mutter ODER in einem 2.A.O. beginnen.
