@@ -831,14 +831,16 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: var(--color-accent);
+  color: rgba(26, 23, 20, 0.38);
   cursor: pointer;
   transition:
+    color 0.12s ease,
     filter 0.12s ease,
     background 0.12s ease;
 }
 
 .init-row-expand-toggle:hover:not(:disabled) {
+  color: var(--color-accent);
   background: transparent;
   filter: brightness(1.2);
 }
@@ -5582,12 +5584,7 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell:not(.init-dist-cell--probe):not(.init-dist-cell--target):hover {
-  border-color: rgba(var(--rgb-accent), 0.72);
-  background: rgba(var(--rgb-accent), 0.14);
   color: var(--color-accent);
-  box-shadow:
-    0 0 0 2px rgba(var(--rgb-accent), 0.28),
-    0 0 10px rgba(var(--rgb-accent), 0.22);
 }
 
 .init-dist-cell__value {
@@ -5613,13 +5610,6 @@ select.init-row-extra-select {
   flex-shrink: 0;
 }
 
-.init-dist-cell--probe:hover {
-  border-color: rgba(var(--rgb-accent), 0.72);
-  box-shadow:
-    0 0 0 2px rgba(var(--rgb-accent), 0.28),
-    0 0 10px rgba(var(--rgb-accent), 0.22);
-}
-
 .init-dist-cell--target {
   background: rgba(255, 255, 255, 0.06);
   font-size: var(--init-row-strip-font-size, calc(0.68rem * var(--init-ui-scale)));
@@ -5633,23 +5623,6 @@ select.init-row-extra-select {
   color: rgba(var(--rgb-accent), 0.42);
   background: rgba(var(--rgb-accent), 0.06);
   border-color: rgba(var(--rgb-accent), 0.18);
-}
-
-.init-dist-cell--idle-rings:hover {
-  color: var(--color-accent);
-  background: rgba(var(--rgb-accent), 0.16);
-  border-color: rgba(var(--rgb-accent), 0.78);
-  box-shadow:
-    0 0 0 2px rgba(var(--rgb-accent), 0.32),
-    0 0 12px rgba(var(--rgb-accent), 0.28);
-}
-
-.init-dist-cell--target:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(var(--rgb-accent), 0.55);
-  box-shadow:
-    0 0 0 2px rgba(var(--rgb-accent), 0.28),
-    0 0 8px rgba(var(--rgb-accent), 0.18);
 }
 
 .init-dist-cell--idle-rings .init-dist-cell__value {
@@ -5670,14 +5643,10 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell__target-svg circle:nth-child(1) {
-  opacity: 0.38;
-}
-
-.init-dist-cell__target-svg circle:nth-child(2) {
   opacity: 0.58;
 }
 
-.init-dist-cell__target-svg circle:nth-child(3) {
+.init-dist-cell__target-svg circle:nth-child(2) {
   opacity: 0.42;
 }
 
