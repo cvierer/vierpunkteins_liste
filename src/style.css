@@ -348,7 +348,7 @@ body {
   --init-col-expand: var(--init-obj-cell);
   /* Ang., Umwandlung, Abwehr-Schilde, Freie Aktion (L.H. entfällt in dieser Spalte) */
   --init-col-btn: calc(
-    4.48 * var(--init-obj-cell)
+    4.6 * var(--init-obj-cell)
     + var(--init-dist-cell-w)
     + var(--init-action-dist-gap)
     + 3 * var(--init-strip-h-gap)
@@ -373,7 +373,8 @@ body {
   --init-dist-cell-w: calc(var(--init-obj-cell) * 1.42);
   --init-dist-cell-h: var(--init-obj-cell);
   --init-fa-bolt-visual-scale: 1.14;
-  --init-primary-switch-gap: calc(var(--init-grid-gap) * 0.75);
+  --init-primary-shell-w: calc(var(--init-obj-cell) * 1.62);
+  --init-primary-switch-gap: calc(var(--init-grid-gap) * 1.05);
   --init-primary-switch-svg-scale: 1.22;
   /* Zeilenstreifen: Zähler, DIST, Offset-Präfix (INI-Feld separat über --init-micro-inp-*) */
   --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
@@ -442,7 +443,7 @@ body {
   display: grid;
   /* Spaltenbreiten wie .init-phase-slot-row (Aktion, Dist, Frei, Reakt) */
   grid-template-columns:
-    calc(var(--init-obj-cell) * 1.5)
+    var(--init-primary-shell-w)
     calc(var(--init-grid-gap) + var(--init-action-dist-gap))
     var(--init-dist-cell-w)
     calc(var(--init-grid-gap) + var(--init-action-reaction-gap))
@@ -4563,13 +4564,16 @@ select.init-row-extra-select {
 /* Aktionszeile: erstes Kästchen — oben Aktionstyp, unten Ladung (einmal verbrauchen → oben „verbraucht“, unten leer; Rechtsklick holt Ladung zurück) */
 .init-kr-primary-shell {
   flex-shrink: 0;
-  width: calc(var(--init-obj-cell) * 1.5);
+  width: var(--init-primary-shell-w);
   height: var(--init-obj-cell);
   position: relative;
   box-sizing: border-box;
   display: grid;
   grid-template-columns:
-    calc(var(--init-obj-cell) * 0.5 - var(--init-primary-switch-gap))
+    calc(
+      var(--init-primary-shell-w) - var(--init-obj-cell) -
+        var(--init-primary-switch-gap)
+    )
     var(--init-obj-cell);
   column-gap: var(--init-primary-switch-gap);
   border-radius: 4px;
@@ -4581,7 +4585,9 @@ select.init-row-extra-select {
 /* Aktive L.H. am Mutterobjekt: Tauschpfeile ausgeblendet, Icon bleibt in
    mittlerer Hauptspalte; die (leere) Switch-Spalte wird wegreserviert. */
 .init-kr-primary-shell--no-switch {
-  grid-template-columns: calc(var(--init-obj-cell) * 0.5) var(--init-obj-cell);
+  grid-template-columns:
+    calc(var(--init-primary-shell-w) - var(--init-obj-cell))
+    var(--init-obj-cell);
 }
 .init-kr-primary-shell--no-switch .init-kr-primary-main {
   grid-column: 2 / 3;
@@ -4695,7 +4701,10 @@ select.init-row-extra-select {
 }
 .init-kr-primary-shell--play {
   grid-template-columns:
-    calc(var(--init-obj-cell) * 0.5 - var(--init-primary-switch-gap))
+    calc(
+      var(--init-primary-shell-w) - var(--init-obj-cell) -
+        var(--init-primary-switch-gap)
+    )
     var(--init-obj-cell);
   column-gap: var(--init-primary-switch-gap);
 }
