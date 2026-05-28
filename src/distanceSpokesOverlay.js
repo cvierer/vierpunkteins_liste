@@ -5,8 +5,9 @@ import {
   getGridContext,
   resolveDistanceCenter,
 } from './gridDistance.js'
+import { isGmSync } from './editAccess.js'
 import { readHeroBgColor } from './heroColors.js'
-import { TRACKER_ITEM_META_KEY } from './participants.js'
+import { isSceneItemVisibleOnMap, TRACKER_ITEM_META_KEY } from './participants.js'
 import { getProbeAnchorCenter, PROBE_ANCHOR_TOKEN_ID } from './probeAnchorToken.js'
 import { formatSchritt, formatSchrittWithClass } from './tokenDistance.js'
 
@@ -298,6 +299,11 @@ export async function syncProbeAnchorSpoke(
   if (!anchorPseudo || !heroItem) {
     return
   }
+  const isGm = options?.isGm ?? isGmSync()
+  if (!isGm && !isSceneItemVisibleOnMap(heroItem)) {
+    await hideProbeAnchorSpoke()
+    return
+  }
   const start = getProbeAnchorCenter()
   if (!start) {
     return
@@ -318,18 +324,22 @@ export async function syncProbeAnchorSpoke(
  * @param {{ id?: string, position?: { x?: number, y?: number }, width?: number, height?: number, metadata?: Record<string, unknown> } | null | undefined} probeItem
  * @param {typeof probeItem[]} otherItems
  * @param {number | null | undefined} classXSchritt
+ * @param {{ isGm?: boolean } | undefined} [options]
  */
 export async function showDistanceSpokesFor(
   probeItem,
   otherItems,
-  classXSchritt = null
+  classXSchritt = null,
+  options = undefined
 ) {
   if (!probeItem) return
+  const isGm = options?.isGm ?? isGmSync()
   const ctx = await getGridContext()
   const start = await resolveDistanceCenter(probeItem, ctx)
   const spokePairs = await Promise.all(
     otherItems.map(async (other) => {
       if (!other?.id || other.id === probeItem.id) return null
+      if (!isGm && !isSceneItemVisibleOnMap(other)) return null
       const end = await resolveDistanceCenter(other, ctx)
       const text = await formatGridDistWithClass(probeItem, other, classXSchritt)
       if (!text) return null

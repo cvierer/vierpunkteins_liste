@@ -10,6 +10,7 @@ import {
   collectSortedParticipants,
   filterItemsForListViewer,
   getTokenListDisplayName,
+  isSceneItemVisibleOnMap,
   TRACKER_ITEM_META_KEY,
 } from './participants.js'
 import {
@@ -3146,12 +3147,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       selection = []
     }
 
+    const isGm = isGmSync()
+    const visibleSceneItems = filterItemsForListViewer(sceneItems ?? [], isGm)
+    const visibleLastItems = isGm ? lastItems : lastItems.filter(isSceneItemVisibleOnMap)
+
     let externalItem = null
     for (const id of selection) {
       if (!id || id === distanceProbeItemId) continue
       const item =
-        sceneItems.find((i) => i.id === id) ??
-        lastItems.find((i) => i.id === id)
+        visibleSceneItems.find((i) => i.id === id) ??
+        visibleLastItems.find((i) => i.id === id)
       if (item?.metadata?.[TRACKER_ITEM_META_KEY] != null) {
         externalItem = item
         break
@@ -3202,7 +3207,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       const meta = externalItem.metadata?.[TRACKER_ITEM_META_KEY]
       const xSchritt = meta ? readHeroDistClassXSchritt(meta) : null
       if (anchorPseudo) {
-        await syncProbeAnchorSpoke(anchorPseudo, externalItem, xSchritt)
+        await syncProbeAnchorSpoke(anchorPseudo, externalItem, xSchritt, { isGm })
       }
     } else if (anchorOwner && anchorOwner !== distanceProbeItemId) {
       await hideProbeAnchorSpoke()
@@ -3280,13 +3285,15 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   async function refreshProbeSpokesOnly(probeItem, sceneItems) {
     const probeMeta = probeItem.metadata?.[TRACKER_ITEM_META_KEY]
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
-    const listItems = filterItemsForListViewer(sceneItems ?? [], isGmSync())
+    const isGm = isGmSync()
+    const listItems = filterItemsForListViewer(sceneItems ?? [], isGm)
     const others = listItems.filter(
       (i) =>
         i.id !== distanceProbeItemId &&
-        i.metadata?.[TRACKER_ITEM_META_KEY] != null
+        i.metadata?.[TRACKER_ITEM_META_KEY] != null &&
+        (isGm || isSceneItemVisibleOnMap(i))
     )
-    await showDistanceSpokesFor(probeItem, others, probeXSchritt)
+    await showDistanceSpokesFor(probeItem, others, probeXSchritt, { isGm })
   }
 
   async function refreshProbeRingsForItem(probeItem) {
@@ -3335,6 +3342,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const probeXSchritt = probeMeta ? readHeroDistClassXSchritt(probeMeta) : null
     await syncProbeAnchorSpoke(anchorPseudo, probeItem, probeXSchritt, {
       withClass: false,
+      isGm: isGmSync(),
     })
   }
 

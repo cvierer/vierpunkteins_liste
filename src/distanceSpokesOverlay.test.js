@@ -179,6 +179,44 @@ describe('showDistanceSpokesFor update path', () => {
       spokeItemId('other', 'label'),
     ])
   })
+
+  it('Spieler: unsichtbares Ziel ohne Spoke', async () => {
+    const hidden = {
+      id: 'hidden',
+      visible: false,
+      position: { x: 0, y: 0 },
+      metadata: { [TRACKER_ITEM_META_KEY]: {} },
+    }
+    await showDistanceSpokesFor(probe, [other, hidden], null, { isGm: false })
+    expect(localApi.addItems).toHaveBeenCalledTimes(1)
+    expect(localApi.addItems.mock.calls[0][0]).toHaveLength(2)
+    expect(localApi.deleteItems).not.toHaveBeenCalled()
+  })
+
+  it('Spieler: entfernt Spoke wenn Ziel unsichtbar wird', async () => {
+    await showDistanceSpokesFor(probe, [other], null, { isGm: false })
+    expect(localApi.addItems).toHaveBeenCalledTimes(1)
+
+    localApi.deleteItems.mockClear()
+    const hiddenOther = { ...other, visible: false }
+    await showDistanceSpokesFor(probe, [hiddenOther], null, { isGm: false })
+    expect(localApi.deleteItems).toHaveBeenCalledWith([
+      spokeItemId('other', 'line'),
+      spokeItemId('other', 'label'),
+    ])
+  })
+
+  it('GM: unsichtbares Ziel behält Spoke', async () => {
+    const hidden = {
+      id: 'hidden',
+      visible: false,
+      position: { x: 0, y: 0 },
+      metadata: { [TRACKER_ITEM_META_KEY]: {} },
+    }
+    await showDistanceSpokesFor(probe, [hidden], null, { isGm: true })
+    expect(localApi.addItems).toHaveBeenCalledTimes(1)
+    expect(localApi.addItems.mock.calls[0][0]).toHaveLength(2)
+  })
 })
 
 describe('syncDistanceMovementLine update path', () => {
@@ -282,5 +320,11 @@ describe('syncProbeAnchorSpoke', () => {
     await syncProbeAnchorSpoke(anchor, hero, null)
     expect(localApi.deleteItems).not.toHaveBeenCalled()
     expect(localApi.updateItems).toHaveBeenCalledTimes(1)
+  })
+
+  it('Spieler: unsichtbarer Held blendet Anchor-Spoke aus', async () => {
+    const hiddenHero = { ...hero, visible: false }
+    await syncProbeAnchorSpoke(anchor, hiddenHero, null, { isGm: false })
+    expect(localApi.addItems).not.toHaveBeenCalled()
   })
 })
