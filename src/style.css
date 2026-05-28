@@ -371,7 +371,8 @@ body {
   --init-reaction-frei-gap: calc(var(--init-grid-gap) * 0.35);
   --init-btn-name-gap: calc(var(--init-grid-gap) * 2);
   --init-dist-cell-w: calc(var(--init-obj-cell) * 1.42);
-  --init-dist-cell-h: calc(var(--init-obj-cell) * 1.42);
+  --init-dist-cell-h: var(--init-obj-cell);
+  --init-fa-bolt-visual-scale: 1.14;
   /* Zeilenstreifen: Zähler, DIST, Offset-Präfix (INI-Feld separat über --init-micro-inp-*) */
   --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
   --init-row-strip-line-height: 1.15;
@@ -5560,6 +5561,7 @@ select.init-row-extra-select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
   flex-shrink: 0;
   width: var(--init-dist-cell-w);
   height: var(--init-dist-cell-h);
@@ -7355,6 +7357,8 @@ select.init-row-extra-select {
   padding: 0 0 1px;
   box-sizing: border-box;
   pointer-events: none;
+  transform: scale(var(--init-fa-bolt-visual-scale, 1));
+  transform-origin: center center;
 }
 
 .init-fa-cell__bolt {
