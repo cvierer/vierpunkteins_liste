@@ -9,8 +9,12 @@
 
 import {
   cloneDefaultWappenDefs,
+  defaultSlot9Placeholder,
+  MAX_WAPPEN,
   normalizeWappenDefs,
-  validateW20Coverage,
+  normalizeSlot9Def,
+  validateSlot9W20Overlap,
+  validateW20CoverageCore,
   WAPPEN_AUTO_MOD_FIELDS,
 } from './wappenDefs.js'
 
@@ -26,30 +30,47 @@ const PARITY_OPTIONS = [
   { value: 'even', label: 'gerade' },
 ]
 
-/** Stellt sicher, dass jeder Wappen-Eintrag genau 8 Slots hat (auch leer). */
-function padToEightSlots(list) {
+/** Stellt sicher, dass die Wappen-Liste Slots 1..maxSlot enthält (auch leer). */
+function padToWappenSlots(list, maxSlot = 8) {
   /** @type {Map<number, any>} */
   const bySlot = new Map()
   for (const d of list) bySlot.set(d.slot, d)
   const out = []
-  for (let s = 1; s <= 8; s++) {
+  for (let s = 1; s <= maxSlot; s++) {
     if (bySlot.has(s)) {
       out.push(bySlot.get(s))
     } else {
-      out.push({
-        id: `wappen-${s}`,
-        active: false,
-        slot: s,
-        abbr: '',
-        label: '',
-        tooltip: '',
-        woundTooltip: '',
-        w20Range: null,
-        autoMods: [],
-      })
+      out.push(
+        s === 9
+          ? { ...defaultSlot9Placeholder() }
+          : {
+              id: `wappen-${s}`,
+              active: false,
+              slot: s,
+              abbr: '',
+              label: '',
+              tooltip: '',
+              woundTooltip: '',
+              w20Range: null,
+              autoMods: [],
+            }
+      )
     }
   }
   return out
+}
+
+/** Nur Slot 9 (Helden-Einstellungen bei global/vierbeiner). */
+function initSlot9OnlyState(initial) {
+  if (Array.isArray(initial) && initial.length > 0) {
+    const fromList = initial.find((d) => d?.slot === 9) ?? initial[0]
+    const norm = normalizeSlot9Def(fromList)
+    if (norm) return [norm]
+  } else if (initial && typeof initial === 'object') {
+    const norm = normalizeSlot9Def(initial)
+    if (norm) return [norm]
+  }
+  return [{ ...defaultSlot9Placeholder() }]
 }
 
 function fmtFieldLabel(f) {
@@ -90,6 +111,8 @@ function fmtFieldLabel(f) {
  * @param {{
  *   initial: import('./wappenDefs.js').WappenDef[] | null | undefined,
  *   readOnly?: boolean,
+ *   maxSlots?: number,
+ *   onlySlot9?: boolean,
  *   onChange?: (next: import('./wappenDefs.js').WappenDef[]) => void,
  *   onValidityChange?: (ok: boolean) => void,
  * }} opts
@@ -103,12 +126,18 @@ function fmtFieldLabel(f) {
  */
 export function mountWappenEditor(host, opts) {
   const readOnly = Boolean(opts?.readOnly)
+  const onlySlot9 = Boolean(opts?.onlySlot9)
+  const maxSlots = onlySlot9
+    ? 1
+    : Math.max(1, Math.min(MAX_WAPPEN, Math.floor(Number(opts?.maxSlots)) || 8))
   const onChange = typeof opts?.onChange === 'function' ? opts.onChange : null
   const onValidityChange =
     typeof opts?.onValidityChange === 'function' ? opts.onValidityChange : null
 
   /** @type {import('./wappenDefs.js').WappenDef[]} */
-  let state = padToEightSlots(normalizeWappenDefs(opts?.initial))
+  let state = onlySlot9
+    ? initSlot9OnlyState(opts?.initial)
+    : padToWappenSlots(normalizeWappenDefs(opts?.initial), maxSlots)
 
   const root = document.createElement('div')
   root.className = 'kampf-wappen-editor'
@@ -116,8 +145,11 @@ export function mountWappenEditor(host, opts) {
   const summary = document.createElement('p')
   summary.className =
     'kampf-settings-panel__microhint kampf-wappen-editor__hint'
-  summary.textContent =
-    'Bis zu 8 Kästchen-Slots für Wunden und Trefferzonen. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen. Jedes aktive Feld braucht eine W20-Spanne (1–20); zusammen decken alle aktiven Slots 1–20 lückenlos ab. Auto-Mods wirken bei Wunden je Trefferzone.'
+  summary.textContent = onlySlot9
+    ? 'Optionale 9. Trefferzone (Slot SW im Heldenblock). W20 optional; darf Slots 1–8 nicht überlappen.'
+    : maxSlots >= 9
+      ? 'Bis zu 9 Kästchen-Slots für Wunden und Trefferzonen (Slots 1–8 Pflicht für W20 1–20, Slot 9 optional). In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen.'
+      : 'Bis zu 8 Kästchen-Slots für Wunden und Trefferzonen. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen. Jedes aktive Feld braucht eine W20-Spanne (1–20); zusammen decken alle aktiven Slots 1–20 lückenlos ab. Auto-Mods wirken bei Wunden je Trefferzone.'
   root.appendChild(summary)
 
   const templates = Array.isArray(opts?.templates) ? opts.templates : []
@@ -187,12 +219,43 @@ export function mountWappenEditor(host, opts) {
     refreshValidity()
   }
 
+  function computeValidity() {
+    if (onlySlot9) {
+      const d = state[0]
+      if (!d?.active) return { ok: true, missing: [], overlaps: [] }
+      const abbrOk = Boolean(String(d.abbr ?? '').trim())
+      return {
+        ok: abbrOk,
+        missing: abbrOk ? [] : [9],
+        overlaps: [],
+      }
+    }
+    const core = state.filter((d) => d.slot >= 1 && d.slot <= 8)
+    const v = validateW20CoverageCore(core)
+    const slot9 = state.find((d) => d.slot === 9 && d.active)
+    if (!slot9) return v
+    const ov = validateSlot9W20Overlap(state)
+    if (ov.ok) return v
+    return {
+      ok: false,
+      missing: v.missing,
+      overlaps: ov.overlaps.map((n) => ({ n, ids: ['slot9', 'core'] })),
+    }
+  }
+
   function refreshValidity() {
-    const v = validateW20Coverage(state)
+    const v = computeValidity()
     validBox.classList.toggle('kampf-wappen-editor__validity--ok', v.ok)
     validBox.classList.toggle('kampf-wappen-editor__validity--err', !v.ok)
-    if (v.ok) {
-      validBox.textContent = 'W20-Abdeckung 1–20: vollständig und überschneidungsfrei.'
+    if (onlySlot9) {
+      validBox.textContent = v.ok
+        ? '9. Trefferzone: gültig.'
+        : '9. Trefferzone: Kürzel fehlt (max. 2 Zeichen).'
+    } else if (v.ok) {
+      validBox.textContent =
+        maxSlots >= 9
+          ? 'W20-Abdeckung Slots 1–8: vollständig; Slot 9 ohne Überlappung.'
+          : 'W20-Abdeckung 1–20: vollständig und überschneidungsfrei.'
     } else {
       const parts = []
       if (v.missing.length > 0) {
@@ -205,13 +268,13 @@ export function mountWappenEditor(host, opts) {
             .join('; ')}`
         )
       }
-      validBox.textContent = `W20-Abdeckung 1–20: ${parts.join(' · ')}`
+      validBox.textContent = `W20-Abdeckung: ${parts.join(' · ')}`
     }
     if (onValidityChange) onValidityChange(v.ok)
   }
 
   function isValid() {
-    return validateW20Coverage(state).ok
+    return computeValidity().ok
   }
 
   function getValue() {
@@ -238,7 +301,9 @@ export function mountWappenEditor(host, opts) {
   }
 
   function setValue(next) {
-    state = padToEightSlots(normalizeWappenDefs(next))
+    state = onlySlot9
+      ? initSlot9OnlyState(next)
+      : padToWappenSlots(normalizeWappenDefs(next), maxSlots)
     rerender()
     emitChange()
   }

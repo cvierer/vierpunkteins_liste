@@ -2,7 +2,8 @@
  * Wappen-/Trefferzonen-Definitionen (dynamisch konfigurierbar).
  *
  * Architektur:
- * - Globaler Standard pro Raum: roomSettings.wappenDefs (Array, max 8).
+ * - Globaler Standard pro Raum: roomSettings.wappenDefs (Array, max 8 Pflicht-Slots).
+ * - Optionaler 9. Slot pro Held (Platzhalter SW; in Helden-Einstellungen konfigurierbar).
  * - Pro Held: optional vollständige Override-Liste (heroExWappenOverride);
  *   wenn null/undefined, gilt die Raum-Liste.
  * - Wundwerte (`hzKopfRs`, `hzKopfW`, …) bleiben pro Token unter den IDs.
@@ -40,7 +41,10 @@
  * }} WappenDef
  */
 
-const MAX_WAPPEN = 8
+/** Pflicht-Slots 1–8; Slot 9 optional (Heldenblock-Platzhalter SW). */
+export const MAX_WAPPEN = 9
+/** Kern-Trefferzonen 1–8 (W20 muss 1–20 lückenlos abdecken). */
+export const CORE_WAPPEN_SLOTS = 8
 
 const VALID_PERSTUFE = new Set(['perStage', 'perWound', 'once'])
 const VALID_PARITY = new Set(['all', 'odd', 'even'])
@@ -404,8 +408,8 @@ function normalizeW20Range(raw) {
 /**
  * Bringt eine rohe Wappen-Liste in das normalisierte Schema.
  * - Wenn `raw` keine Liste oder leer: Defaults.
- * - Maximal 8 Einträge; doppelte IDs werden eindeutig gemacht.
- * - Slots werden auf 1..8 geclamped und bei Konflikt umsortiert.
+ * - Maximal 9 Einträge; doppelte IDs werden eindeutig gemacht.
+ * - Slots werden auf 1..9 geclamped und bei Konflikt umsortiert.
  *
  * @param {unknown} raw
  * @returns {WappenDef[]}
@@ -454,11 +458,80 @@ export function normalizeWappenDefs(raw) {
   return out
 }
 
+/** Inaktiver Platzhalter für Slot 9 im Heldenblock (Kürzel SW). */
+export function defaultSlot9Placeholder() {
+  return Object.freeze({
+    id: 'slot9',
+    active: false,
+    slot: 9,
+    abbr: 'SW',
+    label: '9. Trefferzone',
+    tooltip:
+      'Optionale 9. Trefferzone — in den Helden-Einstellungen konfigurierbar.',
+    woundTooltip: '',
+    w20Range: null,
+    autoMods: [],
+  })
+}
+
+/**
+ * Normalisiert eine einzelne Slot-9-Definition aus Helden-Meta.
+ * @param {unknown} raw
+ * @returns {WappenDef | null}
+ */
+export function normalizeSlot9Def(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const entry = /** @type {Record<string, unknown>} */ (raw)
+  const slot = clampSlot(entry.slot, 9)
+  if (slot !== 9) return null
+  let id = safeId(entry.id, 9)
+  const abbr = clampAbbr(entry.abbr) || 'SW'
+  const label = strOr(entry.label, '9. Trefferzone').trim()
+  const tooltip = strOr(entry.tooltip, '').trim()
+  const woundTooltip = strOr(entry.woundTooltip, '').trim()
+  const active = entry.active === undefined ? true : Boolean(entry.active)
+  const w20Range = normalizeW20Range(entry.w20Range)
+  const autoModsRaw = Array.isArray(entry.autoMods) ? entry.autoMods : []
+  const autoMods = autoModsRaw
+    .map(normalizeAutoMod)
+    .filter((m) => m !== null)
+  return {
+    id,
+    active,
+    slot: 9,
+    abbr,
+    label,
+    tooltip: tooltip || label,
+    woundTooltip,
+    w20Range,
+    autoMods,
+  }
+}
+
+/**
+ * Ergänzt Slot 9 in einer Wappen-Liste (Override oder Meta).
+ * @param {WappenDef[]} list
+ * @param {unknown} [slot9Meta]
+ * @returns {WappenDef[]}
+ */
+export function mergeEffectiveWappenWithSlot9(list, slot9Meta) {
+  const without9 = list.filter((d) => d.slot !== 9)
+  let slot9 = list.find((d) => d.slot === 9)
+  if (!slot9 && slot9Meta) {
+    slot9 = normalizeSlot9Def(slot9Meta)
+  }
+  if (!slot9) {
+    slot9 = { ...defaultSlot9Placeholder() }
+  }
+  return [...without9, slot9].sort((a, b) => a.slot - b.slot)
+}
+
 /**
  * Liefert die effektive Wappen-Liste für einen Helden:
  * - meta.heroExWappenOverride (falls vorhanden) → normalisiert.
  * - Sonst meta.heroExWappenTemplate === 'vierbeiner' → Vierbeiner-Vorlage.
  * - Sonst room.wappenDefs (oder Default).
+ * - Immer mit Slot 9 (Platzhalter oder konfiguriert).
  *
  * @param {Record<string, unknown> | undefined | null} meta
  * @param {{ wappenDefs?: unknown } | undefined | null} room
@@ -466,17 +539,22 @@ export function normalizeWappenDefs(raw) {
  */
 export function effectiveWappenForHero(meta, room) {
   const ov = meta?.[HERO_EX_WAPPEN_OVERRIDE]
+  let base
   if (Array.isArray(ov) && ov.length > 0) {
-    return normalizeWappenDefs(ov)
+    base = normalizeWappenDefs(ov)
+  } else {
+    const tpl = meta?.[HERO_EX_WAPPEN_TEMPLATE]
+    if (typeof tpl === 'string' && tpl === 'vierbeiner') {
+      base = cloneVierbeinerWappenDefs()
+    } else if (room && Array.isArray(room.wappenDefs) && room.wappenDefs.length > 0) {
+      base = normalizeWappenDefs(room.wappenDefs)
+    } else {
+      base = cloneDefaultWappenDefs()
+    }
   }
-  const tpl = meta?.[HERO_EX_WAPPEN_TEMPLATE]
-  if (typeof tpl === 'string' && tpl === 'vierbeiner') {
-    return cloneVierbeinerWappenDefs()
-  }
-  if (room && Array.isArray(room.wappenDefs) && room.wappenDefs.length > 0) {
-    return normalizeWappenDefs(room.wappenDefs)
-  }
-  return cloneDefaultWappenDefs()
+  const slot9InBase = base.some((d) => d.slot === 9)
+  if (slot9InBase) return base
+  return mergeEffectiveWappenWithSlot9(base, meta?.[HERO_EX_WAPPEN_SLOT9])
 }
 
 /** Tracker-Meta-Key für die Helden-Override-Liste. */
@@ -484,6 +562,9 @@ export const HERO_EX_WAPPEN_OVERRIDE = 'heroExWappenOverride'
 
 /** Tracker-Meta-Key für die gewählte Vorlage (z. B. 'vierbeiner'). */
 export const HERO_EX_WAPPEN_TEMPLATE = 'heroExWappenTemplate'
+
+/** Optionale 9. Trefferzone (wenn Vorlage global/vierbeiner, ohne vollständige Override-Liste). */
+export const HERO_EX_WAPPEN_SLOT9 = 'heroExWappenSlot9'
 
 /**
  * Fußteil für das TZ-Eingabefeld: Kurzliste bekannter Kürzel / Direktwurf.
@@ -629,6 +710,35 @@ export function validateW20Coverage(defs) {
   }
   overlaps.sort((a, b) => a.n - b.n)
   return { ok: missing.length === 0 && overlaps.length === 0, missing, overlaps }
+}
+
+/**
+ * W20-Abdeckung nur für Pflicht-Slots 1–8 (Slot 9 ausgenommen).
+ * @param {WappenDef[]} defs
+ */
+export function validateW20CoverageCore(defs) {
+  const core = defs.filter((d) => d.slot >= 1 && d.slot <= CORE_WAPPEN_SLOTS)
+  return validateW20Coverage(core)
+}
+
+/**
+ * Prüft, ob aktiver Slot 9 W20-Zahlen mit Slots 1–8 überlappt.
+ * @param {WappenDef[]} defs
+ */
+export function validateSlot9W20Overlap(defs) {
+  const slot9 = defs.find((d) => d.slot === 9 && d.active && d.w20Range)
+  if (!slot9) return { ok: true, overlaps: [] }
+  /** @type {Set<number>} */
+  const coreNums = new Set()
+  for (const d of defs) {
+    if (d.slot === 9 || !d.active || !d.w20Range) continue
+    for (const n of w20NumbersForRange(d.w20Range)) coreNums.add(n)
+  }
+  const overlaps = []
+  for (const n of w20NumbersForRange(slot9.w20Range)) {
+    if (coreNums.has(n)) overlaps.push(n)
+  }
+  return { ok: overlaps.length === 0, overlaps }
 }
 
 /**

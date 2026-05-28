@@ -249,7 +249,7 @@ import { cancelLh } from './lhEngine.js'
 import { createHitZoneOverlay, HIT_ZONE_INFO_ICON_SVG } from './hitZoneOverlay.js'
 import {
   bulkApplyIniFromIbBeW6ForTrackedParticipants,
-  HERO_EX_ENERGY_MODE,
+  HERO_EX_EXTRA_FIELD,
   HERO_EX_LE_THRESHOLD,
   HERO_EX_SHOW_FK,
   HERO_EX_UNFAEHIG_FIXED_FIELDS,
@@ -274,8 +274,11 @@ import {
   cleanupOrphanHitZoneKeys,
   cloneDefaultWappenDefs,
   cloneVierbeinerWappenDefs,
+  defaultSlot9Placeholder,
   HERO_EX_WAPPEN_OVERRIDE,
+  HERO_EX_WAPPEN_SLOT9,
   HERO_EX_WAPPEN_TEMPLATE,
+  normalizeSlot9Def,
   normalizeWappenDefs,
 } from './wappenDefs.js'
 
@@ -4219,22 +4222,31 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         </label>
       </fieldset>
       <div data-kampf-hero-wappen-host hidden></div>
+      <label class="kampf-settings-checkbox-label" data-kampf-hero-slot9-toggle-wrap>
+        <input type="checkbox" data-kampf-hero-slot9-enabled />
+        <span><strong>9. Trefferzone aktivieren</strong> (SW-Platzhalter im Heldenblock; optional für Wesen mit neun Zonen).</span>
+      </label>
+      <div data-kampf-hero-slot9-host hidden></div>
     </div>
     <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <h3 class="kampf-settings-panel__sub">Feldsichtbarkeit und Energie</h3>
+      <h3 class="kampf-settings-panel__sub">Feldsichtbarkeit</h3>
       <fieldset class="kampf-settings-convert-announce">
-        <legend class="kampf-settings-convert-announce__legend">Energie-Feld im Heldenblock</legend>
+        <legend class="kampf-settings-convert-announce__legend">Zusatzfeld im Heldenblock (zwischen AE und MR)</legend>
         <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-energy-mode" value="ae" />
-          <span><strong>AE</strong> anzeigen.</span>
+          <input type="radio" name="kampf-hero-extra-field" value="none" />
+          <span><strong>Keins</strong> (Platzhalter unsichtbar).</span>
         </label>
         <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-energy-mode" value="ke" />
-          <span><strong>KE</strong> anzeigen.</span>
+          <input type="radio" name="kampf-hero-extra-field" value="ke" />
+          <span><strong>KE</strong> — Karmaenergie.</span>
         </label>
         <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-energy-mode" value="none" />
-          <span><strong>Weder noch</strong> (Platzhalter bleibt unsichtbar).</span>
+          <input type="radio" name="kampf-hero-extra-field" value="gw" />
+          <span><strong>GW</strong> — Gefahrenwert.</span>
+        </label>
+        <label class="kampf-settings-radio-label">
+          <input type="radio" name="kampf-hero-extra-field" value="lo" />
+          <span><strong>LO</strong> — Loyalität.</span>
         </label>
       </fieldset>
       <label class="kampf-settings-checkbox-label">
@@ -4360,6 +4372,15 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   )
   const heroWappenHost = heroSettingsPanel.querySelector(
     '[data-kampf-hero-wappen-host]'
+  )
+  const heroSlot9EnabledCb = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-slot9-enabled]'
+  )
+  const heroSlot9Host = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-slot9-host]'
+  )
+  const heroSlot9ToggleWrap = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-slot9-toggle-wrap]'
   )
   const heroShowFkCb = heroSettingsPanel.querySelector('[data-kampf-hero-show-fk]')
   const heroLeThresholdEnabledCb = heroSettingsPanel.querySelector(
@@ -4716,6 +4737,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   /** @type {ReturnType<typeof mountWappenEditor> | null} */
   let heroWappenEditor = null
   let heroWappenValid = true
+  let heroSlot9Editor = null
+  let heroSlot9Valid = true
 
   const applyHeroSettingsUiMode = () => {
     const gm = heroSettingsGmMode
@@ -4762,11 +4785,27 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    */
   let heroPending = null
 
-  const readHeroEnergyMode = (m, fallbackIsVierbeiner = false) => {
-    const v = String(m?.[HERO_EX_ENERGY_MODE] ?? '').trim().toLowerCase()
-    if (v === 'ke' || v === 'none') return v
-    if (v === 'both') return 'ae'
-    return fallbackIsVierbeiner ? 'none' : 'ae'
+  const readHeroExtraField = (m) => {
+    const v = String(m?.[HERO_EX_EXTRA_FIELD] ?? '').trim().toLowerCase()
+    if (v === 'ke' || v === 'gw' || v === 'lo') return v
+    const legacy = String(m?.heroExEnergyMode ?? '')
+      .trim()
+      .toLowerCase()
+    if (legacy === 'ke') return 'ke'
+    return 'none'
+  }
+
+  const readHeroSlot9FromMeta = (m) => {
+    const raw = m?.[HERO_EX_WAPPEN_SLOT9]
+    const norm = normalizeSlot9Def(raw)
+    if (norm?.active) return norm
+    const ov = m?.[HERO_EX_WAPPEN_OVERRIDE]
+    if (Array.isArray(ov)) {
+      const fromOv = ov.find((d) => Number(d?.slot) === 9)
+      const normOv = normalizeSlot9Def(fromOv)
+      if (normOv?.active) return normOv
+    }
+    return null
   }
 
   const readHeroShowFk = (m, fallbackIsVierbeiner) => {
@@ -4946,7 +4985,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroWappenEditor.destroy()
       heroWappenEditor = null
     }
+    if (heroSlot9Editor) {
+      heroSlot9Editor.destroy()
+      heroSlot9Editor = null
+    }
     heroWappenValid = true
+    heroSlot9Valid = true
     if (saveHeroBtn instanceof HTMLButtonElement) {
       saveHeroBtn.disabled = false
       saveHeroBtn.title = ''
@@ -4962,11 +5006,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         ? Boolean(heroPending.hideForeignHeroColors)
         : Boolean(room.hideForeignHeroColors)
     }
-    const energyMode = heroPending?.energyMode ?? 'ae'
-    const energyRadios = heroSettingsPanel.querySelectorAll(
-      'input[name="kampf-hero-energy-mode"]'
+    const energyMode = heroPending?.extraField ?? 'none'
+    const extraRadios = heroSettingsPanel.querySelectorAll(
+      'input[name="kampf-hero-extra-field"]'
     )
-    for (const r of energyRadios) {
+    for (const r of extraRadios) {
       if (r instanceof HTMLInputElement) {
         r.checked = r.value === energyMode
         r.disabled = !heroSettingsGmMode
@@ -5142,7 +5186,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroActionPoolMax: poolMax,
       heroIniNegActionsLost: readHeroIniNegActionsLost(m),
       heroIniNegAngMode: readHeroIniNegAngMode(m),
-      energyMode: readHeroEnergyMode(m, isVierbeinerDefault),
+      extraField: readHeroExtraField(m),
       showFk: readHeroShowFk(m, isVierbeinerDefault),
       leThreshold: readHeroLeThreshold(m),
       unfaehigThreshold: normalizeUnfaehigThreshold(
@@ -5162,6 +5206,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       wappenOverride: hasWappenOverride
         ? normalizeWappenDefs(wappenOverrideRaw)
         : null,
+      slot9Enabled: Boolean(readHeroSlot9FromMeta(m)),
+      slot9Def: readHeroSlot9FromMeta(m) ?? { ...defaultSlot9Placeholder() },
       customDistProfiles: readCustomDistProfiles(m),
       distRingVisible: readDistRingVisible(m),
       distClassXSchritt: readHeroDistClassXSchritt(m),
@@ -5200,16 +5246,33 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         r.disabled = !heroSettingsGmMode
       }
     }
-    const showEditor =
+    const showOwnEditor =
       heroSettingsGmMode && heroPending.wappenSource === 'own'
+    const showSlot9Section =
+      heroSettingsGmMode && heroPending.wappenSource !== 'own'
+    if (heroSlot9ToggleWrap instanceof HTMLElement) {
+      heroSlot9ToggleWrap.hidden = !showSlot9Section
+    }
+    if (heroSlot9EnabledCb instanceof HTMLInputElement) {
+      heroSlot9EnabledCb.checked = Boolean(heroPending.slot9Enabled)
+      heroSlot9EnabledCb.disabled = !heroSettingsGmMode || !showSlot9Section
+    }
     if (heroWappenHost instanceof HTMLElement) {
-      heroWappenHost.hidden = !showEditor
+      heroWappenHost.hidden = !showOwnEditor
+    }
+    if (heroSlot9Host instanceof HTMLElement) {
+      heroSlot9Host.hidden =
+        !showSlot9Section || !heroPending.slot9Enabled
     }
     if (heroWappenEditor) {
       heroWappenEditor.destroy()
       heroWappenEditor = null
     }
-    if (showEditor && heroWappenHost instanceof HTMLElement) {
+    if (heroSlot9Editor) {
+      heroSlot9Editor.destroy()
+      heroSlot9Editor = null
+    }
+    if (showOwnEditor && heroWappenHost instanceof HTMLElement) {
       const initial =
         heroPending.wappenOverride ??
         (Array.isArray(room?.wappenDefs) && room.wappenDefs.length > 0
@@ -5218,6 +5281,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroPending.wappenOverride = initial
       heroWappenEditor = mountWappenEditor(heroWappenHost, {
         initial,
+        maxSlots: 9,
         readOnly: false,
         templates: [
           {
@@ -5243,18 +5307,50 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     } else {
       heroWappenValid = true
     }
+    if (
+      showSlot9Section &&
+      heroPending.slot9Enabled &&
+      heroSlot9Host instanceof HTMLElement
+    ) {
+      heroSlot9Editor = mountWappenEditor(heroSlot9Host, {
+        initial: heroPending.slot9Def ?? defaultSlot9Placeholder(),
+        onlySlot9: true,
+        readOnly: false,
+        onChange: (next) => {
+          if (heroPending) {
+            heroPending.slot9Def = next[0] ?? { ...defaultSlot9Placeholder() }
+            heroPending.slot9Enabled = Boolean(heroPending.slot9Def?.active)
+          }
+        },
+        onValidityChange: (ok) => {
+          heroSlot9Valid = ok
+          refreshHeroSaveDisabled()
+        },
+      })
+      heroSlot9Valid = heroSlot9Editor.isValid()
+    } else {
+      heroSlot9Valid = true
+    }
     refreshHeroSaveDisabled()
   }
 
   function refreshHeroSaveDisabled() {
     if (!(saveHeroBtn instanceof HTMLButtonElement)) return
-    const blocking =
+    const blockingOwn =
       heroSettingsGmMode &&
       heroPending?.wappenSource === 'own' &&
       !heroWappenValid
+    const blockingSlot9 =
+      heroSettingsGmMode &&
+      heroPending?.wappenSource !== 'own' &&
+      heroPending?.slot9Enabled &&
+      !heroSlot9Valid
+    const blocking = blockingOwn || blockingSlot9
     saveHeroBtn.disabled = blocking
     saveHeroBtn.title = blocking
-      ? 'Kästchen für Wunden/Trefferzonen unvollständig (W20 1–20 müssen abgedeckt sein)'
+      ? blockingSlot9
+        ? '9. Trefferzone unvollständig (Kürzel fehlt)'
+        : 'Kästchen für Wunden/Trefferzonen unvollständig (W20 1–20 müssen abgedeckt sein)'
       : ''
   }
 
@@ -5439,9 +5535,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         m[HERO_ACTION_POOL_ABW] = pend.heroActionPoolAbw
         m[HERO_INI_NEG_ACTIONS_LOST] = pend.heroIniNegActionsLost
         m[HERO_INI_NEG_ANG_MODE] = pend.heroIniNegAngMode
-        if (pend.energyMode === 'ke' || pend.energyMode === 'none')
-          m[HERO_EX_ENERGY_MODE] = pend.energyMode
-        else delete m[HERO_EX_ENERGY_MODE]
+        if (pend.extraField === 'ke' || pend.extraField === 'gw' || pend.extraField === 'lo') {
+          m[HERO_EX_EXTRA_FIELD] = pend.extraField
+        } else {
+          delete m[HERO_EX_EXTRA_FIELD]
+        }
+        delete m.heroExEnergyMode
         m[HERO_EX_SHOW_FK] = pend.showFk === false ? '0' : '1'
         if (pend.leThreshold != null && Number.isFinite(Number(pend.leThreshold))) {
           m[HERO_EX_LE_THRESHOLD] = String(
@@ -5476,12 +5575,23 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         if (pend.wappenSource === 'own' && Array.isArray(pend.wappenOverride)) {
           m[HERO_EX_WAPPEN_OVERRIDE] = normalizeWappenDefs(pend.wappenOverride)
           delete m[HERO_EX_WAPPEN_TEMPLATE]
+          delete m[HERO_EX_WAPPEN_SLOT9]
         } else if (pend.wappenSource === 'vierbeiner') {
           m[HERO_EX_WAPPEN_TEMPLATE] = 'vierbeiner'
           delete m[HERO_EX_WAPPEN_OVERRIDE]
+          if (pend.slot9Enabled && pend.slot9Def?.active) {
+            m[HERO_EX_WAPPEN_SLOT9] = normalizeSlot9Def(pend.slot9Def)
+          } else {
+            delete m[HERO_EX_WAPPEN_SLOT9]
+          }
         } else {
           delete m[HERO_EX_WAPPEN_OVERRIDE]
           delete m[HERO_EX_WAPPEN_TEMPLATE]
+          if (pend.slot9Enabled && pend.slot9Def?.active) {
+            m[HERO_EX_WAPPEN_SLOT9] = normalizeSlot9Def(pend.slot9Def)
+          } else {
+            delete m[HERO_EX_WAPPEN_SLOT9]
+          }
         }
         cleanupOrphanHitZoneKeys(m, room)
         writeCustomDistProfiles(m, pend.customDistProfiles)
@@ -5672,9 +5782,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           : 'global'
     if (heroPending.wappenSource === 'vierbeiner') {
       heroPending.showFk = false
-      if (heroPending.energyMode === 'ae') {
-        heroPending.energyMode = 'none'
-      }
     }
     const nextIsVierbeiner = heroPending.wappenSource === 'vierbeiner'
     const nextUnfaehigDefault = defaultUnfaehigThresholdForTemplate(nextIsVierbeiner)
@@ -5691,17 +5798,30 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   heroSettingsPanel.addEventListener('click', (e) => {
     const t = e.target
     if (!(t instanceof HTMLInputElement) || !heroPending) return
-    if (t.name !== 'kampf-hero-energy-mode') return
-    heroPending.energyMode =
-      t.value === 'ke' || t.value === 'none' ? t.value : 'ae'
+    if (t.name !== 'kampf-hero-extra-field') return
+    heroPending.extraField =
+      t.value === 'ke' || t.value === 'gw' || t.value === 'lo' ? t.value : 'none'
   })
 
   heroSettingsPanel.addEventListener('change', (e) => {
     const t = e.target
     if (!(t instanceof HTMLInputElement) || !heroPending) return
-    if (t.name === 'kampf-hero-energy-mode') {
-      heroPending.energyMode =
-        t.value === 'ke' || t.value === 'none' ? t.value : 'ae'
+    if (t.name === 'kampf-hero-extra-field') {
+      heroPending.extraField =
+        t.value === 'ke' || t.value === 'gw' || t.value === 'lo' ? t.value : 'none'
+      return
+    }
+    if (t.matches('[data-kampf-hero-slot9-enabled]')) {
+      heroPending.slot9Enabled = t.checked
+      if (t.checked && !heroPending.slot9Def) {
+        heroPending.slot9Def = {
+          ...defaultSlot9Placeholder(),
+          active: true,
+        }
+      } else if (heroPending.slot9Def) {
+        heroPending.slot9Def = { ...heroPending.slot9Def, active: t.checked }
+      }
+      syncHeroWappenUi(getRoomSettings())
       return
     }
     if (t === heroShowFkCb) {

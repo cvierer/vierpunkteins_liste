@@ -17,10 +17,15 @@ import {
   findWappenById,
   formatWappenW20RangeText,
   HERO_EX_WAPPEN_OVERRIDE,
+  HERO_EX_WAPPEN_SLOT9,
   HERO_EX_WAPPEN_TEMPLATE,
+  MAX_WAPPEN,
+  mergeEffectiveWappenWithSlot9,
   normalizeWappenDefs,
   TZ_ZONE_INPUT_TOOLTIP_FOOTER,
+  validateSlot9W20Overlap,
   validateW20Coverage,
+  validateW20CoverageCore,
 } from './wappenDefs.js'
 
 describe('DEFAULT_WAPPEN_DEFS', () => {
@@ -116,14 +121,14 @@ describe('normalizeWappenDefs', () => {
     expect(res[0].abbr).toBe('XY')
   })
 
-  it('begrenzt auf 8 Einträge', () => {
+  it('begrenzt auf 9 Einträge', () => {
     const big = Array.from({ length: 12 }, (_, i) => ({
       id: `w${i}`,
       slot: i + 1,
       abbr: 'AA',
     }))
     const res = normalizeWappenDefs(big)
-    expect(res.length).toBe(8)
+    expect(res.length).toBe(9)
   })
 
   it('macht doppelte IDs eindeutig', () => {
@@ -186,57 +191,61 @@ describe('validateW20Coverage', () => {
 })
 
 describe('effectiveWappenForHero', () => {
-  it('ohne Override: room.wappenDefs', () => {
+  it('ohne Override: room.wappenDefs + Slot-9-Platzhalter', () => {
     const room = { wappenDefs: [{ id: 'a', slot: 1, abbr: 'AA' }] }
     const eff = effectiveWappenForHero({}, room)
-    expect(eff.length).toBe(1)
+    expect(eff.length).toBe(2)
     expect(eff[0].id).toBe('a')
+    expect(eff[1].slot).toBe(9)
+    expect(eff[1].active).toBe(false)
   })
 
-  it('ohne Override und ohne room: Defaults', () => {
+  it('ohne Override und ohne room: Defaults + Slot 9', () => {
     const eff = effectiveWappenForHero(undefined, undefined)
-    expect(eff.length).toBe(DEFAULT_WAPPEN_DEFS.length)
+    expect(eff.length).toBe(DEFAULT_WAPPEN_DEFS.length + 1)
+    expect(eff.some((d) => d.slot === 9)).toBe(true)
   })
 
-  it('mit Override-Liste im Helden-Meta', () => {
+  it('mit Override-Liste im Helden-Meta + Slot 9', () => {
     const meta = {
       [HERO_EX_WAPPEN_OVERRIDE]: [
         { id: 'solo', slot: 1, abbr: 'SO' },
       ],
     }
     const eff = effectiveWappenForHero(meta, { wappenDefs: [] })
-    expect(eff.length).toBe(1)
+    expect(eff.length).toBe(2)
     expect(eff[0].id).toBe('solo')
+    expect(eff[1].slot).toBe(9)
   })
 
-  it('Override leer → fällt auf Raum bzw. Default zurück', () => {
+  it('Override leer → fällt auf Raum bzw. Default zurück + Slot 9', () => {
     const meta = { [HERO_EX_WAPPEN_OVERRIDE]: [] }
     const eff = effectiveWappenForHero(meta, undefined)
-    expect(eff.length).toBe(DEFAULT_WAPPEN_DEFS.length)
+    expect(eff.length).toBe(DEFAULT_WAPPEN_DEFS.length + 1)
   })
 
-  it('Template "vierbeiner" liefert die Vierbeiner-Vorlage statt Raum-Defaults', () => {
+  it('Template "vierbeiner" liefert die Vierbeiner-Vorlage + Slot 9', () => {
     const meta = { [HERO_EX_WAPPEN_TEMPLATE]: 'vierbeiner' }
     const eff = effectiveWappenForHero(meta, {
       wappenDefs: cloneDefaultWappenDefs(),
     })
-    expect(eff.length).toBe(DEFAULT_VIERBEINER_DEFS.length)
-    expect(eff.map((d) => d.id)).toEqual([
+    expect(eff.length).toBe(DEFAULT_VIERBEINER_DEFS.length + 1)
+    expect(eff.slice(0, 4).map((d) => d.id)).toEqual([
       'kopf',
       'rumpf',
       'beine',
       'schwanz',
     ])
-    expect(eff.every((d) => d.active)).toBe(true)
+    expect(eff.every((d) => d.active || d.slot === 9)).toBe(true)
   })
 
-  it('Override schlägt Template "vierbeiner"', () => {
+  it('Override schlägt Template "vierbeiner" + Slot 9', () => {
     const meta = {
       [HERO_EX_WAPPEN_TEMPLATE]: 'vierbeiner',
       [HERO_EX_WAPPEN_OVERRIDE]: [{ id: 'solo', slot: 1, abbr: 'SO' }],
     }
     const eff = effectiveWappenForHero(meta, undefined)
-    expect(eff.length).toBe(1)
+    expect(eff.length).toBe(2)
     expect(eff[0].id).toBe('solo')
   })
 })
@@ -413,5 +422,79 @@ describe('cleanupOrphanHitZoneKeys', () => {
     expect(meta.hzKampfnotiz).toBe('X')
     expect(meta.hzAnyOtherKey).toBe('Y')
     expect(meta.hzFooBaz).toBe('Z')
+  })
+})
+
+describe('Slot 9 (optionale Trefferzone)', () => {
+  it('MAX_WAPPEN ist 9', () => {
+    expect(MAX_WAPPEN).toBe(9)
+  })
+
+  it('effectiveWappenForHero ergänzt inaktiven Slot-9-Platzhalter', () => {
+    const list = effectiveWappenForHero({}, {})
+    expect(list.some((d) => d.slot === 9)).toBe(true)
+    const slot9 = list.find((d) => d.slot === 9)
+    expect(slot9?.abbr).toBe('SW')
+    expect(slot9?.active).toBe(false)
+  })
+
+  it('mergeEffectiveWappenWithSlot9 übernimmt heroExWappenSlot9', () => {
+    const base = cloneDefaultWappenDefs()
+    const merged = mergeEffectiveWappenWithSlot9(base, {
+      id: 'extra',
+      slot: 9,
+      abbr: 'X9',
+      label: 'Extra',
+      active: true,
+      w20Range: null,
+      autoMods: [],
+    })
+    const slot9 = merged.find((d) => d.slot === 9)
+    expect(slot9?.active).toBe(true)
+    expect(slot9?.abbr).toBe('X9')
+  })
+
+  it('validateW20CoverageCore prüft nur Slots 1–8', () => {
+    const core = validateW20CoverageCore(DEFAULT_WAPPEN_DEFS)
+    expect(core.ok).toBe(true)
+  })
+
+  it('validateSlot9W20Overlap meldet Überlappung mit Kernzonen', () => {
+    const defs = [
+      ...cloneDefaultWappenDefs(),
+      {
+        id: 'slot9',
+        slot: 9,
+        abbr: 'S9',
+        label: 'Neun',
+        active: true,
+        tooltip: '',
+        woundTooltip: '',
+        w20Range: { from: 20, to: 20, parity: 'all', frontalSplit: null },
+        autoMods: [],
+      },
+    ]
+    const ov = validateSlot9W20Overlap(defs)
+    expect(ov.ok).toBe(false)
+    expect(ov.overlaps).toContain(20)
+  })
+
+  it('effectiveWappenForHero liest heroExWappenSlot9', () => {
+    const list = effectiveWappenForHero(
+      {
+        [HERO_EX_WAPPEN_SLOT9]: {
+          id: 'schmerz',
+          slot: 9,
+          abbr: 'SW',
+          label: 'Schmerz',
+          active: true,
+          autoMods: [],
+        },
+      },
+      {}
+    )
+    const slot9 = list.find((d) => d.slot === 9)
+    expect(slot9?.active).toBe(true)
+    expect(slot9?.id).toBe('schmerz')
   })
 })

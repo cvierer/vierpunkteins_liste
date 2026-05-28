@@ -32,6 +32,7 @@ import {
   buildTrefferzoneInputTooltip,
   cleanupOrphanHitZoneKeys,
   effectiveWappenForHero,
+  HERO_EX_WAPPEN_SLOT9,
   HERO_EX_WAPPEN_TEMPLATE,
   TZ_ZONE_INPUT_TOOLTIP_FOOTER,
 } from './wappenDefs.js'
@@ -234,9 +235,16 @@ export const HERO_EX_BMOD = 'heroExBMod'
 export const HERO_EX_CMOD = 'heroExCMod'
 /** Ausdauer (AU), Heldenblock Trefferzonen-Zeile */
 export const HERO_EX_AU = 'heroExAu'
-/** @deprecated Nur Lesen/Migration */
+/** @deprecated Nur Lesen/Migration — ersetzt durch heroExExtraField */
 export const HERO_EX_KE = 'heroExKe'
+/** @deprecated Nur Lesen/Migration — ersetzt durch heroExExtraField */
 export const HERO_EX_ENERGY_MODE = 'heroExEnergyMode'
+/** Zusatzfeld zwischen AE und MR: none | ke | gw | lo */
+export const HERO_EX_EXTRA_FIELD = 'heroExExtraField'
+/** Gefahrenwert (GW) */
+export const HERO_EX_GW = 'heroExGw'
+/** Loyalität (LO) */
+export const HERO_EX_LO = 'heroExLo'
 export const HERO_EX_SHOW_FK = 'heroExShowFk'
 export const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
 export const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
@@ -339,6 +347,18 @@ async function writeItemInitiative(itemId, iniStr) {
   })
 }
 
+function readHeroExtraField(meta) {
+  const raw = String(meta?.[HERO_EX_EXTRA_FIELD] ?? '')
+    .trim()
+    .toLowerCase()
+  if (raw === 'ke' || raw === 'gw' || raw === 'lo') return raw
+  const energyModeRaw = String(meta?.[HERO_EX_ENERGY_MODE] ?? '')
+    .trim()
+    .toLowerCase()
+  if (energyModeRaw === 'ke') return 'ke'
+  return 'none'
+}
+
 /**
  * @param {Record<string, unknown> | undefined} meta
  */
@@ -350,22 +370,18 @@ export function readHeroExpandSnapshot(meta) {
       : !['0', 'false', 'nein', 'off'].includes(
           String(frontalRaw).trim().toLowerCase()
         )
+  const extraField = readHeroExtraField(meta)
+  const aeVal = strOrEmpty(meta?.[HERO_EX_AE])
+  const keVal = strOrEmpty(meta?.[HERO_EX_KE])
+  const gwVal = strOrEmpty(meta?.[HERO_EX_GW])
+  const loVal = strOrEmpty(meta?.[HERO_EX_LO])
+  const aeKeLegacy = strOrEmpty(meta?.[HERO_EX_AEKE_LEGACY])
   const energyModeRaw = String(meta?.[HERO_EX_ENERGY_MODE] ?? '')
     .trim()
     .toLowerCase()
-  const energyMode =
-    energyModeRaw === 'ke'
-      ? 'ke'
-      : energyModeRaw === 'none'
-        ? 'none'
-        : energyModeRaw === 'both'
-          ? 'ae'
-          : 'ae'
-  const aeVal = strOrEmpty(meta?.[HERO_EX_AE])
-  const keVal = strOrEmpty(meta?.[HERO_EX_KE])
-  const aeKeLegacy = strOrEmpty(meta?.[HERO_EX_AEKE_LEGACY])
-  const energyVal =
-    energyMode === 'ke' ? keVal || aeKeLegacy : aeVal || aeKeLegacy
+  const aeResolved = aeVal || (extraField !== 'ke' ? aeKeLegacy : '')
+  const keResolved =
+    keVal || (extraField === 'ke' && energyModeRaw === 'ke' ? aeKeLegacy : keVal)
   const showFkRaw = String(meta?.[HERO_EX_SHOW_FK] ?? '')
     .trim()
     .toLowerCase()
@@ -407,9 +423,11 @@ export function readHeroExpandSnapshot(meta) {
     a: strOrEmpty(meta?.[HERO_EX_A]),
     le: strOrEmpty(meta?.[HERO_EX_LE]),
     leMax: strOrEmpty(meta?.[HERO_EX_LE_MAX]),
-    ae: energyVal,
-    ke: keVal,
-    energyMode,
+    ae: aeResolved || aeKeLegacy,
+    ke: keResolved,
+    gw: gwVal,
+    lo: loVal,
+    extraField,
     au: strOrEmpty(meta?.[HERO_EX_AU]),
     ko: strOrEmpty(meta?.[HERO_EX_KO]),
     tp: strOrEmpty(meta?.[HERO_EX_TP]),
@@ -531,30 +549,34 @@ export async function applyHeroExpandFields(itemId, next) {
       setStr(HERO_EX_A, next.a)
       setStr(HERO_EX_LE, next.le)
       setStr(HERO_EX_LE_MAX, next.leMax)
-      const energyModeRaw = String(next.energyMode ?? '').trim().toLowerCase()
-      const energyMode =
-        energyModeRaw === 'ke'
-          ? 'ke'
-          : energyModeRaw === 'none'
-            ? 'none'
-            : energyModeRaw === 'both'
-              ? 'ae'
-              : 'ae'
-      const aeNext = String(next.ae ?? '').trim()
-      const keNext = String(next.ke ?? '').trim()
-      if (energyMode === 'ke') {
-        setStr(HERO_EX_KE, aeNext)
-        delete m[HERO_EX_AE]
-        m[HERO_EX_ENERGY_MODE] = 'ke'
-      } else if (energyMode === 'none') {
-        delete m[HERO_EX_AE]
+      setStr(HERO_EX_AE, next.ae)
+      const extraFieldRaw = String(next.extraField ?? '').trim().toLowerCase()
+      const extraField =
+        extraFieldRaw === 'ke' || extraFieldRaw === 'gw' || extraFieldRaw === 'lo'
+          ? extraFieldRaw
+          : 'none'
+      if (extraField === 'ke') {
+        setStr(HERO_EX_KE, next.ke)
+        delete m[HERO_EX_GW]
+        delete m[HERO_EX_LO]
+        m[HERO_EX_EXTRA_FIELD] = 'ke'
+      } else if (extraField === 'gw') {
+        setStr(HERO_EX_GW, next.gw)
         delete m[HERO_EX_KE]
-        m[HERO_EX_ENERGY_MODE] = 'none'
+        delete m[HERO_EX_LO]
+        m[HERO_EX_EXTRA_FIELD] = 'gw'
+      } else if (extraField === 'lo') {
+        setStr(HERO_EX_LO, next.lo)
+        delete m[HERO_EX_KE]
+        delete m[HERO_EX_GW]
+        m[HERO_EX_EXTRA_FIELD] = 'lo'
       } else {
-        setStr(HERO_EX_AE, aeNext)
         delete m[HERO_EX_KE]
-        delete m[HERO_EX_ENERGY_MODE]
+        delete m[HERO_EX_GW]
+        delete m[HERO_EX_LO]
+        delete m[HERO_EX_EXTRA_FIELD]
       }
+      delete m[HERO_EX_ENERGY_MODE]
       setStr(HERO_EX_AU, next.au)
       setStr(HERO_EX_KO, next.ko)
       setStr(HERO_EX_TP, next.tp)
@@ -810,6 +832,58 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
   }
 }
 
+/** Sichtbarer Platzhalter für inaktiven Slot 9 (Kürzel SW, nicht editierbar). */
+function mountSlot9Placeholder(itemId, canEdit, def) {
+  const abbrText = String(def?.abbr || 'SW').trim() || 'SW'
+  const titleBase =
+    String(def?.tooltip || def?.label || '9. Trefferzone').trim() ||
+    '9. Trefferzone'
+  const cell = document.createElement('div')
+  cell.className =
+    'init-hero-ex__micro-cell init-hero-ex__micro-cell--wappen init-hero-ex__micro-cell--slot9-placeholder'
+  const ab = document.createElement('span')
+  ab.className = 'init-hero-ex__abbr'
+  ab.textContent = abbrText
+  ab.title = `${titleBase} — in Helden-Einstellungen konfigurierbar`
+  const wappen = document.createElement('div')
+  wappen.className = 'init-hero-ex__wappen init-hero-ex__wappen--slot9-placeholder'
+  wappen.setAttribute('role', 'group')
+  wappen.setAttribute('aria-label', `${titleBase} (Platzhalter)`)
+  const chief = document.createElement('div')
+  chief.className = 'init-hero-ex__wappen-chief'
+  /** @type {HTMLButtonElement[]} */
+  const dots = []
+  for (let i = 0; i < 3; i++) {
+    const dot = document.createElement('button')
+    dot.type = 'button'
+    dot.className = 'init-hero-ex__wappen-dot'
+    dot.disabled = true
+    dot.tabIndex = -1
+    dot.setAttribute('aria-hidden', 'true')
+    dots.push(dot)
+  }
+  chief.append(...dots)
+  const rsInp = document.createElement('input')
+  rsInp.type = 'text'
+  rsInp.className = 'init-hero-ex__micro init-hero-ex__micro--wappen-rs'
+  rsInp.id = `hero-ex-${itemId}-hz-slot9-rs`
+  rsInp.disabled = true
+  rsInp.tabIndex = -1
+  rsInp.setAttribute('aria-hidden', 'true')
+  wappen.append(chief, rsInp)
+  cell.append(ab, wappen)
+  return {
+    cell,
+    rsInp,
+    dots,
+    zoneId: def?.id || 'slot9',
+    getWunden: () => 0,
+    syncDots: () => {},
+    bumpWunden: () => {},
+    isPlaceholder: true,
+  }
+}
+
 /** Gestrichelte Mod-Pfeile im MOD+-Button (V652, gleiche Grafik wie Kampfliste). */
 const SVG_HERO_MOD_TOGGLE_UP =
   '<svg class="init-hero-ex__mod-toggle-sum-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.75" stroke-dasharray="4.5 4" stroke-linecap="round" d="M12 24V9"/><path fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" d="M5.5 11L12 4l6.5 7"/></svg>'
@@ -836,11 +910,16 @@ export function mountHeroExpandBlock(
 ) {
   const snap = readHeroExpandSnapshot(meta)
   const tzFieldTooltip = buildTrefferzoneInputTooltip(meta, getRoomSettings())
-  const energyFieldLabel =
-    snap.energyMode === 'ke' ? 'Karmaenergie (KE)' : 'Astralenergie (AE)'
-  const energyFieldAbbr = snap.energyMode === 'ke' ? 'KE' : 'AE'
+  const extraField = snap.extraField ?? 'none'
+  const extraFieldLabels = {
+    ke: ['KE', 'Karmaenergie (KE)'],
+    gw: ['GW', 'Gefahrenwert (GW)'],
+    lo: ['LO', 'Loyalität (LO)'],
+  }
+  const extraFieldAbbr = extraFieldLabels[extraField]?.[0] ?? ''
+  const extraFieldFullName = extraFieldLabels[extraField]?.[1] ?? ''
+  const showExtraField = extraField !== 'none'
   const showFkField = snap.showFk !== false
-  const showEnergyField = snap.energyMode !== 'none'
   const customLeThreshold =
     Number.isFinite(Number(snap.leThreshold)) && Number(snap.leThreshold) > 0
       ? Math.floor(Number(snap.leThreshold))
@@ -849,7 +928,6 @@ export function mountHeroExpandBlock(
     Number.isFinite(Number(snap.unfaehigThreshold)) && Number(snap.unfaehigThreshold) >= 0
       ? Math.floor(Number(snap.unfaehigThreshold))
       : 5
-  const auSnap = snap.au
   const hitZoneNotizFrozen = snap.hitZones.notiz
   const __combatRound = getCombat()
   const __roundNum =
@@ -1031,6 +1109,15 @@ export function mountHeroExpandBlock(
     'ko',
     microDisplayForModField('ko', snap.ko),
     2,
+    '',
+    true
+  )
+  const auAttr = mkMicro(
+    'AU',
+    'Ausdauer (AU)',
+    'au',
+    microDisplayForModField('au', snap.au),
+    3,
     '',
     true
   )
@@ -1243,21 +1330,37 @@ export function mountHeroExpandBlock(
     '',
     true
   )
-  const energyModField = snap.energyMode === 'ke' ? 'ke' : 'ae'
   const ae = mkMicro(
-    energyFieldAbbr,
-    energyFieldLabel,
+    'AE',
+    'Astralenergie (AE)',
     'ae',
-    microDisplayForModField(energyModField, snap.ae),
+    microDisplayForModField('ae', snap.ae),
     3,
     '',
     true
   )
-  if (!showEnergyField) {
-    ae.cell.style.visibility = 'hidden'
-    ae.cell.setAttribute('aria-hidden', 'true')
-    ae.inp.disabled = true
-    ae.inp.tabIndex = -1
+  const extraFieldValue =
+    extraField === 'ke'
+      ? microDisplayForModField('ke', snap.ke)
+      : extraField === 'gw'
+        ? microDisplayForModField('gw', snap.gw)
+        : extraField === 'lo'
+          ? microDisplayForModField('lo', snap.lo)
+          : ''
+  const extra = mkMicro(
+    extraFieldAbbr || '—',
+    extraFieldFullName || 'Zusatzfeld',
+    'extra',
+    extraFieldValue,
+    3,
+    '',
+    true
+  )
+  if (!showExtraField) {
+    extra.cell.style.visibility = 'hidden'
+    extra.cell.setAttribute('aria-hidden', 'true')
+    extra.inp.disabled = true
+    extra.inp.tabIndex = -1
   }
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
@@ -1491,8 +1594,13 @@ export function mountHeroExpandBlock(
       wappenBySlot.set(Number(def.slot), def)
     }
   }
-  for (let slot = 1; slot <= 8; slot++) {
+  for (let slot = 1; slot <= 9; slot++) {
     const def = wappenBySlot.get(slot)
+    if (slot === 9 && (!def || def.active === false)) {
+      const ui = mountSlot9Placeholder(itemId, canEdit, def ?? { abbr: 'SW' })
+      zoneMidRow.appendChild(ui.cell)
+      continue
+    }
     if (!def || def.active === false) {
       const placeholder = document.createElement('div')
       placeholder.className =
@@ -2911,7 +3019,7 @@ export function mountHeroExpandBlock(
   syncLeMaxInputMode()
 
   zoneMidRow.append(spTzPair)
-  attrKoTpWrap.append(leChain, leThreshCell)
+  attrKoTpWrap.append(auAttr.cell, leChain, leThreshCell)
 
   stripInner.append(
     at.cell,
@@ -2921,6 +3029,7 @@ export function mountHeroExpandBlock(
     fk.cell,
     gs.cell,
     ae.cell,
+    extra.cell,
     ibChain
   )
   if (modIbCol) {
@@ -3061,10 +3170,10 @@ export function mountHeroExpandBlock(
   const modFieldsWerte = MOD_FIELDS.filter(
     (f) => !modPopAttrIds.has(f) && !modPopZoneIds.has(f)
   ).filter((f) => {
-    if (f === 'ae')
-      return showEnergyField && snap.energyMode !== 'ke' && snap.energyMode !== 'none'
-    if (f === 'ke')
-      return showEnergyField && snap.energyMode === 'ke'
+    if (f === 'ae') return true
+    if (f === 'ke') return showExtraField && extraField === 'ke'
+    if (f === 'gw') return showExtraField && extraField === 'gw'
+    if (f === 'lo') return showExtraField && extraField === 'lo'
     return true
   })
   const modFieldsEigenschaften = [
@@ -3076,6 +3185,7 @@ export function mountHeroExpandBlock(
     'ge',
     'kk',
     'ko',
+    'au',
   ].filter((f) => MOD_FIELDS.includes(f))
 
   root.append(leadSpacer, strip, zoneMidRow, bottomStrip, spacerExp)
@@ -3103,11 +3213,15 @@ export function mountHeroExpandBlock(
     a: { cell: ausw.cell, inp: ausw.inp, ab: ausw.ab },
     fk: { cell: fk.cell, inp: fk.inp, ab: fk.ab },
     gs: { cell: gs.cell, inp: gs.inp, ab: gs.ab },
-    ...(showEnergyField && snap.energyMode === 'ke'
-      ? { ke: { cell: ae.cell, inp: ae.inp, ab: ae.ab } }
-      : showEnergyField && snap.energyMode !== 'none'
-        ? { ae: { cell: ae.cell, inp: ae.inp, ab: ae.ab } }
-        : {}),
+    ae: { cell: ae.cell, inp: ae.inp, ab: ae.ab },
+    au: { cell: auAttr.cell, inp: auAttr.inp, ab: auAttr.ab },
+    ...(showExtraField && extraField === 'ke'
+      ? { ke: { cell: extra.cell, inp: extra.inp, ab: extra.ab } }
+      : showExtraField && extraField === 'gw'
+        ? { gw: { cell: extra.cell, inp: extra.inp, ab: extra.ab } }
+        : showExtraField && extraField === 'lo'
+          ? { lo: { cell: extra.cell, inp: extra.inp, ab: extra.ab } }
+          : {}),
     le: { cell: stackLe, inp: leInp, ab: leAbbrLE },
     leMax: { cell: stackLeMax, inp: leMaxInp, ab: leAbbrMax },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
@@ -5160,11 +5274,12 @@ export function mountHeroExpandBlock(
     a: ausw.inp.value,
     le: le.inp.value,
     leMax: leMax.inp.value,
-    ae:
-      showEnergyField && snap.energyMode !== 'ke' ? ae.inp.value : '',
-    ke: snap.energyMode === 'ke' ? ae.inp.value : snap.ke,
-    energyMode: snap.energyMode,
-    au: auSnap,
+    ae: ae.inp.value,
+    ke: extraField === 'ke' ? extra.inp.value : snap.ke,
+    gw: extraField === 'gw' ? extra.inp.value : snap.gw,
+    lo: extraField === 'lo' ? extra.inp.value : snap.lo,
+    extraField,
+    au: auAttr.inp.value,
     ko: koAttr.inp.value,
     tp: tpInp.value,
     sp: spInp.value,
@@ -5655,7 +5770,8 @@ export function mountHeroExpandBlock(
     ausw.inp,
     le.inp,
     leMax.inp,
-    ...(showEnergyField ? [ae.inp] : []),
+    ae.inp,
+    ...(showExtraField ? [extra.inp] : []),
     tpInp,
     ...(showFkField ? [fk.inp] : []),
     gs.inp,
@@ -5674,6 +5790,7 @@ export function mountHeroExpandBlock(
     ge.inp,
     kk.inp,
     koAttr.inp,
+    auAttr.inp,
     ...allZoneUis.map((u) => u.rsInp),
     /* S-Overlay LE/max: gleiche Blur/Enter/Persist/Fokus wie die Hauptfelder */
     lePopLeInp,

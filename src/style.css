@@ -3366,6 +3366,25 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   opacity: 0.92;
 }
 
+/* Slot 9 Platzhalter (SW): sichtbar, aber inaktiv bis konfiguriert */
+.init-hero-ex__micro-cell--slot9-placeholder > .init-hero-ex__abbr {
+  opacity: 0.55;
+}
+
+.init-hero-ex__wappen--slot9-placeholder {
+  opacity: 0.72;
+}
+
+.init-hero-ex__wappen--slot9-placeholder .init-hero-ex__wappen-dot {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.init-hero-ex__wappen--slot9-placeholder .init-hero-ex__micro--wappen-rs {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .init-hero-ex__wappen-dot {
   position: relative;
   z-index: 2;
