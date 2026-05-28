@@ -373,7 +373,7 @@ body {
   --init-dist-cell-w: calc(var(--init-obj-cell) * 1.42);
   --init-dist-cell-h: var(--init-obj-cell);
   --init-fa-bolt-visual-scale: 1.14;
-  --init-primary-switch-gap: calc(var(--init-grid-gap) * 0.55);
+  --init-primary-switch-gap: calc(var(--init-grid-gap) * 0.75);
   --init-primary-switch-svg-scale: 1.22;
   /* Zeilenstreifen: Zähler, DIST, Offset-Präfix (INI-Feld separat über --init-micro-inp-*) */
   --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
@@ -4266,6 +4266,7 @@ select.init-row-extra-select {
   justify-content: flex-start;
   gap: calc(var(--init-grid-gap) * 0.42);
   flex-shrink: 0;
+  height: var(--init-obj-cell);
   overflow: visible;
 }
 
@@ -5591,6 +5592,8 @@ select.init-row-extra-select {
   box-sizing: border-box;
   padding: 0;
   min-height: var(--init-obj-cell);
+  height: var(--init-obj-cell);
+  align-self: center;
   min-width: 0;
   position: relative;
   margin-left: var(--init-action-reaction-gap);
@@ -5608,7 +5611,7 @@ select.init-row-extra-select {
   flex-shrink: 0;
   width: var(--init-dist-cell-w);
   height: var(--init-dist-cell-h);
-  margin-left: var(--init-action-dist-gap);
+  margin: 0 0 0 var(--init-action-dist-gap);
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -5728,6 +5731,10 @@ select.init-row-extra-select {
 .init-kr-reaction-store .init-fa-cell {
   background: transparent;
   box-shadow: none;
+}
+
+.init-kr-reaction-store .init-fa-cell {
+  align-self: center;
 }
 
 .init-kr-reaction-store .init-kr-abw-split-shell {
@@ -7397,7 +7404,7 @@ select.init-row-extra-select {
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 0 0 1px;
+  padding: 0;
   box-sizing: border-box;
   pointer-events: none;
   transform: scale(var(--init-fa-bolt-visual-scale, 1));
