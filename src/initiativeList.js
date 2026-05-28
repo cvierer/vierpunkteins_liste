@@ -2821,14 +2821,40 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const runSwapLayout = () =>
     layoutIniSwapBetween(element, listContentRoot, swapOverlay)
 
-  /** Max-Höhe = verfügbarer Platz in `.kampf-list-section` unter Spaltenkopf (wie bisher flex:1). */
+  /** Max-Höhe der Liste = Popover/Viewport minus Toolbar und Spaltenkopf. */
+  let listScrollMaxHeightPx = 0
+
   function measureListScrollMaxHeight() {
-    const section = listScrollEl?.closest('.kampf-list-section')
-    const listHead = section?.querySelector('.kampf-list-head')
-    if (!section || !listScrollEl) return 0
-    const sectionH = section.clientHeight
-    const headH = listHead?.getBoundingClientRect().height ?? 0
-    return Math.max(0, Math.floor(sectionH - headH))
+    if (!listScrollEl) return 0
+    const appEl = document.querySelector('#app')
+    const header = document.querySelector('.app-header')
+    const listHead = document.querySelector('.kampf-list-head')
+    const viewportH = window.innerHeight
+    let chromeH = 0
+    if (appEl instanceof HTMLElement) {
+      const appStyle = getComputedStyle(appEl)
+      chromeH +=
+        (parseFloat(appStyle.paddingTop) || 0) +
+        (parseFloat(appStyle.paddingBottom) || 0)
+    }
+    if (header instanceof HTMLElement) {
+      chromeH += header.getBoundingClientRect().height
+    }
+    if (listHead instanceof HTMLElement) {
+      chromeH += listHead.getBoundingClientRect().height
+    }
+    const section = listScrollEl.closest('.kampf-list-section')
+    if (section instanceof HTMLElement) {
+      const sectionStyle = getComputedStyle(section)
+      chromeH += parseFloat(sectionStyle.marginTop) || 0
+    }
+    const maxH = Math.max(0, Math.floor(viewportH - chromeH))
+    if (maxH > 0) {
+      listScrollMaxHeightPx = maxH
+      return maxH
+    }
+    if (listScrollMaxHeightPx > 0) return listScrollMaxHeightPx
+    return Math.max(0, Math.floor(viewportH * 0.7))
   }
 
   /** Listen-Scrollbereich an belegte Zeilen anpassen, bis zur bisherigen Maximalhöhe. */
@@ -2836,12 +2862,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!listScrollEl || !listContentRoot) return
     const host = listScrollEl.closest('.initiative-list-host')
     const maxH = measureListScrollMaxHeight()
-    if (maxH > 0) {
-      host?.style.setProperty('--init-list-scroll-max-h', `${maxH}px`)
-      listScrollEl.style.maxHeight = `${maxH}px`
-    }
-    const cap = maxH > 0 ? maxH : listScrollEl.clientHeight
+    const cap = maxH > 0 ? maxH : listScrollMaxHeightPx
     if (!cap || cap <= 0) return
+    host?.style.setProperty('--init-list-scroll-max-h', `${cap}px`)
+    listScrollEl.style.maxHeight = `${cap}px`
     const contentH = listContentRoot.scrollHeight
     listScrollEl.style.height = `${Math.min(contentH, cap)}px`
   }
@@ -2854,6 +2878,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   if (listScrollEl) {
     listScrollEl.addEventListener('scroll', runSwapLayout, { passive: true })
   }
+
+  const onWindowResize = () => {
+    syncListScrollHeight()
+    runSwapLayout()
+  }
+  window.addEventListener('resize', onWindowResize, { passive: true })
+  requestAnimationFrame(() => {
+    syncListScrollHeight()
+    runSwapLayout()
+  })
 
   /** INI-Felder: bei Fokus (Klick/Tab) den vorhandenen Wert vollständig auswählen. */
   element.addEventListener('focusin', (e) => {
@@ -7532,6 +7566,7 @@ function bindStampContextRemove(el, stamp, items) {
     if (listScrollEl) {
       listScrollEl.removeEventListener('scroll', runSwapLayout, { passive: true })
     }
+    window.removeEventListener('resize', onWindowResize)
     swapLayoutRo?.disconnect()
     swapLayoutRo = null
     detachGlobalDragListeners()
