@@ -246,6 +246,8 @@ export const HERO_EX_GW = 'heroExGw'
 /** Loyalität (LO) */
 export const HERO_EX_LO = 'heroExLo'
 export const HERO_EX_SHOW_FK = 'heroExShowFk'
+/** AU-Feld im Heldenblock (Standard aus) */
+export const HERO_EX_SHOW_AU = 'heroExShowAu'
 export const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
 export const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
 export const HERO_EX_UNFAEHIG_MARK_FIELDS = 'heroExUnfaehigMarkFields'
@@ -347,7 +349,7 @@ async function writeItemInitiative(itemId, iniStr) {
   })
 }
 
-function readHeroExtraField(meta) {
+export function readHeroExtraField(meta) {
   const raw = String(meta?.[HERO_EX_EXTRA_FIELD] ?? '')
     .trim()
     .toLowerCase()
@@ -393,6 +395,9 @@ export function readHeroExpandSnapshot(meta) {
     showFkRaw === ''
       ? showFkDefault
       : !['0', 'false', 'off', 'no', 'nein'].includes(showFkRaw)
+  const showAuRaw = String(meta?.[HERO_EX_SHOW_AU] ?? '').trim().toLowerCase()
+  const showAu =
+    showAuRaw === '1' || ['true', 'on', 'yes', 'ja'].includes(showAuRaw)
   const leThresholdRaw = String(meta?.[HERO_EX_LE_THRESHOLD] ?? '')
     .trim()
     .toLowerCase()
@@ -436,6 +441,7 @@ export function readHeroExpandSnapshot(meta) {
     frontal,
     fk: strOrEmpty(meta?.[HERO_EX_FK]),
     showFk,
+    showAu,
     leThreshold,
     unfaehigThreshold,
     unfaehigMarkFields,
@@ -588,6 +594,9 @@ export async function applyHeroExpandFields(itemId, next) {
       if (next.showFk === false) m[HERO_EX_SHOW_FK] = '0'
       else if (next.showFk === true) m[HERO_EX_SHOW_FK] = '1'
       else delete m[HERO_EX_SHOW_FK]
+      if (next.showAu === true) m[HERO_EX_SHOW_AU] = '1'
+      else if (next.showAu === false) m[HERO_EX_SHOW_AU] = '0'
+      else delete m[HERO_EX_SHOW_AU]
       if (Number.isFinite(Number(next.leThreshold)) && Number(next.leThreshold) > 0) {
         m[HERO_EX_LE_THRESHOLD] = String(Math.floor(Number(next.leThreshold)))
       } else {
@@ -871,7 +880,10 @@ function mountSlot9Placeholder(itemId, canEdit, def) {
   rsInp.tabIndex = -1
   rsInp.setAttribute('aria-hidden', 'true')
   wappen.append(chief, rsInp)
-  cell.append(ab, wappen)
+  const modSub = document.createElement('span')
+  modSub.className = 'init-hero-ex__mod-sub-slot'
+  modSub.setAttribute('aria-hidden', 'true')
+  cell.append(ab, wappen, modSub)
   return {
     cell,
     rsInp,
@@ -920,6 +932,7 @@ export function mountHeroExpandBlock(
   const extraFieldFullName = extraFieldLabels[extraField]?.[1] ?? ''
   const showExtraField = extraField !== 'none'
   const showFkField = snap.showFk !== false
+  const showAuField = snap.showAu === true
   const customLeThreshold =
     Number.isFinite(Number(snap.leThreshold)) && Number(snap.leThreshold) > 0
       ? Math.floor(Number(snap.leThreshold))
@@ -1121,6 +1134,12 @@ export function mountHeroExpandBlock(
     '',
     true
   )
+  if (!showAuField) {
+    auAttr.cell.style.visibility = 'hidden'
+    auAttr.cell.setAttribute('aria-hidden', 'true')
+    auAttr.inp.disabled = true
+    auAttr.inp.tabIndex = -1
+  }
 
   const attrCols = document.createElement('div')
   attrCols.className = 'init-hero-ex__attr-cols'
@@ -3185,7 +3204,7 @@ export function mountHeroExpandBlock(
     'ge',
     'kk',
     'ko',
-    'au',
+    ...(showAuField ? ['au'] : []),
   ].filter((f) => MOD_FIELDS.includes(f))
 
   root.append(leadSpacer, strip, zoneMidRow, bottomStrip, spacerExp)
@@ -5288,6 +5307,7 @@ export function mountHeroExpandBlock(
     wappenDefs: snap.wappenDefs,
     fk: fk.inp.value,
     showFk: showFkField,
+    showAu: showAuField,
     gs: gs.inp.value,
     mr: mr.inp.value,
     ib: ib.inp.value,
@@ -5790,7 +5810,7 @@ export function mountHeroExpandBlock(
     ge.inp,
     kk.inp,
     koAttr.inp,
-    auAttr.inp,
+    ...(showAuField ? [auAttr.inp] : []),
     ...allZoneUis.map((u) => u.rsInp),
     /* S-Overlay LE/max: gleiche Blur/Enter/Persist/Fokus wie die Hauptfelder */
     lePopLeInp,

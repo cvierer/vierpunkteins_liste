@@ -251,6 +251,7 @@ import {
   bulkApplyIniFromIbBeW6ForTrackedParticipants,
   HERO_EX_EXTRA_FIELD,
   HERO_EX_LE_THRESHOLD,
+  HERO_EX_SHOW_AU,
   HERO_EX_SHOW_FK,
   HERO_EX_UNFAEHIG_FIXED_FIELDS,
   HERO_EX_UNFAEHIG_MARK_FIELDS,
@@ -258,6 +259,7 @@ import {
   defaultUnfaehigThresholdForTemplate,
   HERO_EXPAND_BODY_FLUSH,
   mountHeroExpandBlock,
+  readHeroExtraField,
 } from './iniModMeta.js'
 import { purgeKrMarksBeforeRound } from './krCombatMarks.js'
 import { KAMPF_GEAR_ICON_SVG } from './settingsPanel.js'
@@ -4254,6 +4256,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         <span><strong>FK anzeigen:</strong> bei Vierbeiner standardmäßig ausblendbar.</span>
       </label>
       <label class="kampf-settings-checkbox-label">
+        <input type="checkbox" data-kampf-hero-show-au />
+        <span><strong>AU anzeigen (Ausdauer):</strong> Feld zwischen KO und WS; standardmäßig aus.</span>
+      </label>
+      <label class="kampf-settings-checkbox-label">
         <input type="checkbox" data-kampf-hero-le-threshold-enabled />
         <span><strong>LE-Schwelle aktivieren:</strong> zusätzliche Schwelle unterhalb der Prozentbänder.</span>
       </label>
@@ -4383,6 +4389,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     '[data-kampf-hero-slot9-toggle-wrap]'
   )
   const heroShowFkCb = heroSettingsPanel.querySelector('[data-kampf-hero-show-fk]')
+  const heroShowAuCb = heroSettingsPanel.querySelector('[data-kampf-hero-show-au]')
   const heroLeThresholdEnabledCb = heroSettingsPanel.querySelector(
     '[data-kampf-hero-le-threshold-enabled]'
   )
@@ -4785,13 +4792,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
    */
   let heroPending = null
 
-  const readHeroExtraField = (m) => {
-    const v = String(m?.[HERO_EX_EXTRA_FIELD] ?? '').trim().toLowerCase()
-    if (v === 'ke' || v === 'gw' || v === 'lo') return v
-    const legacy = String(m?.heroExEnergyMode ?? '')
-      .trim()
-      .toLowerCase()
-    if (legacy === 'ke') return 'ke'
+  const readExtraFieldFromHeroSettingsPanel = () => {
+    const checked = heroSettingsPanel.querySelector(
+      'input[name="kampf-hero-extra-field"]:checked'
+    )
+    if (checked instanceof HTMLInputElement) {
+      const v = checked.value
+      if (v === 'ke' || v === 'gw' || v === 'lo') return v
+    }
     return 'none'
   }
 
@@ -4812,6 +4820,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const raw = String(m?.[HERO_EX_SHOW_FK] ?? '').trim().toLowerCase()
     if (!raw) return !fallbackIsVierbeiner
     return !['0', 'false', 'off', 'no', 'nein'].includes(raw)
+  }
+
+  const readHeroShowAu = (m) => {
+    const raw = String(m?.[HERO_EX_SHOW_AU] ?? '').trim().toLowerCase()
+    return raw === '1' || ['true', 'on', 'yes', 'ja'].includes(raw)
   }
 
   const readHeroLeThreshold = (m) => {
@@ -5020,6 +5033,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroShowFkCb.checked = heroPending ? heroPending.showFk !== false : true
       heroShowFkCb.disabled = !heroSettingsGmMode
     }
+    if (heroShowAuCb instanceof HTMLInputElement) {
+      heroShowAuCb.checked = heroPending ? heroPending.showAu === true : false
+      heroShowAuCb.disabled = !heroSettingsGmMode
+    }
     if (
       heroLeThresholdEnabledCb instanceof HTMLInputElement &&
       heroLeThresholdInp instanceof HTMLInputElement
@@ -5188,6 +5205,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroIniNegAngMode: readHeroIniNegAngMode(m),
       extraField: readHeroExtraField(m),
       showFk: readHeroShowFk(m, isVierbeinerDefault),
+      showAu: readHeroShowAu(m),
       leThreshold: readHeroLeThreshold(m),
       unfaehigThreshold: normalizeUnfaehigThreshold(
         m?.[HERO_EX_UNFAEHIG_THRESHOLD],
@@ -5458,6 +5476,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     pullCustomDistPendingFromUi()
     pullDistRingPendingFromUi()
     pullHeroDistClassXFromUi()
+    pend.extraField = readExtraFieldFromHeroSettingsPanel()
+    if (heroShowAuCb instanceof HTMLInputElement) {
+      pend.showAu = heroShowAuCb.checked
+    }
     const patchModDisplayMode = (m) => {
       // Modifikator-Anzeige ist dauerhaft "getrennt".
       delete m.modDisplayMode
@@ -5542,6 +5564,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         }
         delete m.heroExEnergyMode
         m[HERO_EX_SHOW_FK] = pend.showFk === false ? '0' : '1'
+        m[HERO_EX_SHOW_AU] = pend.showAu === true ? '1' : '0'
         if (pend.leThreshold != null && Number.isFinite(Number(pend.leThreshold))) {
           m[HERO_EX_LE_THRESHOLD] = String(
             Math.max(1, Math.floor(Number(pend.leThreshold)))
@@ -5604,6 +5627,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       }
     })
     await refreshAutoBundlesForItem(id)
+    const itemsAfterSave = await OBR.scene.items.getItems()
+    await renderList(itemsAfterSave)
     closeHeroSettings()
   }
 
@@ -5826,6 +5851,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
     if (t === heroShowFkCb) {
       heroPending.showFk = t.checked
+      return
+    }
+    if (t === heroShowAuCb) {
+      heroPending.showAu = t.checked
       return
     }
     if (t === heroLeThresholdEnabledCb) {
