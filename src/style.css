@@ -48,6 +48,11 @@
   --color-ink-muted: rgba(32, 24, 18, 0.64);
   --color-bg: #e9dcc8;
   --color-surface: #fff4e6;
+  --tool-glass-sand: rgba(233, 220, 200, 0.32);
+  --tool-glass-surface: rgba(255, 244, 230, 0.36);
+  --tool-glass-blur: 14px;
+  --tool-glass-fallback-sand: rgba(233, 220, 200, 0.82);
+  --tool-glass-fallback-surface: rgba(255, 244, 230, 0.88);
   --color-border: rgba(var(--rgb-umber), 0.48);
   --color-accent: #b85610;
   /* 2.A.-Hinweis am ersten Aktionsfeld */
@@ -143,7 +148,6 @@
   font-weight: 400;
   color-scheme: light;
   color: var(--color-ink);
-  background-color: var(--color-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -153,6 +157,7 @@
 
 html {
   height: 100%;
+  background: transparent;
 }
 
 body {
@@ -162,6 +167,7 @@ body {
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
+  background: transparent;
 }
 
 #app {
@@ -187,7 +193,9 @@ body {
   --combat-toolbar-head-h: calc(0.82rem * var(--init-ui-scale));
   padding: calc(0.1rem * var(--init-ui-scale)) calc(0.38rem * var(--init-ui-scale));
   border-radius: var(--radius);
-  background: var(--color-surface);
+  background: var(--tool-glass-surface);
+  -webkit-backdrop-filter: blur(var(--tool-glass-blur));
+  backdrop-filter: blur(var(--tool-glass-blur));
   border: 1px solid var(--color-border);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
@@ -339,7 +347,9 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: rgba(233, 220, 200, 0.38);
+  background: var(--tool-glass-sand);
+  -webkit-backdrop-filter: blur(var(--tool-glass-blur));
+  backdrop-filter: blur(var(--tool-glass-blur));
   /* Kompaktheit ausgelegt auf ~18 Token-Zeilen im Extension-Panel ohne Listen-Scroll */
   /* Objektkästchen: --init-obj-cell von :root */
   --init-obj-gap: calc(0.14rem * var(--init-ui-scale));
@@ -403,9 +413,9 @@ body {
   margin-bottom: 0.06rem;
   flex-shrink: 0;
   border-bottom: 1px solid rgba(127, 127, 127, 0.22);
-  background: rgba(233, 220, 200, 0.42);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  background: var(--tool-glass-sand);
+  -webkit-backdrop-filter: blur(var(--tool-glass-blur));
+  backdrop-filter: blur(var(--tool-glass-blur));
 }
 
 .kampf-h-spacer--swap {
@@ -525,9 +535,9 @@ body {
   overflow-y: auto;
   overflow-anchor: none;
   scrollbar-width: thin;
-  background: rgba(233, 220, 200, 0.42);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  background: var(--tool-glass-sand);
+  -webkit-backdrop-filter: blur(var(--tool-glass-blur));
+  backdrop-filter: blur(var(--tool-glass-blur));
 }
 
 .initiative-list-scroll-inner {
@@ -616,9 +626,14 @@ body {
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .combat-bar {
+    background: var(--tool-glass-fallback-surface);
+  }
+
+  .kampf-list-section,
   .kampf-list-head,
   .initiative-list-scroll {
-    background: rgba(233, 220, 200, 0.88);
+    background: var(--tool-glass-fallback-sand);
   }
 }
 
