@@ -370,12 +370,12 @@ body {
   --init-action-reaction-gap: calc(var(--init-grid-gap) * 1.2);
   --init-reaction-frei-gap: calc(var(--init-grid-gap) * 0.35);
   --init-btn-name-gap: calc(var(--init-grid-gap) * 2);
-  --init-dist-cell-w: calc(var(--init-obj-cell) * 1.22);
-  --init-dist-cell-h: calc(var(--init-obj-cell) * 1.22);
+  --init-dist-cell-w: calc(var(--init-obj-cell) * 1.42);
+  --init-dist-cell-h: calc(var(--init-obj-cell) * 1.42);
   /* Zeilenstreifen: Zähler, DIST, Offset-Präfix (INI-Feld separat über --init-micro-inp-*) */
   --init-row-strip-font-size: calc(0.68rem * var(--init-ui-scale));
   --init-row-strip-line-height: 1.15;
-  --init-dist-cell-font-size: var(--init-row-strip-font-size);
+  --init-dist-cell-font-size: calc(0.76rem * var(--init-ui-scale));
   --init-col-head-font-size: calc(0.42rem * var(--init-ui-scale));
   --init-col-head-line-height: 1;
   /* wie .init-kr-reaction-store .init-kr-abw-split-shell[data-shield-count='1'] */
@@ -437,11 +437,11 @@ body {
 
 .kampf-col-za-group {
   display: grid;
-  /* Spaltenbreiten wie .init-phase-slot-row (Dist, Aktion, Frei, Reakt) */
+  /* Spaltenbreiten wie .init-phase-slot-row (Aktion, Dist, Frei, Reakt) */
   grid-template-columns:
-    var(--init-dist-cell-w)
-    calc(var(--init-grid-gap) + var(--init-action-dist-gap))
     calc(var(--init-obj-cell) * 1.5)
+    calc(var(--init-grid-gap) + var(--init-action-dist-gap))
+    var(--init-dist-cell-w)
     calc(var(--init-grid-gap) + var(--init-action-reaction-gap))
     calc(var(--init-obj-cell) * 1.5)
     var(--init-reaction-frei-gap)
@@ -831,16 +831,16 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: rgba(26, 23, 20, 0.38);
+  color: var(--color-accent);
   cursor: pointer;
   transition:
-    color 0.12s ease,
+    filter 0.12s ease,
     background 0.12s ease;
 }
 
 .init-row-expand-toggle:hover:not(:disabled) {
-  color: rgba(26, 23, 20, 0.58);
-  background: rgba(var(--rgb-umber), 0.06);
+  background: transparent;
+  filter: brightness(1.2);
 }
 
 .init-row-expand-toggle:focus-visible {
@@ -5561,13 +5561,13 @@ select.init-row-extra-select {
   flex-shrink: 0;
   width: var(--init-dist-cell-w);
   height: var(--init-dist-cell-h);
-  margin-right: var(--init-action-dist-gap);
+  margin-left: var(--init-action-dist-gap);
   padding: 0;
-  border: none;
+  border: 2px solid rgba(var(--rgb-umber), 0.22);
   border-radius: 50%;
   font-family: var(--font-body);
   font-size: var(--init-dist-cell-font-size);
-  font-weight: 600;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   user-select: none;
   cursor: pointer;
@@ -5577,7 +5577,17 @@ select.init-row-extra-select {
   transition:
     background 140ms ease,
     color 140ms ease,
+    border-color 140ms ease,
     box-shadow 140ms ease;
+}
+
+.init-dist-cell:not(.init-dist-cell--probe):not(.init-dist-cell--target):hover {
+  border-color: rgba(var(--rgb-accent), 0.72);
+  background: rgba(var(--rgb-accent), 0.14);
+  color: var(--color-accent);
+  box-shadow:
+    0 0 0 2px rgba(var(--rgb-accent), 0.28),
+    0 0 10px rgba(var(--rgb-accent), 0.22);
 }
 
 .init-dist-cell__value {
@@ -5594,13 +5604,20 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell__probe-eye {
-  width: calc(15px * var(--init-ui-scale));
-  height: calc(15px * var(--init-ui-scale));
+  width: calc(17px * var(--init-ui-scale));
+  height: calc(17px * var(--init-ui-scale));
   color: rgba(78, 47, 24, 0.98);
   filter:
     drop-shadow(0 0 0.7px rgba(255, 210, 90, 0.95))
     drop-shadow(0 0 2px rgba(255, 190, 60, 0.48));
   flex-shrink: 0;
+}
+
+.init-dist-cell--probe:hover {
+  border-color: rgba(var(--rgb-accent), 0.72);
+  box-shadow:
+    0 0 0 2px rgba(var(--rgb-accent), 0.28),
+    0 0 10px rgba(var(--rgb-accent), 0.22);
 }
 
 .init-dist-cell--target {
@@ -5613,19 +5630,26 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell--idle-rings {
-  color: rgba(127, 127, 127, 0.55);
-  background: rgba(127, 127, 127, 0.06);
+  color: rgba(var(--rgb-accent), 0.42);
+  background: rgba(var(--rgb-accent), 0.06);
+  border-color: rgba(var(--rgb-accent), 0.18);
 }
 
 .init-dist-cell--idle-rings:hover {
-  background: rgba(255, 210, 90, 0.22);
-  color: rgba(255, 210, 90, 1);
-  box-shadow: 0 0 0 2px rgba(255, 200, 80, 0.5);
+  color: var(--color-accent);
+  background: rgba(var(--rgb-accent), 0.16);
+  border-color: rgba(var(--rgb-accent), 0.78);
+  box-shadow:
+    0 0 0 2px rgba(var(--rgb-accent), 0.32),
+    0 0 12px rgba(var(--rgb-accent), 0.28);
 }
 
 .init-dist-cell--target:hover {
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 0 2px rgba(var(--rgb-gold), 0.45);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(var(--rgb-accent), 0.55);
+  box-shadow:
+    0 0 0 2px rgba(var(--rgb-accent), 0.28),
+    0 0 8px rgba(var(--rgb-accent), 0.18);
 }
 
 .init-dist-cell--idle-rings .init-dist-cell__value {
@@ -5635,9 +5659,9 @@ select.init-row-extra-select {
 }
 
 .init-dist-cell__target-svg {
-  width: calc(13px * var(--init-ui-scale));
-  height: calc(13px * var(--init-ui-scale));
-  opacity: 0.75;
+  width: calc(16px * var(--init-ui-scale));
+  height: calc(16px * var(--init-ui-scale));
+  opacity: 0.82;
   transition:
     opacity 140ms ease,
     transform 140ms ease,
@@ -5645,11 +5669,31 @@ select.init-row-extra-select {
     filter 140ms ease;
 }
 
-.init-dist-cell--idle-rings:hover .init-dist-cell__target-svg {
+.init-dist-cell__target-svg circle:nth-child(1) {
+  opacity: 0.38;
+}
+
+.init-dist-cell__target-svg circle:nth-child(2) {
+  opacity: 0.58;
+}
+
+.init-dist-cell__target-svg circle:nth-child(3) {
+  opacity: 0.42;
+}
+
+.init-dist-cell:not(.init-dist-cell--probe):not(.init-dist-cell--target):hover
+  .init-dist-cell__target-svg {
   opacity: 1;
-  transform: scale(1.34);
-  color: rgba(255, 215, 110, 1);
-  filter: drop-shadow(0 0 6px rgba(255, 190, 60, 0.62));
+  transform: scale(1.18);
+  filter:
+    brightness(1.15)
+    drop-shadow(0 0 4px rgba(var(--rgb-accent), 0.55));
+}
+
+.init-dist-cell:not(.init-dist-cell--probe):not(.init-dist-cell--target):hover
+  .init-dist-cell__target-svg
+  circle {
+  opacity: 1;
 }
 
 .init-kr-reaction-store__frei-spacer {

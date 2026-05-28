@@ -1908,7 +1908,7 @@ function appendKrCounterPair(
     roundIntroPending = false,
     /** 2.A.-Zeile: Schilde nur Spiegel des Mutter-`KR_ABW`, kein Stempeln hier. */
     abwMirrorLinkUi = false,
-    /** Mutter-Zeile: Distanz-Kästchen vor der Aktionsspalte. */
+    /** Mutter-Zeile: Distanz-Kästchen zwischen Aktion und Frei. */
     showDistanceCell = false,
     wireDistanceProbeCell = null,
     refreshDistCellIdle = null,
@@ -1936,21 +1936,6 @@ function appendKrCounterPair(
     primaryLadungAllowed || abwLadungAllowed || atRoundBoundaryNav
   const abwRoundBoundaryShell = !abwLadungAllowed && !atRoundBoundaryNav
   const lhRoundLockedVisual = !faLadungAllowed && !atRoundBoundaryNav
-  if (showDistanceCell && typeof wireDistanceProbeCell === 'function') {
-    const distCell = document.createElement('div')
-    distCell.className = 'init-dist-cell'
-    distCell.dataset.distCellItemId = ownerItemId
-    distCell.setAttribute('role', 'button')
-    distCell.setAttribute('aria-label', 'Distanzen anzeigen (halten)')
-    const valEl = document.createElement('span')
-    valEl.className = 'init-dist-cell__value'
-    distCell.appendChild(valEl)
-    wireDistanceProbeCell(distCell, ownerItemId)
-    if (typeof refreshDistCellIdle === 'function') {
-      refreshDistCellIdle(distCell)
-    }
-    container.appendChild(distCell)
-  }
   appendKrPrimarySplitCell(
     container,
     ownerItemId,
@@ -1973,6 +1958,21 @@ function appendKrCounterPair(
       }
     )
   )
+  if (showDistanceCell && typeof wireDistanceProbeCell === 'function') {
+    const distCell = document.createElement('div')
+    distCell.className = 'init-dist-cell'
+    distCell.dataset.distCellItemId = ownerItemId
+    distCell.setAttribute('role', 'button')
+    distCell.setAttribute('aria-label', 'Distanzen anzeigen (halten)')
+    const valEl = document.createElement('span')
+    valEl.className = 'init-dist-cell__value'
+    distCell.appendChild(valEl)
+    wireDistanceProbeCell(distCell, ownerItemId)
+    if (typeof refreshDistCellIdle === 'function') {
+      refreshDistCellIdle(distCell)
+    }
+    container.appendChild(distCell)
+  }
   // Schildplatz: entweder L.H.-Counter-Eingabe (vor Werte-Setzung),
   // L.H.-Fortschritts-Kuchen (nach Werte-Setzung), Schilde oder Replacement.
   // Die L.H. kann in Mutter ODER in einem 2.A.O. beginnen.
@@ -3521,7 +3521,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     '<svg class="init-dist-cell__probe-eye" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
 
   const DIST_CELL_TARGET_SVG =
-    '<svg class="init-dist-cell__target-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="5.5" opacity="0.5"/><circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.25"/></svg>'
+    '<svg class="init-dist-cell__target-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg>'
 
   async function refreshDistanceProbeRings() {
     await runDistanceProbeRefresh({
