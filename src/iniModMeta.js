@@ -5070,18 +5070,22 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: symmetrisch W6↔S↔MOD (--init-hero-ex-s-rail-slot-gap je Seite). */
+    /* Langer S-Balken: gleicher Abstand W6↔S und S↔MOD (zentriert im reservierten Slot). */
     if (stackW6 && stackMod) {
       const rootR = root.getBoundingClientRect()
       const w6R = stackW6.getBoundingClientRect()
-      const slotGapRaw = getComputedStyle(ibChain)
-        .getPropertyValue('--init-hero-ex-s-rail-slot-gap')
-        .trim()
-      const slotGapPx = Number.parseFloat(slotGapRaw) || 0
-      const left =
-        w6R.right - rootR.left + (Number.isFinite(slotGapPx) ? slotGapPx : 0)
-      sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
-      sRailRoot.style.top = `${Math.round((w6R.top - rootR.top) * 1000) / 1000}px`
+      const modR = stackMod.getBoundingClientRect()
+      const railW =
+        sRailRoot.offsetWidth > 0
+          ? sRailRoot.offsetWidth
+          : sRailRoot.getBoundingClientRect().width
+      const slotW = modR.left - w6R.right
+      if (Number.isFinite(slotW) && slotW > 0 && railW > 0) {
+        const sideGap = Math.max(0, (slotW - railW) / 2)
+        const left = w6R.right - rootR.left + sideGap
+        sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
+        sRailRoot.style.top = `${Math.round((w6R.top - rootR.top) * 1000) / 1000}px`
+      }
     }
 
     updateLeThreshold()

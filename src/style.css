@@ -1479,7 +1479,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 /* MR / IB / BE / W6 / INI / MOD: sechs Stacks in der IB-Kette */
 .init-hero-ex__ib-chain {
   /* Lücke INI↔MOD: S-Rail-Breite + kleiner Rand links/rechts, MOD rückt nach rechts. */
-  --init-hero-ex-s-rail-slot-gap: calc(0.05rem * var(--init-ui-scale));
+  --init-hero-ex-s-rail-slot-gap: calc(0.08rem * var(--init-ui-scale));
   --init-hero-ib-mod-gap: calc(
     var(--init-hero-ex-s-rail-w) + 2 * var(--init-hero-ex-s-rail-slot-gap)
   );
