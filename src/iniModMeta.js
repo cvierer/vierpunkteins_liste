@@ -1433,8 +1433,8 @@ export function mountHeroExpandBlock(
   }
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
-  /* Sieben Spalten: MR IB BE W6 INI S MOD (Lesemodus: MOD wie Bearbeitung). */
-  ibChain.classList.add('init-hero-ex__ib-chain--cols-7')
+  /* Sechs Spalten: MR IB BE W6 INI MOD (Lesemodus: MOD wie Bearbeitung). */
+  ibChain.classList.add('init-hero-ex__ib-chain--cols-6')
   const mkChainAbbr = (text, title, noUppercase) => {
     const s = document.createElement('span')
     s.className =
@@ -1645,9 +1645,8 @@ export function mountHeroExpandBlock(
   const ibChainCols = document.createElement('div')
   ibChainCols.className = 'init-hero-ex__ib-chain__cols'
   ibChainCols.append(stackMr, stackIb, stackBe, stackW6, stackIni)
+  if (stackMod) ibChainCols.appendChild(stackMod)
   ibChain.appendChild(ibChainCols)
-  /** @type {HTMLElement | null} */
-  let stackS = null
   const mr = { inp: mrInp }
   const ib = { inp: ibInp }
   const be = { inp: beInp }
@@ -1838,26 +1837,15 @@ export function mountHeroExpandBlock(
   const leThreshRail = createLeThresholdGaugeBox(
     'init-hero-ex__le-threshold__box--tall'
   )
-  const sRailCol = document.createElement('div')
-  sRailCol.className =
-    'init-hero-ex__ib-chain__col init-hero-ex__ib-chain__col--s-rail'
-  const sRailShell = document.createElement('div')
-  sRailShell.className =
-    'init-hero-ex__ib-chain__inp-cell init-hero-ex__ib-chain__inp-cell--s-rail'
-  sRailShell.appendChild(leThreshRail.box)
-  sRailCol.appendChild(sRailShell)
-  stackS = mkIbChainStack(
-    leThreshRailAbbr,
-    sRailCol,
-    'init-hero-ex__ib-chain__stack--s-rail init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
-  )
-  ibChainCols.appendChild(stackS)
-  if (stackMod) ibChainCols.appendChild(stackMod)
+  const sRailRoot = document.createElement('div')
+  sRailRoot.className =
+    'init-hero-ex__s-rail-root init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
+  sRailRoot.append(leThreshRailAbbr, leThreshRail.box)
 
   /** @type {{ host: HTMLElement, box: HTMLDivElement, fill: HTMLDivElement, line50: HTMLDivElement, line33: HTMLDivElement, line25: HTMLDivElement, line5: HTMLDivElement, lineUnf: HTMLDivElement, skull: SVGSVGElement }[]} */
   const leThreshGaugeSets = [
     { host: leThreshCell, ...leThreshCompact },
-    { host: stackS, ...leThreshRail },
+    { host: sRailRoot, ...leThreshRail },
   ]
 
   const parseLeIntSafe = (raw) => {
@@ -3257,7 +3245,7 @@ export function mountHeroExpandBlock(
     ...(showAuField ? ['au'] : []),
   ].filter((f) => MOD_FIELDS.includes(f))
 
-  root.append(leadSpacer, strip, zoneMidRow, bottomStrip, spacerExp)
+  root.append(leadSpacer, strip, zoneMidRow, bottomStrip, spacerExp, sRailRoot)
   /*
    * modPop nicht unter .init-hero-ex haengen: als Geschwister von root
    * unter container (position: relative), sonst stoeren sie das CSS-Grid und
@@ -5143,7 +5131,7 @@ export function mountHeroExpandBlock(
     modStrip,
     leThreshCompact.box,
     leThreshRail.box,
-    ...(stackS ? [stackS] : []),
+    sRailRoot,
     ...(modIbCol ? [modIbCol] : []),
   ]
   for (const el of __spTzAlignEls) {

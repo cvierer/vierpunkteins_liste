@@ -941,15 +941,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   --init-hero-calc-pen-border: transparent;
   /* Unterrand: bei ≥5 MOD +1 Kartenhöhe, bei ≥6 +2, bei ≥7 +2.5 (JS); ab 4 Karten scrollt der Strip. */
   --init-hero-ex-mod-strip-reserve: 0px;
-  --init-hero-ex-row-stack-h: calc(
-    var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) +
-      var(--init-hero-cell) + var(--init-hero-mod-sub-h)
-  );
-  --init-hero-ex-s-rail-h: calc(
-    3 * var(--init-hero-ex-row-stack-h) +
-      2 * var(--init-hero-ex-grid-row-gap) - var(--init-hero-abbr-line-h) -
-      var(--init-hero-label-input-gap)
-  );
+  --init-hero-ex-s-rail-w: calc(0.38 * var(--init-hero-cell));
+  --init-hero-ex-s-rail-mod-gap: calc(0.03rem * var(--init-ui-scale));
   position: relative;
   display: grid;
   grid-template-columns: var(--init-col-expand) minmax(0, 1fr);
@@ -1462,7 +1455,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   width: 100%;
   box-sizing: border-box;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: clip;
 }
 
 /* MR / IB / BE / W6 / INI / MOD: sechs Stacks in der IB-Kette */
@@ -1552,18 +1545,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
     calc(0.5 * var(--init-hero-cell))
     calc(0.5 * var(--init-hero-cell))
     calc(0.5 * var(--init-hero-cell))
-    var(--init-hero-ib-mod-gap)
-    var(--init-hero-ex-mod-chain-w);
-}
-
-.init-hero-ex__ib-chain--cols-7 .init-hero-ex__ib-chain__labels {
-  grid-template-columns:
-    var(--init-hero-cell)
-    var(--init-hero-cell)
-    calc(0.5 * var(--init-hero-cell))
-    calc(0.5 * var(--init-hero-cell))
-    calc(0.5 * var(--init-hero-cell))
-    calc(0.52 * var(--init-hero-cell))
     var(--init-hero-ib-mod-gap)
     var(--init-hero-ex-mod-chain-w);
 }
@@ -1745,44 +1726,55 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__le-threshold__box--tall {
-  height: var(--init-hero-ex-s-rail-h);
-  min-height: var(--init-hero-ex-s-rail-h);
+  /* Höhe via .init-hero-ex__s-rail-root (flex: 1) über alle drei Zeilen */
   max-height: none;
 }
 
-.init-hero-ex__ib-chain__stack--s-rail {
-  margin-left: var(--init-hero-ib-mod-gap);
-  position: relative;
+/* S-Rail: eigene Grid-Spalte über Zeilen 1–3, links von MOD (nicht in strip-inner). */
+.init-hero-ex__s-rail-root {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  justify-self: end;
+  align-self: stretch;
   z-index: 9;
-  flex-shrink: 0;
-  align-self: flex-end;
-  overflow: visible;
-}
-
-.init-hero-ex__ib-chain__col--s-rail {
-  width: calc(0.52 * var(--init-hero-cell));
-  min-width: calc(0.52 * var(--init-hero-cell));
-  max-width: calc(0.52 * var(--init-hero-cell));
-  overflow: visible;
-}
-
-.init-hero-ex__ib-chain__inp-cell--s-rail {
-  width: 100%;
-  min-height: 0;
-  padding: 0;
-  border: none !important;
-  background: transparent !important;
-  overflow: visible;
+  display: flex;
+  flex-direction: column;
   align-items: stretch;
-  justify-content: flex-end;
+  gap: var(--init-hero-label-input-gap);
+  width: var(--init-hero-ex-s-rail-w);
+  min-width: var(--init-hero-ex-s-rail-w);
+  max-width: var(--init-hero-ex-s-rail-w);
+  margin-right: calc(
+    var(--init-hero-ex-mod-chain-w, calc(1.82 * var(--init-hero-cell))) +
+      var(--init-hero-ex-s-rail-mod-gap)
+  );
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: visible;
+  min-height: 0;
 }
 
-.init-hero-ex__le-threshold--rail > .init-hero-ex__abbr:first-child {
+.init-hero-ex__s-rail-root > .init-hero-ex__abbr {
+  flex-shrink: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  text-align: center;
   min-height: var(--init-hero-abbr-line-h);
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.init-hero-ex__s-rail-root .init-hero-ex__le-threshold__box {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  max-height: none;
+  pointer-events: auto;
 }
 
 .init-hero-ex__le-threshold__fill {
@@ -2825,52 +2817,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: transparent !important;
 }
 
-.init-hero-ex__ib-chain--cols-7
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(2)
-  .init-hero-ex__ib-chain__inp-cell {
-  border: 1px solid var(--init-action-cell-border);
-  border-radius: 4px 0 0 4px;
-}
-
-.init-hero-ex__ib-chain--cols-7
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(3)
-  .init-hero-ex__ib-chain__inp-cell,
-.init-hero-ex__ib-chain--cols-7
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(4)
-  .init-hero-ex__ib-chain__inp-cell,
-.init-hero-ex__ib-chain--cols-7
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(5)
-  .init-hero-ex__ib-chain__inp-cell {
-  border-top: 1px solid var(--init-action-cell-border);
-  border-right: 1px solid var(--init-action-cell-border);
-  border-bottom: 1px solid var(--init-action-cell-border);
-  border-left: 1px solid rgba(var(--rgb-gold), 0.42);
-  border-radius: 0;
-}
-
-.init-hero-ex__ib-chain--cols-7
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(7)
-  .init-hero-ex__ib-chain__inp-cell {
-  border-top: 1px solid var(--init-action-cell-border);
-  border-right: 1px solid var(--init-action-cell-border);
-  border-bottom: 1px solid var(--init-action-cell-border);
-  border-left: 1px solid rgba(var(--rgb-gold), 0.42);
-  border-radius: 0 4px 4px 0;
-}
-
-.init-hero-ex__ib-chain--cols-7
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(7)
-  .init-hero-ex__ib-chain__inp-cell--mod-solo-btn {
-  border: none !important;
-  background: transparent !important;
-}
-
 .init-hero-ex__ib-chain
   > .init-hero-ex__ib-chain__cols:focus-within
   .init-hero-ex__ib-chain__inp-cell--mod-solo-btn {
@@ -2939,14 +2885,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__ib-chain--cols-6
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(5)
-  .init-hero-ex__ib-chain__inp-cell--ini-solo-btn {
-  border: none !important;
-  background: transparent !important;
-}
-
-.init-hero-ex__ib-chain--cols-7
   > .init-hero-ex__ib-chain__cols
   > .init-hero-ex__ib-chain__stack:nth-child(5)
   .init-hero-ex__ib-chain__inp-cell--ini-solo-btn {
