@@ -1708,7 +1708,7 @@ export function mountHeroExpandBlock(
   leChain.className = 'init-hero-ex__le-chain'
   const leMaxTitle = 'Lebensenergie Maximum (LE max)'
   const leAbbrLE = mkChainAbbr(
-    'LE/',
+    'LE',
     'Lebensenergie (LE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
   const leAbbrMax = mkChainAbbr(
@@ -2185,7 +2185,7 @@ export function mountHeroExpandBlock(
   lePopSecondAbbrSlot.append(lePopAbbrMax, lePopAbbrKo)
   lePopAbbrKo.style.display = 'none'
   lePopLeMaxLabels.append(
-    mkChainAbbr('LE/', 'Lebensenergie (LE)'),
+    mkChainAbbr('LE', 'Lebensenergie (LE)'),
     lePopSecondAbbrSlot
   )
   const lePopLeMaxInputs = document.createElement('div')

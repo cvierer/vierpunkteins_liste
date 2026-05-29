@@ -370,6 +370,8 @@ body {
   --init-action-reaction-gap: calc(var(--init-grid-gap) * 1.2);
   --init-reaction-frei-gap: calc(var(--init-grid-gap) * 0.35);
   --init-btn-name-gap: calc(var(--init-grid-gap) * 2);
+  /* Namensspalte: etwas breiter als früher (Rest des Panels bleibt fix). */
+  --init-col-name: minmax(calc(10.5rem * var(--init-ui-scale)), 1fr);
   --init-dist-cell-w: calc(var(--init-obj-cell) * 1.42);
   --init-dist-cell-h: var(--init-obj-cell);
   --init-fa-bolt-visual-scale: 1.14;
@@ -397,8 +399,8 @@ body {
 .kampf-list-head {
   display: grid;
   grid-template-columns:
-    var(--init-col-expand) var(--init-col-btn) 1fr auto var(--init-col-ini)
-    var(--init-col-swap);
+    var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
+    var(--init-col-ini) var(--init-col-swap);
   gap: var(--init-grid-gap);
   align-items: flex-end;
   padding:
@@ -736,8 +738,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-row-main {
   display: grid;
   grid-template-columns:
-    var(--init-col-expand) var(--init-col-btn) 1fr auto var(--init-col-ini)
-    var(--init-col-swap);
+    var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
+    var(--init-col-ini) var(--init-col-swap);
   gap: var(--init-grid-gap);
   align-items: center;
   width: 100%;
@@ -6820,8 +6822,8 @@ select.init-row-extra-select {
 .init-row-main--phase-zao {
   position: relative;
   grid-template-columns:
-    var(--init-col-expand) var(--init-col-btn) minmax(0, 1fr) auto max-content
-    var(--init-col-swap);
+    var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
+    max-content var(--init-col-swap);
 }
 
 .init-phase-zao-meta {
