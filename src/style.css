@@ -2003,6 +2003,29 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border-top: 1px dashed rgba(118, 28, 22, 0.9);
 }
 
+/* S-Rail: Schwellen-Zahlen wie im Overlay (`data-le-val` → ::after). */
+.init-hero-ex__le-threshold--rail .init-hero-ex__le-threshold__line[data-le-val]::after {
+  content: attr(data-le-val);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  font-family: var(--font-heading);
+  font-size: calc(0.36rem * var(--init-ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: rgba(26, 23, 20, 0.84);
+  text-shadow: 0 0 2px rgba(255, 253, 248, 0.92);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.init-hero-ex__le-threshold--rail:not(.init-hero-ex__le-threshold--neg-le)
+  .init-hero-ex__le-threshold__line[data-le-val]::after {
+  bottom: calc(100% + 1px);
+}
+
 .init-hero-ex__le-threshold__skull {
   position: absolute;
   left: 50%;

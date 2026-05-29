@@ -1908,6 +1908,69 @@ export function mountHeroExpandBlock(
   /** Minus-Skala 0 … −1,6·KO (ab LE≤0 mit gültigem KO). */
   const NEG_LE_KO_RANGE = 1.6
 
+  /** LE-Zahl am Balken (`data-le-val` → CSS `::after`); ohne Attribut keine Beschriftung. */
+  const setGaugeLineLeVal = (lineEl, n) => {
+    if (typeof n !== 'number' || !Number.isFinite(n))
+      lineEl.removeAttribute('data-le-val')
+    else lineEl.dataset.leVal = String(Math.round(n))
+  }
+
+  /** Schwellen-Zahlen an Gauge-Linien (S-Rail + Overlay). */
+  const syncGaugeLineLeVals = (
+    g,
+    { negLe, maxV, koV, wsRaw, customLeThreshold, unfaehigThreshold }
+  ) => {
+    if (negLe && koV != null && koV > 0) {
+      const pctBot = (m) => 100 - (m / NEG_LE_KO_RANGE) * 100
+      const wsThreshold =
+        wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
+      const wsMult = Math.max(0, Math.min(NEG_LE_KO_RANGE, wsThreshold / koV))
+      const bWs = pctBot(wsMult)
+      const b1 = pctBot(1)
+      const b15 = pctBot(1.5)
+      const n15 = Math.round(1.5 * koV)
+      g.line50.removeAttribute('data-le-val')
+      g.lineUnf.removeAttribute('data-le-val')
+      setGaugeLineLeVal(g.line33, -Math.round(wsThreshold))
+      setGaugeLineLeVal(g.line25, -koV)
+      setGaugeLineLeVal(g.line5, -n15)
+      const minBotNeg = Math.min(bWs, b1, b15)
+      const eps = 1e-9
+      for (const [lineEl, bot] of [
+        [g.line33, bWs],
+        [g.line25, b1],
+        [g.line5, b15],
+      ]) {
+        if (Math.abs(bot - minBotNeg) < eps)
+          lineEl.removeAttribute('data-le-val')
+      }
+      return
+    }
+
+    const maxOk = maxV != null && maxV > 0
+    if (maxOk) {
+      setGaugeLineLeVal(g.line50, Math.round(maxV / 2))
+      setGaugeLineLeVal(g.line33, Math.round(maxV / 3))
+      setGaugeLineLeVal(g.line25, Math.round(maxV / 4))
+    } else {
+      g.line50.removeAttribute('data-le-val')
+      g.line33.removeAttribute('data-le-val')
+      g.line25.removeAttribute('data-le-val')
+    }
+
+    if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
+      setGaugeLineLeVal(g.line5, customLeThreshold)
+    } else {
+      g.line5.removeAttribute('data-le-val')
+    }
+
+    if (maxV != null && maxV > 0 && maxV > unfaehigThreshold) {
+      setGaugeLineLeVal(g.lineUnf, unfaehigThreshold)
+    } else {
+      g.lineUnf.removeAttribute('data-le-val')
+    }
+  }
+
   const resetLeThreshNegOff = () => {
     for (const g of leThreshGaugeSets) {
       g.host.classList.remove('init-hero-ex__le-threshold--neg-le')
@@ -1932,6 +1995,9 @@ export function mountHeroExpandBlock(
         'init-hero-ex__le-threshold__line--neg-le-solid'
       )
       g.lineUnf.style.display = 'none'
+      for (const lineEl of [g.line50, g.line33, g.line25, g.line5, g.lineUnf]) {
+        lineEl.removeAttribute('data-le-val')
+      }
     }
   }
 
@@ -1947,6 +2013,14 @@ export function mountHeroExpandBlock(
     const negLe =
       leV != null && leV <= 0 && koV != null && koV > 0
     const dead = leV != null && leV <= 0 && !negLe
+    const gaugeValCtx = {
+      negLe,
+      maxV,
+      koV,
+      wsRaw,
+      customLeThreshold,
+      unfaehigThreshold,
+    }
 
     if (negLe) {
       resetLeThreshNegOff()
@@ -1997,6 +2071,7 @@ export function mountHeroExpandBlock(
           'init-hero-ex__le-threshold--neg-pulse--irregular',
           negPulseIrregular
         )
+        syncGaugeLineLeVals(g, gaugeValCtx)
       }
       return
     }
@@ -2031,6 +2106,7 @@ export function mountHeroExpandBlock(
       } else {
         g.lineUnf.style.display = 'none'
       }
+      syncGaugeLineLeVals(g, gaugeValCtx)
     }
   }
   updateLeThreshold()
@@ -2137,6 +2213,13 @@ export function mountHeroExpandBlock(
     lePopSkull,
     lePopPct
   )
+  const lePopGaugeLines = {
+    line50: lePopLine50,
+    line33: lePopLine33,
+    line25: lePopLine25,
+    line5: lePopLineLe5,
+    lineUnf: lePopLineUnf,
+  }
 
   /* LE/MAX im Popover: gleicher Aufbau wie .init-hero-ex__le-chain im
      ausklappbaren Bereich (Beschriftung + Raster-Kästchen). */
@@ -2517,12 +2600,7 @@ export function mountHeroExpandBlock(
     poly.setAttribute('points', pts)
   }
 
-  /** LE-Zahl am Balken (`data-le-val` → CSS `::after`); ohne Attribut keine Beschriftung. */
-  const setPopLineLeVal = (lineEl, n) => {
-    if (typeof n !== 'number' || !Number.isFinite(n))
-      lineEl.removeAttribute('data-le-val')
-    else lineEl.dataset.leVal = String(Math.round(n))
-  }
+  /** LE-Zahl am Balken (`data-le-val` → CSS `::after`); siehe syncGaugeLineLeVals. */
 
   /** Unterste zutreffende Regel (Index 8→0); nur diese eine Zeile sichtbar (wie Balkenlogik). */
   const refreshSchwellenRules = ({
@@ -2713,25 +2791,17 @@ export function mountHeroExpandBlock(
       lePopLabLe5.style.display = 'none'
       lePopLabLe5.style.bottom = `${slotB15.toFixed(3)}%`
 
-      const n15 = Math.round(1.5 * koV)
       lePopLab33.textContent = ''
       lePopLab25.textContent = ''
       lePopLabLe5.textContent = ''
-      setPopLineLeVal(lePopLine33, -Math.round(wsThreshold))
-      setPopLineLeVal(lePopLine25, -koV)
-      setPopLineLeVal(lePopLineLe5, -n15)
-      /* Unterste Balkenlinie(n) (physikalisch unten): keine Zahlenbeschriftung */
-      const minBotNeg = Math.min(bWs, b1, b15)
-      const eps = 1e-9
-      for (const [lineEl, bot] of [
-        [lePopLine33, bWs],
-        [lePopLine25, b1],
-        [lePopLineLe5, b15],
-      ]) {
-        if (Math.abs(bot - minBotNeg) < eps)
-          lineEl.removeAttribute('data-le-val')
-      }
-      lePopLineUnf.removeAttribute('data-le-val')
+      syncGaugeLineLeVals(lePopGaugeLines, {
+        negLe: true,
+        maxV,
+        koV,
+        wsRaw,
+        customLeThreshold,
+        unfaehigThreshold,
+      })
 
       setConnPath(lePopConn33, bWs, slotWs, START_X, KINK_33, END_X)
       setConnPath(lePopConn25, b1, slotB1, START_X, KINK_25, END_X)
@@ -2823,22 +2893,9 @@ export function mountHeroExpandBlock(
     setConnPath(lePopConn33, 33.333, SLOT_Y_THIRD, START_X, KINK_33, END_X)
     setConnPath(lePopConn25, 25, SLOT_Y_QUARTER, START_X, KINK_25, END_X)
 
-    const maxOk = maxV != null && maxV > 0
     lePopLab50.textContent = ''
     lePopLab33.textContent = ''
     lePopLab25.textContent = ''
-    if (maxOk) {
-      const n2 = Math.round(maxV / 2)
-      const n3 = Math.round(maxV / 3)
-      const n4 = Math.round(maxV / 4)
-      setPopLineLeVal(lePopLine50, n2)
-      setPopLineLeVal(lePopLine33, n3)
-      setPopLineLeVal(lePopLine25, n4)
-    } else {
-      lePopLine50.removeAttribute('data-le-val')
-      lePopLine33.removeAttribute('data-le-val')
-      lePopLine25.removeAttribute('data-le-val')
-    }
 
     if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
       const pct = (customLeThreshold / maxV) * 100
@@ -2850,10 +2907,8 @@ export function mountHeroExpandBlock(
       lePopLabLe5.textContent = ''
       lePopConnLe5.style.display = 'none'
       setConnPath(lePopConnLe5, pct, slotLe5, START_X, KINK_LE5, END_X)
-      setPopLineLeVal(lePopLineLe5, customLeThreshold)
     } else {
       lePopLineLe5.style.display = 'none'
-      lePopLineLe5.removeAttribute('data-le-val')
       lePopLabLe5.style.display = 'none'
       lePopConnLe5.style.display = 'none'
     }
@@ -2874,13 +2929,20 @@ export function mountHeroExpandBlock(
         KINK_UNFAEHIG,
         END_X
       )
-      setPopLineLeVal(lePopLineUnf, unfaehigThreshold)
     } else {
       lePopLineUnf.style.display = 'none'
-      lePopLineUnf.removeAttribute('data-le-val')
       lePopLabUnf.style.display = 'none'
       lePopConnUnf.style.display = 'none'
     }
+
+    syncGaugeLineLeVals(lePopGaugeLines, {
+      negLe: false,
+      maxV,
+      koV,
+      wsRaw,
+      customLeThreshold,
+      unfaehigThreshold,
+    })
 
     refreshSchwellenRules({
       leV,
