@@ -841,6 +841,56 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
   }
 }
 
+/**
+ * LE-Schwellen-Balken (Fill + Marker-Linien) für kompaktes S-Kästchen und S-Rail.
+ * @param {string} [boxExtraClass]
+ */
+function createLeThresholdGaugeBox(boxExtraClass = '') {
+  const box = document.createElement('div')
+  box.className =
+    'init-hero-ex__le-threshold__box' +
+    (boxExtraClass ? ` ${boxExtraClass}` : '')
+  box.title = LE_THRESHOLD_TOOLTIP
+  box.setAttribute('role', 'img')
+  box.setAttribute('aria-label', 'LE-Schwellenanzeige')
+  const fill = document.createElement('div')
+  fill.className = 'init-hero-ex__le-threshold__fill'
+  const line50 = document.createElement('div')
+  line50.className =
+    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--50'
+  line50.style.bottom = '50%'
+  line50.title = 'Schwelle 1/2 LE'
+  const line33 = document.createElement('div')
+  line33.className =
+    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--33'
+  line33.style.bottom = '33.333%'
+  line33.title = 'Schwelle 1/3 LE'
+  const line25 = document.createElement('div')
+  line25.className =
+    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--25'
+  line25.style.bottom = '25%'
+  line25.title = 'Schwelle 1/4 LE'
+  const line5 = document.createElement('div')
+  line5.className =
+    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--le5'
+  line5.title = 'Schwelle LE 5 (kampfunfähig bei 0–5)'
+  line5.style.display = 'none'
+  const lineUnf = document.createElement('div')
+  lineUnf.className =
+    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--unfaehig'
+  lineUnf.style.display = 'none'
+  const skull = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  skull.setAttribute('viewBox', '0 0 24 24')
+  skull.setAttribute('aria-hidden', 'true')
+  skull.setAttribute('focusable', 'false')
+  skull.classList.add('init-hero-ex__le-threshold__skull')
+  skull.style.display = 'none'
+  skull.innerHTML =
+    '<path fill="currentColor" d="M12 2C7.58 2 4 5.58 4 10c0 2.49 1.14 4.7 2.92 6.16.36.3.58.74.58 1.2V19a2 2 0 0 0 2 2h1v-2h1v2h2v-2h1v2h1a2 2 0 0 0 2-2v-1.64c0-.46.22-.9.58-1.2C18.86 14.7 20 12.49 20 10c0-4.42-3.58-8-8-8Zm-3 9.5a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm6 0a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm-4.5 3.25h3l.5 1.25h-4l.5-1.25Z"/>'
+  box.append(fill, lineUnf, line5, line25, line33, line50, skull)
+  return { box, fill, line50, line33, line25, line5, lineUnf, skull }
+}
+
 /** Sichtbarer Platzhalter für inaktiven Slot 9 (Kürzel SW, nicht editierbar). */
 function mountSlot9Placeholder(itemId, canEdit, def) {
   const abbrText = String(def?.abbr || 'SW').trim() || 'SW'
@@ -1383,8 +1433,8 @@ export function mountHeroExpandBlock(
   }
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
-  /* Sechs Spalten: MR IB BE W6 INI MOD (Lesemodus: MOD wie Bearbeitung). */
-  ibChain.classList.add('init-hero-ex__ib-chain--cols-6')
+  /* Sieben Spalten: MR IB BE W6 INI S MOD (Lesemodus: MOD wie Bearbeitung). */
+  ibChain.classList.add('init-hero-ex__ib-chain--cols-7')
   const mkChainAbbr = (text, title, noUppercase) => {
     const s = document.createElement('span')
     s.className =
@@ -1595,8 +1645,9 @@ export function mountHeroExpandBlock(
   const ibChainCols = document.createElement('div')
   ibChainCols.className = 'init-hero-ex__ib-chain__cols'
   ibChainCols.append(stackMr, stackIb, stackBe, stackW6, stackIni)
-  if (stackMod) ibChainCols.appendChild(stackMod)
   ibChain.appendChild(ibChainCols)
+  /** @type {HTMLElement | null} */
+  let stackS = null
   const mr = { inp: mrInp }
   const ib = { inp: ibInp }
   const be = { inp: beInp }
@@ -1617,6 +1668,8 @@ export function mountHeroExpandBlock(
     const def = wappenBySlot.get(slot)
     if (slot === 9 && (!def || def.active === false)) {
       const ui = mountSlot9Placeholder(itemId, canEdit, def ?? { abbr: 'SW' })
+      ui.cell.style.visibility = 'hidden'
+      ui.cell.setAttribute('aria-hidden', 'true')
       zoneMidRow.appendChild(ui.cell)
       continue
     }
@@ -1778,58 +1831,34 @@ export function mountHeroExpandBlock(
   leThreshAbbr.className = 'init-hero-ex__abbr'
   leThreshAbbr.textContent = 'S'
   leThreshAbbr.title = LE_THRESHOLD_TOOLTIP
-  const leThreshBox = document.createElement('div')
-  leThreshBox.className = 'init-hero-ex__le-threshold__box'
-  leThreshBox.title = LE_THRESHOLD_TOOLTIP
-  leThreshBox.setAttribute('role', 'img')
-  leThreshBox.setAttribute('aria-label', 'LE-Schwellenanzeige')
-  const leThreshFill = document.createElement('div')
-  leThreshFill.className = 'init-hero-ex__le-threshold__fill'
-  const leThreshLine50 = document.createElement('div')
-  leThreshLine50.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--50'
-  leThreshLine50.style.bottom = '50%'
-  leThreshLine50.title = 'Schwelle 1/2 LE'
-  const leThreshLine33 = document.createElement('div')
-  leThreshLine33.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--33'
-  leThreshLine33.style.bottom = '33.333%'
-  leThreshLine33.title = 'Schwelle 1/3 LE'
-  const leThreshLine25 = document.createElement('div')
-  leThreshLine25.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--25'
-  leThreshLine25.style.bottom = '25%'
-  leThreshLine25.title = 'Schwelle 1/4 LE'
-  const leThreshLine5 = document.createElement('div')
-  leThreshLine5.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--le5'
-  leThreshLine5.title = 'Schwelle LE 5 (kampfunfähig bei 0–5)'
-  leThreshLine5.style.display = 'none'
-  const leThreshLineUnf = document.createElement('div')
-  leThreshLineUnf.className =
-    'init-hero-ex__le-threshold__line init-hero-ex__le-threshold__line--unfaehig'
-  leThreshLineUnf.style.display = 'none'
-  const leThreshSkull = document.createElementNS(
-    'http://www.w3.org/2000/svg',
-    'svg'
+  const leThreshCompact = createLeThresholdGaugeBox()
+  leThreshCell.append(leThreshAbbr, leThreshCompact.box)
+
+  const leThreshRailAbbr = mkChainAbbr('S', LE_THRESHOLD_TOOLTIP)
+  const leThreshRail = createLeThresholdGaugeBox(
+    'init-hero-ex__le-threshold__box--tall'
   )
-  leThreshSkull.setAttribute('viewBox', '0 0 24 24')
-  leThreshSkull.setAttribute('aria-hidden', 'true')
-  leThreshSkull.setAttribute('focusable', 'false')
-  leThreshSkull.classList.add('init-hero-ex__le-threshold__skull')
-  leThreshSkull.style.display = 'none'
-  leThreshSkull.innerHTML =
-    '<path fill="currentColor" d="M12 2C7.58 2 4 5.58 4 10c0 2.49 1.14 4.7 2.92 6.16.36.3.58.74.58 1.2V19a2 2 0 0 0 2 2h1v-2h1v2h2v-2h1v2h1a2 2 0 0 0 2-2v-1.64c0-.46.22-.9.58-1.2C18.86 14.7 20 12.49 20 10c0-4.42-3.58-8-8-8Zm-3 9.5a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm6 0a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm-4.5 3.25h3l.5 1.25h-4l.5-1.25Z"/>'
-  leThreshBox.append(
-    leThreshFill,
-    leThreshLineUnf,
-    leThreshLine5,
-    leThreshLine25,
-    leThreshLine33,
-    leThreshLine50,
-    leThreshSkull
+  const sRailCol = document.createElement('div')
+  sRailCol.className =
+    'init-hero-ex__ib-chain__col init-hero-ex__ib-chain__col--s-rail'
+  const sRailShell = document.createElement('div')
+  sRailShell.className =
+    'init-hero-ex__ib-chain__inp-cell init-hero-ex__ib-chain__inp-cell--s-rail'
+  sRailShell.appendChild(leThreshRail.box)
+  sRailCol.appendChild(sRailShell)
+  stackS = mkIbChainStack(
+    leThreshRailAbbr,
+    sRailCol,
+    'init-hero-ex__ib-chain__stack--s-rail init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
   )
-  leThreshCell.append(leThreshAbbr, leThreshBox)
+  ibChainCols.appendChild(stackS)
+  if (stackMod) ibChainCols.appendChild(stackMod)
+
+  /** @type {{ host: HTMLElement, box: HTMLDivElement, fill: HTMLDivElement, line50: HTMLDivElement, line33: HTMLDivElement, line25: HTMLDivElement, line5: HTMLDivElement, lineUnf: HTMLDivElement, skull: SVGSVGElement }[]} */
+  const leThreshGaugeSets = [
+    { host: leThreshCell, ...leThreshCompact },
+    { host: stackS, ...leThreshRail },
+  ]
 
   const parseLeIntSafe = (raw) => {
     const t = String(raw ?? '').trim()
@@ -1901,28 +1930,30 @@ export function mountHeroExpandBlock(
   const NEG_LE_KO_RANGE = 1.6
 
   const resetLeThreshNegOff = () => {
-    leThreshCell.classList.remove('init-hero-ex__le-threshold--neg-le')
-    leThreshCell.classList.remove('init-hero-ex__le-threshold--neg-pulse')
-    leThreshCell.classList.remove(
-      'init-hero-ex__le-threshold--neg-pulse--irregular'
-    )
-    leThreshFill.classList.remove('init-hero-ex__le-threshold__fill--from-top')
-    leThreshSkull.style.removeProperty('bottom')
-    leThreshSkull.style.removeProperty('transform')
-    leThreshFill.style.removeProperty('top')
-    leThreshFill.style.removeProperty('bottom')
-    leThreshLine50.style.display = ''
-    leThreshLine50.style.bottom = '50%'
-    leThreshLine33.style.bottom = '33.333%'
-    leThreshLine25.style.bottom = '25%'
-    leThreshLine33.classList.remove('init-hero-ex__le-threshold__line--neg-ko')
-    leThreshLine25.classList.remove(
-      'init-hero-ex__le-threshold__line--neg-le-solid'
-    )
-    leThreshLine5.classList.remove(
-      'init-hero-ex__le-threshold__line--neg-le-solid'
-    )
-    leThreshLineUnf.style.display = 'none'
+    for (const g of leThreshGaugeSets) {
+      g.host.classList.remove('init-hero-ex__le-threshold--neg-le')
+      g.host.classList.remove('init-hero-ex__le-threshold--neg-pulse')
+      g.host.classList.remove(
+        'init-hero-ex__le-threshold--neg-pulse--irregular'
+      )
+      g.fill.classList.remove('init-hero-ex__le-threshold__fill--from-top')
+      g.skull.style.removeProperty('bottom')
+      g.skull.style.removeProperty('transform')
+      g.fill.style.removeProperty('top')
+      g.fill.style.removeProperty('bottom')
+      g.line50.style.display = ''
+      g.line50.style.bottom = '50%'
+      g.line33.style.bottom = '33.333%'
+      g.line25.style.bottom = '25%'
+      g.line33.classList.remove('init-hero-ex__le-threshold__line--neg-ko')
+      g.line25.classList.remove(
+        'init-hero-ex__le-threshold__line--neg-le-solid'
+      )
+      g.line5.classList.remove(
+        'init-hero-ex__le-threshold__line--neg-le-solid'
+      )
+      g.lineUnf.style.display = 'none'
+    }
   }
 
   const updateLeThreshold = () => {
@@ -1940,82 +1971,87 @@ export function mountHeroExpandBlock(
 
     if (negLe) {
       resetLeThreshNegOff()
-      leThreshCell.classList.add('init-hero-ex__le-threshold--neg-le')
-      leThreshFill.classList.add('init-hero-ex__le-threshold__fill--from-top')
-      leThreshFill.style.bottom = 'auto'
-      leThreshFill.style.top = '0'
       const depth = -leV
       const cap = NEG_LE_KO_RANGE * koV
       const hp = Math.min(100, (depth / cap) * 100)
-      leThreshFill.style.height = hp.toFixed(3) + '%'
-      leThreshCell.dataset.leBand = 'neg-le'
-      leThreshSkull.style.display = ''
-      leThreshLine50.style.display = 'none'
       const pctBot = (koMult) =>
         100 - (koMult / NEG_LE_KO_RANGE) * 100
       const wsThreshold = wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
       const wsMult = Math.max(0, Math.min(NEG_LE_KO_RANGE, wsThreshold / koV))
-      leThreshLine33.style.display = ''
-      leThreshLine33.style.bottom = `${pctBot(wsMult).toFixed(3)}%`
-      leThreshLine33.classList.add('init-hero-ex__le-threshold__line--neg-ko')
-      leThreshLine25.style.display = ''
-      leThreshLine25.style.bottom = `${pctBot(1).toFixed(3)}%`
-      leThreshLine25.classList.add(
-        'init-hero-ex__le-threshold__line--neg-le-solid'
-      )
-      leThreshLine5.style.display = ''
-      leThreshLine5.style.bottom = `${pctBot(1.5).toFixed(3)}%`
-      leThreshLine5.classList.add(
-        'init-hero-ex__le-threshold__line--neg-le-solid'
-      )
-      leThreshLineUnf.style.display = 'none'
       const b1 = pctBot(1)
       const b15 = pctBot(1.5)
       const skullBot = (b1 + b15) / 2
-      leThreshSkull.style.bottom = `${skullBot.toFixed(3)}%`
-      leThreshSkull.style.top = 'auto'
-      leThreshSkull.style.transform = 'translate(-50%, 50%)'
-      /* Blinken oberhalb −1·KO; langsamer/unregelmäßig zwischen −1·KO und −WS */
       const negPulseOn = !deathTriggered && leV > blinkStopBoundary
       const negPulseIrregular =
         negPulseOn && leV <= -wsThreshold
-      leThreshCell.classList.toggle(
-        'init-hero-ex__le-threshold--neg-pulse',
-        negPulseOn
-      )
-      leThreshCell.classList.toggle(
-        'init-hero-ex__le-threshold--neg-pulse--irregular',
-        negPulseIrregular
-      )
+      for (const g of leThreshGaugeSets) {
+        g.host.classList.add('init-hero-ex__le-threshold--neg-le')
+        g.fill.classList.add('init-hero-ex__le-threshold__fill--from-top')
+        g.fill.style.bottom = 'auto'
+        g.fill.style.top = '0'
+        g.fill.style.height = hp.toFixed(3) + '%'
+        g.host.dataset.leBand = 'neg-le'
+        g.skull.style.display = ''
+        g.line50.style.display = 'none'
+        g.line33.style.display = ''
+        g.line33.style.bottom = `${pctBot(wsMult).toFixed(3)}%`
+        g.line33.classList.add('init-hero-ex__le-threshold__line--neg-ko')
+        g.line25.style.display = ''
+        g.line25.style.bottom = `${pctBot(1).toFixed(3)}%`
+        g.line25.classList.add(
+          'init-hero-ex__le-threshold__line--neg-le-solid'
+        )
+        g.line5.style.display = ''
+        g.line5.style.bottom = `${pctBot(1.5).toFixed(3)}%`
+        g.line5.classList.add(
+          'init-hero-ex__le-threshold__line--neg-le-solid'
+        )
+        g.lineUnf.style.display = 'none'
+        g.skull.style.bottom = `${skullBot.toFixed(3)}%`
+        g.skull.style.top = 'auto'
+        g.skull.style.transform = 'translate(-50%, 50%)'
+        g.host.classList.toggle(
+          'init-hero-ex__le-threshold--neg-pulse',
+          negPulseOn
+        )
+        g.host.classList.toggle(
+          'init-hero-ex__le-threshold--neg-pulse--irregular',
+          negPulseIrregular
+        )
+      }
       return
     }
 
     resetLeThreshNegOff()
 
-    leThreshSkull.style.display = dead ? '' : 'none'
-    if (dead) {
-      leThreshFill.style.height = '0%'
-      leThreshCell.dataset.leBand = 'crit'
-    } else if (leV != null && maxV != null && maxV > 0) {
-      const frac = Math.max(0, Math.min(1, leV / maxV))
-      leThreshFill.style.height = (frac * 100).toFixed(3) + '%'
-      leThreshCell.dataset.leBand = leBarColorBand(leV, maxV)
-    } else {
-      leThreshFill.style.height = '0%'
-      delete leThreshCell.dataset.leBand
-    }
-    if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
-      leThreshLine5.style.display = ''
-      leThreshLine5.style.bottom = ((customLeThreshold / maxV) * 100).toFixed(3) + '%'
-    } else {
-      leThreshLine5.style.display = 'none'
-    }
-    if (maxV != null && maxV > 0 && maxV > unfaehigThreshold) {
-      leThreshLineUnf.style.display = ''
-      leThreshLineUnf.style.bottom = ((unfaehigThreshold / maxV) * 100).toFixed(3) + '%'
-      leThreshLineUnf.title = `Schwelle unfähig (LE ≤ ${unfaehigThreshold})`
-    } else {
-      leThreshLineUnf.style.display = 'none'
+    for (const g of leThreshGaugeSets) {
+      g.skull.style.display = dead ? '' : 'none'
+      if (dead) {
+        g.fill.style.height = '0%'
+        g.host.dataset.leBand = 'crit'
+      } else if (leV != null && maxV != null && maxV > 0) {
+        const frac = Math.max(0, Math.min(1, leV / maxV))
+        g.fill.style.height = (frac * 100).toFixed(3) + '%'
+        g.host.dataset.leBand = leBarColorBand(leV, maxV)
+      } else {
+        g.fill.style.height = '0%'
+        delete g.host.dataset.leBand
+      }
+      if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
+        g.line5.style.display = ''
+        g.line5.style.bottom =
+          ((customLeThreshold / maxV) * 100).toFixed(3) + '%'
+      } else {
+        g.line5.style.display = 'none'
+      }
+      if (maxV != null && maxV > 0 && maxV > unfaehigThreshold) {
+        g.lineUnf.style.display = ''
+        g.lineUnf.style.bottom =
+          ((unfaehigThreshold / maxV) * 100).toFixed(3) + '%'
+        g.lineUnf.title = `Schwelle unfähig (LE ≤ ${unfaehigThreshold})`
+      } else {
+        g.lineUnf.style.display = 'none'
+      }
     }
   }
   updateLeThreshold()
@@ -2932,7 +2968,9 @@ export function mountHeroExpandBlock(
        (Remount-Risiko) — beim Schließen explizit committen. */
     runSilentLeOverlaySync({ usePreview: true, commitAfter: true })
     lePop.remove()
-    leThreshCell.classList.remove('init-hero-ex__le-threshold--open')
+    for (const g of leThreshGaugeSets) {
+      g.host.classList.remove('init-hero-ex__le-threshold--open')
+    }
     if (lePopOutsideHandler) {
       document.removeEventListener('mousedown', lePopOutsideHandler, true)
       lePopOutsideHandler = null
@@ -2981,10 +3019,19 @@ export function mountHeroExpandBlock(
     leInp.title = `${baseLeTitle}${leReadOnlyHint}`
   }
 
+  const isLeThreshHostTarget = (tgt) => {
+    for (const g of leThreshGaugeSets) {
+      if (g.host.contains(tgt)) return true
+    }
+    return false
+  }
+
   const openLePopover = (source = 's') => {
     if (!lePop.isConnected) {
       root.appendChild(lePop)
-      leThreshCell.classList.add('init-hero-ex__le-threshold--open')
+      for (const g of leThreshGaugeSets) {
+        g.host.classList.add('init-hero-ex__le-threshold--open')
+      }
     }
     updateLePopover()
     positionLePopover()
@@ -2994,7 +3041,7 @@ export function mountHeroExpandBlock(
     lePopOutsideHandler = (e) => {
       const tgt = e.target
       if (lePop.contains(tgt)) return
-      if (leThreshCell.contains(tgt)) return
+      if (isLeThreshHostTarget(tgt)) return
       closeLePopover()
     }
     document.addEventListener('mousedown', lePopOutsideHandler, true)
@@ -3019,9 +3066,12 @@ export function mountHeroExpandBlock(
     if (lePop.isConnected) closeLePopover()
     else openLePopover('s')
   }
-  leThreshBox.addEventListener('click', toggleLePopoverFromClick)
+  leThreshCompact.box.addEventListener('click', toggleLePopoverFromClick)
   leThreshAbbr.style.cursor = 'pointer'
   leThreshAbbr.addEventListener('click', toggleLePopoverFromClick)
+  leThreshRail.box.addEventListener('click', toggleLePopoverFromClick)
+  leThreshRailAbbr.style.cursor = 'pointer'
+  leThreshRailAbbr.addEventListener('click', toggleLePopoverFromClick)
   const openLePopoverFromInputClick = (source) => (e) => {
     if (source === 'max' && isLeMaxDirectEditMode()) return
     e.preventDefault()
@@ -5039,8 +5089,8 @@ export function mountHeroExpandBlock(
   const syncHeroRowLayout = () => {
     zoneMidRow.style.paddingRight = ''
     bottomStrip.style.paddingRight = ''
-    leThreshBox.style.width = ''
-    leThreshBox.style.minWidth = ''
+    leThreshCompact.box.style.width = ''
+    leThreshCompact.box.style.minWidth = ''
     iniUpBtn.style.width = ''
     iniUpBtn.style.minWidth = ''
     const leRight = leMaxInp.getBoundingClientRect().right
@@ -5054,12 +5104,12 @@ export function mountHeroExpandBlock(
 
     /* S-Kästchen: rechte Kante = rechte Kante Frontal (F) in Zeile 3; linke Kante fix. */
     const frontalR = frontalLbl.getBoundingClientRect()
-    const sL = leThreshBox.getBoundingClientRect().left
+    const sL = leThreshCompact.box.getBoundingClientRect().left
     const sW = frontalR.right - sL
     if (Number.isFinite(sW) && sW > 2) {
       const rsW = Math.round(sW * 1000) / 1000
-      leThreshBox.style.width = `${rsW}px`
-      leThreshBox.style.minWidth = `${rsW}px`
+      leThreshCompact.box.style.width = `${rsW}px`
+      leThreshCompact.box.style.minWidth = `${rsW}px`
     }
 
     /* Scroll-Ausgleich: nach S-Kästchen-Breite messen, damit beide Zeilen gleich breit sind. */
@@ -5091,7 +5141,9 @@ export function mountHeroExpandBlock(
     iniIbCol,
     stripInner,
     modStrip,
-    leThreshBox,
+    leThreshCompact.box,
+    leThreshRail.box,
+    ...(stackS ? [stackS] : []),
     ...(modIbCol ? [modIbCol] : []),
   ]
   for (const el of __spTzAlignEls) {
