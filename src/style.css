@@ -1545,7 +1545,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   grid-template-columns:
     var(--init-hero-cell)
     var(--init-hero-cell)
-    calc(0.5 * var(--init-hero-cell))
+    var(--init-hero-cell)
     calc(0.5 * var(--init-hero-cell))
     var(--init-hero-ib-mod-gap)
     var(--init-hero-ex-mod-chain-w);
@@ -1665,6 +1665,53 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   max-width: var(--init-hero-cell);
   flex-shrink: 0;
   box-sizing: border-box;
+}
+
+.init-hero-ex__le-chain__col--max-wide {
+  width: calc(1.5 * var(--init-hero-cell));
+  min-width: calc(1.5 * var(--init-hero-cell));
+  max-width: calc(1.5 * var(--init-hero-cell));
+}
+
+.init-hero-ex__le-chain__max-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.init-hero-ex__le-chain__max-grid > .init-hero-ex__micro {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  text-align: center;
+  font-size: calc(0.72 * var(--init-hero-micro-fs, 0.85rem));
+  padding: 0;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.init-hero-ex__le-chain__max-grid > .init-hero-ex__micro:nth-child(1) {
+  border-right: 1px solid rgba(var(--rgb-gold), 0.48);
+  border-bottom: 1px solid rgba(var(--rgb-gold), 0.48);
+}
+
+.init-hero-ex__le-chain__max-grid > .init-hero-ex__micro:nth-child(2) {
+  border-bottom: 1px solid rgba(var(--rgb-gold), 0.48);
+}
+
+.init-hero-ex__le-chain__max-grid > .init-hero-ex__micro:nth-child(3) {
+  border-right: 1px solid rgba(var(--rgb-gold), 0.48);
+}
+
+.init-hero-ex__le-chain__max-grid > .init-hero-ex__micro:focus {
+  outline: none;
+  background: var(--init-action-cell-fill-focus) !important;
 }
 
 .init-hero-ex__le-chain__inp-cell {

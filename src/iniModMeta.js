@@ -186,6 +186,9 @@ function computeKrFieldMarks(before, after, round) {
 
 export const HERO_EX_LE = 'heroExLe'
 export const HERO_EX_LE_MAX = 'heroExLeMax'
+export const HERO_EX_AU_MAX = 'heroExAuMax'
+export const HERO_EX_AE_MAX = 'heroExAeMax'
+export const HERO_EX_KE_MAX = 'heroExKeMax'
 export const HERO_EX_AE = 'heroExAe'
 export const HERO_EX_AT = 'heroExAt'
 export const HERO_EX_PA = 'heroExPa'
@@ -428,6 +431,9 @@ export function readHeroExpandSnapshot(meta) {
     a: strOrEmpty(meta?.[HERO_EX_A]),
     le: strOrEmpty(meta?.[HERO_EX_LE]),
     leMax: strOrEmpty(meta?.[HERO_EX_LE_MAX]),
+    auMax: strOrEmpty(meta?.[HERO_EX_AU_MAX]),
+    aeMax: strOrEmpty(meta?.[HERO_EX_AE_MAX]),
+    keMax: strOrEmpty(meta?.[HERO_EX_KE_MAX]),
     ae: aeResolved || aeKeLegacy,
     ke: keResolved,
     gw: gwVal,
@@ -555,6 +561,9 @@ export async function applyHeroExpandFields(itemId, next) {
       setStr(HERO_EX_A, next.a)
       setStr(HERO_EX_LE, next.le)
       setStr(HERO_EX_LE_MAX, next.leMax)
+      setStr(HERO_EX_AU_MAX, next.auMax)
+      setStr(HERO_EX_AE_MAX, next.aeMax)
+      setStr(HERO_EX_KE_MAX, next.keMax)
       setStr(HERO_EX_AE, next.ae)
       const extraFieldRaw = String(next.extraField ?? '').trim().toLowerCase()
       const extraField =
@@ -1524,10 +1533,7 @@ export function mountHeroExpandBlock(
     'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--gs-r-gap'
   stackGs.appendChild(gsCell)
   const ibCol = mkIbChainCol(ibInp)
-  const beCol = mkIbChainCol(
-    beInp,
-    'init-hero-ex__ib-chain__col--half-cell'
-  )
+  const beCol = mkIbChainCol(beInp)
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
   const w6Col = mkIbChainCol(
@@ -1760,7 +1766,22 @@ export function mountHeroExpandBlock(
     return stack
   }
   const leCol = mkLeChainCol(leInp)
-  const leMaxCol = mkLeChainCol(leMaxInp)
+  const auMaxTitle = 'Ausdauermaximum (AU-Max)'
+  const aeMaxTitle = 'Astralenergiemaximum (AE-Max)'
+  const keMaxTitle = 'Karmaenergiemaximum (KE-Max)'
+  const auMaxInp = mkChainInp('aumax', snap.auMax, 3, true, auMaxTitle)
+  const aeMaxInp = mkChainInp('aemax', snap.aeMax, 3, true, aeMaxTitle)
+  const keMaxInp = mkChainInp('kemax', snap.keMax, 3, true, keMaxTitle)
+  const maxGrid = document.createElement('div')
+  maxGrid.className = 'init-hero-ex__le-chain__max-grid'
+  maxGrid.append(leMaxInp, auMaxInp, aeMaxInp, keMaxInp)
+  const leMaxCol = document.createElement('div')
+  leMaxCol.className =
+    'init-hero-ex__le-chain__col init-hero-ex__le-chain__col--max-wide'
+  const leMaxShell = document.createElement('div')
+  leMaxShell.className = 'init-hero-ex__le-chain__inp-cell'
+  leMaxShell.appendChild(maxGrid)
+  leMaxCol.appendChild(leMaxShell)
   const stackLe = mkLeChainStack(leAbbrLE, leCol)
   const stackLeMax = mkLeChainStack(leAbbrMax, leMaxCol)
   const wsAbbrLbl = mkChainAbbr('WS', WS_RULES_TOOLTIP)
@@ -1807,16 +1828,6 @@ export function mountHeroExpandBlock(
     return leAtPaMalusForBand(band)
   }
 
-  const leThreshCell = document.createElement('div')
-  leThreshCell.className =
-    'init-hero-ex__micro-cell init-hero-ex__le-threshold'
-  const leThreshAbbr = document.createElement('span')
-  leThreshAbbr.className = 'init-hero-ex__abbr'
-  leThreshAbbr.textContent = 'S'
-  leThreshAbbr.title = LE_THRESHOLD_TOOLTIP
-  const leThreshCompact = createLeThresholdGaugeBox()
-  leThreshCell.append(leThreshAbbr, leThreshCompact.box)
-
   const leThreshRailAbbr = mkChainAbbr('S', LE_THRESHOLD_TOOLTIP)
   const leThreshRail = createLeThresholdGaugeBox(
     'init-hero-ex__le-threshold__box--tall'
@@ -1827,10 +1838,7 @@ export function mountHeroExpandBlock(
   sRailRoot.append(leThreshRailAbbr, leThreshRail.box)
 
   /** @type {{ host: HTMLElement, box: HTMLDivElement, fill: HTMLDivElement, line50: HTMLDivElement, line33: HTMLDivElement, line25: HTMLDivElement, line5: HTMLDivElement, lineUnf: HTMLDivElement, skull: SVGSVGElement }[]} */
-  const leThreshGaugeSets = [
-    { host: leThreshCell, ...leThreshCompact },
-    { host: sRailRoot, ...leThreshRail },
-  ]
+  const leThreshGaugeSets = [{ host: sRailRoot, ...leThreshRail }]
 
   const parseLeIntSafe = (raw) => {
     const t = String(raw ?? '').trim()
@@ -3038,9 +3046,6 @@ export function mountHeroExpandBlock(
     if (lePop.isConnected) closeLePopover()
     else openLePopover('s')
   }
-  leThreshCompact.box.addEventListener('click', toggleLePopoverFromClick)
-  leThreshAbbr.style.cursor = 'pointer'
-  leThreshAbbr.addEventListener('click', toggleLePopoverFromClick)
   leThreshRail.box.addEventListener('click', toggleLePopoverFromClick)
   leThreshRailAbbr.style.cursor = 'pointer'
   leThreshRailAbbr.addEventListener('click', toggleLePopoverFromClick)
@@ -3060,7 +3065,7 @@ export function mountHeroExpandBlock(
   syncLeMaxInputMode()
 
   zoneMidRow.append(spTzPair)
-  attrKoTpWrap.append(mrAttr.cell, leChain, leThreshCell)
+  attrKoTpWrap.append(mrAttr.cell, leChain)
 
   stripInner.append(
     at.cell,
@@ -5055,9 +5060,7 @@ export function mountHeroExpandBlock(
   const syncHeroRowLayout = () => {
     zoneMidRow.style.paddingRight = ''
     bottomStrip.style.paddingRight = ''
-    leThreshCompact.box.style.width = ''
-    leThreshCompact.box.style.minWidth = ''
-    const leRight = leMaxInp.getBoundingClientRect().right
+    const leRight = stackLeMax.getBoundingClientRect().right
     const gLeft = spTzGrid.getBoundingClientRect().left
     const w = leRight - gLeft
     if (Number.isFinite(w) && w > 24) {
@@ -5066,17 +5069,7 @@ export function mountHeroExpandBlock(
       spTzGrid.style.width = ''
     }
 
-    /* S-Kästchen: rechte Kante = rechte Kante Frontal (F) in Zeile 3; linke Kante fix. */
-    const frontalR = frontalLbl.getBoundingClientRect()
-    const sL = leThreshCompact.box.getBoundingClientRect().left
-    const sW = frontalR.right - sL
-    if (Number.isFinite(sW) && sW > 2) {
-      const rsW = Math.round(sW * 1000) / 1000
-      leThreshCompact.box.style.width = `${rsW}px`
-      leThreshCompact.box.style.minWidth = `${rsW}px`
-    }
-
-    /* Scroll-Ausgleich: nach S-Kästchen-Breite messen, damit beide Zeilen gleich breit sind. */
+    /* Scroll-Ausgleich: beide Zeilen gleich breit halten. */
     const zw = zoneMidRow.scrollWidth
     const bw = bottomStrip.scrollWidth
     if (zw > bw) {
@@ -5112,7 +5105,7 @@ export function mountHeroExpandBlock(
     zoneMidRow,
     bottomStrip,
     leChainCols,
-    leMaxInp,
+    stackLeMax,
     attrCols,
     attrKoTpWrap,
     frontalLbl,
@@ -5121,7 +5114,6 @@ export function mountHeroExpandBlock(
     stackW6,
     stripInner,
     modStrip,
-    leThreshCompact.box,
     leThreshRail.box,
     sRailRoot,
     ...(stackMod ? [stackMod] : []),
@@ -5328,6 +5320,9 @@ export function mountHeroExpandBlock(
     a: ausw.inp.value,
     le: le.inp.value,
     leMax: leMax.inp.value,
+    auMax: auMaxInp.value,
+    aeMax: aeMaxInp.value,
+    keMax: keMaxInp.value,
     ae: ae.inp.value,
     ke: ef === 'ke' ? extra.inp.value : snap.ke,
     gw: ef === 'gw' ? extra.inp.value : snap.gw,
