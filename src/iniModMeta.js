@@ -1234,7 +1234,7 @@ export function mountHeroExpandBlock(
 
   const spTzLabelTools = document.createElement('div')
   spTzLabelTools.className = 'init-hero-ex__sp-tz-pair__label-tools'
-  spTzLabelTools.append(spTzUndo, rsBypassBtn, spTzRedo)
+  spTzLabelTools.append(spTzUndo, spTzRedo)
 
   const spTzPair = document.createElement('div')
   spTzPair.className = 'init-hero-ex__sp-tz-pair'
@@ -1247,11 +1247,14 @@ export function mountHeroExpandBlock(
   spAbbr.className = 'init-hero-ex__abbr'
   spAbbr.textContent = 'TP'
   spAbbr.title = 'Trefferpunkte (TP)'
+  const spTpLabelWrap = document.createElement('div')
+  spTpLabelWrap.className = 'init-hero-ex__sp-tz-pair__tp-wrap'
+  spTpLabelWrap.append(rsBypassBtn, spAbbr)
   const tzAbbr = document.createElement('span')
   tzAbbr.className = 'init-hero-ex__abbr'
   tzAbbr.textContent = 'TZ'
   tzAbbr.title = tzFieldTooltip
-  spTzLabelRow.append(spAbbr, spTzLabelTools, tzAbbr)
+  spTzLabelRow.append(spTpLabelWrap, spTzLabelTools, tzAbbr)
 
   const spInp = document.createElement('input')
   spInp.type = 'text'
@@ -1448,6 +1451,7 @@ export function mountHeroExpandBlock(
     true
   )
   const ibW6Lbl = mkChainAbbr('W6', 'Würfelwurf (W6)', true)
+  ibW6Lbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
   const mkChainInp = (idSuf, value, maxLen, numeric, aria) => {
     const inp = document.createElement('input')
     inp.type = 'text'
@@ -1534,7 +1538,10 @@ export function mountHeroExpandBlock(
   const beCol = mkIbChainCol(beInp)
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
-  const w6Col = mkIbChainCol(w6Inp)
+  const w6Col = mkIbChainCol(
+    w6Inp,
+    'init-hero-ex__ib-chain__col--half-cell'
+  )
   const stackW6 = mkIbChainStack(ibW6Lbl, w6Col)
 
   /** @type {HTMLButtonElement | null} */
@@ -5055,14 +5062,7 @@ export function mountHeroExpandBlock(
   const syncHeroRowLayout = () => {
     zoneMidRow.style.paddingRight = ''
     bottomStrip.style.paddingRight = ''
-    const leRight = stackLeMax.getBoundingClientRect().right
-    const gLeft = spTzGrid.getBoundingClientRect().left
-    const w = leRight - gLeft
-    if (Number.isFinite(w) && w > 24) {
-      spTzGrid.style.width = `${Math.round(w * 1000) / 1000}px`
-    } else {
-      spTzGrid.style.width = ''
-    }
+    spTzGrid.style.width = ''
 
     /* Scroll-Ausgleich: beide Zeilen gleich breit halten. */
     const zw = zoneMidRow.scrollWidth
@@ -5091,24 +5091,6 @@ export function mountHeroExpandBlock(
     updateLeThreshold()
     positionLePopover()
     syncModStripDockAndPad()
-
-    /* TP (Strip), TP/TZ (Trefferzeile): Kürzel auf gleicher Höhe wie RB/Wappen-Kürzel. */
-    tpAbbr.style.transform = ''
-    spAbbr.style.transform = ''
-    tzAbbr.style.transform = ''
-    const refWappenAbbr = zoneMidRow.querySelector(
-      '.init-hero-ex__micro-cell--wappen:not([aria-hidden="true"]) > .init-hero-ex__abbr'
-    )
-    if (refWappenAbbr) {
-      const refTop = refWappenAbbr.getBoundingClientRect().top
-      for (const el of [tpAbbr, spAbbr, tzAbbr]) {
-        if (!el) continue
-        const delta = refTop - el.getBoundingClientRect().top
-        if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
-          el.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
-        }
-      }
-    }
   }
   const spTzAlignRo = new ResizeObserver(() => {
     syncHeroRowLayout()
@@ -5119,9 +5101,6 @@ export function mountHeroExpandBlock(
     bottomStrip,
     leChainCols,
     stackLeMax,
-    tpAbbr,
-    spAbbr,
-    tzAbbr,
     attrCols,
     attrKoTpWrap,
     frontalLbl,
