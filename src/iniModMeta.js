@@ -5467,6 +5467,7 @@ export function mountHeroExpandBlock(
   let persistQueued = false
   /** @type {ReturnType<typeof gather> | null} */
   let persistNextSnapshot = null
+  let persistGeneration = 0
   const PERSIST_DEBOUNCE_MS = 320
 
   const flushPersistHeroExpand = () => {
@@ -5476,17 +5477,29 @@ export function mountHeroExpandBlock(
     const round =
       c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
     const navIni = readCurrentNavIniGlobal()
-    const snap = basisHeroExpandSnapshotFromDisplayed(
-      meta,
-      persistNextSnapshot,
-      ownerIniNum,
-      round,
-      navIni
-    )
+    const snapshot = persistNextSnapshot
     persistQueued = false
     persistNextSnapshot = null
+    const gen = ++persistGeneration
     void (async () => {
+      let metaForBasis = meta
+      try {
+        const freshItems = await OBR.scene.items.getItems([itemId])
+        const fm = freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+        if (fm && typeof fm === 'object') metaForBasis = fm
+      } catch (_) {
+        /* Szene kurz nicht lesbar — Mount-meta nutzen */
+      }
+      if (gen !== persistGeneration) return
+      const snap = basisHeroExpandSnapshotFromDisplayed(
+        metaForBasis,
+        snapshot,
+        ownerIniNum,
+        round,
+        navIni
+      )
       await applyHeroExpandFields(itemId, snap)
+      if (gen !== persistGeneration) return
       await refreshModStripFromScene()
     })()
   }
@@ -5510,6 +5523,7 @@ export function mountHeroExpandBlock(
   const flushHeroExpandBeforeListRemount = async () => {
     if (!(container instanceof HTMLElement) || !container.isConnected) return
     cancelPendingPersistHeroExpand()
+    persistGeneration += 1
     let metaForBasis = meta
     try {
       const freshItems = await OBR.scene.items.getItems([itemId])
@@ -5790,6 +5804,9 @@ export function mountHeroExpandBlock(
     ausw.inp,
     le.inp,
     leMax.inp,
+    auMaxInp,
+    aeMaxInp,
+    keMaxInp,
     ae.inp,
     ...(showExtraField ? [extra.inp] : []),
     tpInp,

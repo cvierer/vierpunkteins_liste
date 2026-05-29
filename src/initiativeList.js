@@ -2807,6 +2807,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let restoreFocusItemId = null
   /** @type {{ itemId: string, inputId: string, selectionStart: number | null, selectionEnd: number | null } | null} */
   let restoreHeroInputFocus = null
+  /** @type {{ itemId: string, value: string, selectionStart: number | null, selectionEnd: number | null } | null} */
+  let restoreIniInputFocus = null
+  /** @type {boolean} */
+  let renderListProcessing = false
+  /** @type {import('@owlbear-rodeo/sdk').Item[] | null | undefined} */
+  let renderListQueuedItems = undefined
+  /** @type {number} */
+  let renderListScheduleRaf = 0
   let lastItems = []
 
   void hideDistanceRings()
@@ -2948,6 +2956,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   /** @type {Map<string, { x: number, y: number }>} */
   let lastTrackerCentersById = new Map()
   let distanceProbeRefreshPending = false
+  /** @type {{ redrawRings: boolean, checkPlacement: boolean, syncLine: boolean }} */
+  let distanceProbeRefreshOptions = {
+    redrawRings: false,
+    checkPlacement: false,
+    syncLine: false,
+  }
   let probeMovementRafId = 0
   let probePointerListenersAttached = false
   let probePlayerChangeUnsub = null
@@ -3501,11 +3515,39 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
   }
 
+  const pumpDistanceProbeRefresh = () => {
+    if (!distanceProbeItemId || distanceProbeRefreshPending) return
+    if (
+      !distanceProbeRefreshOptions.redrawRings &&
+      !distanceProbeRefreshOptions.checkPlacement &&
+      !distanceProbeRefreshOptions.syncLine
+    ) {
+      return
+    }
+    distanceProbeRefreshPending = true
+    const opts = { ...distanceProbeRefreshOptions }
+    distanceProbeRefreshOptions = {
+      redrawRings: false,
+      checkPlacement: false,
+      syncLine: false,
+    }
+    requestAnimationFrame(() => {
+      void runDistanceProbeRefresh(opts)
+        .catch((err) => {
+          console.error('[vierpunkteins] distance probe refresh failed', err)
+        })
+        .finally(() => {
+          distanceProbeRefreshPending = false
+          pumpDistanceProbeRefresh()
+        })
+    })
+  }
+
   /**
    * @param {{ redrawRings?: boolean, checkPlacement?: boolean, syncLine?: boolean }} [options]
    */
   function scheduleDistanceProbeRefresh(options = {}) {
-    if (!distanceProbeItemId || distanceProbeRefreshPending) return
+    if (!distanceProbeItemId) return
     const dragging = isProbeMapDragActive()
     const refreshOptions = {
       redrawRings: options.redrawRings ?? !dragging,
@@ -3513,13 +3555,15 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       syncLine: options.syncLine ?? !dragging,
       ...options,
     }
-    distanceProbeRefreshPending = true
-    requestAnimationFrame(() => {
-      distanceProbeRefreshPending = false
-      void runDistanceProbeRefresh(refreshOptions).catch((err) => {
-        console.error('[vierpunkteins] distance probe refresh failed', err)
-      })
-    })
+    distanceProbeRefreshOptions = {
+      redrawRings:
+        distanceProbeRefreshOptions.redrawRings || refreshOptions.redrawRings,
+      checkPlacement:
+        distanceProbeRefreshOptions.checkPlacement ||
+        refreshOptions.checkPlacement,
+      syncLine: distanceProbeRefreshOptions.syncLine || refreshOptions.syncLine,
+    }
+    pumpDistanceProbeRefresh()
   }
 
   const DIST_PROBE_EYE_SVG =
@@ -4929,6 +4973,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     heroColorGrid.appendChild(clearWrap)
   }
 
+  const isHeroSettingsFieldFocused = (el) => {
+    const active = document.activeElement
+    return active instanceof HTMLElement && active === el
+  }
+
   const syncHeroSettingsFields = (items) => {
     if (!heroSettingsItemId || !Array.isArray(items)) return
     const it = items.find((i) => i.id === heroSettingsItemId)
@@ -4942,16 +4991,24 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     ) {
       return
     }
-    inpHeroOff.value = String(phaseOffsetFromLhMeta(m))
-    inpHeroZatOff.value = String(phaseOffsetFromHeroExtraAngMeta(m))
-    inpHeroAoOff.value = String(phaseOffsetFromHeroSecondAoMeta(m))
-    inpHeroAp.value = String(readLhMechanics(m).actionsPerKr)
-    if (inpHeroFaMax instanceof HTMLInputElement) {
+    if (!isHeroSettingsFieldFocused(inpHeroOff)) {
+      inpHeroOff.value = String(phaseOffsetFromLhMeta(m))
+    }
+    if (!isHeroSettingsFieldFocused(inpHeroZatOff)) {
+      inpHeroZatOff.value = String(phaseOffsetFromHeroExtraAngMeta(m))
+    }
+    if (!isHeroSettingsFieldFocused(inpHeroAoOff)) {
+      inpHeroAoOff.value = String(phaseOffsetFromHeroSecondAoMeta(m))
+    }
+    if (!isHeroSettingsFieldFocused(inpHeroAp)) {
+      inpHeroAp.value = String(readLhMechanics(m).actionsPerKr)
+    }
+    if (inpHeroFaMax instanceof HTMLInputElement && !isHeroSettingsFieldFocused(inpHeroFaMax)) {
       const raw = m.heroFaMax
       inpHeroFaMax.value =
         raw == null ? '' : String(Math.max(0, Math.min(10, Math.floor(Number(raw)) || 0)))
     }
-    if (inpHeroAngCount instanceof HTMLInputElement) {
+    if (inpHeroAngCount instanceof HTMLInputElement && !isHeroSettingsFieldFocused(inpHeroAngCount)) {
       inpHeroAngCount.value = String(
         Number.isFinite(Number(m.heroExtraAngCount))
           ? Math.max(0, Math.min(10, Math.floor(Number(m.heroExtraAngCount))))
@@ -4960,16 +5017,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
             : 0
       )
     }
-    if (inpHeroParCount instanceof HTMLInputElement) {
+    if (inpHeroParCount instanceof HTMLInputElement && !isHeroSettingsFieldFocused(inpHeroParCount)) {
       inpHeroParCount.value = String(readHeroExtraParCount(m))
     }
-    if (inpHeroIniNegLost instanceof HTMLInputElement) {
+    if (inpHeroIniNegLost instanceof HTMLInputElement && !isHeroSettingsFieldFocused(inpHeroIniNegLost)) {
       inpHeroIniNegLost.value = String(readHeroIniNegActionsLost(m))
     }
-    if (selHeroIniNegAng instanceof HTMLSelectElement) {
+    if (selHeroIniNegAng instanceof HTMLSelectElement && !isHeroSettingsFieldFocused(selHeroIniNegAng)) {
       selHeroIniNegAng.value = readHeroIniNegAngMode(m)
     }
-    if (inpHeroPoolMax instanceof HTMLInputElement) {
+    if (inpHeroPoolMax instanceof HTMLInputElement && !isHeroSettingsFieldFocused(inpHeroPoolMax)) {
       const maxV = heroPending
         ? heroPending.heroActionPoolMax
         : readHeroActionPoolMax(m)
@@ -4982,8 +5039,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
             abw: heroPending.heroActionPoolAbw,
           }
         : readHeroActionPoolPair(m)
-      inpHeroPoolAng.value = String(pair.ang)
-      inpHeroPoolAbw.value = String(pair.abw)
+      if (!isHeroSettingsFieldFocused(inpHeroPoolAng)) {
+        inpHeroPoolAng.value = String(pair.ang)
+      }
+      if (!isHeroSettingsFieldFocused(inpHeroPoolAbw)) {
+        inpHeroPoolAbw.value = String(pair.abw)
+      }
     }
   }
 
@@ -5045,7 +5106,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroLeThresholdEnabledCb.checked = threshold != null
       heroLeThresholdEnabledCb.disabled = !heroSettingsGmMode
       heroLeThresholdInp.disabled = !heroSettingsGmMode || threshold == null
-      heroLeThresholdInp.value = threshold == null ? '' : String(threshold)
+      if (!isHeroSettingsFieldFocused(heroLeThresholdInp)) {
+        heroLeThresholdInp.value = threshold == null ? '' : String(threshold)
+      }
     }
     if (
       heroUnfaehigEnabledCb instanceof HTMLInputElement &&
@@ -5065,17 +5128,23 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       heroUnfaehigThresholdInp.disabled = !heroSettingsGmMode || !enabled
       heroUnfaehigMarkFieldsInp.disabled = !heroSettingsGmMode
       heroUnfaehigFixedFieldsInp.disabled = !heroSettingsGmMode
-      heroUnfaehigThresholdInp.value = String(
-        Number.isFinite(Number(heroPending.unfaehigThreshold))
-          ? Math.max(0, Math.floor(Number(heroPending.unfaehigThreshold)))
-          : Number(heroPending.unfaehigThresholdDefault) || 5
-      )
-      heroUnfaehigMarkFieldsInp.value = normalizeUnfaehigMarkFieldsText(
-        heroPending.unfaehigMarkFields
-      )
-      heroUnfaehigFixedFieldsInp.value = normalizeUnfaehigFixedFieldsText(
-        heroPending.unfaehigFixedFields
-      )
+      if (!isHeroSettingsFieldFocused(heroUnfaehigThresholdInp)) {
+        heroUnfaehigThresholdInp.value = String(
+          Number.isFinite(Number(heroPending.unfaehigThreshold))
+            ? Math.max(0, Math.floor(Number(heroPending.unfaehigThreshold)))
+            : Number(heroPending.unfaehigThresholdDefault) || 5
+        )
+      }
+      if (!isHeroSettingsFieldFocused(heroUnfaehigMarkFieldsInp)) {
+        heroUnfaehigMarkFieldsInp.value = normalizeUnfaehigMarkFieldsText(
+          heroPending.unfaehigMarkFields
+        )
+      }
+      if (!isHeroSettingsFieldFocused(heroUnfaehigFixedFieldsInp)) {
+        heroUnfaehigFixedFieldsInp.value = normalizeUnfaehigFixedFieldsText(
+          heroPending.unfaehigFixedFields
+        )
+      }
     }
     if (heroSettingsItemId) {
       const it = lastItems.find((i) => i.id === heroSettingsItemId)
@@ -6180,6 +6249,11 @@ function bindStampContextRemove(el, stamp, items) {
       return
     }
     await flushOpenHeroExpandPanelsBeforeRemount()
+    try {
+      items = await OBR.scene.items.getItems()
+    } catch {
+      /* Szene kurz nicht lesbar — übergebenen Snapshot nutzen */
+    }
     const listItems = filterItemsForListViewer(items ?? [], isGmSync())
     if (
       distanceProbeItemId &&
@@ -6297,6 +6371,24 @@ function bindStampContextRemove(el, stamp, items) {
       }
     } catch {
       /* nicht kritisch */
+    }
+
+    restoreIniInputFocus = null
+    const activeIniEl = document.activeElement
+    if (
+      activeIniEl instanceof HTMLInputElement &&
+      activeIniEl.classList.contains('init-row-init')
+    ) {
+      const li = activeIniEl.closest('li[data-item-id]')
+      const itemId = li?.getAttribute('data-item-id') ?? ''
+      if (itemId) {
+        restoreIniInputFocus = {
+          itemId,
+          value: activeIniEl.value,
+          selectionStart: activeIniEl.selectionStart,
+          selectionEnd: activeIniEl.selectionEnd,
+        }
+      }
     }
 
     const frag = document.createDocumentFragment()
@@ -6510,6 +6602,9 @@ function bindStampContextRemove(el, stamp, items) {
         input.autocomplete = 'off'
         input.spellcheck = false
         input.value = (() => {
+          if (restoreIniInputFocus?.itemId === row.id) {
+            return restoreIniInputFocus.value
+          }
           if (ownerIniRef == null) return row.initiative
           const cr = combat.started ? combat.round : null
           const d = effectiveDeltaForField(
@@ -6626,7 +6721,7 @@ function bindStampContextRemove(el, stamp, items) {
         const extraPanel = document.createElement('div')
         extraPanel.className = 'init-row-extra-panel'
         const extrasOpen = canEdit && expandedPlayerExtrasIds.has(row.id)
-        const mountHeroExPanel = canEdit || extrasOpen
+        const mountHeroExPanel = extrasOpen
         if (!mountHeroExPanel) {
           extraPanel.hidden = true
         } else {
@@ -7480,6 +7575,18 @@ function bindStampContextRemove(el, stamp, items) {
         }
       }
     }
+    if (activeEl instanceof HTMLInputElement && activeEl.classList.contains('init-row-init')) {
+      const li = activeEl.closest('li[data-item-id]')
+      const itemId = li?.getAttribute('data-item-id') ?? ''
+      if (itemId) {
+        restoreIniInputFocus = {
+          itemId,
+          value: activeEl.value,
+          selectionStart: activeEl.selectionStart,
+          selectionEnd: activeEl.selectionEnd,
+        }
+      }
+    }
 
     element.replaceChildren(frag)
 
@@ -7604,6 +7711,24 @@ function bindStampContextRemove(el, stamp, items) {
       }
       restoreFocusItemId = null
     }
+    if (restoreIniInputFocus) {
+      const inp = element.querySelector(
+        `li[data-item-id="${CSS.escape(restoreIniInputFocus.itemId)}"] .init-row-init`
+      )
+      if (inp instanceof HTMLInputElement) {
+        inp.focus({ preventScroll: true })
+        const start =
+          typeof restoreIniInputFocus.selectionStart === 'number'
+            ? restoreIniInputFocus.selectionStart
+            : inp.value.length
+        const end =
+          typeof restoreIniInputFocus.selectionEnd === 'number'
+            ? restoreIniInputFocus.selectionEnd
+            : start
+        inp.setSelectionRange(start, end)
+      }
+      restoreIniInputFocus = null
+    }
     if (restoreHeroInputFocus) {
       const focusSel = `li[data-item-id="${CSS.escape(restoreHeroInputFocus.itemId)}"] #${CSS.escape(restoreHeroInputFocus.inputId)}`
       const inp = element.querySelector(focusSel)
@@ -7641,18 +7766,36 @@ function bindStampContextRemove(el, stamp, items) {
     if (hzOpen) hitZoneOverlay.syncFromItems(items)
   }
 
-  const safeRenderList = (items) => {
-    if (distanceProbeItemId) {
-      scheduleDistanceProbeRefresh({
-        redrawRings: !isProbeMapDragActive(),
-        syncLine: false,
-      })
-    }
-    void renderList(items).catch((err) => {
-      console.error('[vierpunkteins] renderList failed', err)
-      if (err instanceof Error && err.stack) {
-        console.error(err.stack)
+  const drainRenderListQueue = async () => {
+    if (renderListProcessing) return
+    renderListProcessing = true
+    try {
+      while (renderListQueuedItems !== undefined) {
+        const items = renderListQueuedItems
+        renderListQueuedItems = undefined
+        try {
+          await renderList(items)
+        } catch (err) {
+          console.error('[vierpunkteins] renderList failed', err)
+          if (err instanceof Error && err.stack) {
+            console.error(err.stack)
+          }
+        }
       }
+    } finally {
+      renderListProcessing = false
+      if (renderListQueuedItems !== undefined) {
+        void drainRenderListQueue()
+      }
+    }
+  }
+
+  const safeRenderList = (items) => {
+    renderListQueuedItems = items ?? renderListQueuedItems
+    if (renderListScheduleRaf) return
+    renderListScheduleRaf = requestAnimationFrame(() => {
+      renderListScheduleRaf = 0
+      void drainRenderListQueue()
     })
   }
 

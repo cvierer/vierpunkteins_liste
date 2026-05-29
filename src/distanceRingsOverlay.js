@@ -32,6 +32,84 @@ let lastRingDrawCenter = null
 /** @type {string[]} */
 let lastRingItemIds = []
 
+/** @type {Promise<void> | null} */
+let ringUpdateInFlight = null
+/** @type {(() => Promise<void>) | null} */
+let ringUpdateQueued = null
+
+/** @type {{
+ *   center: { x: number, y: number },
+ *   gsSchritt: number | null,
+ *   classXSchritt: number | null,
+ *   ringVisibleKey: string,
+ *   customKey: string,
+ *   codesKey: string,
+ * } | null} */
+let lastRingDrawSpec = null
+
+const RING_CENTER_EPS = 0.25
+
+/**
+ * @param {import('./heroDistRingPrefs.js').DistRingVisiblePrefs} prefs
+ * @param {import('./heroCustomDist.js').CustomDistRingSpec[]} customRingSpecs
+ * @param {Set<string>} codes
+ */
+function buildRingDrawSpecKeys(prefs, customRingSpecs, codes) {
+  return {
+    ringVisibleKey: JSON.stringify(prefs ?? {}),
+    customKey: JSON.stringify(customRingSpecs ?? []),
+    codesKey: [...codes].sort().join('\0'),
+  }
+}
+
+/**
+ * @param {{ x: number, y: number }} center
+ * @param {number | null | undefined} gsSchritt
+ * @param {number | null | undefined} classXSchritt
+ * @param {import('./heroDistRingPrefs.js').DistRingVisiblePrefs} prefs
+ * @param {import('./heroCustomDist.js').CustomDistRingSpec[]} customRingSpecs
+ * @param {Set<string>} codes
+ */
+function ringDrawSpecMatches(center, gsSchritt, classXSchritt, prefs, customRingSpecs, codes) {
+  if (!lastRingDrawSpec || !lastRingDrawCenter || lastRingItemIds.length === 0) {
+    return false
+  }
+  const keys = buildRingDrawSpecKeys(prefs, customRingSpecs, codes)
+  return (
+    Math.abs(lastRingDrawSpec.center.x - center.x) < RING_CENTER_EPS &&
+    Math.abs(lastRingDrawSpec.center.y - center.y) < RING_CENTER_EPS &&
+    lastRingDrawSpec.gsSchritt === (Number.isFinite(gsSchritt) ? gsSchritt : null) &&
+    lastRingDrawSpec.classXSchritt ===
+      (Number.isFinite(classXSchritt) ? classXSchritt : null) &&
+    lastRingDrawSpec.ringVisibleKey === keys.ringVisibleKey &&
+    lastRingDrawSpec.customKey === keys.customKey &&
+    lastRingDrawSpec.codesKey === keys.codesKey
+  )
+}
+
+/**
+ * @param {() => Promise<void>} fn
+ */
+async function runSerializedRingUpdate(fn) {
+  if (ringUpdateInFlight) {
+    ringUpdateQueued = fn
+    return ringUpdateInFlight
+  }
+  ringUpdateInFlight = (async () => {
+    try {
+      await fn()
+    } finally {
+      ringUpdateInFlight = null
+      if (ringUpdateQueued) {
+        const next = ringUpdateQueued
+        ringUpdateQueued = null
+        await runSerializedRingUpdate(next)
+      }
+    }
+  })()
+  return ringUpdateInFlight
+}
+
 /** @type {Record<string, string>} */
 export const MOVEMENT_RING_COLORS = {
   m1: '#3d8fd1',
@@ -813,67 +891,115 @@ export async function showDistanceRingsFor(
   ringVisible = defaultDistRingVisible(),
   classXSchritt = null
 ) {
-  const gridContext = await getGridContext({ forceRefresh: true })
-  if (!item || !gridContext) return
-  const { dpi } = gridContext
-  await hideDistanceRings()
-  const prefs = ringVisible ?? defaultDistRingVisible()
-  const c = await resolveRingCenter(item, gridContext)
-  /** @type {import('@owlbear-rodeo/sdk').Item[]} */
-  const items = []
-  lastShownRingCodes.clear()
-  for (const code of DIST_CLASS_RING_CODES) {
-    if (!isClassRingVisible(prefs, code)) continue
-    const radius = DIST_CLASS_RING_RADIUS[code]
-    await appendRingPair(
-      items,
-      c,
-      dpi,
-      radius,
-      code,
-      formatDistClassLabel(code),
-      RING_COLORS[code] ?? '#888888',
-      gridContext
-    )
-    lastShownRingCodes.add(code)
-  }
-  if (
-    isClassRingVisible(prefs, 'X') &&
-    classXSchritt != null &&
-    Number.isFinite(classXSchritt) &&
-    classXSchritt > 0
-  ) {
-    await appendRingPair(items, c, dpi, classXSchritt, 'X', formatDistClassLabel('X'), RING_COLORS.X ?? '#888888', gridContext)
-    lastShownRingCodes.add('X')
-  }
-  if (Number.isFinite(gsSchritt) && gsSchritt > 0) {
-    for (const { code, label, mult } of MOVEMENT_RING_SPECS) {
-      if (!isMovementRingVisible(prefs, code)) continue
+  return runSerializedRingUpdate(async () => {
+    const gridContext = await getGridContext({ forceRefresh: true })
+    if (!item || !gridContext) return
+    const { dpi } = gridContext
+    const prefs = ringVisible ?? defaultDistRingVisible()
+    const c = await resolveRingCenter(item, gridContext)
+    const nextCodes = new Set()
+    for (const code of DIST_CLASS_RING_CODES) {
+      if (isClassRingVisible(prefs, code)) nextCodes.add(code)
+    }
+    if (
+      isClassRingVisible(prefs, 'X') &&
+      classXSchritt != null &&
+      Number.isFinite(classXSchritt) &&
+      classXSchritt > 0
+    ) {
+      nextCodes.add('X')
+    }
+    if (Number.isFinite(gsSchritt) && gsSchritt > 0) {
+      for (const { code } of MOVEMENT_RING_SPECS) {
+        if (isMovementRingVisible(prefs, code)) nextCodes.add(code)
+      }
+    }
+    if (isCustomRingsEnabled(prefs)) {
+      for (const { code } of customRingSpecs) nextCodes.add(code)
+    }
+    if (
+      ringDrawSpecMatches(
+        c,
+        gsSchritt,
+        classXSchritt,
+        prefs,
+        customRingSpecs,
+        nextCodes
+      )
+    ) {
+      return
+    }
+    await hideDistanceRings({ preserveShiftState: true })
+    /** @type {import('@owlbear-rodeo/sdk').Item[]} */
+    const items = []
+    lastShownRingCodes.clear()
+    for (const code of DIST_CLASS_RING_CODES) {
+      if (!isClassRingVisible(prefs, code)) continue
+      const radius = DIST_CLASS_RING_RADIUS[code]
       await appendRingPair(
         items,
         c,
         dpi,
-        gsSchritt * mult,
+        radius,
         code,
-        label,
-        MOVEMENT_RING_COLORS[code] ?? '#888888',
+        formatDistClassLabel(code),
+        RING_COLORS[code] ?? '#888888',
         gridContext
       )
       lastShownRingCodes.add(code)
     }
-  }
-  if (isCustomRingsEnabled(prefs)) {
-    for (const { code, label, schritt, color } of customRingSpecs) {
-      await appendRingPair(items, c, dpi, schritt, code, label, color, gridContext)
-      lastShownRingCodes.add(code)
+    if (
+      isClassRingVisible(prefs, 'X') &&
+      classXSchritt != null &&
+      Number.isFinite(classXSchritt) &&
+      classXSchritt > 0
+    ) {
+      await appendRingPair(items, c, dpi, classXSchritt, 'X', formatDistClassLabel('X'), RING_COLORS.X ?? '#888888', gridContext)
+      lastShownRingCodes.add('X')
     }
-  }
-  if (items.length === 0) return
-  await OBR.scene.local.addItems(items)
-  lastRingItemIds = items
-    .map((it) => it.id)
-    .filter((id) => typeof id === 'string')
-  lastRingDrawCenter = { x: c.x, y: c.y }
+    if (Number.isFinite(gsSchritt) && gsSchritt > 0) {
+      for (const { code, label, mult } of MOVEMENT_RING_SPECS) {
+        if (!isMovementRingVisible(prefs, code)) continue
+        await appendRingPair(
+          items,
+          c,
+          dpi,
+          gsSchritt * mult,
+          code,
+          label,
+          MOVEMENT_RING_COLORS[code] ?? '#888888',
+          gridContext
+        )
+        lastShownRingCodes.add(code)
+      }
+    }
+    if (isCustomRingsEnabled(prefs)) {
+      for (const { code, label, schritt, color } of customRingSpecs) {
+        await appendRingPair(items, c, dpi, schritt, code, label, color, gridContext)
+        lastShownRingCodes.add(code)
+      }
+    }
+    if (items.length === 0) {
+      lastRingDrawCenter = null
+      lastRingItemIds = []
+      lastRingDrawSpec = null
+      return
+    }
+    await OBR.scene.local.addItems(items)
+    lastRingItemIds = items
+      .map((it) => it.id)
+      .filter((id) => typeof id === 'string')
+    lastRingDrawCenter = { x: c.x, y: c.y }
+    const keys = buildRingDrawSpecKeys(prefs, customRingSpecs, lastShownRingCodes)
+    lastRingDrawSpec = {
+      center: { x: c.x, y: c.y },
+      gsSchritt: Number.isFinite(gsSchritt) ? gsSchritt : null,
+      classXSchritt: Number.isFinite(classXSchritt) ? classXSchritt : null,
+      ringVisibleKey: keys.ringVisibleKey,
+      customKey: keys.customKey,
+      codesKey: keys.codesKey,
+    }
+  })
 }
 
 /**
@@ -918,6 +1044,12 @@ export async function shiftDistanceRingsCenter(newCenter) {
     return false
   }
   lastRingDrawCenter = { x: newCenter.x, y: newCenter.y }
+  if (lastRingDrawSpec) {
+    lastRingDrawSpec = {
+      ...lastRingDrawSpec,
+      center: { x: newCenter.x, y: newCenter.y },
+    }
+  }
   return true
 }
 
@@ -933,7 +1065,8 @@ export function setDistanceRingShiftStateForTests(
   for (const code of codes) lastShownRingCodes.add(code)
 }
 
-export async function hideDistanceRings() {
+export async function hideDistanceRings(options = {}) {
+  const preserveShiftState = options.preserveShiftState === true
   const ids = []
   for (const code of DIST_CLASS_RING_CODES) {
     ids.push(ringId('c', code), ringId('l', code))
@@ -951,9 +1084,12 @@ export async function hideDistanceRings() {
       for (let i = 0; i < 6; i++) ids.push(ringId('e', code, i))
     }
   }
-  lastShownRingCodes.clear()
-  lastRingDrawCenter = null
-  lastRingItemIds = []
+  if (!preserveShiftState) {
+    lastShownRingCodes.clear()
+    lastRingDrawCenter = null
+    lastRingItemIds = []
+    lastRingDrawSpec = null
+  }
   try {
     await OBR.scene.local.deleteItems(ids)
   } catch {
