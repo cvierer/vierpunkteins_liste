@@ -1234,7 +1234,7 @@ export function mountHeroExpandBlock(
 
   const spTzLabelTools = document.createElement('div')
   spTzLabelTools.className = 'init-hero-ex__sp-tz-pair__label-tools'
-  spTzLabelTools.append(spTzUndo, spTzRedo)
+  spTzLabelTools.append(spTzUndo, rsBypassBtn, spTzRedo)
 
   const spTzPair = document.createElement('div')
   spTzPair.className = 'init-hero-ex__sp-tz-pair'
@@ -1247,14 +1247,11 @@ export function mountHeroExpandBlock(
   spAbbr.className = 'init-hero-ex__abbr'
   spAbbr.textContent = 'TP'
   spAbbr.title = 'Trefferpunkte (TP)'
-  const spTpLabelWrap = document.createElement('div')
-  spTpLabelWrap.className = 'init-hero-ex__sp-tz-pair__tp-wrap'
-  spTpLabelWrap.append(rsBypassBtn, spAbbr)
   const tzAbbr = document.createElement('span')
   tzAbbr.className = 'init-hero-ex__abbr'
   tzAbbr.textContent = 'TZ'
   tzAbbr.title = tzFieldTooltip
-  spTzLabelRow.append(spTpLabelWrap, spTzLabelTools, tzAbbr)
+  spTzLabelRow.append(spAbbr, spTzLabelTools, tzAbbr)
 
   const spInp = document.createElement('input')
   spInp.type = 'text'
@@ -5062,7 +5059,14 @@ export function mountHeroExpandBlock(
   const syncHeroRowLayout = () => {
     zoneMidRow.style.paddingRight = ''
     bottomStrip.style.paddingRight = ''
-    spTzGrid.style.width = ''
+    const leRight = stackLeMax.getBoundingClientRect().right
+    const gLeft = spTzGrid.getBoundingClientRect().left
+    const w = leRight - gLeft
+    if (Number.isFinite(w) && w > 24) {
+      spTzGrid.style.width = `${Math.round(w * 1000) / 1000}px`
+    } else {
+      spTzGrid.style.width = ''
+    }
 
     /* Scroll-Ausgleich: beide Zeilen gleich breit halten. */
     const zw = zoneMidRow.scrollWidth

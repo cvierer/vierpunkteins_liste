@@ -1024,7 +1024,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 /* SP > TZ: gleiche Spalten wie LE/max; mittlere Spalte nimmt Rest (Brücken-Button).
    Frontal-Spalte (F) sitzt außerhalb des gold gerahmten TP/TZ-Blocks. */
 .init-hero-ex__sp-tz-pair {
-  --sp-tz-cols: var(--init-hero-cell) 0.42rem var(--init-hero-cell);
+  --sp-tz-cols: var(--init-hero-cell) minmax(0.42rem, 1fr) var(--init-hero-cell);
   display: flex;
   flex-direction: row;
   align-items: flex-end;
@@ -1087,17 +1087,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   align-items: end;
   justify-items: center;
   min-height: 0;
-}
-
-.init-hero-ex__sp-tz-pair__tp-wrap {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0.08rem;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
 }
 
 /* Rückgängig / Wiederholen nur in der Beschriftungszeile zwischen SP und TZ */
@@ -3097,11 +3086,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   max-height: var(--init-hero-abbr-line-h);
   min-height: var(--init-hero-abbr-line-h);
   box-sizing: border-box;
-}
-
-.init-hero-ex__zone-mid .init-hero-ex__sp-tz-pair__tp-wrap {
-  align-items: center;
-  height: var(--init-hero-abbr-line-h);
 }
 
 .init-hero-ex__zone-mid .init-hero-ex__sp-tz-label-btn {
