@@ -5109,7 +5109,7 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: zentriert in der Lücke zwischen INI- und MOD-Spalte. */
+    /* Langer S-Balken: zentriert in INI↔MOD-Lücke, Oberkante wie INI-Spalte. */
     if (stackIni && stackMod) {
       const rootR = root.getBoundingClientRect()
       const iniR = stackIni.getBoundingClientRect()
@@ -5120,6 +5120,7 @@ export function mountHeroExpandBlock(
         const left =
           iniR.right - rootR.left + Math.max(0, (slotW - railW) / 2)
         sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
+        sRailRoot.style.top = `${Math.round((iniR.top - rootR.top) * 1000) / 1000}px`
       }
     }
 

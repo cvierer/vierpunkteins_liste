@@ -942,7 +942,16 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* Unterrand: bei ≥5 MOD +1 Kartenhöhe, bei ≥6 +2, bei ≥7 +2.5 (JS); ab 4 Karten scrollt der Strip. */
   --init-hero-ex-mod-strip-reserve: 0px;
   --init-hero-ex-s-rail-w: calc(0.38 * var(--init-hero-cell));
-  --init-hero-ex-s-rail-slot-gap: calc(0.05rem * var(--init-ui-scale));
+  --init-hero-ex-s-rail-slot-gap: calc(0.08rem * var(--init-ui-scale));
+  --init-hero-ex-row-stack-h: calc(
+    var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) +
+      var(--init-hero-cell) + var(--init-hero-mod-sub-h)
+  );
+  --init-hero-ex-s-rail-h: calc(
+    3 * var(--init-hero-ex-row-stack-h) +
+      2 * var(--init-hero-ex-grid-row-gap) - var(--init-hero-abbr-line-h) -
+      var(--init-hero-label-input-gap)
+  );
   position: relative;
   display: grid;
   grid-template-columns: var(--init-col-expand) minmax(0, 1fr);
@@ -1729,15 +1738,15 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__le-threshold__box--tall {
-  /* Höhe via .init-hero-ex__s-rail-root (flex: 1) über alle drei Zeilen */
-  max-height: none;
+  height: var(--init-hero-ex-s-rail-h);
+  min-height: var(--init-hero-ex-s-rail-h);
+  max-height: var(--init-hero-ex-s-rail-h);
 }
 
-/* S-Rail: absolut zwischen INI- und MOD-Spalte, über Zeilen 1–3 (Position per JS). */
+/* S-Rail: absolut in INI↔MOD-Lücke; Höhe wie zuvor (--init-hero-ex-s-rail-h). */
 .init-hero-ex__s-rail-root {
   position: absolute;
   top: 0;
-  bottom: calc(0.02rem + var(--init-hero-ex-mod-strip-reserve, 0px));
   left: 0;
   z-index: 9;
   display: flex;
@@ -1750,7 +1759,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   box-sizing: border-box;
   pointer-events: none;
   overflow: visible;
-  min-height: 0;
+  height: auto;
 }
 
 .init-hero-ex__s-rail-root > .init-hero-ex__abbr {
@@ -1766,13 +1775,13 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__s-rail-root .init-hero-ex__le-threshold__box {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: auto;
+  flex: 0 0 auto;
+  height: var(--init-hero-ex-s-rail-h);
+  min-height: var(--init-hero-ex-s-rail-h);
+  max-height: var(--init-hero-ex-s-rail-h);
   width: 100%;
   min-width: 0;
   max-width: none;
-  max-height: none;
   pointer-events: auto;
 }
 
