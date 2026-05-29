@@ -942,15 +942,18 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* Unterrand: bei ≥5 MOD +1 Kartenhöhe, bei ≥6 +2, bei ≥7 +2.5 (JS); ab 4 Karten scrollt der Strip. */
   --init-hero-ex-mod-strip-reserve: 0px;
   --init-hero-ex-s-rail-w: calc(0.76 * var(--init-hero-cell));
+  --init-hero-ex-s-rail-h-scale: 0.85;
   --init-hero-ex-s-rail-slot-gap: calc(0.08rem * var(--init-ui-scale));
   --init-hero-ex-row-stack-h: calc(
     var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) +
       var(--init-hero-cell) + var(--init-hero-mod-sub-h)
   );
   --init-hero-ex-s-rail-h: calc(
-    3 * var(--init-hero-ex-row-stack-h) +
-      2 * var(--init-hero-ex-grid-row-gap) - var(--init-hero-abbr-line-h) -
-      var(--init-hero-label-input-gap)
+    var(--init-hero-ex-s-rail-h-scale) * (
+      3 * var(--init-hero-ex-row-stack-h) +
+        2 * var(--init-hero-ex-grid-row-gap) - var(--init-hero-abbr-line-h) -
+        var(--init-hero-label-input-gap)
+    )
   );
   position: relative;
   display: grid;
