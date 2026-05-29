@@ -4257,7 +4257,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       </label>
       <label class="kampf-settings-checkbox-label">
         <input type="checkbox" data-kampf-hero-show-au />
-        <span><strong>AU anzeigen (Ausdauer):</strong> erste Spalte der IB-Kette (links); standardmäßig aus.</span>
+        <span><strong>AU anzeigen (Ausdauer):</strong> zwischen FK und AE in der Wertezeile; standardmäßig aus.</span>
       </label>
       <label class="kampf-settings-checkbox-label">
         <input type="checkbox" data-kampf-hero-le-threshold-enabled />

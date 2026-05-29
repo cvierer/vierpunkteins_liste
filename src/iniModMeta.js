@@ -1378,11 +1378,11 @@ export function mountHeroExpandBlock(
     '',
     true
   )
-  const gs = mkMicro(
-    'GS',
-    'Geschwindigkeit (GS)',
-    'gs',
-    microDisplayForModField('gs', snap.gs),
+  const au = mkMicro(
+    'AU',
+    'Ausdauer (AU)',
+    'au',
+    microDisplayForModField('au', snap.au),
     3,
     '',
     true
@@ -1415,7 +1415,7 @@ export function mountHeroExpandBlock(
   )
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
-  /* Fuenf Spalten: AU IB BE W6 MOD (Lesemodus: MOD wie Bearbeitung). */
+  /* Fuenf Spalten: GS IB BE W6 MOD (Lesemodus: MOD wie Bearbeitung). */
   ibChain.classList.add('init-hero-ex__ib-chain--cols-5')
   const mkChainAbbr = (text, title, noUppercase) => {
     const s = document.createElement('span')
@@ -1426,7 +1426,7 @@ export function mountHeroExpandBlock(
     s.title = title
     return s
   }
-  const auAbbrLabel = mkChainAbbr('AU', 'Ausdauer (AU)')
+  const gsAbbrLabel = mkChainAbbr('GS', 'Geschwindigkeit (GS)')
   const HERO_FIELD_MOD_INTEGRATED_HINT =
     ' Modifikatoren sind in der angezeigten Zahl bereits eingerechnet und erscheinen im Mod-Band darunter zusätzlich in Klammern.'
   const ibAbbrLabel = mkChainAbbr(
@@ -1456,18 +1456,18 @@ export function mountHeroExpandBlock(
     inp.setAttribute('aria-label', aria)
     return inp
   }
-  const auInp = document.createElement('input')
-  auInp.type = 'text'
-  auInp.inputMode = 'numeric'
-  auInp.className = 'init-hero-ex__micro init-hero-ex__micro--au-chain'
-  auInp.id = `hero-ex-${itemId}-au`
-  auInp.autocomplete = 'off'
-  auInp.spellcheck = false
-  auInp.disabled = !canEdit
-  auInp.value = microDisplayForModField('au', snap.au)
-  auInp.maxLength = 3
-  auInp.title = 'Ausdauer (AU)'
-  auInp.setAttribute('aria-label', 'Ausdauer (AU)')
+  const gsInp = document.createElement('input')
+  gsInp.type = 'text'
+  gsInp.inputMode = 'numeric'
+  gsInp.className = 'init-hero-ex__micro init-hero-ex__micro--gs-chain'
+  gsInp.id = `hero-ex-${itemId}-gs`
+  gsInp.autocomplete = 'off'
+  gsInp.spellcheck = false
+  gsInp.disabled = !canEdit
+  gsInp.value = microDisplayForModField('gs', snap.gs)
+  gsInp.maxLength = 3
+  gsInp.title = 'Geschwindigkeit (GS)'
+  gsInp.setAttribute('aria-label', 'Geschwindigkeit (GS)')
   const ibInp = mkChainInp(
     'ib',
     microDisplayForModField('ib', snap.ib),
@@ -1514,15 +1514,15 @@ export function mountHeroExpandBlock(
     stack.appendChild(colEl)
     return stack
   }
-  /** AU wie KO: Mikrozelle (Kuerzel + eigenes Kaestchen), nicht Ketten-/Segment-Rahmen. */
-  const auCell = document.createElement('div')
-  auCell.className =
-    'init-hero-ex__micro-cell init-hero-ex__micro-cell--au-chain'
-  auCell.append(auAbbrLabel, auInp)
-  const stackAu = document.createElement('div')
-  stackAu.className =
-    'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--au-r-gap'
-  stackAu.appendChild(auCell)
+  /** GS wie KO: Mikrozelle (Kuerzel + eigenes Kaestchen), nicht Ketten-/Segment-Rahmen. */
+  const gsCell = document.createElement('div')
+  gsCell.className =
+    'init-hero-ex__micro-cell init-hero-ex__micro-cell--gs-chain'
+  gsCell.append(gsAbbrLabel, gsInp)
+  const stackGs = document.createElement('div')
+  stackGs.className =
+    'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--gs-r-gap'
+  stackGs.appendChild(gsCell)
   const ibCol = mkIbChainCol(ibInp)
   const beCol = mkIbChainCol(
     beInp,
@@ -1602,9 +1602,10 @@ export function mountHeroExpandBlock(
 
   const ibChainCols = document.createElement('div')
   ibChainCols.className = 'init-hero-ex__ib-chain__cols'
-  ibChainCols.append(stackAu, stackIb, stackBe, stackW6)
+  ibChainCols.append(stackGs, stackIb, stackBe, stackW6)
   if (stackMod) ibChainCols.appendChild(stackMod)
   ibChain.appendChild(ibChainCols)
+  const gs = { inp: gsInp, ab: gsAbbrLabel }
   const ib = { inp: ibInp }
   const be = { inp: beInp }
   const w6 = { inp: w6Inp }
@@ -1629,7 +1630,7 @@ export function mountHeroExpandBlock(
         inp.tabIndex = -1
       }
     }
-    setFieldVisible(auCell, auInp, showAu)
+    setFieldVisible(au.cell, au.inp, showAu)
     setFieldVisible(fk.cell, fk.inp, showFk)
     setFieldVisible(extra.cell, extra.inp, showExtra)
   }
@@ -2363,7 +2364,7 @@ export function mountHeroExpandBlock(
     ko: { cell: koAttr.cell, inp: koAttr.inp, ab: koAttr.ab },
     kk: { cell: kk.cell, inp: kk.inp, ab: kk.ab },
     ff: { cell: ff.cell, inp: ff.inp, ab: ff.ab },
-    gs: { cell: gs.cell, inp: gs.inp, ab: gs.ab },
+    gs: { cell: gsCell, inp: gsInp, ab: gsAbbrLabel },
     ge: { cell: ge.cell, inp: ge.inp, ab: ge.ab },
   }
 
@@ -2373,7 +2374,7 @@ export function mountHeroExpandBlock(
     a: ausw.cell,
     tp: tpCell,
     fk: fk.cell,
-    gs: gs.cell,
+    gs: gsCell,
   }
   const applyUnfaehigVisualOverlay = (metaForMods = meta) => {
     const s = readHeroExpandSnapshot(metaForMods)
@@ -2428,7 +2429,7 @@ export function mountHeroExpandBlock(
     const hasAnyFixed = Object.values(s.unfaehigFixedFields || {}).some((v) =>
       Number.isFinite(Number(v))
     )
-    if (hasAnyFixed) gs.cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
+    if (hasAnyFixed) gsCell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
   }
 
   const stripPenaltyHighlightTarget = (t) => {
@@ -3067,7 +3068,7 @@ export function mountHeroExpandBlock(
     ausw.cell,
     tpCell,
     fk.cell,
-    gs.cell,
+    au.cell,
     ae.cell,
     extra.cell,
     ibChain
@@ -3252,9 +3253,9 @@ export function mountHeroExpandBlock(
     pa: { cell: pa.cell, inp: pa.inp, ab: pa.ab },
     a: { cell: ausw.cell, inp: ausw.inp, ab: ausw.ab },
     fk: { cell: fk.cell, inp: fk.inp, ab: fk.ab },
-    gs: { cell: gs.cell, inp: gs.inp, ab: gs.ab },
+    gs: { cell: gsCell, inp: gsInp, ab: gsAbbrLabel },
     ae: { cell: ae.cell, inp: ae.inp, ab: ae.ab },
-    au: { cell: auCell, inp: auInp, ab: auAbbrLabel },
+    au: { cell: au.cell, inp: au.inp, ab: au.ab },
     ...(showExtraField && extraField === 'ke'
       ? { ke: { cell: extra.cell, inp: extra.inp, ab: extra.ab } }
       : showExtraField && extraField === 'gw'
@@ -5116,7 +5117,7 @@ export function mountHeroExpandBlock(
     attrKoTpWrap,
     frontalLbl,
     ibChain,
-    stackAu,
+    stackGs,
     stackW6,
     stripInner,
     modStrip,
@@ -5183,7 +5184,7 @@ export function mountHeroExpandBlock(
     markPair(at.inp, at.ab, 'at')
     markPair(pa.inp, pa.ab, 'pa')
     markPair(fk.inp, fk.ab, 'fk')
-    markPair(gs.inp, gs.ab, 'gs')
+    markPair(gsInp, gsAbbrLabel, 'gs')
     markPair(ib.inp, ib.ab, 'ib')
     markPair(ge.inp, ge.ab, 'ge')
     markPair(mu.inp, mu.ab, 'mu')
@@ -5332,7 +5333,7 @@ export function mountHeroExpandBlock(
     gw: ef === 'gw' ? extra.inp.value : snap.gw,
     lo: ef === 'lo' ? extra.inp.value : snap.lo,
     extraField: ef,
-    au: auInp.value,
+    au: au.inp.value,
     ko: koAttr.inp.value,
     tp: tpInp.value,
     sp: spInp.value,
@@ -5342,7 +5343,7 @@ export function mountHeroExpandBlock(
     fk: fk.inp.value,
     showFk: vis.showFk !== false,
     showAu: vis.showAu === true,
-    gs: gs.inp.value,
+    gs: gsInp.value,
     mr: mrAttr.inp.value,
     ib: ib.inp.value,
     be: be.inp.value,
@@ -5778,7 +5779,7 @@ export function mountHeroExpandBlock(
     ...(showExtraField ? [extra.inp] : []),
     tpInp,
     ...(showFkField ? [fk.inp] : []),
-    gs.inp,
+    gsInp,
     mrAttr.inp,
     ib.inp,
     be.inp,
@@ -5794,7 +5795,7 @@ export function mountHeroExpandBlock(
     ge.inp,
     kk.inp,
     koAttr.inp,
-    ...(showAuField ? [auInp] : []),
+    ...(showAuField ? [au.inp] : []),
     ...allZoneUis.map((u) => u.rsInp),
     /* S-Overlay LE/max: gleiche Blur/Enter/Persist/Fokus wie die Hauptfelder */
     lePopLeInp,
