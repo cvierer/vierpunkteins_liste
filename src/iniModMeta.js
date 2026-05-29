@@ -1248,7 +1248,7 @@ export function mountHeroExpandBlock(
   spAbbr.textContent = 'TP'
   spAbbr.title = 'Trefferpunkte (TP)'
   const tzAbbr = document.createElement('span')
-  tzAbbr.className = 'init-hero-ex__abbr'
+  tzAbbr.className = 'init-hero-ex__abbr init-hero-ex__abbr--sp-tz-tz'
   tzAbbr.textContent = 'TZ'
   tzAbbr.title = tzFieldTooltip
   spTzLabelRow.append(spAbbr, spTzLabelTools, tzAbbr)
@@ -5055,6 +5055,18 @@ export function mountHeroExpandBlock(
     { passive: true }
   )
 
+  /** Liest eine CSS-Laengenangabe (z. B. calc/rem) als Pixelbreite. */
+  const readHeroCssLenPx = (el, prop) => {
+    const v = getComputedStyle(el).getPropertyValue(prop).trim()
+    if (!v) return 0
+    const probe = document.createElement('div')
+    probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:${v};height:0;padding:0;margin:0;border:0;`
+    el.appendChild(probe)
+    const w = probe.getBoundingClientRect().width
+    probe.remove()
+    return Number.isFinite(w) ? w : 0
+  }
+
   /** Scroll-Ausgleich: untere und mittlere Heldenblock-Zeile gleiche Scroll-Breite. */
   const syncHeroRowLayout = () => {
     zoneMidRow.style.paddingRight = ''
@@ -5070,19 +5082,13 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: gleicher Abstand W6↔S und S↔MOD (zentriert im reservierten Slot). */
+    /* Langer S-Balken: W6↔S = 3× Slot-Gap, S↔MOD = 1× Slot-Gap. */
     if (stackW6 && stackMod) {
       const rootR = root.getBoundingClientRect()
       const w6R = stackW6.getBoundingClientRect()
-      const modR = stackMod.getBoundingClientRect()
-      const railW =
-        sRailRoot.offsetWidth > 0
-          ? sRailRoot.offsetWidth
-          : sRailRoot.getBoundingClientRect().width
-      const slotW = modR.left - w6R.right
-      if (Number.isFinite(slotW) && slotW > 0 && railW > 0) {
-        const sideGap = Math.max(0, (slotW - railW) / 2)
-        const left = w6R.right - rootR.left + sideGap
+      const w6GapPx = readHeroCssLenPx(ibChain, '--init-hero-ex-s-rail-w6-gap')
+      if (Number.isFinite(w6GapPx) && w6GapPx >= 0) {
+        const left = w6R.right - rootR.left + w6GapPx
         sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
         sRailRoot.style.top = `${Math.round((w6R.top - rootR.top) * 1000) / 1000}px`
       }

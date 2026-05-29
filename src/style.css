@@ -1023,7 +1023,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 
 /* SP > TZ: schmale Mittelspalte (Schild / Schwert / < >), TP+TZ volle Zellenbreite. */
 .init-hero-ex__sp-tz-pair {
-  --init-hero-ex-sp-tz-a-gap: calc(0.06rem * var(--init-ui-scale));
+  --init-hero-ex-sp-tz-a-gap: calc(0.015rem * var(--init-ui-scale));
   --init-hero-ex-sp-tz-mid-col-w: max-content;
   --sp-tz-cols: var(--init-hero-cell) var(--init-hero-ex-sp-tz-mid-col-w)
     var(--init-hero-cell);
@@ -1089,6 +1089,16 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   align-items: end;
   justify-items: center;
   min-height: 0;
+}
+
+.init-hero-ex__sp-tz-pair__grid-row--labels > .init-hero-ex__abbr--sp-tz-tz {
+  grid-column: 3;
+  justify-self: center;
+  width: var(--init-hero-cell);
+  min-width: var(--init-hero-cell);
+  max-width: var(--init-hero-cell);
+  text-align: center;
+  box-sizing: border-box;
 }
 
 /* Rückgängig / Wiederholen + RS-Schild: nur so breit wie Inhalt, zentriert in Mittelspalte. */
@@ -1480,8 +1490,13 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-hero-ex__ib-chain {
   /* Lücke INI↔MOD: S-Rail-Breite + kleiner Rand links/rechts, MOD rückt nach rechts. */
   --init-hero-ex-s-rail-slot-gap: calc(0.08rem * var(--init-ui-scale));
+  --init-hero-ex-s-rail-w6-gap-mult: 3;
+  --init-hero-ex-s-rail-w6-gap: calc(
+    var(--init-hero-ex-s-rail-w6-gap-mult) * var(--init-hero-ex-s-rail-slot-gap)
+  );
   --init-hero-ib-mod-gap: calc(
-    var(--init-hero-ex-s-rail-w) + 2 * var(--init-hero-ex-s-rail-slot-gap)
+    var(--init-hero-ex-s-rail-w) + var(--init-hero-ex-s-rail-w6-gap) +
+      var(--init-hero-ex-s-rail-slot-gap)
   );
   /* MOD-Spalte + MOD+-Button nutzen dieselbe Bezugsbreite */
   --init-hero-ex-mod-chain-w: calc(1.82 * var(--init-hero-cell));
