@@ -942,7 +942,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* Unterrand: bei ≥5 MOD +1 Kartenhöhe, bei ≥6 +2, bei ≥7 +2.5 (JS); ab 4 Karten scrollt der Strip. */
   --init-hero-ex-mod-strip-reserve: 0px;
   --init-hero-ex-s-rail-w: calc(0.38 * var(--init-hero-cell));
-  --init-hero-ex-s-rail-mod-gap: calc(0.03rem * var(--init-ui-scale));
+  --init-hero-ex-s-rail-slot-gap: calc(0.05rem * var(--init-ui-scale));
   position: relative;
   display: grid;
   grid-template-columns: var(--init-col-expand) minmax(0, 1fr);
@@ -1460,8 +1460,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 
 /* MR / IB / BE / W6 / INI / MOD: sechs Stacks in der IB-Kette */
 .init-hero-ex__ib-chain {
-  /* Luft zwischen INI-Berechnen und MOD+: etwas mehr als Rasterlücke zwischen IB/BE-Spalten */
-  --init-hero-ib-mod-gap: calc(0.12rem * var(--init-ui-scale));
+  /* Lücke INI↔MOD: S-Rail-Breite + kleiner Rand links/rechts, MOD rückt nach rechts. */
+  --init-hero-ex-s-rail-slot-gap: calc(0.05rem * var(--init-ui-scale));
+  --init-hero-ib-mod-gap: calc(
+    var(--init-hero-ex-s-rail-w) + 2 * var(--init-hero-ex-s-rail-slot-gap)
+  );
   /* MOD-Spalte + MOD+-Button nutzen dieselbe Bezugsbreite */
   --init-hero-ex-mod-chain-w: calc(1.82 * var(--init-hero-cell));
   display: flex;
@@ -1730,12 +1733,12 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   max-height: none;
 }
 
-/* S-Rail: eigene Grid-Spalte über Zeilen 1–3, links von MOD (nicht in strip-inner). */
+/* S-Rail: absolut zwischen INI- und MOD-Spalte, über Zeilen 1–3 (Position per JS). */
 .init-hero-ex__s-rail-root {
-  grid-column: 2;
-  grid-row: 1 / 4;
-  justify-self: end;
-  align-self: stretch;
+  position: absolute;
+  top: 0;
+  bottom: calc(0.02rem + var(--init-hero-ex-mod-strip-reserve, 0px));
+  left: 0;
   z-index: 9;
   display: flex;
   flex-direction: column;
@@ -1744,10 +1747,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   width: var(--init-hero-ex-s-rail-w);
   min-width: var(--init-hero-ex-s-rail-w);
   max-width: var(--init-hero-ex-s-rail-w);
-  margin-right: calc(
-    var(--init-hero-ex-mod-chain-w, calc(1.82 * var(--init-hero-cell))) +
-      var(--init-hero-ex-s-rail-mod-gap)
-  );
   box-sizing: border-box;
   pointer-events: none;
   overflow: visible;

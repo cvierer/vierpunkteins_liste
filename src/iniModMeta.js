@@ -5109,6 +5109,20 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
+    /* Langer S-Balken: zentriert in der Lücke zwischen INI- und MOD-Spalte. */
+    if (stackIni && stackMod) {
+      const rootR = root.getBoundingClientRect()
+      const iniR = stackIni.getBoundingClientRect()
+      const modR = stackMod.getBoundingClientRect()
+      const slotW = modR.left - iniR.right
+      const railW = sRailRoot.offsetWidth
+      if (Number.isFinite(slotW) && slotW > 0 && railW > 0) {
+        const left =
+          iniR.right - rootR.left + Math.max(0, (slotW - railW) / 2)
+        sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
+      }
+    }
+
     updateLeThreshold()
     positionLePopover()
     syncModStripDockAndPad()
@@ -5127,11 +5141,13 @@ export function mountHeroExpandBlock(
     frontalLbl,
     ibChain,
     iniIbCol,
+    stackIni,
     stripInner,
     modStrip,
     leThreshCompact.box,
     leThreshRail.box,
     sRailRoot,
+    ...(stackMod ? [stackMod] : []),
     ...(modIbCol ? [modIbCol] : []),
   ]
   for (const el of __spTzAlignEls) {
