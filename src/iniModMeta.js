@@ -5082,8 +5082,8 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: W6↔S = 3× Slot-Gap, S↔MOD = 1× Slot-Gap. */
-    if (stackW6 && stackMod) {
+    /* Langer S-Balken: W6↔S = 3× Slot-Gap; Unterkante = TZ-Kästchen. */
+    if (stackW6 && stackMod && tzInp) {
       const rootR = root.getBoundingClientRect()
       const w6R = stackW6.getBoundingClientRect()
       const w6GapPx = readHeroCssLenPx(ibChain, '--init-hero-ex-s-rail-w6-gap')
@@ -5091,6 +5091,22 @@ export function mountHeroExpandBlock(
         const left = w6R.right - rootR.left + w6GapPx
         sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
         sRailRoot.style.top = `${Math.round((w6R.top - rootR.top) * 1000) / 1000}px`
+      }
+
+      const tzBottom = tzInp.getBoundingClientRect().bottom - rootR.top
+      const abbrBottom =
+        leThreshRailAbbr.getBoundingClientRect().bottom - rootR.top
+      const gapRaw =
+        getComputedStyle(sRailRoot).rowGap || getComputedStyle(sRailRoot).gap
+      const gapPx =
+        parseFloat(gapRaw) ||
+        readHeroCssLenPx(root, '--init-hero-label-input-gap')
+      const barH = tzBottom - abbrBottom - gapPx
+      if (Number.isFinite(barH) && barH > 0) {
+        root.style.setProperty(
+          '--init-hero-ex-s-rail-h',
+          `${Math.round(barH * 1000) / 1000}px`
+        )
       }
     }
 
@@ -5126,6 +5142,7 @@ export function mountHeroExpandBlock(
     stackLeMax,
     spAbbr,
     tzAbbr,
+    tzInp,
     attrCols,
     attrKoTpWrap,
     frontalLbl,

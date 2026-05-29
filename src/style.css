@@ -956,7 +956,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
         2 * var(--init-hero-ex-grid-row-gap) - var(--init-hero-abbr-line-h) -
         var(--init-hero-label-input-gap)
     )
-  );
+  ); /* Fallback; syncHeroRowLayout setzt Höhe bis TZ-Unterkante */
   position: relative;
   display: grid;
   grid-template-columns: var(--init-col-expand) minmax(0, 1fr);
@@ -1819,7 +1819,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   max-height: var(--init-hero-ex-s-rail-h);
 }
 
-/* S-Rail: absolut in INI↔MOD-Lücke; Höhe wie zuvor (--init-hero-ex-s-rail-h). */
+/* S-Rail: absolut in INI↔MOD-Lücke; Höhe per JS bis TZ-Kästchen-Unterkante. */
 .init-hero-ex__s-rail-root {
   position: absolute;
   top: 0;
