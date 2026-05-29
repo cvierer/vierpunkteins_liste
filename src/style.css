@@ -1023,13 +1023,14 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 
 /* SP > TZ: schmale Mittelspalte (Schild / Schwert / < >), TP+TZ volle Zellenbreite. */
 .init-hero-ex__sp-tz-pair {
+  --init-hero-ex-sp-tz-a-gap: calc(0.06rem * var(--init-ui-scale));
   --init-hero-ex-sp-tz-mid-col-w: max-content;
   --sp-tz-cols: var(--init-hero-cell) var(--init-hero-ex-sp-tz-mid-col-w)
     var(--init-hero-cell);
   display: flex;
   flex-direction: row;
   align-items: flex-end;
-  gap: var(--init-hero-strip-gap);
+  gap: var(--init-hero-ex-sp-tz-a-gap);
   flex-shrink: 0;
 }
 
@@ -1480,8 +1481,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* Lücke INI↔MOD: S-Rail-Breite + kleiner Rand links/rechts, MOD rückt nach rechts. */
   --init-hero-ex-s-rail-slot-gap: calc(0.05rem * var(--init-ui-scale));
   --init-hero-ib-mod-gap: calc(
-    var(--init-hero-ex-s-rail-w) + 2 * var(--init-hero-ex-s-rail-slot-gap) +
-      var(--init-hero-strip-gap)
+    var(--init-hero-ex-s-rail-w) + 2 * var(--init-hero-ex-s-rail-slot-gap)
   );
   /* MOD-Spalte + MOD+-Button nutzen dieselbe Bezugsbreite */
   --init-hero-ex-mod-chain-w: calc(1.82 * var(--init-hero-cell));
@@ -3094,6 +3094,18 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   max-height: var(--init-hero-abbr-line-h);
   min-height: var(--init-hero-abbr-line-h);
   box-sizing: border-box;
+}
+
+.init-hero-ex__zone-mid
+  .init-hero-ex__sp-tz-pair__grid-row--labels
+  > .init-hero-ex__abbr {
+  min-height: var(--init-hero-abbr-line-h);
+  height: var(--init-hero-abbr-line-h);
+  max-height: var(--init-hero-abbr-line-h);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .init-hero-ex__zone-mid .init-hero-ex__sp-tz-label-btn {

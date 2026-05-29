@@ -5070,24 +5070,40 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: zentriert in W6↔MOD-Lücke, Oberkante wie W6-Spalte. */
+    /* Langer S-Balken: symmetrisch W6↔S↔MOD (--init-hero-ex-s-rail-slot-gap je Seite). */
     if (stackW6 && stackMod) {
       const rootR = root.getBoundingClientRect()
       const w6R = stackW6.getBoundingClientRect()
-      const modR = stackMod.getBoundingClientRect()
-      const slotW = modR.left - w6R.right
-      const railW = sRailRoot.offsetWidth
-      if (Number.isFinite(slotW) && slotW > 0 && railW > 0) {
-        const left =
-          w6R.right - rootR.left + Math.max(0, (slotW - railW) / 2)
-        sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
-        sRailRoot.style.top = `${Math.round((w6R.top - rootR.top) * 1000) / 1000}px`
-      }
+      const slotGapRaw = getComputedStyle(ibChain)
+        .getPropertyValue('--init-hero-ex-s-rail-slot-gap')
+        .trim()
+      const slotGapPx = Number.parseFloat(slotGapRaw) || 0
+      const left =
+        w6R.right - rootR.left + (Number.isFinite(slotGapPx) ? slotGapPx : 0)
+      sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
+      sRailRoot.style.top = `${Math.round((w6R.top - rootR.top) * 1000) / 1000}px`
     }
 
     updateLeThreshold()
     positionLePopover()
     syncModStripDockAndPad()
+
+    /* TP/TZ-Kürzel auf gleicher Höhe wie RB/Wappen-Kürzel. */
+    spAbbr.style.transform = ''
+    tzAbbr.style.transform = ''
+    const refWappenAbbr = zoneMidRow.querySelector(
+      '.init-hero-ex__micro-cell--wappen:not([aria-hidden="true"]) > .init-hero-ex__abbr'
+    )
+    if (refWappenAbbr) {
+      const refTop = refWappenAbbr.getBoundingClientRect().top
+      for (const el of [spAbbr, tzAbbr]) {
+        if (!el) continue
+        const delta = refTop - el.getBoundingClientRect().top
+        if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
+          el.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
+        }
+      }
+    }
   }
   const spTzAlignRo = new ResizeObserver(() => {
     syncHeroRowLayout()
@@ -5098,6 +5114,8 @@ export function mountHeroExpandBlock(
     bottomStrip,
     leChainCols,
     stackLeMax,
+    spAbbr,
+    tzAbbr,
     attrCols,
     attrKoTpWrap,
     frontalLbl,
