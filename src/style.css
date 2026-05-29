@@ -2797,6 +2797,13 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   > .init-hero-ex__ib-chain__stack:nth-child(4)
   .init-hero-ex__ib-chain__inp-cell,
 .init-hero-ex__ib-chain--cols-6
+  > .init-hero-ex__ib-chain__cols
+  > .init-hero-ex__ib-chain__stack:nth-child(6)
+  .init-hero-ex__ib-chain__inp-cell,
+.init-hero-ex__ib-chain--cols-4
+  > .init-hero-ex__ib-chain__cols
+  > .init-hero-ex__ib-chain__stack:nth-child(4)
+  .init-hero-ex__ib-chain__inp-cell {
   border-top: 1px solid var(--init-action-cell-border);
   border-right: 1px solid var(--init-action-cell-border);
   border-bottom: 1px solid var(--init-action-cell-border);
