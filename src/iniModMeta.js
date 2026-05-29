@@ -5055,18 +5055,11 @@ export function mountHeroExpandBlock(
     { passive: true }
   )
 
-  /** TZ-Breite an LE/max; untere und mittlere Heldenblock-Zeile gleiche Scroll-Breite (Padding-Ausgleich). */
+  /** Scroll-Ausgleich: untere und mittlere Heldenblock-Zeile gleiche Scroll-Breite. */
   const syncHeroRowLayout = () => {
     zoneMidRow.style.paddingRight = ''
     bottomStrip.style.paddingRight = ''
-    const leRight = stackLeMax.getBoundingClientRect().right
-    const gLeft = spTzGrid.getBoundingClientRect().left
-    const w = leRight - gLeft
-    if (Number.isFinite(w) && w > 24) {
-      spTzGrid.style.width = `${Math.round(w * 1000) / 1000}px`
-    } else {
-      spTzGrid.style.width = ''
-    }
+    spTzGrid.style.width = ''
 
     /* Scroll-Ausgleich: beide Zeilen gleich breit halten. */
     const zw = zoneMidRow.scrollWidth

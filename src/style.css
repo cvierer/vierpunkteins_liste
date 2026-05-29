@@ -1021,10 +1021,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   min-height: 1px;
 }
 
-/* SP > TZ: gleiche Spalten wie LE/max; mittlere Spalte nimmt Rest (Brücken-Button).
-   Frontal-Spalte (F) sitzt außerhalb des gold gerahmten TP/TZ-Blocks. */
+/* SP > TZ: schmale Mittelspalte (Schild / Schwert / < >), TP+TZ volle Zellenbreite. */
 .init-hero-ex__sp-tz-pair {
-  --sp-tz-cols: var(--init-hero-cell) minmax(0.42rem, 1fr) var(--init-hero-cell);
+  --init-hero-ex-sp-tz-mid-col-w: max-content;
+  --sp-tz-cols: var(--init-hero-cell) var(--init-hero-ex-sp-tz-mid-col-w)
+    var(--init-hero-cell);
   display: flex;
   flex-direction: row;
   align-items: flex-end;
@@ -1089,16 +1090,18 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   min-height: 0;
 }
 
-/* Rückgängig / Wiederholen nur in der Beschriftungszeile zwischen SP und TZ */
+/* Rückgängig / Wiederholen + RS-Schild: nur so breit wie Inhalt, zentriert in Mittelspalte. */
 .init-hero-ex__sp-tz-pair__label-tools {
   display: flex;
   flex-direction: row;
   align-items: flex-end;
   justify-content: center;
   gap: 0.05rem;
-  width: 100%;
+  width: max-content;
+  max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  justify-self: center;
 }
 
 .init-hero-ex__sp-tz-label-btn {
@@ -1225,8 +1228,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  min-width: 0;
+  width: max-content;
+  max-width: 100%;
   height: 100%;
   min-height: 0;
   margin: 0;
@@ -1240,12 +1243,17 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   cursor: pointer;
   transition: color 0.12s ease;
   -webkit-tap-highlight-color: transparent;
+  justify-self: center;
+  align-self: center;
 }
 
 .init-hero-ex__sp-tz-bridge-icon {
   display: block;
-  width: 100%;
   height: 100%;
+  width: auto;
+  max-height: var(--init-hero-cell);
+  aspect-ratio: 1;
+  flex-shrink: 0;
   transform: rotate(45deg);
   transform-origin: center;
   pointer-events: none;
