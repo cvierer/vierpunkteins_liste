@@ -4233,7 +4233,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
       <h3 class="kampf-settings-panel__sub">Feldsichtbarkeit</h3>
       <fieldset class="kampf-settings-convert-announce">
-        <legend class="kampf-settings-convert-announce__legend">Zusatzfeld im Heldenblock (zwischen AE und MR)</legend>
+        <legend class="kampf-settings-convert-announce__legend">Zusatzfeld im Heldenblock (zwischen AE und IB-Kette)</legend>
         <label class="kampf-settings-radio-label">
           <input type="radio" name="kampf-hero-extra-field" value="none" />
           <span><strong>Keins</strong> (Platzhalter unsichtbar).</span>
@@ -4257,7 +4257,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       </label>
       <label class="kampf-settings-checkbox-label">
         <input type="checkbox" data-kampf-hero-show-au />
-        <span><strong>AU anzeigen (Ausdauer):</strong> Feld zwischen KO und WS; standardmäßig aus.</span>
+        <span><strong>AU anzeigen (Ausdauer):</strong> erste Spalte der IB-Kette (links); standardmäßig aus.</span>
       </label>
       <label class="kampf-settings-checkbox-label">
         <input type="checkbox" data-kampf-hero-le-threshold-enabled />

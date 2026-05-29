@@ -1175,21 +1175,15 @@ export function mountHeroExpandBlock(
     '',
     true
   )
-  const auAttr = mkMicro(
-    'AU',
-    'Ausdauer (AU)',
-    'au',
-    microDisplayForModField('au', snap.au),
+  const mrAttr = mkMicro(
+    'MR',
+    'Magieresistenz (MR)',
+    'mr',
+    microDisplayForModField('mr', snap.mr),
     3,
     '',
     true
   )
-  if (!showAuField) {
-    auAttr.cell.style.visibility = 'hidden'
-    auAttr.cell.setAttribute('aria-hidden', 'true')
-    auAttr.inp.disabled = true
-    auAttr.inp.tabIndex = -1
-  }
 
   const attrCols = document.createElement('div')
   attrCols.className = 'init-hero-ex__attr-cols'
@@ -1384,12 +1378,6 @@ export function mountHeroExpandBlock(
     '',
     true
   )
-  if (!showFkField) {
-    fk.cell.style.visibility = 'hidden'
-    fk.cell.setAttribute('aria-hidden', 'true')
-    fk.inp.disabled = true
-    fk.inp.tabIndex = -1
-  }
   const gs = mkMicro(
     'GS',
     'Geschwindigkeit (GS)',
@@ -1425,16 +1413,10 @@ export function mountHeroExpandBlock(
     '',
     true
   )
-  if (!showExtraField) {
-    extra.cell.style.visibility = 'hidden'
-    extra.cell.setAttribute('aria-hidden', 'true')
-    extra.inp.disabled = true
-    extra.inp.tabIndex = -1
-  }
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
-  /* Sechs Spalten: MR IB BE W6 INI MOD (Lesemodus: MOD wie Bearbeitung). */
-  ibChain.classList.add('init-hero-ex__ib-chain--cols-6')
+  /* Fuenf Spalten: AU IB BE W6 MOD (Lesemodus: MOD wie Bearbeitung). */
+  ibChain.classList.add('init-hero-ex__ib-chain--cols-5')
   const mkChainAbbr = (text, title, noUppercase) => {
     const s = document.createElement('span')
     s.className =
@@ -1444,7 +1426,7 @@ export function mountHeroExpandBlock(
     s.title = title
     return s
   }
-  const mrAbbrLabel = mkChainAbbr('MR', 'Magieresistenz (MR)')
+  const auAbbrLabel = mkChainAbbr('AU', 'Ausdauer (AU)')
   const HERO_FIELD_MOD_INTEGRATED_HINT =
     ' Modifikatoren sind in der angezeigten Zahl bereits eingerechnet und erscheinen im Mod-Band darunter zusätzlich in Klammern.'
   const ibAbbrLabel = mkChainAbbr(
@@ -1459,9 +1441,6 @@ export function mountHeroExpandBlock(
   ibBeLbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
   const ibW6Lbl = mkChainAbbr('W6', 'Würfelwurf (W6)', true)
   ibW6Lbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
-  const ibIniLblHold = document.createElement('span')
-  ibIniLblHold.className = 'init-hero-ex__ib-chain__label-placeholder'
-  ibIniLblHold.setAttribute('aria-hidden', 'true')
   const mkChainInp = (idSuf, value, maxLen, numeric, aria) => {
     const inp = document.createElement('input')
     inp.type = 'text'
@@ -1477,18 +1456,18 @@ export function mountHeroExpandBlock(
     inp.setAttribute('aria-label', aria)
     return inp
   }
-  const mrInp = document.createElement('input')
-  mrInp.type = 'text'
-  mrInp.inputMode = 'numeric'
-  mrInp.className = 'init-hero-ex__micro init-hero-ex__micro--mr-chain'
-  mrInp.id = `hero-ex-${itemId}-mr`
-  mrInp.autocomplete = 'off'
-  mrInp.spellcheck = false
-  mrInp.disabled = !canEdit
-  mrInp.value = microDisplayForModField('mr', snap.mr)
-  mrInp.maxLength = 3
-  mrInp.title = 'Magieresistenz (MR)'
-  mrInp.setAttribute('aria-label', 'Magieresistenz (MR)')
+  const auInp = document.createElement('input')
+  auInp.type = 'text'
+  auInp.inputMode = 'numeric'
+  auInp.className = 'init-hero-ex__micro init-hero-ex__micro--au-chain'
+  auInp.id = `hero-ex-${itemId}-au`
+  auInp.autocomplete = 'off'
+  auInp.spellcheck = false
+  auInp.disabled = !canEdit
+  auInp.value = microDisplayForModField('au', snap.au)
+  auInp.maxLength = 3
+  auInp.title = 'Ausdauer (AU)'
+  auInp.setAttribute('aria-label', 'Ausdauer (AU)')
   const ibInp = mkChainInp(
     'ib',
     microDisplayForModField('ib', snap.ib),
@@ -1535,15 +1514,15 @@ export function mountHeroExpandBlock(
     stack.appendChild(colEl)
     return stack
   }
-  /** MR wie KO: Mikrozelle (Kuerzel + eigenes Kaestchen), nicht Ketten-/Segment-Rahmen. */
-  const mrCell = document.createElement('div')
-  mrCell.className =
-    'init-hero-ex__micro-cell init-hero-ex__micro-cell--mr-chain'
-  mrCell.append(mrAbbrLabel, mrInp)
-  const stackMr = document.createElement('div')
-  stackMr.className =
-    'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--mr-r-gap'
-  stackMr.appendChild(mrCell)
+  /** AU wie KO: Mikrozelle (Kuerzel + eigenes Kaestchen), nicht Ketten-/Segment-Rahmen. */
+  const auCell = document.createElement('div')
+  auCell.className =
+    'init-hero-ex__micro-cell init-hero-ex__micro-cell--au-chain'
+  auCell.append(auAbbrLabel, auInp)
+  const stackAu = document.createElement('div')
+  stackAu.className =
+    'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--au-r-gap'
+  stackAu.appendChild(auCell)
   const ibCol = mkIbChainCol(ibInp)
   const beCol = mkIbChainCol(
     beInp,
@@ -1556,17 +1535,6 @@ export function mountHeroExpandBlock(
     'init-hero-ex__ib-chain__col--half-cell'
   )
   const stackW6 = mkIbChainStack(ibW6Lbl, w6Col)
-  const iniUpBtn = document.createElement('button')
-  iniUpBtn.type = 'button'
-  iniUpBtn.className = 'init-hero-ex__ini-up-btn'
-  iniUpBtn.innerHTML =
-    '<svg class="init-hero-ex__ini-up-graph" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 11 18" width="8" height="15" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" d="M1 15.5H8.5M8.5 15.5V6"/><path fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" d="M8.5 3.2L6.2 6.2H10.8L8.5 3.2"/></svg>'
-  iniUpBtn.title =
-    'Initiative (INI): aus IB − BE + W6 berechnen und setzen (falls alle Felder gültig), sonst INI fokussieren'
-  iniUpBtn.setAttribute(
-    'aria-label',
-    'Initiative: aus IB minus BE plus W6 berechnen oder Eingabe fokussieren'
-  )
 
   /** @type {HTMLButtonElement | null} */
   let modToggleBtn = null
@@ -1578,15 +1546,6 @@ export function mountHeroExpandBlock(
   let modIbCol = null
   /** @type {HTMLDivElement | null} */
   let stackMod = null
-
-  const iniIbCol = document.createElement('div')
-  iniIbCol.className =
-    'init-hero-ex__ib-chain__col init-hero-ex__ib-chain__col--half-cell init-hero-ex__ib-chain__col--ini'
-  const iniShell = document.createElement('div')
-  iniShell.className =
-    'init-hero-ex__ib-chain__inp-cell init-hero-ex__ib-chain__inp-cell--ini-solo-btn'
-  iniShell.appendChild(iniUpBtn)
-  iniIbCol.appendChild(iniShell)
 
   if (canEdit) {
     modToggleBtn = document.createElement('button')
@@ -1641,16 +1600,40 @@ export function mountHeroExpandBlock(
     modStrip.classList.add('init-hero-ex__mods-strip--under-mod-btn')
   }
 
-  const stackIni = mkIbChainStack(ibIniLblHold, iniIbCol)
   const ibChainCols = document.createElement('div')
   ibChainCols.className = 'init-hero-ex__ib-chain__cols'
-  ibChainCols.append(stackMr, stackIb, stackBe, stackW6, stackIni)
+  ibChainCols.append(stackAu, stackIb, stackBe, stackW6)
   if (stackMod) ibChainCols.appendChild(stackMod)
   ibChain.appendChild(ibChainCols)
-  const mr = { inp: mrInp }
   const ib = { inp: ibInp }
   const be = { inp: beInp }
   const w6 = { inp: w6Inp }
+
+  /** @param {{ showAu?: boolean, showFk?: boolean, extraField?: string }} vis */
+  const applyConfigurableFieldVisibility = (vis) => {
+    const showAu = vis.showAu === true
+    const showFk = vis.showFk !== false
+    const ef = String(vis.extraField ?? 'none').trim().toLowerCase()
+    const showExtra = ef === 'ke' || ef === 'gw' || ef === 'lo'
+    /** @param {HTMLElement} cell @param {HTMLInputElement} inp @param {boolean} show */
+    const setFieldVisible = (cell, inp, show) => {
+      if (show) {
+        cell.style.visibility = 'visible'
+        cell.removeAttribute('aria-hidden')
+        inp.disabled = !canEdit
+        inp.tabIndex = 0
+      } else {
+        cell.style.visibility = 'hidden'
+        cell.setAttribute('aria-hidden', 'true')
+        inp.disabled = true
+        inp.tabIndex = -1
+      }
+    }
+    setFieldVisible(auCell, auInp, showAu)
+    setFieldVisible(fk.cell, fk.inp, showFk)
+    setFieldVisible(extra.cell, extra.inp, showExtra)
+  }
+  applyConfigurableFieldVisibility(snap)
 
   const zoneMidRow = document.createElement('div')
   zoneMidRow.className = 'init-hero-ex__zone-mid'
@@ -3076,7 +3059,7 @@ export function mountHeroExpandBlock(
   syncLeMaxInputMode()
 
   zoneMidRow.append(spTzPair)
-  attrKoTpWrap.append(auAttr.cell, leChain, leThreshCell)
+  attrKoTpWrap.append(mrAttr.cell, leChain, leThreshCell)
 
   stripInner.append(
     at.cell,
@@ -3271,7 +3254,7 @@ export function mountHeroExpandBlock(
     fk: { cell: fk.cell, inp: fk.inp, ab: fk.ab },
     gs: { cell: gs.cell, inp: gs.inp, ab: gs.ab },
     ae: { cell: ae.cell, inp: ae.inp, ab: ae.ab },
-    au: { cell: auAttr.cell, inp: auAttr.inp, ab: auAttr.ab },
+    au: { cell: auCell, inp: auInp, ab: auAbbrLabel },
     ...(showExtraField && extraField === 'ke'
       ? { ke: { cell: extra.cell, inp: extra.inp, ab: extra.ab } }
       : showExtraField && extraField === 'gw'
@@ -3283,7 +3266,7 @@ export function mountHeroExpandBlock(
     leMax: { cell: stackLeMax, inp: leMaxInp, ab: leAbbrMax },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
     ws: { cell: stackWs, inp: ws.inp, ab: ws.ab },
-    mr: { cell: mrCell, inp: mrInp, ab: mrAbbrLabel },
+    mr: { cell: mrAttr.cell, inp: mrAttr.inp, ab: mrAttr.ab },
     ib: { cell: stackIb, inp: ibInp, ab: ibAbbrLabel },
     be: { cell: stackBe, inp: beInp, ab: ibBeLbl },
   }
@@ -3322,12 +3305,6 @@ export function mountHeroExpandBlock(
     w6Sub.className = 'init-hero-ex__mod-sub-slot'
     w6Sub.setAttribute('aria-hidden', 'true')
     stackW6.appendChild(w6Sub)
-  }
-  if (!iniIbCol.querySelector(':scope > .init-hero-ex__mod-sub-slot')) {
-    const iniSub = document.createElement('span')
-    iniSub.className = 'init-hero-ex__mod-sub-slot'
-    iniSub.setAttribute('aria-hidden', 'true')
-    iniIbCol.appendChild(iniSub)
   }
   if (
     modIbCol &&
@@ -5079,8 +5056,6 @@ export function mountHeroExpandBlock(
     bottomStrip.style.paddingRight = ''
     leThreshCompact.box.style.width = ''
     leThreshCompact.box.style.minWidth = ''
-    iniUpBtn.style.width = ''
-    iniUpBtn.style.minWidth = ''
     const leRight = leMaxInp.getBoundingClientRect().right
     const gLeft = spTzGrid.getBoundingClientRect().left
     const w = leRight - gLeft
@@ -5109,18 +5084,18 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: zentriert in INI↔MOD-Lücke, Oberkante wie INI-Spalte. */
-    if (stackIni && stackMod) {
+    /* Langer S-Balken: zentriert in W6↔MOD-Lücke, Oberkante wie W6-Spalte. */
+    if (stackW6 && stackMod) {
       const rootR = root.getBoundingClientRect()
-      const iniR = stackIni.getBoundingClientRect()
+      const w6R = stackW6.getBoundingClientRect()
       const modR = stackMod.getBoundingClientRect()
-      const slotW = modR.left - iniR.right
+      const slotW = modR.left - w6R.right
       const railW = sRailRoot.offsetWidth
       if (Number.isFinite(slotW) && slotW > 0 && railW > 0) {
         const left =
-          iniR.right - rootR.left + Math.max(0, (slotW - railW) / 2)
+          w6R.right - rootR.left + Math.max(0, (slotW - railW) / 2)
         sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
-        sRailRoot.style.top = `${Math.round((iniR.top - rootR.top) * 1000) / 1000}px`
+        sRailRoot.style.top = `${Math.round((w6R.top - rootR.top) * 1000) / 1000}px`
       }
     }
 
@@ -5141,8 +5116,8 @@ export function mountHeroExpandBlock(
     attrKoTpWrap,
     frontalLbl,
     ibChain,
-    iniIbCol,
-    stackIni,
+    stackAu,
+    stackW6,
     stripInner,
     modStrip,
     leThreshCompact.box,
@@ -5285,7 +5260,6 @@ export function mountHeroExpandBlock(
     spTzRedo.disabled = true
     rsBypassBtn.disabled = true
     spTzBridgeBtn.disabled = true
-    iniUpBtn.disabled = true
     /** Nur Anzeige: Wunden/LE-Schwelle periodisch neu bewerten (kein AT/PA-Sync). */
     const MALUS_VIEW_POLL_MS = 1000
     const onVisView = () => {
@@ -5344,18 +5318,21 @@ export function mountHeroExpandBlock(
     return { notiz: hitZoneNotizFrozen, zones }
   }
 
-  const gather = () => ({
+  const gather = () => {
+    const vis = readHeroExpandSnapshot(meta)
+    const ef = vis.extraField ?? 'none'
+    return {
     at: at.inp.value,
     pa: pa.inp.value,
     a: ausw.inp.value,
     le: le.inp.value,
     leMax: leMax.inp.value,
     ae: ae.inp.value,
-    ke: extraField === 'ke' ? extra.inp.value : snap.ke,
-    gw: extraField === 'gw' ? extra.inp.value : snap.gw,
-    lo: extraField === 'lo' ? extra.inp.value : snap.lo,
-    extraField,
-    au: auAttr.inp.value,
+    ke: ef === 'ke' ? extra.inp.value : snap.ke,
+    gw: ef === 'gw' ? extra.inp.value : snap.gw,
+    lo: ef === 'lo' ? extra.inp.value : snap.lo,
+    extraField: ef,
+    au: auInp.value,
     ko: koAttr.inp.value,
     tp: tpInp.value,
     sp: spInp.value,
@@ -5363,10 +5340,10 @@ export function mountHeroExpandBlock(
     frontal: frontalChk.checked,
     wappenDefs: snap.wappenDefs,
     fk: fk.inp.value,
-    showFk: showFkField,
-    showAu: showAuField,
+    showFk: vis.showFk !== false,
+    showAu: vis.showAu === true,
     gs: gs.inp.value,
-    mr: mr.inp.value,
+    mr: mrAttr.inp.value,
     ib: ib.inp.value,
     be: be.inp.value,
     w6: w6.inp.value,
@@ -5385,7 +5362,8 @@ export function mountHeroExpandBlock(
     ge: ge.inp.value,
     kk: kk.inp.value,
     hitZones: buildHitZonesPayload(),
-  })
+  }
+  }
 
   const persistBasisFromGathered = (snapLike) => {
     const c = getCombat()
@@ -5399,61 +5377,6 @@ export function mountHeroExpandBlock(
       readCurrentNavIniGlobal()
     )
   }
-
-  // Verhindert, dass der erste Klick nur Blur auf IB/BE/W6 auslöst: dadurch
-  // lief `commit` → async `applyHeroExpandFields` und die Liste renderte neu,
-  // bevor der `click` auf diesem Button lief (Werte wirkten „weg“).
-  iniUpBtn.addEventListener('pointerdown', (e) => {
-    if (!e.isPrimary) return
-    e.preventDefault()
-  })
-
-  iniUpBtn.addEventListener('click', async (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const iniInp = document.querySelector(
-      `li[data-item-id="${CSS.escape(itemId)}"] .init-row-init`
-    )
-    const g = gather()
-    await applyHeroExpandFields(itemId, persistBasisFromGathered(g))
-    await refreshModStripFromScene()
-    const n = computeIniFromIbBeW6(g.ib, g.be, g.w6)
-    if (n !== null) {
-      const iniStr = String(Math.round(n))
-      logCombat(`INI: IB − BE + W6 → ${iniStr}`)
-      await writeItemInitiative(itemId, iniStr)
-      if (iniInp instanceof HTMLInputElement) {
-        const comb = getCombat()
-        const rRound =
-          comb?.started && Number.isFinite(Number(comb.round))
-            ? Number(comb.round)
-            : null
-        const navIni = readCurrentNavIniGlobal()
-        const ownerN = Number(iniStr)
-        let displayVal = iniStr
-        if (Number.isFinite(ownerN)) {
-          const patched = { ...meta, initiative: iniStr }
-          const d = effectiveDeltaForField(
-            patched,
-            'ib',
-            ownerN,
-            rRound,
-            navIni
-          )
-          displayVal = String(ownerN + d)
-        }
-        iniInp.value = displayVal
-        iniInp.focus({ preventScroll: true })
-        iniInp.select()
-      }
-      return
-    }
-    logCombat('INI: IB/BE/W6 unvollständig oder ungültig — INI-Feld fokussiert')
-    if (iniInp instanceof HTMLInputElement) {
-      iniInp.focus({ preventScroll: true })
-      iniInp.select()
-    }
-  })
 
   const refreshDerivedUiFromInputs = (metaForVisuals) => {
     updateLeThreshold()
@@ -5588,6 +5511,10 @@ export function mountHeroExpandBlock(
       const navIniFlush = readCurrentNavIniGlobal()
       const ownerIniFresh = readOwnerIniReferenceForMods(metaForBasis)
       const gFlush = gather()
+      const visFresh = readHeroExpandSnapshot(metaForBasis)
+      gFlush.showAu = visFresh.showAu === true
+      gFlush.showFk = visFresh.showFk !== false
+      gFlush.extraField = visFresh.extraField ?? 'none'
       const snapFlush = basisHeroExpandSnapshotFromDisplayed(
         metaForBasis,
         gFlush,
@@ -5852,7 +5779,7 @@ export function mountHeroExpandBlock(
     tpInp,
     ...(showFkField ? [fk.inp] : []),
     gs.inp,
-    mr.inp,
+    mrAttr.inp,
     ib.inp,
     be.inp,
     w6.inp,
@@ -5867,7 +5794,7 @@ export function mountHeroExpandBlock(
     ge.inp,
     kk.inp,
     koAttr.inp,
-    ...(showAuField ? [auAttr.inp] : []),
+    ...(showAuField ? [auInp] : []),
     ...allZoneUis.map((u) => u.rsInp),
     /* S-Overlay LE/max: gleiche Blur/Enter/Persist/Fokus wie die Hauptfelder */
     lePopLeInp,

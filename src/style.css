@@ -1499,17 +1499,17 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   margin-left: var(--init-hero-ib-mod-gap);
 }
 
-/* MR zu IB: gleicher Rasterabstand wie KO zum naechsten Kaestchen (--init-hero-strip-gap) */
-.init-hero-ex__ib-chain__stack--mr-r-gap {
+/* AU zu IB: gleicher Rasterabstand wie KO zum naechsten Kaestchen (--init-hero-strip-gap) */
+.init-hero-ex__ib-chain__stack--au-r-gap {
   margin-right: var(--init-hero-strip-gap);
 }
 
-/* MR in der IB-Kette: gleiche Mikrozellen-Optik wie KO (Eigenrahmen) */
+/* AU in der IB-Kette: gleiche Mikrozellen-Optik wie KO (Eigenrahmen) */
 
 .init-hero-ex__strip-inner
   .init-hero-ex__ib-chain
-  .init-hero-ex__micro-cell--mr-chain
-  > .init-hero-ex__micro--mr-chain {
+  .init-hero-ex__micro-cell--au-chain
+  > .init-hero-ex__micro--au-chain {
   color: #121212;
   border-color: var(--init-action-cell-border);
   background: var(--init-action-cell-fill);
@@ -1517,8 +1517,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 
 .init-hero-ex__strip-inner
   .init-hero-ex__ib-chain
-  .init-hero-ex__micro-cell--mr-chain
-  > .init-hero-ex__micro--mr-chain:focus {
+  .init-hero-ex__micro-cell--au-chain
+  > .init-hero-ex__micro--au-chain:focus {
   outline: none;
   border-color: var(--color-accent);
   background: var(--init-action-cell-fill-focus);
@@ -1544,10 +1544,10 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   grid-template-columns:
     var(--init-hero-cell)
     var(--init-hero-cell)
-    var(--init-hero-cell)
-    var(--init-hero-ib-ini-col-w, var(--init-hero-cell))
+    calc(0.5 * var(--init-hero-cell))
+    calc(0.5 * var(--init-hero-cell))
     var(--init-hero-ib-mod-gap)
-    calc(2 * var(--init-hero-ib-ini-col-w, var(--init-hero-cell)));
+    var(--init-hero-ex-mod-chain-w);
 }
 
 .init-hero-ex__ib-chain--cols-6 .init-hero-ex__ib-chain__labels {
@@ -2752,8 +2752,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: var(--init-action-cell-fill);
 }
 
-/* MR = Stack 1: Mikrozelle (kein Ketten-inp-cell). IB (Stack 2) = erste Kettenkachel links rund … */
-.init-hero-ex__ib-chain--cols-6
+/* AU = Stack 1: Mikrozelle (kein Ketten-inp-cell). IB (Stack 2) = erste Kettenkachel links rund … */
+.init-hero-ex__ib-chain--cols-5
   > .init-hero-ex__ib-chain__cols
   > .init-hero-ex__ib-chain__stack:nth-child(2)
   .init-hero-ex__ib-chain__inp-cell {
@@ -2761,6 +2761,10 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border-radius: 4px 0 0 4px;
 }
 
+.init-hero-ex__ib-chain--cols-5
+  > .init-hero-ex__ib-chain__cols
+  > .init-hero-ex__ib-chain__stack:nth-child(3)
+  .init-hero-ex__ib-chain__inp-cell,
 .init-hero-ex__ib-chain--cols-6
   > .init-hero-ex__ib-chain__cols
   > .init-hero-ex__ib-chain__stack:nth-child(3)
@@ -2788,14 +2792,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border-radius: 0;
 }
 
-.init-hero-ex__ib-chain--cols-6
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(6)
-  .init-hero-ex__ib-chain__inp-cell,
-.init-hero-ex__ib-chain--cols-4
+.init-hero-ex__ib-chain--cols-5
   > .init-hero-ex__ib-chain__cols
   > .init-hero-ex__ib-chain__stack:nth-child(4)
-  .init-hero-ex__ib-chain__inp-cell {
+  .init-hero-ex__ib-chain__inp-cell,
+.init-hero-ex__ib-chain--cols-6
   border-top: 1px solid var(--init-action-cell-border);
   border-right: 1px solid var(--init-action-cell-border);
   border-bottom: 1px solid var(--init-action-cell-border);
@@ -2815,6 +2816,14 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-hero-ex__ib-chain__inp-cell--mod-solo-btn {
   align-items: center;
   justify-content: center;
+}
+
+.init-hero-ex__ib-chain--cols-5
+  > .init-hero-ex__ib-chain__cols
+  > .init-hero-ex__ib-chain__stack:nth-child(5)
+  .init-hero-ex__ib-chain__inp-cell--mod-solo-btn {
+  border: none !important;
+  background: transparent !important;
 }
 
 .init-hero-ex__ib-chain--cols-6
@@ -2877,59 +2886,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   pointer-events: none;
 }
 
-.init-hero-ex__ib-chain__inp-cell .init-hero-ex__ini-up-btn {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  border: 0;
-  border-radius: 0;
-  box-sizing: border-box;
-}
-
-/* INI: nur der Pfeil-Button gerahmt, keine volle Ketten-Kachel */
-.init-hero-ex__ib-chain__inp-cell--ini-solo-btn {
-  align-items: center;
-  justify-content: center;
-}
-
-.init-hero-ex__ib-chain--cols-6
-  > .init-hero-ex__ib-chain__cols
-  > .init-hero-ex__ib-chain__stack:nth-child(5)
-  .init-hero-ex__ib-chain__inp-cell--ini-solo-btn {
-  border: none !important;
-  background: transparent !important;
-}
-
-.init-hero-ex__ib-chain__inp-cell--ini-solo-btn .init-hero-ex__ini-up-btn {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  max-width: 100%;
-  max-height: 100%;
-  border: 1px solid var(--init-action-cell-border);
-  border-radius: 4px;
-  background: var(--init-action-cell-fill);
-  box-sizing: border-box;
-}
-
-.init-hero-ex__ib-chain
-  > .init-hero-ex__ib-chain__cols:focus-within
-  .init-hero-ex__ib-chain__inp-cell--ini-solo-btn
-  .init-hero-ex__ini-up-btn {
-  border-color: var(--color-accent);
-  background: var(--init-action-cell-fill-focus);
-}
-
 .init-hero-ex__ib-chain > .init-hero-ex__ib-chain__cols:focus-within .init-hero-ex__ib-chain__inp-cell {
   border-color: var(--color-accent);
   background: var(--init-action-cell-fill-focus);
-}
-
-.init-hero-ex__ib-chain
-  > .init-hero-ex__ib-chain__cols:focus-within
-  .init-hero-ex__ib-chain__inp-cell--ini-solo-btn {
-  border: none !important;
-  background: transparent !important;
 }
 
 .init-hero-ex__micro--ib-chain-inp {
@@ -3018,77 +2977,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
     .init-hero-ex__micro--flash-neg
   ):focus {
   background: var(--init-action-cell-fill-focus) !important;
-}
-
-/* INI: gleiche vertikale Rasterung wie Mikrozelle (Kürzel + Wert + Mod-Band) */
-.init-hero-ex__ini-up-wrap {
-  flex-shrink: 0;
-  align-self: flex-end;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding-top: calc(
-    var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap)
-  );
-  padding-bottom: calc(
-    var(--init-hero-label-input-gap) + var(--init-hero-mod-sub-h)
-  );
-  padding-left: 0;
-  padding-right: 0;
-  margin-left: calc(-0.06rem * var(--init-ui-scale));
-  box-sizing: border-box;
-}
-
-.init-hero-ex__ini-up-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: calc(0.48 * var(--init-hero-cell));
-  min-width: calc(0.48 * var(--init-hero-cell));
-  height: var(--init-hero-cell);
-  min-height: var(--init-hero-cell);
-  max-height: var(--init-hero-cell);
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--init-action-cell-border);
-  border-radius: 4px;
-  background: var(--init-action-cell-fill);
-  color: #121212;
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease,
-    border-color 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.init-hero-ex__ini-up-graph {
-  display: block;
-  pointer-events: none;
-}
-
-.init-hero-ex__ini-up-btn:hover:not(:disabled) {
-  color: #121212;
-  background: var(--init-action-cell-fill-focus);
-  border-color: var(--init-action-cell-border);
-  box-shadow: 0 0 0 1px rgba(var(--rgb-gold), 0.3),
-    0 0 10px rgba(var(--rgb-gold), 0.24);
-}
-
-.init-hero-ex__ini-up-btn:focus-visible {
-  outline: 2px solid rgba(var(--rgb-accent), 0.45);
-  outline-offset: 1px;
-}
-
-.init-hero-ex__ini-up-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.init-hero-ex__ini-up-btn svg {
-  display: block;
 }
 
 /* Trefferzonen + SP/TZ/F (Heldenblock Zeile 3), unter Zeile 2 (Eigenschaften inkl. WS/LE/S neben KO) */
