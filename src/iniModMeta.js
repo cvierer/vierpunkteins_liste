@@ -1447,9 +1447,7 @@ export function mountHeroExpandBlock(
     'Behinderung (BE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim(),
     true
   )
-  ibBeLbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
   const ibW6Lbl = mkChainAbbr('W6', 'Würfelwurf (W6)', true)
-  ibW6Lbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
   const mkChainInp = (idSuf, value, maxLen, numeric, aria) => {
     const inp = document.createElement('input')
     inp.type = 'text'
@@ -1536,10 +1534,7 @@ export function mountHeroExpandBlock(
   const beCol = mkIbChainCol(beInp)
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
-  const w6Col = mkIbChainCol(
-    w6Inp,
-    'init-hero-ex__ib-chain__col--half-cell'
-  )
+  const w6Col = mkIbChainCol(w6Inp)
   const stackW6 = mkIbChainStack(ibW6Lbl, w6Col)
 
   /** @type {HTMLButtonElement | null} */
@@ -3305,7 +3300,7 @@ export function mountHeroExpandBlock(
   }
   stackBe
     .querySelector(':scope > .init-hero-ex__mod-sub-slot')
-    ?.classList?.add('init-hero-ex__mod-sub-slot--be-compact')
+    ?.classList?.remove('init-hero-ex__mod-sub-slot--be-compact')
   if (!stackW6.querySelector(':scope > .init-hero-ex__mod-sub-slot')) {
     const w6Sub = document.createElement('span')
     w6Sub.className = 'init-hero-ex__mod-sub-slot'
@@ -5096,6 +5091,24 @@ export function mountHeroExpandBlock(
     updateLeThreshold()
     positionLePopover()
     syncModStripDockAndPad()
+
+    /* TP (Strip), TP/TZ (Trefferzeile): Kürzel auf gleicher Höhe wie RB/Wappen-Kürzel. */
+    tpAbbr.style.transform = ''
+    spAbbr.style.transform = ''
+    tzAbbr.style.transform = ''
+    const refWappenAbbr = zoneMidRow.querySelector(
+      '.init-hero-ex__micro-cell--wappen:not([aria-hidden="true"]) > .init-hero-ex__abbr'
+    )
+    if (refWappenAbbr) {
+      const refTop = refWappenAbbr.getBoundingClientRect().top
+      for (const el of [tpAbbr, spAbbr, tzAbbr]) {
+        if (!el) continue
+        const delta = refTop - el.getBoundingClientRect().top
+        if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
+          el.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
+        }
+      }
+    }
   }
   const spTzAlignRo = new ResizeObserver(() => {
     syncHeroRowLayout()
@@ -5106,6 +5119,9 @@ export function mountHeroExpandBlock(
     bottomStrip,
     leChainCols,
     stackLeMax,
+    tpAbbr,
+    spAbbr,
+    tzAbbr,
     attrCols,
     attrKoTpWrap,
     frontalLbl,

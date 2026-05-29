@@ -941,7 +941,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   --init-hero-calc-pen-border: transparent;
   /* Unterrand: bei ≥5 MOD +1 Kartenhöhe, bei ≥6 +2, bei ≥7 +2.5 (JS); ab 4 Karten scrollt der Strip. */
   --init-hero-ex-mod-strip-reserve: 0px;
-  --init-hero-ex-s-rail-w: calc(0.38 * var(--init-hero-cell));
+  --init-hero-ex-s-rail-w: calc(0.76 * var(--init-hero-cell));
   --init-hero-ex-s-rail-slot-gap: calc(0.08rem * var(--init-ui-scale));
   --init-hero-ex-row-stack-h: calc(
     var(--init-hero-abbr-line-h) + var(--init-hero-label-input-gap) +
@@ -1546,7 +1546,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
     var(--init-hero-cell)
     var(--init-hero-cell)
     var(--init-hero-cell)
-    calc(0.5 * var(--init-hero-cell))
+    var(--init-hero-cell)
     var(--init-hero-ib-mod-gap)
     var(--init-hero-ex-mod-chain-w);
 }
@@ -3086,6 +3086,25 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   max-height: var(--init-hero-abbr-line-h);
   min-height: var(--init-hero-abbr-line-h);
   box-sizing: border-box;
+}
+
+.init-hero-ex__zone-mid
+  .init-hero-ex__sp-tz-pair__grid-row--labels
+  > .init-hero-ex__abbr {
+  min-height: var(--init-hero-abbr-line-h);
+  height: var(--init-hero-abbr-line-h);
+  max-height: var(--init-hero-abbr-line-h);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.init-hero-ex__zone-mid .init-hero-ex__sp-tz-pair__label-tools {
+  align-items: center;
+  align-self: center;
+  height: var(--init-hero-abbr-line-h);
+  max-height: var(--init-hero-abbr-line-h);
 }
 
 .init-hero-ex__zone-mid .init-hero-ex__sp-tz-label-btn {
