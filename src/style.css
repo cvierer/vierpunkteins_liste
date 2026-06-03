@@ -1034,7 +1034,10 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-hero-ex__sp-tz-pair {
   --init-hero-ex-sp-tz-a-gap: calc(0.1rem * var(--init-ui-scale));
   --init-hero-ex-sp-tz-col-gap: calc(0.1rem * var(--init-ui-scale));
-  --init-hero-ex-sp-tz-mid-col-w: max-content;
+  --init-hero-ex-sp-tz-mid-col-w: max(
+    max-content,
+    calc(0.88 * var(--init-hero-cell))
+  );
   --sp-tz-cols: var(--init-hero-cell) var(--init-hero-ex-sp-tz-mid-col-w)
     var(--init-hero-cell);
   display: flex;
@@ -1114,19 +1117,28 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   box-sizing: border-box;
 }
 
-/* Rückgängig / Wiederholen + RS-Schild: nur so breit wie Inhalt, zentriert in Mittelspalte. */
+/* Rückgängig / Wiederholen + RS-Schild: < links, > rechts, Schild mittig. */
 .init-hero-ex__sp-tz-pair__label-tools {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0.05rem;
-  padding-inline: calc(0.04rem * var(--init-ui-scale));
-  width: max-content;
-  max-width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  width: 100%;
+  max-width: none;
   min-width: 0;
   box-sizing: border-box;
+  justify-self: stretch;
+}
+
+.init-hero-ex__sp-tz-pair__label-tools > .init-hero-ex__sp-tz-label-btn:first-child {
+  justify-self: start;
+}
+
+.init-hero-ex__sp-tz-pair__label-tools > .init-hero-ex__rs-bypass-btn {
   justify-self: center;
+}
+
+.init-hero-ex__sp-tz-pair__label-tools > .init-hero-ex__sp-tz-label-btn:last-child {
+  justify-self: end;
 }
 
 .init-hero-ex__sp-tz-label-btn {
@@ -3632,8 +3644,14 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   font-size: calc(0.48rem * var(--init-box-scale));
 }
 
-/* BE/W6-Kürzel in der IB-Kette etwas kleiner */
-.init-hero-ex__ib-chain__stack > .init-hero-ex__abbr--ib-chain-compact {
+/* BE/W6-Kürzel in der IB-Kette etwas kleiner; MR/WS (halbe Zelle) gleiche Typo wie W6 */
+.init-hero-ex__ib-chain__stack > .init-hero-ex__abbr--ib-chain-compact,
+.init-hero-ex__attr-ko-tp-wrap
+  > .init-hero-ex__micro-cell--half-cell
+  > .init-hero-ex__abbr,
+.init-hero-ex__bottom-strip
+  .init-hero-ex__micro-cell--ws-le-match
+  > .init-hero-ex__abbr:first-child {
   font-size: calc(0.345rem * var(--init-box-scale));
   letter-spacing: 0.025em;
 }
