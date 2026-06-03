@@ -934,9 +934,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   );
   /* Zeile 2 + 3: gemeinsam um ½ Kästchen nach oben */
   --init-hero-ex-r2-r3-lift: calc(-0.5 * var(--init-hero-cell));
-  /* Zeile 2: zusätzlich MAX-Höhe (½ Kästchen) — Abstand 1↔2 wie 2↔3 */
+  /* Zeile 2: zusätzlich 1× Kästchen nach oben (MAX + engerer Abstand zu Zeile 1) */
   --init-hero-ex-r1-r2-lift: calc(
-    var(--init-hero-ex-r2-r3-lift) - 0.5 * var(--init-hero-cell)
+    var(--init-hero-ex-r2-r3-lift) - 1 * var(--init-hero-cell)
   );
   /* Mikro-Eingaben (ohne Wappen): wie INI-Spalte (--init-micro-inp-*) */
   --init-hero-inp-font-size: var(--init-micro-inp-font-size);
