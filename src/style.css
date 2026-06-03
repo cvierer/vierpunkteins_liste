@@ -934,6 +934,10 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   );
   /* Zeile 2 + 3: gemeinsam um ½ Kästchen nach oben */
   --init-hero-ex-r2-r3-lift: calc(-0.5 * var(--init-hero-cell));
+  /* Zeile 2: zusätzlich MAX-Höhe (½ Kästchen) — Abstand 1↔2 wie 2↔3 */
+  --init-hero-ex-r1-r2-lift: calc(
+    var(--init-hero-ex-r2-r3-lift) - 0.5 * var(--init-hero-cell)
+  );
   /* Mikro-Eingaben (ohne Wappen): wie INI-Spalte (--init-micro-inp-*) */
   --init-hero-inp-font-size: var(--init-micro-inp-font-size);
   --init-hero-inp-line-height: var(--init-micro-inp-line-height);
@@ -1780,9 +1784,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border-top: 1px solid rgba(var(--rgb-gold), 0.48);
   border-radius: 0 0 4px 4px;
   text-align: center;
-  font-size: calc(0.72 * var(--init-hero-inp-font-size, 0.85rem));
+  font-size: calc(0.46 * var(--init-hero-inp-font-size));
   font-weight: 700;
-  line-height: var(--init-hero-inp-line-height);
+  line-height: 1;
   color: #121212;
   background: var(--init-action-cell-fill);
 }
@@ -3225,7 +3229,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   grid-column: 2;
   grid-row: 2;
   align-self: end;
-  margin-top: var(--init-hero-ex-r2-r3-lift);
+  margin-top: var(--init-hero-ex-r1-r2-lift);
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
