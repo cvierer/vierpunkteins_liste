@@ -1491,18 +1491,10 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   overflow-y: clip;
 }
 
-/* MR / IB / BE / W6 / INI / MOD: sechs Stacks in der IB-Kette */
+/* IB-Kette: nur noch MOD (+ MOD+-Button); S-Rail steht rechts neben LE in Zeile 1. */
 .init-hero-ex__ib-chain {
-  /* Lücke INI↔MOD: S-Rail-Breite + kleiner Rand links/rechts, MOD rückt nach rechts. */
   --init-hero-ex-s-rail-slot-gap: calc(0.08rem * var(--init-ui-scale));
-  --init-hero-ex-s-rail-w6-gap-mult: 3;
-  --init-hero-ex-s-rail-w6-gap: calc(
-    var(--init-hero-ex-s-rail-w6-gap-mult) * var(--init-hero-ex-s-rail-slot-gap)
-  );
-  --init-hero-ib-mod-gap: calc(
-    var(--init-hero-ex-s-rail-w) + var(--init-hero-ex-s-rail-w6-gap) +
-      var(--init-hero-ex-s-rail-slot-gap)
-  );
+  --init-hero-ib-mod-gap: 0px;
   /* MOD-Spalte + MOD+-Button nutzen dieselbe Bezugsbreite */
   --init-hero-ex-mod-chain-w: calc(1.82 * var(--init-hero-cell));
   display: flex;
@@ -1525,12 +1517,24 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__ib-chain__stack--mod-pick {
-  margin-left: var(--init-hero-ib-mod-gap);
+  margin-left: 0;
 }
 
-/* GS zu IB: gleicher Rasterabstand wie KO zum naechsten Kaestchen (--init-hero-strip-gap) */
-.init-hero-ex__ib-chain__stack--gs-r-gap {
-  margin-right: var(--init-hero-strip-gap);
+/* GS in Zeile 1: halbe Mikrozellenbreite; Abstand zu IB nur via strip-inner gap (wie AT↔PA). */
+.init-hero-ex__strip-inner > .init-hero-ex__ib-chain__stack--gs-r-gap,
+.init-hero-ex__strip-inner
+  > .init-hero-ex__ib-chain__stack--gs-r-gap
+  .init-hero-ex__micro-cell--gs-chain {
+  width: calc(0.5 * var(--init-hero-cell));
+  min-width: calc(0.5 * var(--init-hero-cell));
+  max-width: calc(0.5 * var(--init-hero-cell));
+}
+
+.init-hero-ex__strip-inner
+  > .init-hero-ex__ib-chain__stack--gs-r-gap
+  .init-hero-ex__micro-cell--gs-chain
+  > .init-hero-ex__micro--gs-chain {
+  width: 100%;
 }
 
 /* GS in der IB-Kette: gleiche Mikrozellen-Optik wie KO (Eigenrahmen) */

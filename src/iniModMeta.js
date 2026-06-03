@@ -1720,6 +1720,7 @@ export function mountHeroExpandBlock(
     true,
     'Lebensenergie (LE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
+  leInp.className = 'init-hero-ex__micro'
   const leMaxInp = mkChainInp(
     'lemax',
     microDisplayForModField('leMax', snap.leMax),
@@ -1762,7 +1763,9 @@ export function mountHeroExpandBlock(
     stack.appendChild(colEl)
     return stack
   }
-  const leCol = mkLeChainCol(leInp)
+  const stackLe = document.createElement('div')
+  stackLe.className = 'init-hero-ex__micro-cell'
+  stackLe.append(leAbbrLE, leInp)
   const auMaxTitle = 'Ausdauermaximum (AU-Max)'
   const aeMaxTitle = 'Astralenergiemaximum (AE-Max)'
   const keMaxTitle = 'Karmaenergiemaximum (KE-Max)'
@@ -1779,7 +1782,6 @@ export function mountHeroExpandBlock(
   leMaxShell.className = 'init-hero-ex__le-chain__inp-cell'
   leMaxShell.appendChild(maxGrid)
   leMaxCol.appendChild(leMaxShell)
-  const stackLe = mkLeChainStack(leAbbrLE, leCol)
   const stackLeMax = mkLeChainStack(leAbbrMax, leMaxCol)
   const wsAbbrLbl = mkChainAbbr('WS', WS_RULES_TOOLTIP)
   const wsInp = mkChainInp(
@@ -5147,15 +5149,15 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: W6↔S = 3× Slot-Gap; Unterkante = TZ-Kästchen. */
-    if (stackW6 && stackMod && tzInp) {
+    /* Langer S-Balken: rechts neben LE; Unterkante = TZ-Kästchen. */
+    if (stackLe && tzInp) {
       const rootR = root.getBoundingClientRect()
-      const w6R = stackW6.getBoundingClientRect()
-      const w6GapPx = readHeroCssLenPx(ibChain, '--init-hero-ex-s-rail-w6-gap')
-      if (Number.isFinite(w6GapPx) && w6GapPx >= 0) {
-        const left = w6R.right - rootR.left + w6GapPx
+      const leR = stackLe.getBoundingClientRect()
+      const slotGapPx = readHeroCssLenPx(root, '--init-hero-ex-s-rail-slot-gap')
+      if (Number.isFinite(slotGapPx) && slotGapPx >= 0) {
+        const left = leR.right - rootR.left + slotGapPx
         sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
-        sRailRoot.style.top = `${Math.round((w6R.top - rootR.top) * 1000) / 1000}px`
+        sRailRoot.style.top = `${Math.round((leR.top - rootR.top) * 1000) / 1000}px`
       }
 
       const tzBottom = tzInp.getBoundingClientRect().bottom - rootR.top
