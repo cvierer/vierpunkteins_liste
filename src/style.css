@@ -1553,6 +1553,59 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: var(--init-action-cell-fill-focus);
 }
 
+/* GS in Zeile 1 (ausserhalb .init-hero-ex__ib-chain): gleiche Optik wie in der Kette. */
+.init-hero-ex__strip-inner
+  > .init-hero-ex__ib-chain__stack--gs-r-gap
+  .init-hero-ex__micro-cell--gs-chain
+  > .init-hero-ex__micro--gs-chain {
+  color: #121212;
+  border-color: var(--init-action-cell-border);
+  background: var(--init-action-cell-fill);
+}
+
+.init-hero-ex__strip-inner
+  > .init-hero-ex__ib-chain__stack--gs-r-gap
+  .init-hero-ex__micro-cell--gs-chain
+  > .init-hero-ex__micro--gs-chain:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--init-action-cell-fill-focus);
+}
+
+/* IB/BE/W6 in Zeile 1: verbundene Ketten-Rahmen (wie früher in cols-5). */
+.init-hero-ex__strip-inner
+  > .init-hero-ex__ib-chain__stack--gs-r-gap
+  + .init-hero-ex__ib-chain__stack
+  .init-hero-ex__ib-chain__inp-cell {
+  border: 1px solid var(--init-action-cell-border);
+  border-radius: 4px 0 0 4px;
+}
+
+.init-hero-ex__strip-inner
+  > .init-hero-ex__ib-chain__stack--gs-r-gap
+  + .init-hero-ex__ib-chain__stack
+  + .init-hero-ex__ib-chain__stack
+  .init-hero-ex__ib-chain__inp-cell {
+  border-top: 1px solid var(--init-action-cell-border);
+  border-right: 1px solid var(--init-action-cell-border);
+  border-bottom: 1px solid var(--init-action-cell-border);
+  border-left: 1px solid rgba(var(--rgb-gold), 0.42);
+  border-radius: 0;
+}
+
+.init-hero-ex__strip-inner
+  > .init-hero-ex__ib-chain__stack--gs-r-gap
+  + .init-hero-ex__ib-chain__stack
+  + .init-hero-ex__ib-chain__stack
+  + .init-hero-ex__ib-chain__stack
+  .init-hero-ex__ib-chain__inp-cell {
+  border-top: 1px solid var(--init-action-cell-border);
+  border-right: 1px solid var(--init-action-cell-border);
+  border-bottom: 1px solid var(--init-action-cell-border);
+  border-left: 1px solid rgba(var(--rgb-gold), 0.42);
+  border-radius: 0 4px 4px 0;
+}
+
 .init-hero-ex__ib-chain__labels {
   display: grid;
   width: fit-content;

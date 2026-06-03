@@ -1424,8 +1424,7 @@ export function mountHeroExpandBlock(
   )
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
-  /* Fuenf Spalten: GS IB BE W6 MOD (Lesemodus: MOD wie Bearbeitung). */
-  ibChain.classList.add('init-hero-ex__ib-chain--cols-5')
+  /* Nur MOD (+ MOD+); GS/IB/BE/W6 stehen davor in .init-hero-ex__strip-inner. */
   const mkChainAbbr = (text, title, noUppercase) => {
     const s = document.createElement('span')
     s.className =
@@ -1607,7 +1606,6 @@ export function mountHeroExpandBlock(
 
   const ibChainCols = document.createElement('div')
   ibChainCols.className = 'init-hero-ex__ib-chain__cols'
-  ibChainCols.append(stackGs, stackIb, stackBe, stackW6)
   if (stackMod) ibChainCols.appendChild(stackMod)
   ibChain.appendChild(ibChainCols)
   const gs = { inp: gsInp, ab: gsAbbrLabel }
@@ -1798,7 +1796,7 @@ export function mountHeroExpandBlock(
   const ws = { inp: wsInp, ab: wsAbbrLbl }
   const leChainCols = document.createElement('div')
   leChainCols.className = 'init-hero-ex__le-chain__cols'
-  leChainCols.append(stackWs, stackLe, stackLeMax)
+  leChainCols.append(stackWs, stackLeMax)
   leChain.appendChild(leChainCols)
   const le = { inp: leInp }
   const leMax = { inp: leMaxInp }
@@ -3133,10 +3131,15 @@ export function mountHeroExpandBlock(
     pa.cell,
     ausw.cell,
     tpCell,
+    stackGs,
+    stackIb,
+    stackBe,
+    stackW6,
     fk.cell,
-    au.cell,
-    ae.cell,
     extra.cell,
+    ae.cell,
+    au.cell,
+    stackLe,
     ibChain
   )
   if (modIbCol) {
@@ -5201,6 +5204,7 @@ export function mountHeroExpandBlock(
     zoneMidRow,
     bottomStrip,
     leChainCols,
+    stackLe,
     stackLeMax,
     spAbbr,
     tzAbbr,
