@@ -1193,6 +1193,7 @@ export function mountHeroExpandBlock(
     '',
     true
   )
+  mrAttr.cell.classList.add('init-hero-ex__micro-cell--half-cell')
 
   const attrCols = document.createElement('div')
   attrCols.className = 'init-hero-ex__attr-cols'
@@ -1531,7 +1532,10 @@ export function mountHeroExpandBlock(
     'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--gs-r-gap'
   stackGs.appendChild(gsCell)
   const ibCol = mkIbChainCol(ibInp)
-  const beCol = mkIbChainCol(beInp)
+  const beCol = mkIbChainCol(
+    beInp,
+    'init-hero-ex__ib-chain__col--half-cell'
+  )
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
   const w6Col = mkIbChainCol(
@@ -1793,6 +1797,7 @@ export function mountHeroExpandBlock(
   )
   wsInp.title = WS_RULES_TOOLTIP
   const wsCol = mkLeChainCol(wsInp)
+  wsCol.classList.add('init-hero-ex__le-chain__col--half-cell')
   const stackWs = mkLeChainStack(wsAbbrLbl, wsCol)
   stackWs.classList.add('init-hero-ex__micro-cell--ws-le-match')
   const ws = { inp: wsInp, ab: wsAbbrLbl }
