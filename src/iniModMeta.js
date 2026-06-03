@@ -1713,10 +1713,34 @@ export function mountHeroExpandBlock(
     'LE',
     'Lebensenergie (LE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
-  const leAbbrMax = mkChainAbbr(
-    'MAX',
-    `${leMaxTitle}.${HERO_FIELD_MOD_INTEGRATED_HINT.trim()}`
-  )
+  /** @param {string} idSuf @param {string} value @param {number} maxLen @param {string} title */
+  const mkMaxSubInp = (idSuf, value, maxLen, title) => {
+    const inp = mkChainInp(idSuf, value, maxLen, true, title)
+    inp.className = 'init-hero-ex__micro init-hero-ex__micro--max-sub'
+    inp.placeholder = 'MAX'
+    return inp
+  }
+  /**
+   * MAX direkt unter Hauptwert in derselben Mikrozelle.
+   * @param {HTMLElement} cell
+   * @param {HTMLInputElement} maxInp
+   * @returns {HTMLDivElement}
+   */
+  const attachValueMaxStack = (cell, maxInp) => {
+    const mainInp = cell.querySelector(
+      ':scope > .init-hero-ex__micro:not(.init-hero-ex__micro--max-sub)'
+    )
+    const stack = document.createElement('div')
+    stack.className = 'init-hero-ex__value-max-stack'
+    if (mainInp instanceof HTMLInputElement) {
+      mainInp.replaceWith(stack)
+      stack.append(mainInp, maxInp)
+    } else {
+      stack.append(maxInp)
+      cell.appendChild(stack)
+    }
+    return stack
+  }
   const leInp = mkChainInp(
     'le',
     microDisplayForModField('le', snap.le),
@@ -1725,11 +1749,10 @@ export function mountHeroExpandBlock(
     'Lebensenergie (LE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
   )
   leInp.className = 'init-hero-ex__micro'
-  const leMaxInp = mkChainInp(
+  const leMaxInp = mkMaxSubInp(
     'lemax',
     microDisplayForModField('leMax', snap.leMax),
     3,
-    true,
     `${leMaxTitle}.${HERO_FIELD_MOD_INTEGRATED_HINT.trim()}`
   )
   const leReadOnlyHint = ' (Bearbeitung im S-Overlay)'
@@ -1769,24 +1792,21 @@ export function mountHeroExpandBlock(
   }
   const stackLe = document.createElement('div')
   stackLe.className = 'init-hero-ex__micro-cell'
-  stackLe.append(leAbbrLE, leInp)
+  const leValueMaxStack = document.createElement('div')
+  leValueMaxStack.className = 'init-hero-ex__value-max-stack'
+  leValueMaxStack.append(leInp, leMaxInp)
+  stackLe.append(leAbbrLE, leValueMaxStack)
   const auMaxTitle = 'Ausdauermaximum (AU-Max)'
   const aeMaxTitle = 'Astralenergiemaximum (AE-Max)'
   const keMaxTitle = 'Karmaenergiemaximum (KE-Max)'
-  const auMaxInp = mkChainInp('aumax', snap.auMax, 3, true, auMaxTitle)
-  const aeMaxInp = mkChainInp('aemax', snap.aeMax, 3, true, aeMaxTitle)
-  const keMaxInp = mkChainInp('kemax', snap.keMax, 3, true, keMaxTitle)
-  const maxGrid = document.createElement('div')
-  maxGrid.className = 'init-hero-ex__le-chain__max-grid'
-  maxGrid.append(leMaxInp, auMaxInp, aeMaxInp, keMaxInp)
-  const leMaxCol = document.createElement('div')
-  leMaxCol.className =
-    'init-hero-ex__le-chain__col init-hero-ex__le-chain__col--max-wide'
-  const leMaxShell = document.createElement('div')
-  leMaxShell.className = 'init-hero-ex__le-chain__inp-cell'
-  leMaxShell.appendChild(maxGrid)
-  leMaxCol.appendChild(leMaxShell)
-  const stackLeMax = mkLeChainStack(leAbbrMax, leMaxCol)
+  const auMaxInp = mkMaxSubInp('aumax', snap.auMax, 3, auMaxTitle)
+  const aeMaxInp = mkMaxSubInp('aemax', snap.aeMax, 3, aeMaxTitle)
+  const keMaxInp = mkMaxSubInp('kemax', snap.keMax, 3, keMaxTitle)
+  attachValueMaxStack(ae.cell, aeMaxInp)
+  attachValueMaxStack(au.cell, auMaxInp)
+  if (showExtraField && extraField === 'ke') {
+    attachValueMaxStack(extra.cell, keMaxInp)
+  }
   const wsAbbrLbl = mkChainAbbr('WS', WS_RULES_TOOLTIP)
   const wsInp = mkChainInp(
     'ws',
@@ -1803,7 +1823,7 @@ export function mountHeroExpandBlock(
   const ws = { inp: wsInp, ab: wsAbbrLbl }
   const leChainCols = document.createElement('div')
   leChainCols.className = 'init-hero-ex__le-chain__cols'
-  leChainCols.append(stackWs, stackLeMax)
+  leChainCols.append(stackWs)
   leChain.appendChild(leChainCols)
   const le = { inp: leInp }
   const leMax = { inp: leMaxInp }
@@ -2997,9 +3017,8 @@ export function mountHeroExpandBlock(
 
     const labelsR = lePopLabels.getBoundingClientRect()
     const stackLeR = stackLe.getBoundingClientRect()
-    const stackLeMaxR = stackLeMax.getBoundingClientRect()
-    const chainLeft = Math.min(stackLeR.left, stackLeMaxR.left)
-    const chainTop = Math.min(stackLeR.top, stackLeMaxR.top)
+    const chainLeft = stackLeR.left
+    const chainTop = stackLeR.top
     const leftInPop = Math.max(0, chainLeft - labelsR.left)
     const topInPop = Math.max(0, chainTop - labelsR.top)
     lePopLeMaxBlock.style.left = `${Math.round(leftInPop * 1000) / 1000}px`
@@ -3340,7 +3359,7 @@ export function mountHeroExpandBlock(
           ? { lo: { cell: extra.cell, inp: extra.inp, ab: extra.ab } }
           : {}),
     le: { cell: stackLe, inp: leInp, ab: leAbbrLE },
-    leMax: { cell: stackLeMax, inp: leMaxInp, ab: leAbbrMax },
+    leMax: { cell: leValueMaxStack, inp: leMaxInp, ab: null },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
     ws: { cell: stackWs, inp: ws.inp, ab: ws.ab },
     mr: { cell: mrAttr.cell, inp: mrAttr.inp, ab: mrAttr.ab },
@@ -5157,12 +5176,12 @@ export function mountHeroExpandBlock(
     /* Langer S-Balken: rechts neben LE; Unterkante = TZ-Kästchen. */
     if (stackLe && tzInp) {
       const rootR = root.getBoundingClientRect()
-      const leR = stackLe.getBoundingClientRect()
+      const leColR = stackLe.getBoundingClientRect()
       const slotGapPx = readHeroCssLenPx(root, '--init-hero-ex-s-rail-slot-gap')
       if (Number.isFinite(slotGapPx) && slotGapPx >= 0) {
-        const left = leR.right - rootR.left + slotGapPx
+        const left = leColR.right - rootR.left + slotGapPx
         sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
-        sRailRoot.style.top = `${Math.round((leR.top - rootR.top) * 1000) / 1000}px`
+        sRailRoot.style.top = `${Math.round((leColR.top - rootR.top) * 1000) / 1000}px`
       }
 
       const tzBottom = tzInp.getBoundingClientRect().bottom - rootR.top
@@ -5212,7 +5231,6 @@ export function mountHeroExpandBlock(
     bottomStrip,
     leChainCols,
     stackLe,
-    stackLeMax,
     spAbbr,
     tzAbbr,
     tzInp,

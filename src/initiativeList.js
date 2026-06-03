@@ -6473,8 +6473,8 @@ function bindStampContextRemove(el, stamp, items) {
             'Weitere Helden-Optionen ein- oder ausblenden'
           )
           expandBtn.title = isGmSync()
-            ? 'Zeile aufklappen: Zeile 1 (AT PA AW TP GS IB BE W6 FK KE AE AU LE S … MOD), Zeile 2 (KF … RB WS MAX), Zeile 3 (MU … KK, KO+TP/TZ); links (i) und SL-Zahnrad'
-            : 'Zeile aufklappen: Zeile 1 (AT PA AW TP GS IB BE W6 FK KE AE AU LE S … MOD), Zeile 2 (KF … RB WS MAX), Zeile 3 (MU … KK, KO+TP/TZ); links (i) und Zahnrad (Zeilenfarbe)'
+            ? 'Zeile aufklappen: Zeile 1 (AT PA AW TP GS IB BE W6 FK KE AE AU LE S … MOD), Zeile 2 (KF … RB WS), Zeile 3 (MU … KK, KO+TP/TZ); links (i) und SL-Zahnrad'
+            : 'Zeile aufklappen: Zeile 1 (AT PA AW TP GS IB BE W6 FK KE AE AU LE S … MOD), Zeile 2 (KF … RB WS), Zeile 3 (MU … KK, KO+TP/TZ); links (i) und Zahnrad (Zeilenfarbe)'
           const chev = document.createElement('span')
           chev.className = 'init-row-expand-chev'
           chev.setAttribute('aria-hidden', 'true')
