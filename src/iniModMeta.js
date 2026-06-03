@@ -1197,7 +1197,7 @@ export function mountHeroExpandBlock(
 
   const attrCols = document.createElement('div')
   attrCols.className = 'init-hero-ex__attr-cols'
-  for (const x of [mu, kl, inn, ch, ff, ge, kk]) {
+  for (const x of [mu, kl, inn, ch, ff, ge, koAttr]) {
     attrCols.appendChild(x.cell)
   }
   attrBlock.appendChild(attrCols)
@@ -1329,7 +1329,7 @@ export function mountHeroExpandBlock(
 
   const attrKoTpWrap = document.createElement('div')
   attrKoTpWrap.className = 'init-hero-ex__attr-ko-tp-wrap'
-  attrKoTpWrap.append(koAttr.cell)
+  attrKoTpWrap.append(kk.cell)
   attrCols.appendChild(attrKoTpWrap)
   bottomStrip.appendChild(attrBlock)
 
@@ -1449,7 +1449,6 @@ export function mountHeroExpandBlock(
     true
   )
   const ibW6Lbl = mkChainAbbr('W6', 'Würfelwurf (W6)', true)
-  ibW6Lbl.classList.add('init-hero-ex__abbr--ib-chain-compact')
   const mkChainInp = (idSuf, value, maxLen, numeric, aria) => {
     const inp = document.createElement('input')
     inp.type = 'text'
@@ -1533,16 +1532,10 @@ export function mountHeroExpandBlock(
     'init-hero-ex__ib-chain__stack init-hero-ex__ib-chain__stack--gs-r-gap'
   stackGs.appendChild(gsCell)
   const ibCol = mkIbChainCol(ibInp)
-  const beCol = mkIbChainCol(
-    beInp,
-    'init-hero-ex__ib-chain__col--half-cell'
-  )
+  const beCol = mkIbChainCol(beInp)
   const stackIb = mkIbChainStack(ibAbbrLabel, ibCol)
   const stackBe = mkIbChainStack(ibBeLbl, beCol)
-  const w6Col = mkIbChainCol(
-    w6Inp,
-    'init-hero-ex__ib-chain__col--half-cell'
-  )
+  const w6Col = mkIbChainCol(w6Inp)
   const stackW6 = mkIbChainStack(ibW6Lbl, w6Col)
 
   /** @type {HTMLButtonElement | null} */
@@ -1710,10 +1703,11 @@ export function mountHeroExpandBlock(
   const leChain = document.createElement('div')
   leChain.className = 'init-hero-ex__le-chain'
   const leMaxTitle = 'Lebensenergie Maximum (LE max)'
-  const leAbbrLE = mkChainAbbr(
-    'LE',
-    'Lebensenergie (LE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
-  )
+  const leRailAbbrTitle =
+    'Lebensenergie (LE).' +
+    HERO_FIELD_MOD_INTEGRATED_HINT.trim() +
+    ' ' +
+    LE_THRESHOLD_TOOLTIP
   /** @param {string} idSuf @param {string} value @param {number} maxLen @param {string} title */
   const mkMaxSubInp = (idSuf, value, maxLen, title) => {
     const inp = mkChainInp(idSuf, value, maxLen, true, title)
@@ -1791,12 +1785,9 @@ export function mountHeroExpandBlock(
     stack.appendChild(colEl)
     return stack
   }
-  const stackLe = document.createElement('div')
-  stackLe.className = 'init-hero-ex__micro-cell'
   const leValueMaxStack = document.createElement('div')
   leValueMaxStack.className = 'init-hero-ex__value-max-stack'
   leValueMaxStack.append(leInp, leMaxInp)
-  stackLe.append(leAbbrLE, leValueMaxStack)
   const auMaxTitle = 'Ausdauermaximum (AU-Max)'
   const aeMaxTitle = 'Astralenergiemaximum (AE-Max)'
   const keMaxTitle = 'Karmaenergiemaximum (KE-Max)'
@@ -1853,14 +1844,14 @@ export function mountHeroExpandBlock(
     return leAtPaMalusForBand(band)
   }
 
-  const leThreshRailAbbr = mkChainAbbr('S', LE_THRESHOLD_TOOLTIP)
   const leThreshRail = createLeThresholdGaugeBox(
     'init-hero-ex__le-threshold__box--tall'
   )
+  const leThreshRailAbbr = mkChainAbbr('LE', leRailAbbrTitle)
   const sRailRoot = document.createElement('div')
   sRailRoot.className =
-    'init-hero-ex__s-rail-root init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
-  sRailRoot.append(leThreshRailAbbr, leThreshRail.box)
+    'init-hero-ex__micro-cell init-hero-ex__s-rail-root init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
+  sRailRoot.append(leThreshRailAbbr, leValueMaxStack, leThreshRail.box)
 
   /** @type {{ host: HTMLElement, box: HTMLDivElement, fill: HTMLDivElement, line50: HTMLDivElement, line33: HTMLDivElement, line25: HTMLDivElement, line5: HTMLDivElement, lineUnf: HTMLDivElement, skull: SVGSVGElement }[]} */
   const leThreshGaugeSets = [{ host: sRailRoot, ...leThreshRail }]
@@ -3017,9 +3008,9 @@ export function mountHeroExpandBlock(
     lePop.style.height = `${Math.round(height * 1000) / 1000}px`
 
     const labelsR = lePopLabels.getBoundingClientRect()
-    const stackLeR = stackLe.getBoundingClientRect()
-    const chainLeft = stackLeR.left
-    const chainTop = stackLeR.top
+    const sRailR = sRailRoot.getBoundingClientRect()
+    const chainLeft = sRailR.left
+    const chainTop = sRailR.top
     const leftInPop = Math.max(0, chainLeft - labelsR.left)
     const topInPop = Math.max(0, chainTop - labelsR.top)
     lePopLeMaxBlock.style.left = `${Math.round(leftInPop * 1000) / 1000}px`
@@ -3166,7 +3157,7 @@ export function mountHeroExpandBlock(
     extra.cell,
     ae.cell,
     au.cell,
-    stackLe,
+    sRailRoot,
     ibChain
   )
   if (modIbCol) {
@@ -3325,7 +3316,7 @@ export function mountHeroExpandBlock(
     ...(showAuField ? ['au'] : []),
   ].filter((f) => MOD_FIELDS.includes(f))
 
-  root.append(leadSpacer, strip, zoneMidRow, bottomStrip, spacerExp, sRailRoot)
+  root.append(leadSpacer, strip, zoneMidRow, bottomStrip, spacerExp)
   /*
    * modPop nicht unter .init-hero-ex haengen: als Geschwister von root
    * unter container (position: relative), sonst stoeren sie das CSS-Grid und
@@ -3359,7 +3350,7 @@ export function mountHeroExpandBlock(
         : showExtraField && extraField === 'lo'
           ? { lo: { cell: extra.cell, inp: extra.inp, ab: extra.ab } }
           : {}),
-    le: { cell: stackLe, inp: leInp, ab: leAbbrLE },
+    le: { cell: sRailRoot, inp: leInp, ab: leThreshRailAbbr },
     leMax: { cell: leValueMaxStack, inp: leMaxInp, ab: null },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
     ws: { cell: stackWs, inp: ws.inp, ab: ws.ab },
@@ -5174,26 +5165,18 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: rechts neben LE; Unterkante = TZ-Kästchen. */
-    if (stackLe && tzInp) {
+    /* LE-S-Balken in stripInner: Gauge-Unterkante = TZ-Kästchen. */
+    if (sRailRoot && tzInp && leValueMaxStack) {
       const rootR = root.getBoundingClientRect()
-      const leColR = stackLe.getBoundingClientRect()
-      const slotGapPx = readHeroCssLenPx(root, '--init-hero-ex-s-rail-slot-gap')
-      if (Number.isFinite(slotGapPx) && slotGapPx >= 0) {
-        const left = leColR.right - rootR.left + slotGapPx
-        sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
-        sRailRoot.style.top = `${Math.round((leColR.top - rootR.top) * 1000) / 1000}px`
-      }
-
       const tzBottom = tzInp.getBoundingClientRect().bottom - rootR.top
-      const abbrBottom =
-        leThreshRailAbbr.getBoundingClientRect().bottom - rootR.top
+      const stackBottom =
+        leValueMaxStack.getBoundingClientRect().bottom - rootR.top
       const gapRaw =
         getComputedStyle(sRailRoot).rowGap || getComputedStyle(sRailRoot).gap
       const gapPx =
         parseFloat(gapRaw) ||
         readHeroCssLenPx(root, '--init-hero-label-input-gap')
-      const barH = tzBottom - abbrBottom - gapPx
+      const barH = tzBottom - stackBottom - gapPx
       if (Number.isFinite(barH) && barH > 0) {
         root.style.setProperty(
           '--init-hero-ex-s-rail-h',
@@ -5247,7 +5230,8 @@ export function mountHeroExpandBlock(
     zoneMidRow,
     bottomStrip,
     leChainCols,
-    stackLe,
+    sRailRoot,
+    leValueMaxStack,
     spAbbr,
     tzAbbr,
     tzInp,
