@@ -1075,7 +1075,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__sp-tz-pair--in-attr-row .init-hero-ex__sp-tz-label-btn {
-  transform: none;
+  transform: scale(1.32);
+  transform-origin: 50% 100%;
 }
 
 .init-hero-ex__sp-tz-pair__grid {
@@ -1136,7 +1137,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: transparent;
   color: #121212;
   font-family: var(--font-heading);
-  font-size: 0.54rem;
+  font-size: calc(0.62rem * var(--init-ui-scale));
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0.03em;
@@ -1144,7 +1145,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   transition: color 0.12s ease;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
-  transform: scale(1.16);
+  transform: scale(1.32);
   transform-origin: 50% 100%;
 }
 
@@ -1271,10 +1272,10 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   display: block;
   height: 100%;
   width: auto;
-  max-height: var(--init-hero-cell);
+  max-height: calc(1.2 * var(--init-hero-cell));
   aspect-ratio: 1;
   flex-shrink: 0;
-  transform: rotate(45deg);
+  transform: rotate(45deg) scale(1.14);
   transform-origin: center;
   pointer-events: none;
 }
@@ -1785,7 +1786,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border-top: 1px solid rgba(var(--rgb-gold), 0.48);
   border-radius: 0 0 4px 4px;
   text-align: center;
-  font-size: calc(0.46 * var(--init-hero-inp-font-size));
+  font-size: calc(0.34 * var(--init-hero-inp-font-size));
   font-weight: 700;
   line-height: 1;
   color: #121212;
@@ -3197,7 +3198,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__zone-mid .init-hero-ex__sp-tz-label-btn {
-  transform: none;
+  transform: scale(1.32);
+  transform-origin: 50% 100%;
 }
 
 .init-hero-ex__zone-mid .init-hero-ex__rs-bypass-btn {
@@ -3698,6 +3700,33 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   ):focus {
   border-color: var(--color-accent);
   background: var(--init-action-cell-fill-focus);
+}
+
+/* WS-Wert: Typo und vertikale Lage wie MR (halbe Mikrozelle in Zeile 2). */
+.init-hero-ex__bottom-strip
+  .init-hero-ex__le-chain
+  > .init-hero-ex__le-chain__cols
+  > .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__le-chain__inp-cell {
+  align-items: center;
+  justify-content: center;
+}
+
+.init-hero-ex__bottom-strip
+  .init-hero-ex__le-chain
+  > .init-hero-ex__le-chain__cols
+  > .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__micro--ib-chain-inp {
+  flex: 0 0 auto;
+  width: 100%;
+  height: var(--init-hero-cell);
+  min-height: var(--init-hero-cell);
+  max-height: var(--init-hero-cell);
+  font-family: var(--font-body);
+  font-size: var(--init-hero-inp-font-size);
+  font-weight: 800;
+  line-height: var(--init-hero-inp-line-height);
+  text-align: center;
 }
 
 .init-hero-ex__attr-ko-tp-wrap
