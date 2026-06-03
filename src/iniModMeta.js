@@ -5201,6 +5201,22 @@ export function mountHeroExpandBlock(
       }
     }
 
+    /* MOD+: Oberkante = Oberkante S-Balken (Kästchen, nicht S-Kürzel). */
+    modIbCol.style.marginTop = ''
+    if (modIbCol && leThreshRail?.box) {
+      const modShell = modIbCol.querySelector(
+        ':scope > .init-hero-ex__ib-chain__inp-cell--mod-solo-btn'
+      )
+      if (modShell instanceof HTMLElement) {
+        const barTop = leThreshRail.box.getBoundingClientRect().top
+        const shellTop = modShell.getBoundingClientRect().top
+        const delta = barTop - shellTop
+        if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
+          modIbCol.style.marginTop = `${Math.round(delta * 1000) / 1000}px`
+        }
+      }
+    }
+
     updateLeThreshold()
     positionLePopover()
     syncModStripDockAndPad()

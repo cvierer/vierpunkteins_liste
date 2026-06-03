@@ -1513,7 +1513,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   align-items: flex-start;
   gap: var(--init-hero-label-input-gap);
   flex-shrink: 0;
-  align-self: flex-end;
+  /* flex-start: MOD+-Kachel oben bündig mit S-Balken (nicht ans MAX-Zeilenende) */
+  align-self: flex-start;
 }
 
 /* Kürzel + Spalte wie Mikrozelle (Mod-Pick-Rahmen umschließt Beschriftung + Kästchen). */
