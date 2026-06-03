@@ -1032,7 +1032,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 
 /* SP > TZ: schmale Mittelspalte (Schild / Schwert / < >), TP+TZ volle Zellenbreite. */
 .init-hero-ex__sp-tz-pair {
-  --init-hero-ex-sp-tz-a-gap: calc(0.015rem * var(--init-ui-scale));
+  --init-hero-ex-sp-tz-a-gap: calc(0.1rem * var(--init-ui-scale));
+  --init-hero-ex-sp-tz-col-gap: calc(0.1rem * var(--init-ui-scale));
   --init-hero-ex-sp-tz-mid-col-w: max-content;
   --sp-tz-cols: var(--init-hero-cell) var(--init-hero-ex-sp-tz-mid-col-w)
     var(--init-hero-cell);
@@ -1082,6 +1083,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-hero-ex__sp-tz-pair__grid {
   display: grid;
   grid-template-columns: var(--sp-tz-cols);
+  column-gap: var(--init-hero-ex-sp-tz-col-gap);
   row-gap: var(--init-hero-label-input-gap);
   box-sizing: border-box;
   flex-shrink: 0;
@@ -1119,6 +1121,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   align-items: flex-end;
   justify-content: center;
   gap: 0.05rem;
+  padding-inline: calc(0.04rem * var(--init-ui-scale));
   width: max-content;
   max-width: 100%;
   min-width: 0;
@@ -1171,7 +1174,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-hero-ex__rs-bypass-btn-svg {
   display: block;
   width: auto;
-  height: calc(0.58rem * var(--init-ui-scale));
+  height: calc(0.74rem * var(--init-ui-scale));
   aspect-ratio: 24 / 34;
   flex-shrink: 0;
   pointer-events: none;
@@ -1778,9 +1781,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 
 .init-hero-ex__micro--max-sub {
   width: 100%;
-  height: calc(0.5 * var(--init-hero-cell));
-  min-height: calc(0.5 * var(--init-hero-cell));
-  max-height: calc(0.5 * var(--init-hero-cell));
+  height: var(--init-hero-cell);
+  min-height: var(--init-hero-cell);
+  max-height: var(--init-hero-cell);
   margin: 0;
   padding: 0;
   box-sizing: border-box;
