@@ -1080,17 +1080,17 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__sp-tz-pair__grid {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--init-hero-label-input-gap);
+  display: grid;
+  grid-template-columns: var(--sp-tz-cols);
+  row-gap: var(--init-hero-label-input-gap);
   box-sizing: border-box;
   flex-shrink: 0;
 }
 
 .init-hero-ex__sp-tz-pair__grid-row {
   display: grid;
-  grid-template-columns: var(--sp-tz-cols);
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   width: 100%;
   box-sizing: border-box;
 }
@@ -1101,7 +1101,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   min-height: 0;
 }
 
-.init-hero-ex__sp-tz-pair__grid-row--labels > .init-hero-ex__abbr--sp-tz-tz {
+.init-hero-ex__sp-tz-pair__grid-row--labels > .init-hero-ex__abbr--sp-tz-tz,
+.init-hero-ex__sp-tz-pair__grid-row--inputs > .init-hero-ex__micro--sp-tz-tz-inp {
   grid-column: 3;
   justify-self: center;
   width: var(--init-hero-cell);

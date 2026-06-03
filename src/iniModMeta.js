@@ -1281,7 +1281,8 @@ export function mountHeroExpandBlock(
 
   const tzInp = document.createElement('input')
   tzInp.type = 'text'
-  tzInp.className = 'init-hero-ex__micro init-hero-ex__micro--sp-tz-inp'
+  tzInp.className =
+    'init-hero-ex__micro init-hero-ex__micro--sp-tz-inp init-hero-ex__micro--sp-tz-tz-inp'
   tzInp.id = `hero-ex-${itemId}-tz`
   tzInp.autocomplete = 'off'
   tzInp.spellcheck = false
