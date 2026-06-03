@@ -1481,7 +1481,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  align-items: flex-end;
+  /* flex-start: Hauptkästchen (FK = KE/AE/AU/LE oben) auf einer Linie; MAX hängt darunter */
+  align-items: flex-start;
   justify-content: flex-start;
   gap: var(--init-hero-strip-gap);
   min-width: 0;
