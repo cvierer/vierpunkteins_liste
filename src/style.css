@@ -952,9 +952,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* Mikro-Eingaben (ohne Wappen): wie INI-Spalte (--init-micro-inp-*) */
   --init-hero-inp-font-size: var(--init-micro-inp-font-size);
   --init-hero-inp-line-height: var(--init-micro-inp-line-height);
-  /* MAX-Zeile (halbe Kästchenhöhe): eigene Größe — wird sonst von .init-hero-ex__micro überschrieben */
-  --init-hero-max-inp-font-size: calc(0.34rem * var(--init-box-scale));
-  --init-hero-max-placeholder-font-size: calc(0.3rem * var(--init-box-scale));
+  /* MAX-Zeile (halbe Kästchenhöhe): lesbar in halber Zellhöhe */
+  --init-hero-max-inp-font-size: calc(0.46rem * var(--init-box-scale));
+  --init-hero-max-placeholder-font-size: calc(0.4rem * var(--init-box-scale));
+  /* MOD schmaler → gleicher Betrag zusätzlich FK→KE (JS: --init-hero-fk-ke-gap-bonus) */
+  --init-hero-fk-ke-gap-bonus: calc(0.1 * var(--init-hero-cell));
   /* LE-/Wund-Malus: vorerst gleiche Darstellung wie Standard-Kacheln */
   --init-hero-calc-pen-text: #121212;
   --init-hero-calc-pen-bg: transparent;
@@ -1532,7 +1534,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
     calc(var(--init-hero-ib-mod-gap) - var(--init-hero-strip-gap))
   );
   /* MOD-Spalte + MOD+-Button nutzen dieselbe Bezugsbreite */
-  --init-hero-ex-mod-chain-w: calc(2.3 * var(--init-hero-cell));
+  --init-hero-ex-mod-chain-w: calc(2.2 * var(--init-hero-cell));
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -3012,9 +3014,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 /* MOD-Feld + MOD+: volle gemeinsame Spaltenbreite (--init-hero-ex-mod-chain-w auf .init-hero-ex__ib-chain) */
 .init-hero-ex__ib-chain__col--mod-pick {
   align-items: stretch;
-  width: var(--init-hero-ex-mod-chain-w, calc(2.3 * var(--init-hero-cell)));
-  min-width: var(--init-hero-ex-mod-chain-w, calc(2.3 * var(--init-hero-cell)));
-  max-width: var(--init-hero-ex-mod-chain-w, calc(2.3 * var(--init-hero-cell)));
+  width: var(--init-hero-ex-mod-chain-w, calc(2.2 * var(--init-hero-cell)));
+  min-width: var(--init-hero-ex-mod-chain-w, calc(2.2 * var(--init-hero-cell)));
+  max-width: var(--init-hero-ex-mod-chain-w, calc(2.2 * var(--init-hero-cell)));
 }
 
 .init-hero-ex__ib-chain__inp-cell {
