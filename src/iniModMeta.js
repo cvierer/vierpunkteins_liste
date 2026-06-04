@@ -4218,7 +4218,11 @@ export function mountHeroExpandBlock(
   }
 
   let lastModStripChipCount = -1
+  /** Blockiert ResizeObserver während Mod-DOM-Update (nicht runSync). */
+  let heroLayoutRoLock = false
+  /** Reentrancy-Guard für laufenden Layout-Sync. */
   let heroLayoutSyncing = false
+  let lastFkKeLayoutSig = ''
 
   /** Unterrand-Reserve für absoluten Mod-Strip (ohne Layout-Klassenwechsel bei 7+). */
   const syncHeroModStripExpansion = (chipCount) => {
@@ -4282,7 +4286,7 @@ export function mountHeroExpandBlock(
   /* Render von Sub-Badges + Mod-Strip: beim Mount und nach Szene-Persistenz,
      damit neue Auto-Bündel (z. B. LE-Schwelle) ohne volllständigen Listen-Remount sichtbar sind. */
   const renderModBadgesAndStrip = (metaForMods = meta) => {
-    heroLayoutSyncing = true
+    heroLayoutRoLock = true
     try {
     const modMeta = metaForMods ?? meta
     syncModToggleUiFromMeta(modMeta)
@@ -4932,10 +4936,9 @@ export function mountHeroExpandBlock(
       applyUnfaehigVisualOverlay(modMeta)
       requestAnimationFrame(() => {
         try {
-          syncModStripDockAndPad()
-          runSyncHeroRowLayout()
+          runSyncModStripLayoutOnly()
         } finally {
-          heroLayoutSyncing = false
+          heroLayoutRoLock = false
         }
       })
       return
@@ -4951,10 +4954,9 @@ export function mountHeroExpandBlock(
       applyUnfaehigVisualOverlay(modMeta)
       requestAnimationFrame(() => {
         try {
-          syncModStripDockAndPad()
-          runSyncHeroRowLayout()
+          runSyncModStripLayoutOnly()
         } finally {
-          heroLayoutSyncing = false
+          heroLayoutRoLock = false
         }
       })
       return
@@ -5265,14 +5267,13 @@ export function mountHeroExpandBlock(
     applyUnfaehigVisualOverlay(modMeta)
     requestAnimationFrame(() => {
       try {
-        syncModStripDockAndPad()
-        runSyncHeroRowLayout()
+        runSyncModStripLayoutOnly()
       } finally {
-        heroLayoutSyncing = false
+        heroLayoutRoLock = false
       }
     })
     } catch (_) {
-      heroLayoutSyncing = false
+      heroLayoutRoLock = false
     }
   }
 
@@ -5351,6 +5352,46 @@ export function mountHeroExpandBlock(
 
   let heroRowLayoutRaf = 0
   let lastPanelScrollH = -1
+
+  /** Mod-Strip: Dock, MOD+-Ausrichtung, Panel-Höhe — ohne Cluster-Rails / Gauges. */
+  const runSyncModStripLayoutOnly = () => {
+    if (heroLayoutSyncing) return
+    heroLayoutSyncing = true
+    try {
+      modIbCol.style.marginTop = ''
+      if (modIbCol && leThreshRail?.box) {
+        const modShell = modIbCol.querySelector(
+          ':scope > .init-hero-ex__ib-chain__inp-cell--mod-solo-btn'
+        )
+        if (modShell instanceof HTMLElement) {
+          modShell.style.transform = ''
+          const barTop = leThreshRail.box.getBoundingClientRect().top
+          const shellTop = modShell.getBoundingClientRect().top
+          const delta = barTop - shellTop
+          if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
+            modShell.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
+          }
+        }
+      }
+      syncModStripDockAndPad()
+      const panelBody = root.closest('.init-row-extra-panel__body')
+      if (panelBody instanceof HTMLElement) {
+        const h = Math.ceil(root.getBoundingClientRect().height)
+        if (
+          Number.isFinite(h) &&
+          h > 0 &&
+          (lastPanelScrollH < 0 || Math.abs(h - lastPanelScrollH) > 1)
+        ) {
+          lastPanelScrollH = h
+          const px = `${h}px`
+          panelBody.style.setProperty('--init-row-extra-panel-body-max-h', px)
+          panelBody.style.maxHeight = px
+        }
+      }
+    } finally {
+      heroLayoutSyncing = false
+    }
+  }
 
   /** Scroll-Ausgleich: untere und mittlere Heldenblock-Zeile gleiche Scroll-Breite. */
   const runSyncHeroRowLayout = () => {
@@ -5476,6 +5517,16 @@ export function mountHeroExpandBlock(
           leRailSlot.getBoundingClientRect().left - rootR.left
 
         for (const entry of clusterRails) {
+          if (
+            entry.root.style.visibility !== 'hidden' &&
+            !entry.root.hasAttribute('aria-hidden')
+          ) {
+            entry._layoutHide = true
+            entry.root.style.visibility = 'hidden'
+          }
+        }
+
+        for (const entry of clusterRails) {
           const leftPx =
             entry.root === sRailRoot
               ? leSlotLeft
@@ -5517,22 +5568,27 @@ export function mountHeroExpandBlock(
           const ibR = ibChain.getBoundingClientRect()
           const leBoxRight = leThreshRail.box.getBoundingClientRect().right
           const leModGapPx = ibR.left - leBoxRight
-          if (Number.isFinite(leModGapPx) && leModGapPx > 0) {
-            const fkRight = fk.cell.getBoundingClientRect().right - rootR.left
-            let left = Math.max(anchorLeft, fkRight + leModGapPx)
-            for (const entry of clusterRails) {
-              if (entry.root === sRailRoot) continue
-              entry.root.style.left = `${Math.round(left * 1000) / 1000}px`
-              left += railW + railGap
+          const fkRight = fk.cell.getBoundingClientRect().right - rootR.left
+          const fkKeSig = `${Math.round(leModGapPx)}|${Math.round(anchorLeft)}|${Math.round(fkRight)}|${Math.round(railW)}|${Math.round(railGap)}`
+          if (fkKeSig !== lastFkKeLayoutSig) {
+            lastFkKeLayoutSig = fkKeSig
+            if (Number.isFinite(leModGapPx) && leModGapPx > 0) {
+              let left = Math.max(anchorLeft, fkRight + leModGapPx)
+              for (const entry of clusterRails) {
+                if (entry.root === sRailRoot) continue
+                entry.root.style.left = `${Math.round(left * 1000) / 1000}px`
+                left += railW + railGap
+              }
+              root.style.setProperty(
+                '--init-hero-fk-ke-gap',
+                `${Math.round(leModGapPx * 1000) / 1000}px`
+              )
+            } else {
+              root.style.removeProperty('--init-hero-fk-ke-gap')
             }
-            root.style.setProperty(
-              '--init-hero-fk-ke-gap',
-              `${Math.round(leModGapPx * 1000) / 1000}px`
-            )
-          } else {
-            root.style.removeProperty('--init-hero-fk-ke-gap')
           }
         } else {
+          lastFkKeLayoutSig = ''
           root.style.removeProperty('--init-hero-fk-ke-gap')
         }
 
@@ -5577,6 +5633,13 @@ export function mountHeroExpandBlock(
             '--init-hero-ib-mod-gap',
             `${Math.round(railGap * 1000) / 1000}px`
           )
+        }
+
+        for (const entry of clusterRails) {
+          if (entry._layoutHide) {
+            entry.root.style.visibility = ''
+            delete entry._layoutHide
+          }
         }
       }
     }
@@ -5649,7 +5712,7 @@ export function mountHeroExpandBlock(
   }
 
   const spTzAlignRo = new ResizeObserver(() => {
-    if (heroLayoutSyncing) return
+    if (heroLayoutRoLock || heroLayoutSyncing) return
     syncHeroRowLayout()
   })
   const __spTzAlignEls = [
@@ -5657,7 +5720,6 @@ export function mountHeroExpandBlock(
     zoneMidRow,
     bottomStrip,
     leChainCols,
-    leValueMaxStack,
     spAbbr,
     tzAbbr,
     tzInp,
@@ -5666,15 +5728,9 @@ export function mountHeroExpandBlock(
     frontalLbl,
     stackGs,
     stackW6,
-    sRailRoot,
     wsInp,
     stackWs,
     leRailSlot,
-    aeEnergyRail.box,
-    auEnergyRail.box,
-    aeEnergyRail.root,
-    auEnergyRail.root,
-    ...(keEnergyRail ? [keEnergyRail.box, keEnergyRail.root] : []),
   ]
   for (const el of __spTzAlignEls) {
     spTzAlignRo.observe(el)
