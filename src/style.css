@@ -952,6 +952,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* Mikro-Eingaben (ohne Wappen): wie INI-Spalte (--init-micro-inp-*) */
   --init-hero-inp-font-size: var(--init-micro-inp-font-size);
   --init-hero-inp-line-height: var(--init-micro-inp-line-height);
+  /* MAX-Zeile (halbe Kästchenhöhe): eigene Größe — wird sonst von .init-hero-ex__micro überschrieben */
+  --init-hero-max-inp-font-size: calc(0.34rem * var(--init-box-scale));
+  --init-hero-max-placeholder-font-size: calc(0.3rem * var(--init-box-scale));
   /* LE-/Wund-Malus: vorerst gleiche Darstellung wie Standard-Kacheln */
   --init-hero-calc-pen-text: #121212;
   --init-hero-calc-pen-bg: transparent;
@@ -1134,7 +1137,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   flex-direction: row;
   align-items: flex-end;
   justify-content: center;
-  gap: 0.05rem;
+  gap: calc(0.14rem * var(--init-ui-scale));
   width: max-content;
   max-width: 100%;
   min-width: 0;
@@ -1184,6 +1187,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 /* RS bei Trefferauswertung ignorieren (Toggle neben < > in TP/TZ-Beschriftung) */
+/* Zusatzabstand nur um das RS-Schild — < > bleiben in Größe/Position unverändert */
+.init-hero-ex__rs-bypass-btn {
+  margin-inline: calc(0.05rem * var(--init-ui-scale));
+}
+
 .init-hero-ex__rs-bypass-btn-svg {
   display: block;
   width: auto;
@@ -1792,16 +1800,18 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border-top: 1px solid rgba(var(--rgb-gold), 0.48);
   border-radius: 0 0 4px 4px;
   text-align: center;
-  font-size: calc(0.58 * var(--init-hero-inp-font-size, 0.85rem));
+  font-size: var(--init-hero-max-inp-font-size);
   font-weight: 700;
   line-height: 1;
+  letter-spacing: 0.01em;
   color: #121212;
   background: var(--init-action-cell-fill);
 }
 
 .init-hero-ex__micro--max-sub::placeholder {
-  color: rgba(18, 18, 18, 0.52);
-  font-weight: 700;
+  color: rgba(18, 18, 18, 0.5);
+  font-weight: 600;
+  font-size: var(--init-hero-max-placeholder-font-size);
 }
 
 .init-hero-ex__micro--max-sub:focus {
@@ -3580,11 +3590,16 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: transparent !important;
   color: #121212;
   font-family: var(--font-body);
-  font-size: calc(0.56rem * var(--init-box-scale)) !important;
-  font-weight: 800;
-  line-height: 1.1;
+  font-size: var(--init-hero-max-inp-font-size) !important;
+  font-weight: 700;
+  line-height: 1;
   text-align: center;
   padding: 0 0.02rem;
+}
+
+.init-hero-ex__micro--wappen-lemax::placeholder {
+  font-size: var(--init-hero-max-placeholder-font-size) !important;
+  font-weight: 600;
 }
 
 .init-hero-ex__micro--wappen-lemax:focus {
@@ -3787,13 +3802,32 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: var(--init-action-cell-fill);
   color: #121212;
   font-family: var(--font-body);
-  font-size: var(--init-hero-inp-font-size);
-  font-weight: 800;
-  line-height: var(--init-hero-inp-line-height);
   text-align: center;
   transition:
     border-color 0.12s ease,
     background 0.12s ease;
+}
+
+/* Hauptwerte (LE, AT, …) — nicht die halbe MAX-Zeile darunter */
+.init-hero-ex__micro:not(.init-hero-ex__micro--max-sub):not(
+    .init-hero-ex__micro--wappen-lemax
+  ) {
+  font-size: var(--init-hero-inp-font-size);
+  font-weight: 800;
+  line-height: var(--init-hero-inp-line-height);
+}
+
+/* MAX unter LE/KE/AE/AU: nach .init-hero-ex__micro, damit nicht überschrieben */
+.init-hero-ex__micro.init-hero-ex__micro--max-sub {
+  font-size: var(--init-hero-max-inp-font-size);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.init-hero-ex__micro.init-hero-ex__micro--max-sub::placeholder {
+  font-size: var(--init-hero-max-placeholder-font-size);
+  font-weight: 600;
 }
 
 .init-hero-ex__micro--malus-active {
