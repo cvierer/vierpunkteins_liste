@@ -3274,6 +3274,11 @@ export function mountHeroExpandBlock(
   zoneMidRow.append(spTzPair)
   attrKoTpWrap.append(mrAttr.cell, leChain)
 
+  const leRailSlot = document.createElement('div')
+  leRailSlot.className =
+    'init-hero-ex__micro-cell init-hero-ex__micro-cell--le-rail-slot'
+  leRailSlot.setAttribute('aria-hidden', 'true')
+
   stripInner.append(
     at.cell,
     pa.cell,
@@ -3287,6 +3292,7 @@ export function mountHeroExpandBlock(
     extra.cell,
     ae.cell,
     au.cell,
+    leRailSlot,
     ibChain
   )
   if (modIbCol) {
@@ -5288,8 +5294,11 @@ export function mountHeroExpandBlock(
     return Number.isFinite(w) ? w : 0
   }
 
+  let heroRowLayoutRaf = 0
+  let lastPanelScrollH = -1
+
   /** Scroll-Ausgleich: untere und mittlere Heldenblock-Zeile gleiche Scroll-Breite. */
-  const syncHeroRowLayout = () => {
+  const runSyncHeroRowLayout = () => {
     zoneMidRow.style.paddingRight = ''
     bottomStrip.style.paddingRight = ''
     spTzGrid.style.width = ''
@@ -5390,8 +5399,15 @@ export function mountHeroExpandBlock(
           ? tzInp.getBoundingClientRect().bottom - rootR.top
           : null
 
+        const leSlotLeft =
+          leRailSlot.getBoundingClientRect().left - rootR.left
+
         for (const entry of clusterRails) {
-          entry.root.style.left = `${Math.round(cursorLeft * 1000) / 1000}px`
+          const leftPx =
+            entry.root === sRailRoot
+              ? leSlotLeft
+              : cursorLeft
+          entry.root.style.left = `${Math.round(leftPx * 1000) / 1000}px`
           entry.root.style.top = `${Math.round(railTop * 1000) / 1000}px`
           const abbrBottom =
             entry.abbrEl.getBoundingClientRect().bottom - rootR.top
@@ -5414,16 +5430,16 @@ export function mountHeroExpandBlock(
               )
             }
           }
-          cursorLeft += railW + railGap
+          if (entry.root !== sRailRoot) {
+            cursorLeft += railW + railGap
+          }
         }
 
-        const n = clusterRails.length
-        const clusterW = n * railW + Math.max(0, n - 1) * railGap
-        const modGap = clusterW + railGap
-        if (Number.isFinite(modGap) && modGap >= 0) {
+        /* Flex-Platzhalter (extra/ae/au/leRailSlot) + strip-gap; kein clusterW margin. */
+        if (Number.isFinite(railGap) && railGap >= 0) {
           ibChain.style.setProperty(
             '--init-hero-ib-mod-gap',
-            `${Math.round(modGap * 1000) / 1000}px`
+            `${Math.round(railGap * 1000) / 1000}px`
           )
         }
       }
@@ -5471,13 +5487,27 @@ export function mountHeroExpandBlock(
     const panelBody = root.closest('.init-row-extra-panel__body')
     if (panelBody instanceof HTMLElement) {
       const h = root.scrollHeight
-      if (Number.isFinite(h) && h > 0) {
+      if (
+        Number.isFinite(h) &&
+        h > 0 &&
+        (lastPanelScrollH < 0 || Math.abs(h - lastPanelScrollH) > 1)
+      ) {
+        lastPanelScrollH = h
         const px = `${Math.ceil(h)}px`
         panelBody.style.setProperty('--init-row-extra-panel-body-max-h', px)
         panelBody.style.maxHeight = px
       }
     }
   }
+
+  const syncHeroRowLayout = () => {
+    if (heroRowLayoutRaf) return
+    heroRowLayoutRaf = requestAnimationFrame(() => {
+      heroRowLayoutRaf = 0
+      runSyncHeroRowLayout()
+    })
+  }
+
   const spTzAlignRo = new ResizeObserver(() => {
     syncHeroRowLayout()
   })
@@ -5493,18 +5523,13 @@ export function mountHeroExpandBlock(
     attrCols,
     attrKoTpWrap,
     frontalLbl,
-    ibChain,
     stackGs,
     stackW6,
-    stripInner,
-    modStrip,
     leThreshRail.box,
     sRailRoot,
     wsInp,
     stackWs,
-    ae.cell,
-    au.cell,
-    extra.cell,
+    leRailSlot,
     aeEnergyRail.box,
     auEnergyRail.box,
     aeEnergyRail.root,
