@@ -1710,10 +1710,6 @@ export function mountHeroExpandBlock(
   const leChain = document.createElement('div')
   leChain.className = 'init-hero-ex__le-chain'
   const leMaxTitle = 'Lebensenergie Maximum (LE max)'
-  const leAbbrLE = mkChainAbbr(
-    'LE',
-    'Lebensenergie (LE).' + HERO_FIELD_MOD_INTEGRATED_HINT.trim()
-  )
   /** @param {string} idSuf @param {string} value @param {number} maxLen @param {string} title */
   const mkMaxSubInp = (idSuf, value, maxLen, title) => {
     const inp = mkChainInp(idSuf, value, maxLen, true, title)
@@ -1791,12 +1787,10 @@ export function mountHeroExpandBlock(
     stack.appendChild(colEl)
     return stack
   }
-  const stackLe = document.createElement('div')
-  stackLe.className = 'init-hero-ex__micro-cell'
   const leValueMaxStack = document.createElement('div')
-  leValueMaxStack.className = 'init-hero-ex__value-max-stack'
+  leValueMaxStack.className =
+    'init-hero-ex__value-max-stack init-hero-ex__s-rail-inset-stack'
   leValueMaxStack.append(leInp, leMaxInp)
-  stackLe.append(leAbbrLE, leValueMaxStack)
   const auMaxTitle = 'Ausdauermaximum (AU-Max)'
   const aeMaxTitle = 'Astralenergiemaximum (AE-Max)'
   const keMaxTitle = 'Karmaenergiemaximum (KE-Max)'
@@ -1857,6 +1851,7 @@ export function mountHeroExpandBlock(
   const leThreshRail = createLeThresholdGaugeBox(
     'init-hero-ex__le-threshold__box--tall'
   )
+  leThreshRail.box.prepend(leValueMaxStack)
   const sRailRoot = document.createElement('div')
   sRailRoot.className =
     'init-hero-ex__s-rail-root init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
@@ -3017,9 +3012,9 @@ export function mountHeroExpandBlock(
     lePop.style.height = `${Math.round(height * 1000) / 1000}px`
 
     const labelsR = lePopLabels.getBoundingClientRect()
-    const stackLeR = stackLe.getBoundingClientRect()
-    const chainLeft = stackLeR.left
-    const chainTop = stackLeR.top
+    const insetR = leValueMaxStack.getBoundingClientRect()
+    const chainLeft = insetR.left
+    const chainTop = insetR.top
     const leftInPop = Math.max(0, chainLeft - labelsR.left)
     const topInPop = Math.max(0, chainTop - labelsR.top)
     lePopLeMaxBlock.style.left = `${Math.round(leftInPop * 1000) / 1000}px`
@@ -3166,7 +3161,6 @@ export function mountHeroExpandBlock(
     extra.cell,
     ae.cell,
     au.cell,
-    stackLe,
     ibChain
   )
   if (modIbCol) {
@@ -3359,7 +3353,7 @@ export function mountHeroExpandBlock(
         : showExtraField && extraField === 'lo'
           ? { lo: { cell: extra.cell, inp: extra.inp, ab: extra.ab } }
           : {}),
-    le: { cell: stackLe, inp: leInp, ab: leAbbrLE },
+    le: { cell: sRailRoot, inp: leInp, ab: leThreshRailAbbr },
     leMax: { cell: leValueMaxStack, inp: leMaxInp, ab: null },
     tp: { cell: tpCell, inp: tpInp, ab: tpAbbr },
     ws: { cell: stackWs, inp: ws.inp, ab: ws.ab },
@@ -5174,15 +5168,15 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* Langer S-Balken: rechts neben LE; Unterkante = TZ-Kästchen. */
-    if (stackLe && tzInp) {
+    /* S-Balken: rechts neben AU; Unterkante = TZ-Kästchen. */
+    if (tzInp) {
       const rootR = root.getBoundingClientRect()
-      const leColR = stackLe.getBoundingClientRect()
+      const auColR = au.cell.getBoundingClientRect()
       const slotGapPx = readHeroCssLenPx(root, '--init-hero-ex-s-rail-slot-gap')
       if (Number.isFinite(slotGapPx) && slotGapPx >= 0) {
-        const left = leColR.right - rootR.left + slotGapPx
+        const left = auColR.right - rootR.left + slotGapPx
         sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
-        sRailRoot.style.top = `${Math.round((leColR.top - rootR.top) * 1000) / 1000}px`
+        sRailRoot.style.top = `${Math.round((auColR.top - rootR.top) * 1000) / 1000}px`
       }
 
       const tzBottom = tzInp.getBoundingClientRect().bottom - rootR.top
@@ -5247,7 +5241,7 @@ export function mountHeroExpandBlock(
     zoneMidRow,
     bottomStrip,
     leChainCols,
-    stackLe,
+    leValueMaxStack,
     spAbbr,
     tzAbbr,
     tzInp,

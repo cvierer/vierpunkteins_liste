@@ -947,7 +947,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   --init-hero-calc-pen-border: transparent;
   /* Unterrand: bei ≥5 MOD +1 Kartenhöhe, bei ≥6 +2, bei ≥7 +2.5 (JS); ab 4 Karten scrollt der Strip. */
   --init-hero-ex-mod-strip-reserve: 0px;
-  --init-hero-ex-s-rail-w: calc(0.76 * var(--init-hero-cell));
+  --init-hero-ex-s-rail-w: var(--init-hero-cell);
   --init-hero-ex-s-rail-h-scale: 0.85;
   --init-hero-ex-s-rail-slot-gap: calc(0.08rem * var(--init-ui-scale));
   --init-hero-ex-row-stack-h: calc(
@@ -1908,6 +1908,31 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   min-width: 0;
   max-width: none;
   pointer-events: auto;
+}
+
+/* LE + MAX oben im S-Balken (ohne Kürzel); Gauge bleibt dahinter sichtbar. */
+.init-hero-ex__s-rail-inset-stack {
+  position: relative;
+  z-index: 4;
+  width: 100%;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.init-hero-ex__s-rail-inset-stack .init-hero-ex__micro,
+.init-hero-ex__s-rail-inset-stack .init-hero-ex__micro--max-sub {
+  background: color-mix(in srgb, var(--init-action-cell-fill) 78%, transparent);
+}
+
+.init-hero-ex__s-rail-inset-stack .init-hero-ex__micro:focus,
+.init-hero-ex__s-rail-inset-stack .init-hero-ex__micro--max-sub:focus {
+  background: color-mix(in srgb, var(--init-action-cell-fill-focus) 85%, transparent);
+}
+
+.init-hero-ex__s-rail-root .init-hero-ex__le-threshold__fill,
+.init-hero-ex__s-rail-root .init-hero-ex__le-threshold__line,
+.init-hero-ex__s-rail-root .init-hero-ex__le-threshold__skull {
+  z-index: 1;
 }
 
 .init-hero-ex__le-threshold__fill {
