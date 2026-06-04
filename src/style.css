@@ -3094,8 +3094,15 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: var(--init-action-cell-fill-focus) !important;
 }
 
-.init-hero-ex__ib-chain > .init-hero-ex__ib-chain__cols .init-hero-ex__micro--ib-chain-inp {
+.init-hero-ex__ib-chain > .init-hero-ex__ib-chain__cols .init-hero-ex__micro--ib-chain-inp,
+.init-hero-ex__strip-inner
+  > .init-hero-ex__ib-chain__stack
+  .init-hero-ex__micro--ib-chain-inp {
   color: #121212;
+  font-family: var(--font-body);
+  font-size: var(--init-hero-inp-font-size);
+  font-weight: 800;
+  line-height: var(--init-hero-inp-line-height);
 }
 
 .init-hero-ex__ib-chain > .init-hero-ex__ib-chain__cols
@@ -3653,18 +3660,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-hero-ex__ib-chain__stack > .init-hero-ex__abbr,
 .init-hero-ex__le-chain__stack > .init-hero-ex__abbr {
   font-size: calc(0.48rem * var(--init-box-scale));
-}
-
-/* BE/W6-Kürzel in der IB-Kette etwas kleiner; MR/WS (halbe Zelle) gleiche Typo wie W6 */
-.init-hero-ex__ib-chain__stack > .init-hero-ex__abbr--ib-chain-compact,
-.init-hero-ex__attr-ko-tp-wrap
-  > .init-hero-ex__micro-cell--half-cell
-  > .init-hero-ex__abbr,
-.init-hero-ex__bottom-strip
-  .init-hero-ex__micro-cell--ws-le-match
-  > .init-hero-ex__abbr:first-child {
-  font-size: calc(0.345rem * var(--init-box-scale));
-  letter-spacing: 0.025em;
 }
 
 .init-hero-ex__abbr.init-hero-ex__abbr--malus-active {
