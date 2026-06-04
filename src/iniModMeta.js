@@ -3424,6 +3424,22 @@ export function mountHeroExpandBlock(
   let heroClusterRailsAwaitFirstLayout = true
   let lastSpAbbrTranslateY = Number.NaN
   let lastTzAbbrTranslateY = Number.NaN
+  let lastModShellTranslateY = Number.NaN
+  /** Letzte Interaktion im Heldenblock (Fokus/Klick/Eingabe). */
+  let lastHeroInteractionAt = 0
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let deferredHeroLayoutTimer = null
+
+  const markHeroInteraction = () => {
+    lastHeroInteractionAt = Date.now()
+  }
+
+  /** Während Fokus/Eingabe kein periodischer Malus-Poll / kein sofortiger Rail-Layout-Sync. */
+  const isHeroInteractionActive = () => {
+    const active = document.activeElement
+    if (active instanceof HTMLElement && root.contains(active)) return true
+    return Date.now() - lastHeroInteractionAt < 2200
+  }
 
   /** Unterrand-Reserve für absoluten Mod-Strip (ohne Layout-Klassenwechsel bei 7+). */
   const syncHeroModStripExpansion = (chipCount) => {
@@ -4565,18 +4581,24 @@ export function mountHeroExpandBlock(
           ':scope > .init-hero-ex__ib-chain__inp-cell--mod-solo-btn'
         )
         if (modShell instanceof HTMLElement) {
-          modShell.style.transform = ''
           const barTop = leThreshRail.box.getBoundingClientRect().top
           const shellTop = modShell.getBoundingClientRect().top
           const delta = barTop - shellTop
           if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
-            modShell.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
+            const y = Math.round(delta * 1000) / 1000
+            if (lastModShellTranslateY !== y) {
+              lastModShellTranslateY = y
+              modShell.style.transform = `translateY(${y}px)`
+            }
+          } else if (!Number.isNaN(lastModShellTranslateY)) {
+            lastModShellTranslateY = Number.NaN
+            modShell.style.transform = ''
           }
         }
       }
       syncModStripDockAndPad()
       const panelBody = root.closest('.init-row-extra-panel__body')
-      if (panelBody instanceof HTMLElement) {
+      if (panelBody instanceof HTMLElement && !isHeroInteractionActive()) {
         const h = Math.ceil(root.getBoundingClientRect().height)
         if (
           Number.isFinite(h) &&
@@ -4877,12 +4899,18 @@ export function mountHeroExpandBlock(
         ':scope > .init-hero-ex__ib-chain__inp-cell--mod-solo-btn'
       )
       if (modShell instanceof HTMLElement) {
-        modShell.style.transform = ''
         const barTop = leThreshRail.box.getBoundingClientRect().top
         const shellTop = modShell.getBoundingClientRect().top
         const delta = barTop - shellTop
         if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
-          modShell.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
+          const y = Math.round(delta * 1000) / 1000
+          if (lastModShellTranslateY !== y) {
+            lastModShellTranslateY = y
+            modShell.style.transform = `translateY(${y}px)`
+          }
+        } else if (!Number.isNaN(lastModShellTranslateY)) {
+          lastModShellTranslateY = Number.NaN
+          modShell.style.transform = ''
         }
       }
     }
@@ -4913,7 +4941,7 @@ export function mountHeroExpandBlock(
 
     /* Ausklapp-Panel: Höhe aus Layout-Box (nicht scrollHeight — vermeidet Wachstumsschleife). */
     const panelBody = root.closest('.init-row-extra-panel__body')
-    if (panelBody instanceof HTMLElement) {
+    if (panelBody instanceof HTMLElement && !isHeroInteractionActive()) {
       const h = Math.ceil(root.getBoundingClientRect().height)
       if (
         Number.isFinite(h) &&
@@ -4950,8 +4978,22 @@ export function mountHeroExpandBlock(
     })
   }
 
+  const scheduleHeroRowLayoutAfterIdle = () => {
+    if (deferredHeroLayoutTimer != null) {
+      clearTimeout(deferredHeroLayoutTimer)
+    }
+    deferredHeroLayoutTimer = setTimeout(() => {
+      deferredHeroLayoutTimer = null
+      if (!isHeroInteractionActive()) syncHeroRowLayout()
+    }, 150)
+  }
+
   const spTzAlignRo = new ResizeObserver(() => {
     if (heroLayoutRoLock || heroLayoutSyncing) return
+    if (isHeroInteractionActive()) {
+      scheduleHeroRowLayoutAfterIdle()
+      return
+    }
     syncHeroRowLayout()
   })
   const __spTzAlignEls = [
@@ -5111,9 +5153,9 @@ export function mountHeroExpandBlock(
     const MALUS_VIEW_POLL_MS = 1000
     const onVisView = () => {
       if (document.visibilityState !== 'visible' || !root.isConnected) return
+      if (isHeroInteractionActive()) return
       refreshComputedPenaltyHighlights()
-      updateLeThreshold()
-      updateEnergyThreshold()
+      scheduleGaugeRefresh()
       applyUnfaehigVisualOverlay()
     }
     document.addEventListener('visibilitychange', onVisView)
@@ -5130,9 +5172,9 @@ export function mountHeroExpandBlock(
         clearMalusPollView()
         return
       }
+      if (isHeroInteractionActive()) return
       refreshComputedPenaltyHighlights()
-      updateLeThreshold()
-      updateEnergyThreshold()
+      scheduleGaugeRefresh()
       applyUnfaehigVisualOverlay()
     }, MALUS_VIEW_POLL_MS)
     return
@@ -5738,12 +5780,22 @@ export function mountHeroExpandBlock(
   root.addEventListener(
     'pointerdown',
     () => {
-      lastPointerDownInsideAt = Date.now()
+      const t = Date.now()
+      lastPointerDownInsideAt = t
+      markHeroInteraction()
+    },
+    { capture: true, passive: true }
+  )
+  root.addEventListener(
+    'focusin',
+    () => {
+      markHeroInteraction()
     },
     { capture: true, passive: true }
   )
   for (const inp of liveInputs) {
     inp.addEventListener('input', () => {
+      markHeroInteraction()
       // Sofort: Malus-Hervorhebung an aktuellen LE/Wunden-Werten (ohne auf
       // die 4s-Debounce von syncLeThreshold / Popover zu warten).
       refreshComputedPenaltyHighlights()
@@ -5797,6 +5849,7 @@ export function mountHeroExpandBlock(
         if (active instanceof HTMLElement && root.contains(active)) return
         if (Date.now() - lastPointerDownInsideAt < 180) return
         commit()
+        scheduleHeroRowLayoutAfterIdle()
       }, 45)
     })
     inp.addEventListener('keydown', (e) => {
@@ -5805,6 +5858,7 @@ export function mountHeroExpandBlock(
       commit()
     })
     inp.addEventListener('focus', (e) => {
+      markHeroInteraction()
       const el = e.currentTarget
       if (!(el instanceof HTMLInputElement) || el.disabled) return
       requestAnimationFrame(() => {
@@ -5828,6 +5882,7 @@ export function mountHeroExpandBlock(
   const MALUS_STATE_POLL_MS = 1000
   const onVisEdit = () => {
     if (document.visibilityState !== 'visible' || !root.isConnected) return
+    if (isHeroInteractionActive()) return
     if (liveRefreshTimer != null) {
       clearTimeout(liveRefreshTimer)
       liveRefreshTimer = null
@@ -5849,6 +5904,7 @@ export function mountHeroExpandBlock(
       clearMalusStatePoll()
       return
     }
+    if (isHeroInteractionActive()) return
     if (liveRefreshTimer != null) {
       clearTimeout(liveRefreshTimer)
       liveRefreshTimer = null
