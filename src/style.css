@@ -932,9 +932,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
       var(--init-hero-abbr-line-h) -
       var(--init-hero-label-input-gap)
   );
-  /* Zeile 2 + 3: gemeinsam um ½ Kästchen nach oben; gleicher Lift Zeile 1↔2 wie 2↔3 */
+  /* Zeile 2 + 3: gemeinsam um ½ Kästchen nach oben; Zeile 1↔2 zusätzlich ½ Kästchen enger */
   --init-hero-ex-r2-r3-lift: calc(-0.5 * var(--init-hero-cell));
-  --init-hero-ex-r1-r2-lift: var(--init-hero-ex-r2-r3-lift);
+  --init-hero-ex-r1-r2-lift: calc(
+    var(--init-hero-ex-r2-r3-lift) - 0.5 * var(--init-hero-cell)
+  );
   /* Mikro-Eingaben (ohne Wappen): wie INI-Spalte (--init-micro-inp-*) */
   --init-hero-inp-font-size: var(--init-micro-inp-font-size);
   --init-hero-inp-line-height: var(--init-micro-inp-line-height);
