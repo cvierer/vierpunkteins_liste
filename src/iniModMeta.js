@@ -1200,7 +1200,7 @@ export function mountHeroExpandBlock(
 
   const attrCols = document.createElement('div')
   attrCols.className = 'init-hero-ex__attr-cols'
-  for (const x of [mu, kl, inn, ch, ff, ge, ko]) {
+  for (const x of [mu, kl, inn, ch, ff, ge, koAttr]) {
     attrCols.appendChild(x.cell)
   }
   attrBlock.appendChild(attrCols)
