@@ -1427,6 +1427,7 @@ export function mountHeroExpandBlock(
     '',
     true
   )
+  extra.cell.classList.add('init-hero-ex__micro-cell--after-fk')
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
   /* Nur MOD (+ MOD+); GS/IB/BE/W6 stehen davor in .init-hero-ex__strip-inner. */

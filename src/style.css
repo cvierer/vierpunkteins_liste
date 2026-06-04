@@ -952,9 +952,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* Mikro-Eingaben (ohne Wappen): wie INI-Spalte (--init-micro-inp-*) */
   --init-hero-inp-font-size: var(--init-micro-inp-font-size);
   --init-hero-inp-line-height: var(--init-micro-inp-line-height);
-  /* MAX-Zeile (halbe Kästchenhöhe): lesbar in halber Zellhöhe */
-  --init-hero-max-inp-font-size: calc(0.46rem * var(--init-box-scale));
-  --init-hero-max-placeholder-font-size: calc(0.4rem * var(--init-box-scale));
+  /* MAX-Zeile (halbe Kästchenhöhe): Werte + „MAX“-Platzhalter */
+  --init-hero-max-inp-font-size: calc(0.54rem * var(--init-box-scale));
+  --init-hero-max-placeholder-font-size: calc(0.48rem * var(--init-box-scale));
+  /* FK→KE: etwas mehr als strip-gap allein */
+  --init-hero-fk-ke-gap-bonus: calc(0.08 * var(--init-hero-cell));
   /* LE-/Wund-Malus: vorerst gleiche Darstellung wie Standard-Kacheln */
   --init-hero-calc-pen-text: #121212;
   --init-hero-calc-pen-bg: transparent;
@@ -1520,6 +1522,10 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: clip;
+}
+
+.init-hero-ex__strip-inner > .init-hero-ex__micro-cell--after-fk {
+  margin-left: var(--init-hero-fk-ke-gap-bonus);
 }
 
 /* IB-Kette: nur MOD (+ MOD+-Button), rechts neben Schwellen-Cluster (KE|AE|AU|LE). */
@@ -2831,7 +2837,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 /* LE/MAX im Popover: kompakter als Hauptzeile; Ziffern wie 1/2=X */
 .init-hero-ex__le-pop__le-chain-wrap {
   --le-pop-chain-h: var(--init-hero-cell);
-  --le-pop-lemax-abbr: calc(0.54rem * var(--init-box-scale));
+  --le-pop-lemax-abbr: calc(0.58rem * var(--init-box-scale));
   --le-pop-track-w: calc(1rem * var(--init-ui-scale));
   --le-pop-gauge-gap: 0.28rem;
   position: absolute;
