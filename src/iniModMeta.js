@@ -2076,6 +2076,33 @@ export function mountHeroExpandBlock(
     }
   }
 
+  /** Nur bei geänderter Höhe schreiben (vermeidet CSS-transition-Neustart). */
+  const setGaugeFillHeight = (fill, heightStr) => {
+    if (fill.style.height !== heightStr) fill.style.height = heightStr
+  }
+
+  let gaugeLiveClearRaf = 0
+  const syncGaugeLiveEditClass = () => {
+    const active = document.activeElement
+    root.classList.toggle(
+      'init-hero-ex--gauge-live',
+      active === leInp || active === leMaxInp
+    )
+  }
+  const armGaugeLiveEdit = () => {
+    root.classList.add('init-hero-ex--gauge-live')
+    if (gaugeLiveClearRaf) cancelAnimationFrame(gaugeLiveClearRaf)
+    gaugeLiveClearRaf = requestAnimationFrame(() => {
+      gaugeLiveClearRaf = 0
+      syncGaugeLiveEditClass()
+    })
+  }
+  for (const inp of [leInp, leMaxInp]) {
+    inp.addEventListener('focus', () => root.classList.add('init-hero-ex--gauge-live'))
+    inp.addEventListener('blur', () => syncGaugeLiveEditClass())
+    inp.addEventListener('input', armGaugeLiveEdit)
+  }
+
   const resetLeThreshNegOff = () => {
     for (const g of leThreshGaugeSets) {
       g.host.classList.remove('init-hero-ex__le-threshold--neg-le')
@@ -2147,7 +2174,7 @@ export function mountHeroExpandBlock(
         g.fill.classList.add('init-hero-ex__le-threshold__fill--from-top')
         g.fill.style.bottom = 'auto'
         g.fill.style.top = '0'
-        g.fill.style.height = hp.toFixed(3) + '%'
+        setGaugeFillHeight(g.fill, hp.toFixed(3) + '%')
         g.host.dataset.leBand = 'neg-le'
         g.skull.style.display = ''
         g.line50.style.display = 'none'
@@ -2186,14 +2213,14 @@ export function mountHeroExpandBlock(
     for (const g of leThreshGaugeSets) {
       g.skull.style.display = dead ? '' : 'none'
       if (dead) {
-        g.fill.style.height = '0%'
+        setGaugeFillHeight(g.fill, '0%')
         g.host.dataset.leBand = 'crit'
       } else if (leV != null && maxV != null && maxV > 0) {
         const frac = Math.max(0, Math.min(1, leV / maxV))
-        g.fill.style.height = (frac * 100).toFixed(3) + '%'
+        setGaugeFillHeight(g.fill, (frac * 100).toFixed(3) + '%')
         g.host.dataset.leBand = leBarColorBand(leV, maxV)
       } else {
-        g.fill.style.height = '0%'
+        setGaugeFillHeight(g.fill, '0%')
         delete g.host.dataset.leBand
       }
       if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
@@ -2234,10 +2261,10 @@ export function mountHeroExpandBlock(
       const maxV = parseNonNegIntLoose(g.maxInp.value)
       if (val != null && maxV != null && maxV > 0) {
         const frac = Math.max(0, Math.min(1, val / maxV))
-        g.fill.style.height = (frac * 100).toFixed(3) + '%'
+        setGaugeFillHeight(g.fill, (frac * 100).toFixed(3) + '%')
         g.host.dataset.leBand = leBarColorBand(val, maxV)
       } else {
-        g.fill.style.height = '0%'
+        setGaugeFillHeight(g.fill, '0%')
         delete g.host.dataset.leBand
       }
     }
@@ -2613,6 +2640,11 @@ export function mountHeroExpandBlock(
     sRailRoot,
     ...energyRailRoots
   )
+  /* Bis erster Layout-Sync: Rails nicht bei left:0 sichtbar (Flackern/Duplikat). */
+  sRailRoot.style.visibility = 'hidden'
+  for (const railEl of energyRailRoots) {
+    railEl.style.visibility = 'hidden'
+  }
   /*
    * modPop nicht unter .init-hero-ex haengen: als Geschwister von root
    * unter container (position: relative), sonst stoeren sie das CSS-Grid und
@@ -3374,6 +3406,10 @@ export function mountHeroExpandBlock(
   /** Reentrancy-Guard für laufenden Layout-Sync. */
   let heroLayoutSyncing = false
   let lastFkKeLayoutSig = ''
+  let lastClusterRailLayoutSig = ''
+  let heroClusterRailsAwaitFirstLayout = true
+  let lastSpAbbrTranslateY = Number.NaN
+  let lastTzAbbrTranslateY = Number.NaN
 
   /** Unterrand-Reserve für absoluten Mod-Strip (ohne Layout-Klassenwechsel bei 7+). */
   const syncHeroModStripExpansion = (chipCount) => {
@@ -4667,129 +4703,147 @@ export function mountHeroExpandBlock(
         const leSlotLeft =
           leRailSlot.getBoundingClientRect().left - rootR.left
 
-        for (const entry of clusterRails) {
-          if (
-            entry.root.style.visibility !== 'hidden' &&
-            !entry.root.hasAttribute('aria-hidden')
-          ) {
-            entry._layoutHide = true
-            entry.root.style.visibility = 'hidden'
+        const refInpTopForSig =
+          refInpEl instanceof HTMLInputElement
+            ? refInpEl.getBoundingClientRect().top - rootR.top
+            : -1
+        const clusterSig = [
+          Math.round(anchorLeft),
+          Math.round(railTop),
+          Math.round(leSlotLeft),
+          Math.round(railW),
+          Math.round(railGap),
+          wsBottom != null ? Math.round(wsBottom) : '',
+          tzBottom != null ? Math.round(tzBottom) : '',
+          fkHidden ? 1 : 0,
+          keRailShown ? 1 : 0,
+          Math.round(refInpTopForSig),
+          clusterRails.length,
+        ].join('|')
+
+        const clusterLayoutUnchanged =
+          !heroClusterRailsAwaitFirstLayout &&
+          clusterSig === lastClusterRailLayoutSig
+
+        const fmtClusterPx = (n) => `${Math.round(n * 1000) / 1000}px`
+        const setClusterPxIf = (el, prop, num) => {
+          const next = fmtClusterPx(num)
+          if (el.style[prop] !== next) el.style[prop] = next
+        }
+        const setClusterVarIf = (el, name, num) => {
+          const next = fmtClusterPx(num)
+          if (el.style.getPropertyValue(name) !== next) {
+            el.style.setProperty(name, next)
           }
         }
 
-        for (const entry of clusterRails) {
-          const leftPx =
-            entry.root === sRailRoot
-              ? leSlotLeft
-              : cursorLeft
-          entry.root.style.left = `${Math.round(leftPx * 1000) / 1000}px`
-          entry.root.style.top = `${Math.round(railTop * 1000) / 1000}px`
-          const abbrBottom =
-            entry.abbrEl.getBoundingClientRect().bottom - rootR.top
-          const boxGap =
-            entry.root === sRailRoot ? sRailLabelGap : labelGapPx
-          if (entry.bottom === 'ws' && wsBottom != null) {
-            const barH = wsBottom - abbrBottom - boxGap
-            if (Number.isFinite(barH) && barH > 0) {
-              entry.root.style.setProperty(
-                '--init-hero-ex-energy-rail-h',
-                `${Math.round(barH * 1000) / 1000}px`
-              )
-            }
-          } else if (entry.bottom === 'tz' && tzBottom != null) {
-            const barH = tzBottom - abbrBottom - boxGap
-            if (Number.isFinite(barH) && barH > 0) {
-              root.style.setProperty(
-                '--init-hero-ex-s-rail-h',
-                `${Math.round(barH * 1000) / 1000}px`
-              )
-            }
-          }
-          if (entry.root !== sRailRoot) {
-            cursorLeft += railW + railGap
-          }
-        }
+        if (!clusterLayoutUnchanged) {
+          lastClusterRailLayoutSig = clusterSig
+          cursorLeft = anchorLeft
 
-        /* FK→KE: sichtbare Lücke zwischen FK- und KE-Kästchen (Flex) + Schwellenbalken daran ausrichten. */
-        if (!fkHidden && keRailShown && extra?.cell) {
-          const fkRight = fk.cell.getBoundingClientRect().right - rootR.left
-          const keLeft = extra.cell.getBoundingClientRect().left - rootR.left
-          const fkKeGapPx = keLeft - fkRight
-          const fkKeSig = `${Math.round(fkKeGapPx)}|${Math.round(keLeft)}|${Math.round(fkRight)}|${Math.round(railW)}|${Math.round(railGap)}`
-          if (fkKeSig !== lastFkKeLayoutSig) {
-            lastFkKeLayoutSig = fkKeSig
-            if (Number.isFinite(keLeft) && keLeft >= fkRight) {
-              let left = keLeft
-              for (const entry of clusterRails) {
-                if (entry.root === sRailRoot) continue
-                entry.root.style.left = `${Math.round(left * 1000) / 1000}px`
-                left += railW + railGap
-              }
-              if (Number.isFinite(fkKeGapPx) && fkKeGapPx > 0) {
-                root.style.setProperty(
-                  '--init-hero-fk-ke-gap',
-                  `${Math.round(fkKeGapPx * 1000) / 1000}px`
+          for (const entry of clusterRails) {
+            const leftPx =
+              entry.root === sRailRoot ? leSlotLeft : cursorLeft
+            setClusterPxIf(entry.root, 'left', leftPx)
+            setClusterPxIf(entry.root, 'top', railTop)
+            const abbrBottom =
+              entry.abbrEl.getBoundingClientRect().bottom - rootR.top
+            const boxGap =
+              entry.root === sRailRoot ? sRailLabelGap : labelGapPx
+            if (entry.bottom === 'ws' && wsBottom != null) {
+              const barH = wsBottom - abbrBottom - boxGap
+              if (Number.isFinite(barH) && barH > 0) {
+                setClusterVarIf(
+                  entry.root,
+                  '--init-hero-ex-energy-rail-h',
+                  barH
                 )
+              }
+            } else if (entry.bottom === 'tz' && tzBottom != null) {
+              const barH = tzBottom - abbrBottom - boxGap
+              if (Number.isFinite(barH) && barH > 0) {
+                setClusterVarIf(root, '--init-hero-ex-s-rail-h', barH)
+              }
+            }
+            if (entry.root !== sRailRoot) {
+              cursorLeft += railW + railGap
+            }
+          }
+
+          /* FK→KE: sichtbare Lücke zwischen FK- und KE-Kästchen (Flex) + Schwellenbalken daran ausrichten. */
+          if (!fkHidden && keRailShown && extra?.cell) {
+            const fkRight = fk.cell.getBoundingClientRect().right - rootR.left
+            const keLeft = extra.cell.getBoundingClientRect().left - rootR.left
+            const fkKeGapPx = keLeft - fkRight
+            const fkKeSig = `${Math.round(fkKeGapPx)}|${Math.round(keLeft)}|${Math.round(fkRight)}|${Math.round(railW)}|${Math.round(railGap)}`
+            if (fkKeSig !== lastFkKeLayoutSig) {
+              lastFkKeLayoutSig = fkKeSig
+              if (Number.isFinite(keLeft) && keLeft >= fkRight) {
+                let left = keLeft
+                for (const entry of clusterRails) {
+                  if (entry.root === sRailRoot) continue
+                  setClusterPxIf(entry.root, 'left', left)
+                  left += railW + railGap
+                }
+                if (Number.isFinite(fkKeGapPx) && fkKeGapPx > 0) {
+                  setClusterVarIf(root, '--init-hero-fk-ke-gap', fkKeGapPx)
+                } else {
+                  root.style.removeProperty('--init-hero-fk-ke-gap')
+                }
               } else {
                 root.style.removeProperty('--init-hero-fk-ke-gap')
               }
-            } else {
-              root.style.removeProperty('--init-hero-fk-ke-gap')
             }
+          } else {
+            lastFkKeLayoutSig = ''
+            root.style.removeProperty('--init-hero-fk-ke-gap')
           }
-        } else {
-          lastFkKeLayoutSig = ''
-          root.style.removeProperty('--init-hero-fk-ke-gap')
-        }
 
-        /* Feinabgleich: Hauptwert-Kästchen KE/AE/AU/LE auf FK/W6-Oberkante. */
-        if (refInpEl instanceof HTMLInputElement) {
-          const refInpTop = refInpEl.getBoundingClientRect().top - rootR.top
-          for (const entry of clusterRails) {
-            const inpTop =
-              entry.mainInp.getBoundingClientRect().top - rootR.top
-            const shift = refInpTop - inpTop
-            if (Number.isFinite(shift) && Math.abs(shift) > 0.5) {
-              const curTop = parseFloat(entry.root.style.top) || railTop
-              entry.root.style.top = `${Math.round((curTop + shift) * 1000) / 1000}px`
-              const abbrBottom =
-                entry.abbrEl.getBoundingClientRect().bottom - rootR.top
-              const boxGap =
-                entry.root === sRailRoot ? sRailLabelGap : labelGapPx
-              if (entry.bottom === 'ws' && wsBottom != null) {
-                const barH = wsBottom - abbrBottom - boxGap
-                if (Number.isFinite(barH) && barH > 0) {
-                  entry.root.style.setProperty(
-                    '--init-hero-ex-energy-rail-h',
-                    `${Math.round(barH * 1000) / 1000}px`
-                  )
-                }
-              } else if (entry.bottom === 'tz' && tzBottom != null) {
-                const barH = tzBottom - abbrBottom - boxGap
-                if (Number.isFinite(barH) && barH > 0) {
-                  root.style.setProperty(
-                    '--init-hero-ex-s-rail-h',
-                    `${Math.round(barH * 1000) / 1000}px`
-                  )
+          /* Feinabgleich: Hauptwert-Kästchen KE/AE/AU/LE auf FK/W6-Oberkante. */
+          if (refInpEl instanceof HTMLInputElement) {
+            const refInpTop = refInpEl.getBoundingClientRect().top - rootR.top
+            for (const entry of clusterRails) {
+              const inpTop =
+                entry.mainInp.getBoundingClientRect().top - rootR.top
+              const shift = refInpTop - inpTop
+              if (Number.isFinite(shift) && Math.abs(shift) > 0.5) {
+                const curTop = parseFloat(entry.root.style.top) || railTop
+                setClusterPxIf(entry.root, 'top', curTop + shift)
+                const abbrBottom =
+                  entry.abbrEl.getBoundingClientRect().bottom - rootR.top
+                const boxGap =
+                  entry.root === sRailRoot ? sRailLabelGap : labelGapPx
+                if (entry.bottom === 'ws' && wsBottom != null) {
+                  const barH = wsBottom - abbrBottom - boxGap
+                  if (Number.isFinite(barH) && barH > 0) {
+                    setClusterVarIf(
+                      entry.root,
+                      '--init-hero-ex-energy-rail-h',
+                      barH
+                    )
+                  }
+                } else if (entry.bottom === 'tz' && tzBottom != null) {
+                  const barH = tzBottom - abbrBottom - boxGap
+                  if (Number.isFinite(barH) && barH > 0) {
+                    setClusterVarIf(root, '--init-hero-ex-s-rail-h', barH)
+                  }
                 }
               }
             }
           }
-        }
 
-        /* Flex-Platzhalter (extra/ae/au/leRailSlot) + strip-gap; kein clusterW margin. */
-        if (Number.isFinite(railGap) && railGap >= 0) {
-          ibChain.style.setProperty(
-            '--init-hero-ib-mod-gap',
-            `${Math.round(railGap * 1000) / 1000}px`
-          )
-        }
-
-        for (const entry of clusterRails) {
-          if (entry._layoutHide) {
-            entry.root.style.visibility = ''
-            delete entry._layoutHide
+          /* Flex-Platzhalter (extra/ae/au/leRailSlot) + strip-gap; kein clusterW margin. */
+          if (Number.isFinite(railGap) && railGap >= 0) {
+            const gapPx = fmtClusterPx(railGap)
+            if (ibChain.style.getPropertyValue('--init-hero-ib-mod-gap') !== gapPx) {
+              ibChain.style.setProperty('--init-hero-ib-mod-gap', gapPx)
+            }
           }
+        }
+
+        if (heroClusterRailsAwaitFirstLayout) {
+          heroClusterRailsAwaitFirstLayout = false
+          applyConfigurableFieldVisibility(snap)
         }
       }
     }
@@ -4811,23 +4865,26 @@ export function mountHeroExpandBlock(
       }
     }
 
-    updateLeThreshold()
-    updateEnergyThreshold()
     syncModStripDockAndPad()
 
-    /* TP/TZ-Kürzel auf gleicher Höhe wie RB/Wappen-Kürzel. */
-    spAbbr.style.transform = ''
-    tzAbbr.style.transform = ''
+    /* TP/TZ-Kürzel auf gleicher Höhe wie RB/Wappen-Kürzel (Transform nur bei Änderung). */
     const refWappenAbbr = zoneMidRow.querySelector(
       '.init-hero-ex__micro-cell--wappen:not([aria-hidden="true"]) > .init-hero-ex__abbr'
     )
     if (refWappenAbbr) {
       const refTop = refWappenAbbr.getBoundingClientRect().top
-      for (const el of [spAbbr, tzAbbr]) {
+      for (const [el, lastRef] of [
+        [spAbbr, { get: () => lastSpAbbrTranslateY, set: (v) => { lastSpAbbrTranslateY = v } }],
+        [tzAbbr, { get: () => lastTzAbbrTranslateY, set: (v) => { lastTzAbbrTranslateY = v } }],
+      ]) {
         if (!el) continue
         const delta = refTop - el.getBoundingClientRect().top
         if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
-          el.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
+          const y = Math.round(delta * 1000) / 1000
+          if (lastRef.get() !== y) {
+            lastRef.set(y)
+            el.style.transform = `translateY(${y}px)`
+          }
         }
       }
     }
@@ -5208,6 +5265,21 @@ export function mountHeroExpandBlock(
     return previewMeta
   }
 
+  let leDerivedStripRaf = 0
+  /** @type {Record<string, unknown> | undefined} */
+  let leDerivedStripMetaPending
+
+  const scheduleLeDerivedModStrip = (previewMeta) => {
+    leDerivedStripMetaPending = previewMeta
+    if (leDerivedStripRaf) return
+    leDerivedStripRaf = requestAnimationFrame(() => {
+      leDerivedStripRaf = 0
+      const m = leDerivedStripMetaPending
+      leDerivedStripMetaPending = undefined
+      if (m) renderModBadgesAndStrip(m)
+    })
+  }
+
   /**
    * LE-abgeleitete Anzeige (Schwellen, Mod-Chips) ohne separates Overlay.
    *
@@ -5218,7 +5290,7 @@ export function mountHeroExpandBlock(
     if (previewMeta) {
       refreshComputedPenaltyHighlights(previewMeta)
       refreshDerivedUiFromInputs(previewMeta)
-      renderModBadgesAndStrip(previewMeta)
+      scheduleLeDerivedModStrip(previewMeta)
     } else {
       refreshComputedPenaltyHighlights()
       refreshDerivedUiFromInputs()
