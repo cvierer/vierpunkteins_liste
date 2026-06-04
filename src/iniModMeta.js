@@ -5296,9 +5296,13 @@ export function mountHeroExpandBlock(
 
   let heroRowLayoutRaf = 0
   let lastPanelScrollH = -1
+  let heroLayoutSyncing = false
 
   /** Scroll-Ausgleich: untere und mittlere Heldenblock-Zeile gleiche Scroll-Breite. */
   const runSyncHeroRowLayout = () => {
+    if (heroLayoutSyncing) return
+    heroLayoutSyncing = true
+    try {
     zoneMidRow.style.paddingRight = ''
     bottomStrip.style.paddingRight = ''
     spTzGrid.style.width = ''
@@ -5445,18 +5449,19 @@ export function mountHeroExpandBlock(
       }
     }
 
-    /* MOD+: Oberkante = Oberkante LE-Balken (Kästchen, nicht LE-Kürzel). */
+    /* MOD+: Oberkante = Oberkante LE-Balken; translateY (kein marginTop — sonst wächst strip/Panel). */
     modIbCol.style.marginTop = ''
     if (modIbCol && leThreshRail?.box) {
       const modShell = modIbCol.querySelector(
         ':scope > .init-hero-ex__ib-chain__inp-cell--mod-solo-btn'
       )
       if (modShell instanceof HTMLElement) {
+        modShell.style.transform = ''
         const barTop = leThreshRail.box.getBoundingClientRect().top
         const shellTop = modShell.getBoundingClientRect().top
         const delta = barTop - shellTop
         if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
-          modIbCol.style.marginTop = `${Math.round(delta * 1000) / 1000}px`
+          modShell.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
         }
       }
     }
@@ -5483,20 +5488,23 @@ export function mountHeroExpandBlock(
       }
     }
 
-    /* Ausklapp-Panel: Höhe = Heldenblock (S-Rail, MOD-Reserve), kein vertikaler Scroll. */
+    /* Ausklapp-Panel: Höhe aus Layout-Box (nicht scrollHeight — vermeidet Wachstumsschleife). */
     const panelBody = root.closest('.init-row-extra-panel__body')
     if (panelBody instanceof HTMLElement) {
-      const h = root.scrollHeight
+      const h = Math.ceil(root.getBoundingClientRect().height)
       if (
         Number.isFinite(h) &&
         h > 0 &&
         (lastPanelScrollH < 0 || Math.abs(h - lastPanelScrollH) > 1)
       ) {
         lastPanelScrollH = h
-        const px = `${Math.ceil(h)}px`
+        const px = `${h}px`
         panelBody.style.setProperty('--init-row-extra-panel-body-max-h', px)
         panelBody.style.maxHeight = px
       }
+    }
+    } finally {
+      heroLayoutSyncing = false
     }
   }
 
@@ -5509,6 +5517,7 @@ export function mountHeroExpandBlock(
   }
 
   const spTzAlignRo = new ResizeObserver(() => {
+    if (heroLayoutSyncing) return
     syncHeroRowLayout()
   })
   const __spTzAlignEls = [
@@ -5525,7 +5534,6 @@ export function mountHeroExpandBlock(
     frontalLbl,
     stackGs,
     stackW6,
-    leThreshRail.box,
     sRailRoot,
     wsInp,
     stackWs,
@@ -5535,8 +5543,6 @@ export function mountHeroExpandBlock(
     aeEnergyRail.root,
     auEnergyRail.root,
     ...(keEnergyRail ? [keEnergyRail.box, keEnergyRail.root] : []),
-    ...(stackMod ? [stackMod] : []),
-    ...(modIbCol ? [modIbCol] : []),
   ]
   for (const el of __spTzAlignEls) {
     spTzAlignRo.observe(el)
