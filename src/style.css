@@ -955,8 +955,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* MAX-Zeile (halbe Kästchenhöhe): lesbar in halber Zellhöhe */
   --init-hero-max-inp-font-size: calc(0.46rem * var(--init-box-scale));
   --init-hero-max-placeholder-font-size: calc(0.4rem * var(--init-box-scale));
-  /* Zusätzliche sichtbare Lücke FK-Kästchen → KE-Kästchen (zusätzlich zu strip-gap) */
-  --init-hero-fk-ke-gap-bonus: calc(0.15 * var(--init-hero-cell));
   /* LE-/Wund-Malus: vorerst gleiche Darstellung wie Standard-Kacheln */
   --init-hero-calc-pen-text: #121212;
   --init-hero-calc-pen-bg: transparent;
@@ -1051,8 +1049,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 
 /* SP > TZ: schmale Mittelspalte (Schild / Schwert / < >), TP+TZ volle Zellenbreite. */
 .init-hero-ex__sp-tz-pair {
-  --init-hero-ex-sp-tz-a-gap: calc(0.1rem * var(--init-ui-scale));
-  --init-hero-ex-sp-tz-col-gap: calc(0.1rem * var(--init-ui-scale));
+  --init-hero-ex-sp-tz-a-gap: calc(0.06rem * var(--init-ui-scale));
+  --init-hero-ex-sp-tz-col-gap: calc(0.04rem * var(--init-ui-scale));
   --init-hero-ex-sp-tz-mid-col-w: max-content;
   --sp-tz-cols: var(--init-hero-cell) var(--init-hero-ex-sp-tz-mid-col-w)
     var(--init-hero-cell);
@@ -1139,7 +1137,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   flex-direction: row;
   align-items: flex-end;
   justify-content: center;
-  gap: calc(0.14rem * var(--init-ui-scale));
+  gap: calc(0.06rem * var(--init-ui-scale));
   width: max-content;
   max-width: 100%;
   min-width: 0;
@@ -1191,7 +1189,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 /* RS bei Trefferauswertung ignorieren (Toggle neben < > in TP/TZ-Beschriftung) */
 /* Zusatzabstand nur um das RS-Schild — < > bleiben in Größe/Position unverändert */
 .init-hero-ex__rs-bypass-btn {
-  margin-inline: calc(0.05rem * var(--init-ui-scale));
+  margin-inline: calc(0.02rem * var(--init-ui-scale));
 }
 
 .init-hero-ex__rs-bypass-btn-svg {
@@ -1522,11 +1520,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: clip;
-}
-
-/* KE/GW/LO direkt nach FK: extra margin-left (V1194-Bonus war nur an Schwellenbalken gebunden) */
-.init-hero-ex__strip-inner > .init-hero-ex__micro-cell--after-fk {
-  margin-left: var(--init-hero-fk-ke-gap-bonus);
 }
 
 /* IB-Kette: nur MOD (+ MOD+-Button), rechts neben Schwellen-Cluster (KE|AE|AU|LE). */
