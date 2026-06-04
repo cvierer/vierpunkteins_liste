@@ -1057,14 +1057,10 @@ export function mountHeroExpandBlock(
     if (b === null) return baseStr
     return String(b + d)
   }
-  /** @type {HTMLElement & { __v4krLogUnsub?: () => void; __v4MalusVisClear?: () => void }} */
+  /** @type {HTMLElement & { __v4krLogUnsub?: () => void; __v4MalusPollClear?: () => void }} */
   const contAny = /** @type {any} */ (container)
   if (typeof contAny.__v4krLogUnsub === 'function') contAny.__v4krLogUnsub()
-  if (typeof contAny.__v4MalusVisClear === 'function') {
-    contAny.__v4MalusVisClear()
-  } else if (typeof contAny.__v4MalusPollClear === 'function') {
-    contAny.__v4MalusPollClear()
-  }
+  if (typeof contAny.__v4MalusPollClear === 'function') contAny.__v4MalusPollClear()
   container.replaceChildren()
 
   const root = document.createElement('div')
@@ -5153,19 +5149,34 @@ export function mountHeroExpandBlock(
     spTzRedo.disabled = true
     rsBypassBtn.disabled = true
     spTzBridgeBtn.disabled = true
-    /** Nur Anzeige: Malus/Gauges ereignisgesteuert (kein 1s-Intervall — verursachte Flackern). */
-    refreshComputedPenaltyHighlights()
-    scheduleGaugeRefresh()
+    /** Nur Anzeige: Wunden/LE-Schwelle periodisch neu bewerten (kein AT/PA-Sync). */
+    const MALUS_VIEW_POLL_MS = 1000
     const onVisView = () => {
       if (document.visibilityState !== 'visible' || !root.isConnected) return
+      if (isHeroInteractionActive()) return
       refreshComputedPenaltyHighlights()
       scheduleGaugeRefresh()
       applyUnfaehigVisualOverlay()
     }
     document.addEventListener('visibilitychange', onVisView)
-    contAny.__v4MalusVisClear = () => {
+    const clearMalusPollView = () => {
       document.removeEventListener('visibilitychange', onVisView)
+      if (contAny.__v4MalusPollTimer != null) {
+        clearInterval(contAny.__v4MalusPollTimer)
+        contAny.__v4MalusPollTimer = null
+      }
     }
+    contAny.__v4MalusPollClear = clearMalusPollView
+    contAny.__v4MalusPollTimer = setInterval(() => {
+      if (!root.isConnected) {
+        clearMalusPollView()
+        return
+      }
+      if (isHeroInteractionActive()) return
+      refreshComputedPenaltyHighlights()
+      scheduleGaugeRefresh()
+      applyUnfaehigVisualOverlay()
+    }, MALUS_VIEW_POLL_MS)
     return
   }
 
@@ -5867,7 +5878,8 @@ export function mountHeroExpandBlock(
     commit()
   })
 
-  /** Malus/Gauges/KR nur bei Eingabe, Commit, Szene — kein 1s-Intervall (verursachte Flackern). */
+  /** Wunden + LE-Schwelle im Hintergrund neu ableiten (Szene-Sync, Remount-Rennen). */
+  const MALUS_STATE_POLL_MS = 1000
   const onVisEdit = () => {
     if (document.visibilityState !== 'visible' || !root.isConnected) return
     if (isHeroInteractionActive()) return
@@ -5879,7 +5891,25 @@ export function mountHeroExpandBlock(
     applyKrFieldRed()
   }
   document.addEventListener('visibilitychange', onVisEdit)
-  contAny.__v4MalusVisClear = () => {
+  const clearMalusStatePoll = () => {
     document.removeEventListener('visibilitychange', onVisEdit)
+    if (contAny.__v4MalusPollTimer != null) {
+      clearInterval(contAny.__v4MalusPollTimer)
+      contAny.__v4MalusPollTimer = null
+    }
   }
+  contAny.__v4MalusPollClear = clearMalusStatePoll
+  contAny.__v4MalusPollTimer = setInterval(() => {
+    if (!root.isConnected) {
+      clearMalusStatePoll()
+      return
+    }
+    if (isHeroInteractionActive()) return
+    if (liveRefreshTimer != null) {
+      clearTimeout(liveRefreshTimer)
+      liveRefreshTimer = null
+    }
+    refreshDerivedUiFromInputs()
+    applyKrFieldRed()
+  }, MALUS_STATE_POLL_MS)
 }
