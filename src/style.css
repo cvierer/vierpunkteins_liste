@@ -905,9 +905,12 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-row-extra-panel--has-hero-ex .init-row-extra-panel__body {
-  max-height: calc(11.35rem * var(--init-ui-scale));
+  max-height: var(
+    --init-row-extra-panel-body-max-h,
+    calc(12.5rem * var(--init-ui-scale))
+  );
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: hidden;
   padding-right: 0.06rem;
 }
 

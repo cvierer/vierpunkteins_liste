@@ -5094,6 +5094,7 @@ export function mountHeroExpandBlock(
     applyUnfaehigVisualOverlay(modMeta)
     requestAnimationFrame(() => {
       syncModStripDockAndPad()
+      syncHeroRowLayout()
     })
   }
 
@@ -5116,8 +5117,6 @@ export function mountHeroExpandBlock(
       }
     } catch (_) {}
   }
-
-  renderModBadgesAndStrip()
 
   root.addEventListener(
     'input',
@@ -5223,6 +5222,17 @@ export function mountHeroExpandBlock(
         }
       }
     }
+
+    /* Ausklapp-Panel: Höhe = Heldenblock (S-Rail, MOD-Reserve), kein vertikaler Scroll. */
+    const panelBody = root.closest('.init-row-extra-panel__body')
+    if (panelBody instanceof HTMLElement) {
+      const h = root.scrollHeight
+      if (Number.isFinite(h) && h > 0) {
+        const px = `${Math.ceil(h)}px`
+        panelBody.style.setProperty('--init-row-extra-panel-body-max-h', px)
+        panelBody.style.maxHeight = px
+      }
+    }
   }
   const spTzAlignRo = new ResizeObserver(() => {
     syncHeroRowLayout()
@@ -5258,6 +5268,8 @@ export function mountHeroExpandBlock(
       syncHeroRowLayout()
     })
   })
+
+  renderModBadgesAndStrip()
 
   const FLASH_HERO_KEY = 'vierpunkteins_kampf_flash_neg'
 
