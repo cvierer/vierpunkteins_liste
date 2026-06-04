@@ -1427,6 +1427,7 @@ export function mountHeroExpandBlock(
     '',
     true
   )
+  extra.cell.classList.add('init-hero-ex__micro-cell--after-fk')
   const ibChain = document.createElement('div')
   ibChain.className = 'init-hero-ex__ib-chain'
   /* Nur MOD (+ MOD+); GS/IB/BE/W6 stehen davor in .init-hero-ex__strip-inner. */
@@ -5559,36 +5560,29 @@ export function mountHeroExpandBlock(
           }
         }
 
-        /* FK→KE: Kantenabstand = LE-Balken→MOD (nach LE-Positionierung messen). */
-        if (
-          !fkHidden &&
-          keRailShown &&
-          leThreshRail?.box instanceof HTMLElement
-        ) {
-          const ibR = ibChain.getBoundingClientRect()
-          const leBoxRight = leThreshRail.box.getBoundingClientRect().right
-          const leModGapPx = ibR.left - leBoxRight
-          const fkKeBonus =
-            readHeroCssLenPx(root, '--init-hero-fk-ke-gap-bonus') || 0
-          const fkKeGapPx =
-            Number.isFinite(leModGapPx) && leModGapPx > 0
-              ? leModGapPx + fkKeBonus
-              : leModGapPx
+        /* FK→KE: sichtbare Lücke zwischen FK- und KE-Kästchen (Flex) + Schwellenbalken daran ausrichten. */
+        if (!fkHidden && keRailShown && extra?.cell) {
           const fkRight = fk.cell.getBoundingClientRect().right - rootR.left
-          const fkKeSig = `${Math.round(fkKeGapPx)}|${Math.round(anchorLeft)}|${Math.round(fkRight)}|${Math.round(railW)}|${Math.round(railGap)}|${Math.round(fkKeBonus)}`
+          const keLeft = extra.cell.getBoundingClientRect().left - rootR.left
+          const fkKeGapPx = keLeft - fkRight
+          const fkKeSig = `${Math.round(fkKeGapPx)}|${Math.round(keLeft)}|${Math.round(fkRight)}|${Math.round(railW)}|${Math.round(railGap)}`
           if (fkKeSig !== lastFkKeLayoutSig) {
             lastFkKeLayoutSig = fkKeSig
-            if (Number.isFinite(fkKeGapPx) && fkKeGapPx > 0) {
-              let left = Math.max(anchorLeft, fkRight + fkKeGapPx)
+            if (Number.isFinite(keLeft) && keLeft >= fkRight) {
+              let left = keLeft
               for (const entry of clusterRails) {
                 if (entry.root === sRailRoot) continue
                 entry.root.style.left = `${Math.round(left * 1000) / 1000}px`
                 left += railW + railGap
               }
-              root.style.setProperty(
-                '--init-hero-fk-ke-gap',
-                `${Math.round(fkKeGapPx * 1000) / 1000}px`
-              )
+              if (Number.isFinite(fkKeGapPx) && fkKeGapPx > 0) {
+                root.style.setProperty(
+                  '--init-hero-fk-ke-gap',
+                  `${Math.round(fkKeGapPx * 1000) / 1000}px`
+                )
+              } else {
+                root.style.removeProperty('--init-hero-fk-ke-gap')
+              }
             } else {
               root.style.removeProperty('--init-hero-fk-ke-gap')
             }

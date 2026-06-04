@@ -955,8 +955,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   /* MAX-Zeile (halbe Kästchenhöhe): lesbar in halber Zellhöhe */
   --init-hero-max-inp-font-size: calc(0.46rem * var(--init-box-scale));
   --init-hero-max-placeholder-font-size: calc(0.4rem * var(--init-box-scale));
-  /* MOD schmaler → gleicher Betrag zusätzlich FK→KE (JS: --init-hero-fk-ke-gap-bonus) */
-  --init-hero-fk-ke-gap-bonus: calc(0.1 * var(--init-hero-cell));
+  /* Zusätzliche sichtbare Lücke FK-Kästchen → KE-Kästchen (zusätzlich zu strip-gap) */
+  --init-hero-fk-ke-gap-bonus: calc(0.15 * var(--init-hero-cell));
   /* LE-/Wund-Malus: vorerst gleiche Darstellung wie Standard-Kacheln */
   --init-hero-calc-pen-text: #121212;
   --init-hero-calc-pen-bg: transparent;
@@ -1522,6 +1522,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: clip;
+}
+
+/* KE/GW/LO direkt nach FK: extra margin-left (V1194-Bonus war nur an Schwellenbalken gebunden) */
+.init-hero-ex__strip-inner > .init-hero-ex__micro-cell--after-fk {
+  margin-left: var(--init-hero-fk-ke-gap-bonus);
 }
 
 /* IB-Kette: nur MOD (+ MOD+-Button), rechts neben Schwellen-Cluster (KE|AE|AU|LE). */
