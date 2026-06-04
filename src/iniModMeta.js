@@ -5384,28 +5384,12 @@ export function mountHeroExpandBlock(
       ) {
         clusterAnchorCell = extra.cell
       }
-      const keRailShown =
-        keEnergyRailRoot &&
-        keEnergyRailRoot.style.visibility !== 'hidden' &&
-        !keEnergyRailRoot.hasAttribute('aria-hidden')
       let cursorLeft =
         clusterAnchorCell.getBoundingClientRect().left - rootR.left
       const refAbbr = fkHidden
         ? stackW6.querySelector(':scope > .init-hero-ex__abbr')
         : fk.ab
       const refInpEl = fkHidden ? w6.inp : fk.inp
-      /** FK→KE wie KE→AE: Lücke + Spaltenbreite (nicht nur Flex-Gap vor Platzhalter). */
-      if (
-        !fkHidden &&
-        keRailShown &&
-        Number.isFinite(railW) &&
-        railW > 0 &&
-        Number.isFinite(railGap) &&
-        railGap >= 0
-      ) {
-        const fkRight = fk.cell.getBoundingClientRect().right - rootR.left
-        cursorLeft = fkRight + railGap + railW
-      }
       let railTop = clusterAnchorCell.getBoundingClientRect().top - rootR.top
       if (
         refInpEl instanceof HTMLInputElement &&

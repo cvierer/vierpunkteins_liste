@@ -1524,7 +1524,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
     calc(var(--init-hero-ib-mod-gap) - var(--init-hero-strip-gap))
   );
   /* MOD-Spalte + MOD+-Button nutzen dieselbe Bezugsbreite */
-  --init-hero-ex-mod-chain-w: calc(2 * var(--init-hero-cell));
+  --init-hero-ex-mod-chain-w: calc(2.2 * var(--init-hero-cell));
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -3002,9 +3002,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 /* MOD-Feld + MOD+: volle gemeinsame Spaltenbreite (--init-hero-ex-mod-chain-w auf .init-hero-ex__ib-chain) */
 .init-hero-ex__ib-chain__col--mod-pick {
   align-items: stretch;
-  width: var(--init-hero-ex-mod-chain-w, calc(2 * var(--init-hero-cell)));
-  min-width: var(--init-hero-ex-mod-chain-w, calc(2 * var(--init-hero-cell)));
-  max-width: var(--init-hero-ex-mod-chain-w, calc(2 * var(--init-hero-cell)));
+  width: var(--init-hero-ex-mod-chain-w, calc(2.2 * var(--init-hero-cell)));
+  min-width: var(--init-hero-ex-mod-chain-w, calc(2.2 * var(--init-hero-cell)));
+  max-width: var(--init-hero-ex-mod-chain-w, calc(2.2 * var(--init-hero-cell)));
 }
 
 .init-hero-ex__ib-chain__inp-cell {
