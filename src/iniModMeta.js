@@ -5384,8 +5384,13 @@ export function mountHeroExpandBlock(
       ) {
         clusterAnchorCell = extra.cell
       }
-      let cursorLeft =
+      const keRailShown =
+        keEnergyRailRoot &&
+        keEnergyRailRoot.style.visibility !== 'hidden' &&
+        !keEnergyRailRoot.hasAttribute('aria-hidden')
+      const anchorLeft =
         clusterAnchorCell.getBoundingClientRect().left - rootR.left
+      let cursorLeft = anchorLeft
       const refAbbr = fkHidden
         ? stackW6.querySelector(':scope > .init-hero-ex__abbr')
         : fk.ab
@@ -5447,6 +5452,34 @@ export function mountHeroExpandBlock(
           if (entry.root !== sRailRoot) {
             cursorLeft += railW + railGap
           }
+        }
+
+        /* FK→KE: Kantenabstand = LE-Balken→MOD (nach LE-Positionierung messen). */
+        if (
+          !fkHidden &&
+          keRailShown &&
+          leThreshRail?.box instanceof HTMLElement
+        ) {
+          const ibR = ibChain.getBoundingClientRect()
+          const leBoxRight = leThreshRail.box.getBoundingClientRect().right
+          const leModGapPx = ibR.left - leBoxRight
+          if (Number.isFinite(leModGapPx) && leModGapPx > 0) {
+            const fkRight = fk.cell.getBoundingClientRect().right - rootR.left
+            let left = Math.max(anchorLeft, fkRight + leModGapPx)
+            for (const entry of clusterRails) {
+              if (entry.root === sRailRoot) continue
+              entry.root.style.left = `${Math.round(left * 1000) / 1000}px`
+              left += railW + railGap
+            }
+            root.style.setProperty(
+              '--init-hero-fk-ke-gap',
+              `${Math.round(leModGapPx * 1000) / 1000}px`
+            )
+          } else {
+            root.style.removeProperty('--init-hero-fk-ke-gap')
+          }
+        } else {
+          root.style.removeProperty('--init-hero-fk-ke-gap')
         }
 
         /* Feinabgleich: Hauptwert-Kästchen KE/AE/AU/LE auf FK/W6-Oberkante. */

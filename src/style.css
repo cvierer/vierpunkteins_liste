@@ -3755,7 +3755,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-hero-ex__zone-mid .init-hero-ex__abbr,
 .init-hero-ex__ib-chain__labels .init-hero-ex__abbr,
 .init-hero-ex__ib-chain__stack > .init-hero-ex__abbr,
-.init-hero-ex__le-chain__stack > .init-hero-ex__abbr {
+.init-hero-ex__le-chain__stack > .init-hero-ex__abbr,
+.init-hero-ex__energy-rail-root > .init-hero-ex__abbr,
+.init-hero-ex__s-rail-root > .init-hero-ex__abbr {
   font-size: calc(0.48rem * var(--init-box-scale));
 }
 
