@@ -1492,8 +1492,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  /* flex-start: Hauptkästchen (FK = KE/AE/AU/LE oben) auf einer Linie; MAX hängt darunter */
-  align-items: flex-start;
+  /* flex-end: Kästchen unten bündig wie Zeile 2 (MU–WS) */
+  align-items: flex-end;
   justify-content: flex-start;
   gap: var(--init-hero-strip-gap);
   min-width: 0;
@@ -1578,38 +1578,28 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: var(--init-action-cell-fill-focus);
 }
 
-/* IB/BE/W6 in Zeile 1: verbundene Ketten-Rahmen (wie früher in cols-5). */
+/* IB/BE/W6 in Zeile 1: je ein rundes Kästchen wie AT/FK (kein Ketten-Segment). */
 .init-hero-ex__strip-inner
   > .init-hero-ex__ib-chain__stack--gs-r-gap
-  + .init-hero-ex__ib-chain__stack
+  ~ .init-hero-ex__ib-chain__stack
   .init-hero-ex__ib-chain__inp-cell {
   border: 1px solid var(--init-action-cell-border);
-  border-radius: 4px 0 0 4px;
+  border-radius: 4px;
+  align-items: center;
+  justify-content: center;
 }
 
 .init-hero-ex__strip-inner
   > .init-hero-ex__ib-chain__stack--gs-r-gap
-  + .init-hero-ex__ib-chain__stack
-  + .init-hero-ex__ib-chain__stack
-  .init-hero-ex__ib-chain__inp-cell {
-  border-top: 1px solid var(--init-action-cell-border);
-  border-right: 1px solid var(--init-action-cell-border);
-  border-bottom: 1px solid var(--init-action-cell-border);
-  border-left: 1px solid rgba(var(--rgb-gold), 0.42);
-  border-radius: 0;
+  ~ .init-hero-ex__ib-chain__stack
+  .init-hero-ex__ib-chain__inp-cell:focus-within {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--init-action-cell-fill-focus);
 }
 
-.init-hero-ex__strip-inner
-  > .init-hero-ex__ib-chain__stack--gs-r-gap
-  + .init-hero-ex__ib-chain__stack
-  + .init-hero-ex__ib-chain__stack
-  + .init-hero-ex__ib-chain__stack
-  .init-hero-ex__ib-chain__inp-cell {
-  border-top: 1px solid var(--init-action-cell-border);
-  border-right: 1px solid var(--init-action-cell-border);
-  border-bottom: 1px solid var(--init-action-cell-border);
-  border-left: 1px solid rgba(var(--rgb-gold), 0.42);
-  border-radius: 0 4px 4px 0;
+.init-hero-ex__strip-inner > .init-hero-ex__ib-chain__stack {
+  align-self: flex-end;
 }
 
 .init-hero-ex__ib-chain__labels {
@@ -1978,8 +1968,21 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   pointer-events: auto;
 }
 
+/* Platzhalter-Spalte für KE/AE/AU-Rails (Flex-Abstand wie W6–FK). */
 .init-hero-ex__micro-cell--energy-rail-anchor {
-  display: none;
+  width: var(--init-hero-cell);
+  min-width: var(--init-hero-cell);
+  max-width: var(--init-hero-cell);
+  flex-shrink: 0;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.init-hero-ex__micro-cell--layout-reserve-hidden {
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .init-hero-ex__energy-rail-inset-stack {
@@ -3737,6 +3740,17 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   color: #121212;
 }
 
+/* AT–FK / MU–WS: gleiche vertikale Textlage im Kästchen */
+.init-hero-ex__strip-inner
+  > .init-hero-ex__micro-cell
+  > .init-hero-ex__micro:not(.init-hero-ex__micro--max-sub),
+.init-hero-ex__attr-cols > .init-hero-ex__micro-cell > .init-hero-ex__micro,
+.init-hero-ex__attr-ko-tp-wrap > .init-hero-ex__micro-cell > .init-hero-ex__micro {
+  line-height: var(--init-hero-cell);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .init-hero-ex__micro {
   width: var(--init-hero-cell, var(--init-obj-cell));
   height: var(--init-hero-cell, var(--init-obj-cell));
@@ -3801,14 +3815,26 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   background: var(--init-action-cell-fill-focus);
 }
 
-/* WS-Wert: Typo und vertikale Lage wie MR (halbe Mikrozelle in Zeile 2). */
+/* WS: rundes Einzelkästchen wie MR/KO (Zeile 2). */
 .init-hero-ex__bottom-strip
   .init-hero-ex__le-chain
   > .init-hero-ex__le-chain__cols
   > .init-hero-ex__micro-cell--ws-le-match
   .init-hero-ex__le-chain__inp-cell {
+  border: 1px solid var(--init-action-cell-border);
+  border-radius: 4px;
   align-items: center;
   justify-content: center;
+}
+
+.init-hero-ex__bottom-strip
+  .init-hero-ex__le-chain
+  > .init-hero-ex__le-chain__cols
+  > .init-hero-ex__micro-cell--ws-le-match
+  .init-hero-ex__le-chain__inp-cell:focus-within {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--init-action-cell-fill-focus);
 }
 
 .init-hero-ex__bottom-strip

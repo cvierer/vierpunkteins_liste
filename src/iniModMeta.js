@@ -1631,11 +1631,15 @@ export function mountHeroExpandBlock(
     const setFieldVisible = (cell, inp, show) => {
       if (show) {
         cell.style.visibility = 'visible'
+        cell.style.pointerEvents = ''
+        cell.classList.remove('init-hero-ex__micro-cell--layout-reserve-hidden')
         cell.removeAttribute('aria-hidden')
         inp.disabled = !canEdit
         inp.tabIndex = 0
       } else {
         cell.style.visibility = 'hidden'
+        cell.style.pointerEvents = 'none'
+        cell.classList.add('init-hero-ex__micro-cell--layout-reserve-hidden')
         cell.setAttribute('aria-hidden', 'true')
         inp.disabled = true
         inp.tabIndex = -1
@@ -1819,7 +1823,6 @@ export function mountHeroExpandBlock(
    */
   const mountEnergyThresholdRail = (anchorCell, abbrEl, mainInp, maxInp) => {
     anchorCell.classList.add('init-hero-ex__micro-cell--energy-rail-anchor')
-    anchorCell.style.display = 'none'
     const stack = document.createElement('div')
     stack.className =
       'init-hero-ex__value-max-stack init-hero-ex__energy-rail-inset-stack'
@@ -5355,25 +5358,24 @@ export function mountHeroExpandBlock(
       const fkHidden =
         fk.cell.getAttribute('aria-hidden') === 'true' ||
         fk.cell.style.visibility === 'hidden'
-      let startEl = fkHidden ? stackW6 : fk.cell
-      const extraInStrip =
-        extra.cell.style.display !== 'none' &&
-        !extra.cell.classList.contains(
-          'init-hero-ex__micro-cell--energy-rail-anchor'
-        )
-      if (extraInStrip) startEl = extra.cell
-      const startR = startEl.getBoundingClientRect()
-      let cursorLeft = startR.right - rootR.left
-      if (Number.isFinite(railGap) && railGap >= 0) {
-        cursorLeft += railGap
+      /** @type {HTMLElement} */
+      let clusterAnchorCell = ae.cell
+      if (
+        keEnergyRailRoot &&
+        keEnergyRailRoot.style.visibility !== 'hidden' &&
+        !keEnergyRailRoot.hasAttribute('aria-hidden')
+      ) {
+        clusterAnchorCell = extra.cell
       }
+      let cursorLeft =
+        clusterAnchorCell.getBoundingClientRect().left - rootR.left
       const refAbbr = fkHidden
         ? stackW6.querySelector(':scope > .init-hero-ex__abbr')
         : fk.ab
       const railTop =
         refAbbr instanceof HTMLElement
           ? refAbbr.getBoundingClientRect().top - rootR.top
-          : startR.top - rootR.top
+          : clusterAnchorCell.getBoundingClientRect().top - rootR.top
 
       if (
         Number.isFinite(railW) &&
