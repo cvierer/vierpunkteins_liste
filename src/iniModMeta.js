@@ -1200,7 +1200,7 @@ export function mountHeroExpandBlock(
 
   const attrCols = document.createElement('div')
   attrCols.className = 'init-hero-ex__attr-cols'
-  for (const x of [mu, kl, inn, ch, ff, ge, kk]) {
+  for (const x of [mu, kl, inn, ch, ff, ge, ko]) {
     attrCols.appendChild(x.cell)
   }
   attrBlock.appendChild(attrCols)
@@ -1332,7 +1332,7 @@ export function mountHeroExpandBlock(
 
   const attrKoTpWrap = document.createElement('div')
   attrKoTpWrap.className = 'init-hero-ex__attr-ko-tp-wrap'
-  attrKoTpWrap.append(koAttr.cell)
+  attrKoTpWrap.append(kk.cell)
   attrCols.appendChild(attrKoTpWrap)
   bottomStrip.appendChild(attrBlock)
 
@@ -1769,20 +1769,11 @@ export function mountHeroExpandBlock(
     3,
     `${leMaxTitle}.${HERO_FIELD_MOD_INTEGRATED_HINT.trim()}`
   )
-  const leReadOnlyHint = ' (Bearbeitung im LE-Overlay)'
-  const leMaxDirectHint =
-    ' (LE <= 0: direkt hier bearbeitbar, MAX-Klick oeffnet kein LE-Overlay)'
-  const baseLeTitle = leInp.title
-  const baseLeMaxTitle = leMaxInp.title
-  /* Manuelles Tippen hier sperren: Bearbeitung nur ueber LE-Popover (lePopLeInp /
-     lePopLeMaxInp). Mod-Auswahl per Klick auf die Zelle bleibt aktiv (Pick-Modus). */
   if (canEdit) {
-    leInp.readOnly = true
-    leMaxInp.readOnly = true
-    leInp.title = `${baseLeTitle}${leReadOnlyHint}`
-    leMaxInp.title = `${baseLeMaxTitle}${leReadOnlyHint}`
-    leInp.setAttribute('aria-readonly', 'true')
-    leMaxInp.setAttribute('aria-readonly', 'true')
+    leInp.removeAttribute('readonly')
+    leInp.removeAttribute('aria-readonly')
+    leMaxInp.removeAttribute('readonly')
+    leMaxInp.removeAttribute('aria-readonly')
   }
   const mkLeChainCol = (inpEl) => {
     const col = document.createElement('div')
@@ -2029,7 +2020,7 @@ export function mountHeroExpandBlock(
     else lineEl.dataset.leVal = String(Math.round(n))
   }
 
-  /** Schwellen-Zahlen an Gauge-Linien (S-Rail + Overlay). */
+  /** Schwellen-Zahlen an Gauge-Linien (S-Rail). */
   const syncGaugeLineLeVals = (
     g,
     { negLe, maxV, koV, wsRaw, customLeThreshold, unfaehigThreshold }
@@ -2262,328 +2253,6 @@ export function mountHeroExpandBlock(
   leMaxInp.addEventListener('input', updateLeThreshold)
   koAttr.inp.addEventListener('input', updateLeThreshold)
 
-  /* LE-Popover (Detailanzeige). Aufbau als DOM-Subtree, wird erst bei
-     Klick auf LE-Kürzel/Balken in das Heldenblock-Root eingehängt und ist
-     damit Bestandteil des ausklappbaren Bereichs (scrollt mit). */
-  const lePop = document.createElement('div')
-  lePop.className = 'init-hero-ex__le-pop'
-  lePop.setAttribute('role', 'dialog')
-  lePop.setAttribute('aria-label', 'LE-Schwellen und Wunden')
-  lePop.addEventListener('mousedown', (e) => {
-    e.stopPropagation()
-  })
-
-  const lePopHeader = document.createElement('div')
-  lePopHeader.className = 'init-hero-ex__le-pop__header'
-
-  const lePopWunden = document.createElement('div')
-  lePopWunden.className = 'init-hero-ex__le-pop__wunden'
-  lePopWunden.title = 'Wundanzahl'
-  const lePopWundenTxt = document.createElement('span')
-  lePopWundenTxt.textContent = 'W: 0'
-  lePopWunden.appendChild(lePopWundenTxt)
-
-  const lePopMods = document.createElement('div')
-  lePopMods.className = 'init-hero-ex__le-pop__mods'
-  lePopMods.title = 'Mod-Summe'
-  lePopMods.setAttribute('aria-hidden', 'true')
-  const lePopModsArrow = document.createElement('span')
-  lePopModsArrow.className = 'init-hero-ex__le-pop__mods__arrow'
-  lePopModsArrow.textContent = '\u2193'
-  lePopModsArrow.setAttribute('aria-hidden', 'true')
-  const lePopModsVal = document.createElement('span')
-  lePopModsVal.className = 'init-hero-ex__le-pop__mods__val'
-  lePopModsVal.textContent = '0'
-  lePopMods.append(lePopModsArrow, lePopModsVal)
-
-  const lePopClose = document.createElement('button')
-  lePopClose.type = 'button'
-  lePopClose.className = 'init-hero-ex__le-pop__close'
-  lePopClose.textContent = '\u00D7'
-  lePopClose.title = 'Schließen'
-  lePopClose.setAttribute('aria-label', 'LE-Popover schließen')
-
-  const lePopHeaderSpacer = document.createElement('div')
-  lePopHeaderSpacer.className = 'init-hero-ex__le-pop__header-spacer'
-  lePopHeaderSpacer.setAttribute('aria-hidden', 'true')
-  lePopHeader.append(lePopHeaderSpacer, lePopWunden, lePopMods, lePopClose)
-
-  const lePopBody = document.createElement('div')
-  lePopBody.className = 'init-hero-ex__le-pop__body'
-
-  const lePopGauge = document.createElement('div')
-  lePopGauge.className = 'init-hero-ex__le-pop__gauge'
-  const lePopTrack = document.createElement('div')
-  lePopTrack.className = 'init-hero-ex__le-pop__gauge-track'
-  const lePopFill = document.createElement('div')
-  lePopFill.className = 'init-hero-ex__le-pop__gauge-fill'
-  const lePopLine50 = document.createElement('div')
-  lePopLine50.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--50'
-  lePopLine50.style.bottom = '50%'
-  const lePopLine33 = document.createElement('div')
-  lePopLine33.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--33'
-  lePopLine33.style.bottom = '33.333%'
-  const lePopLine25 = document.createElement('div')
-  lePopLine25.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--25'
-  lePopLine25.style.bottom = '25%'
-  const lePopLineLe5 = document.createElement('div')
-  lePopLineLe5.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--le5'
-  lePopLineLe5.style.display = 'none'
-  const lePopLineUnf = document.createElement('div')
-  lePopLineUnf.className =
-    'init-hero-ex__le-pop__gauge-line init-hero-ex__le-pop__gauge-line--unfaehig'
-  lePopLineUnf.style.display = 'none'
-  const lePopSkull = document.createElementNS(
-    'http://www.w3.org/2000/svg',
-    'svg'
-  )
-  lePopSkull.setAttribute('viewBox', '0 0 24 24')
-  lePopSkull.setAttribute('aria-hidden', 'true')
-  lePopSkull.setAttribute('focusable', 'false')
-  lePopSkull.classList.add('init-hero-ex__le-pop__gauge-skull')
-  lePopSkull.style.display = 'none'
-  lePopSkull.innerHTML =
-    '<path fill="currentColor" d="M12 2C7.58 2 4 5.58 4 10c0 2.49 1.14 4.7 2.92 6.16.36.3.58.74.58 1.2V19a2 2 0 0 0 2 2h1v-2h1v2h2v-2h1v2h1a2 2 0 0 0 2-2v-1.64c0-.46.22-.9.58-1.2C18.86 14.7 20 12.49 20 10c0-4.42-3.58-8-8-8Zm-3 9.5a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm6 0a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm-4.5 3.25h3l.5 1.25h-4l.5-1.25Z"/>'
-  const lePopPct = document.createElement('div')
-  lePopPct.className = 'init-hero-ex__le-pop__gauge-pct'
-  lePopPct.setAttribute('aria-hidden', 'true')
-  lePopTrack.append(
-    lePopFill,
-    lePopLineUnf,
-    lePopLineLe5,
-    lePopLine25,
-    lePopLine33,
-    lePopLine50,
-    lePopSkull,
-    lePopPct
-  )
-  const lePopGaugeLines = {
-    line50: lePopLine50,
-    line33: lePopLine33,
-    line25: lePopLine25,
-    line5: lePopLineLe5,
-    lineUnf: lePopLineUnf,
-  }
-
-  /* LE/MAX im Popover: gleicher Aufbau wie .init-hero-ex__le-chain im
-     ausklappbaren Bereich (Beschriftung + Raster-Kästchen). */
-  const lePopLeMaxBlock = document.createElement('div')
-  lePopLeMaxBlock.className =
-    'init-hero-ex__le-pop__le-chain-wrap init-hero-ex__le-chain'
-  const mkLeDupInput = (source, aria, idSuf, maxLen) => {
-    const inp = document.createElement('input')
-    inp.type = 'text'
-    inp.inputMode = 'numeric'
-    inp.className = 'init-hero-ex__micro init-hero-ex__micro--ib-chain-inp'
-    inp.id = `hero-ex-${itemId}-pop-${idSuf}`
-    inp.autocomplete = 'off'
-    inp.spellcheck = false
-    inp.maxLength = maxLen
-    inp.disabled = !canEdit
-    inp.value = source.value
-    inp.setAttribute('aria-label', aria)
-    return inp
-  }
-  const lePopLeInp = mkLeDupInput(leInp, 'Lebensenergie (LE)', 'le', 3)
-  const lePopLeMaxInp = mkLeDupInput(
-    leMaxInp,
-    'Lebensenergie Maximum (LE max)',
-    'lemax',
-    3
-  )
-  const lePopKoInp = mkLeDupInput(
-    koAttr.inp,
-    'Konstitution (KO)',
-    'ko',
-    2
-  )
-  const mkLePopInpCell = (inp) => {
-    const cell = document.createElement('div')
-    cell.className = 'init-hero-ex__le-pop__inp-cell'
-    cell.appendChild(inp)
-    return cell
-  }
-  const lePopLeMaxLabels = document.createElement('div')
-  lePopLeMaxLabels.className = 'init-hero-ex__le-chain__labels'
-  const lePopAbbrMax = mkChainAbbr('MAX', leMaxTitle)
-  const lePopAbbrKo = mkChainAbbr('KO', 'Konstitution (KO)')
-  const lePopSecondAbbrSlot = document.createElement('div')
-  lePopSecondAbbrSlot.className = 'init-hero-ex__le-pop__second-abbr-slot'
-  lePopSecondAbbrSlot.append(lePopAbbrMax, lePopAbbrKo)
-  lePopAbbrKo.style.display = 'none'
-  lePopLeMaxLabels.append(
-    mkChainAbbr('LE', 'Lebensenergie (LE)'),
-    lePopSecondAbbrSlot
-  )
-  const lePopLeMaxInputs = document.createElement('div')
-  lePopLeMaxInputs.className = 'init-hero-ex__le-chain__inputs'
-  const lePopMaxInpCell = mkLePopInpCell(lePopLeMaxInp)
-  const lePopKoInpCell = mkLePopInpCell(lePopKoInp)
-  const lePopSecondInpSlot = document.createElement('div')
-  lePopSecondInpSlot.className = 'init-hero-ex__le-pop__second-inp-slot'
-  lePopSecondInpSlot.append(lePopMaxInpCell, lePopKoInpCell)
-  lePopKoInpCell.style.display = 'none'
-  lePopLeMaxInputs.append(mkLePopInpCell(lePopLeInp), lePopSecondInpSlot)
-
-  const lePopSchwellenTitle = document.createElement('div')
-  lePopSchwellenTitle.className = 'init-hero-ex__le-pop__schwellen-title'
-  lePopSchwellenTitle.textContent = 'Schwellen:'
-  const lePopLabelsBand = document.createElement('div')
-  lePopLabelsBand.className = 'init-hero-ex__le-pop__labels-band'
-  lePopLabelsBand.append(lePopSchwellenTitle, lePopLeMaxLabels)
-
-  const mkSchwellenRuleLine = (id, text) => {
-    const row = document.createElement('div')
-    row.className = 'init-hero-ex__le-pop__schwellen-rule'
-    row.dataset.ruleId = String(id)
-    row.textContent = text
-    return row
-  }
-  const lePopSchwellenRules = document.createElement('div')
-  lePopSchwellenRules.className = 'init-hero-ex__le-pop__schwellen-rules'
-  lePopSchwellenRules.setAttribute('aria-live', 'polite')
-  const lePopRuleRowUnf = mkSchwellenRuleLine(4, '')
-  lePopSchwellenRules.append(
-    mkSchwellenRuleLine(0, 'TOPFIT'),
-    mkSchwellenRuleLine(1, 'LE<LE/2'),
-    mkSchwellenRuleLine(2, 'LE<1/3 LE'),
-    mkSchwellenRuleLine(3, 'LE<1/4 LE'),
-    lePopRuleRowUnf,
-    mkSchwellenRuleLine(5, 'LE≤0'),
-    mkSchwellenRuleLine(6, 'LE<WS'),
-    mkSchwellenRuleLine(7, 'LE<KO'),
-    mkSchwellenRuleLine(8, 'LE<1,5 KO')
-  )
-
-  lePopLeMaxBlock.append(lePopLabelsBand, lePopLeMaxInputs, lePopSchwellenRules)
-
-  /* Geknickte Leader-Lines: Labels sitzen auf festen Slots (kollisionsfrei),
-     die echte Schwellen-Linie im Gauge-Balken wird per SVG-Polyline zum
-     Label geführt. */
-  const lePopLabels = document.createElement('div')
-  lePopLabels.className = 'init-hero-ex__le-pop__gauge-labels'
-
-  const LE_POP_SVG_NS = 'http://www.w3.org/2000/svg'
-  const lePopConnSvg = document.createElementNS(LE_POP_SVG_NS, 'svg')
-  lePopConnSvg.classList.add('init-hero-ex__le-pop__conn-svg')
-  lePopConnSvg.setAttribute('viewBox', '0 0 100 100')
-  lePopConnSvg.setAttribute('preserveAspectRatio', 'none')
-  lePopConnSvg.setAttribute('aria-hidden', 'true')
-  const mkConnPath = (cls) => {
-    const p = document.createElementNS(LE_POP_SVG_NS, 'polyline')
-    p.setAttribute('fill', 'none')
-    p.setAttribute('stroke', 'currentColor')
-    /* ~50 % der vorigen Strichbreite (0,55) */
-    p.setAttribute('stroke-width', '0.275')
-    p.setAttribute('stroke-linecap', 'round')
-    p.setAttribute('stroke-linejoin', 'round')
-    p.setAttribute('vector-effect', 'non-scaling-stroke')
-    p.classList.add('init-hero-ex__le-pop__conn-line')
-    if (cls) p.classList.add(`init-hero-ex__le-pop__conn-line--${cls}`)
-    return p
-  }
-  const lePopConn50 = mkConnPath('50')
-  const lePopConn33 = mkConnPath('33')
-  const lePopConn25 = mkConnPath('25')
-  const lePopConnLe5 = mkConnPath('le5')
-  const lePopConnUnf = mkConnPath('unfaehig')
-  lePopConnLe5.style.display = 'none'
-  lePopConnUnf.style.display = 'none'
-  lePopConnSvg.append(
-    lePopConn50,
-    lePopConn33,
-    lePopConn25,
-    lePopConnLe5,
-    lePopConnUnf
-  )
-
-  const MIN_LABEL_Y = 4
-  const MAX_LABEL_Y = 84
-  const LABEL_GAP_Y = 13
-  const dynamicSlotY = (lineY) => {
-    const up = lineY + LABEL_GAP_Y
-    const down = lineY - LABEL_GAP_Y
-    const roomUp = MAX_LABEL_Y - lineY
-    const roomDown = lineY - MIN_LABEL_Y
-    const preferUp = roomUp >= roomDown
-    const y = preferUp ? up : down
-    return Math.max(MIN_LABEL_Y, Math.min(MAX_LABEL_Y, y))
-  }
-  const SLOT_Y_HALF = dynamicSlotY(50)
-  const SLOT_Y_THIRD = dynamicSlotY(33.333)
-  const SLOT_Y_QUARTER = dynamicSlotY(25)
-  const SLOT_Y_UNFAEHIG = dynamicSlotY(14)
-  const SLOT_Y_LE5 = dynamicSlotY(7)
-  const mkGaugeLabel = (slotPct, extra) => {
-    const l = document.createElement('span')
-    l.className =
-      'init-hero-ex__le-pop__gauge-label' +
-      (extra ? ` init-hero-ex__le-pop__gauge-label--${extra}` : '')
-    l.style.bottom = `${slotPct}%`
-    return l
-  }
-  const lePopLab50 = mkGaugeLabel(SLOT_Y_HALF, '50')
-  const lePopLab33 = mkGaugeLabel(SLOT_Y_THIRD, '33')
-  const lePopLab25 = mkGaugeLabel(SLOT_Y_QUARTER, '25')
-  const lePopLabUnf = mkGaugeLabel(SLOT_Y_UNFAEHIG, 'unfaehig')
-  const lePopLabLe5 = mkGaugeLabel(SLOT_Y_LE5, 'le5')
-  lePopLabUnf.style.display = 'none'
-  lePopLabLe5.style.display = 'none'
-  lePopLabels.append(
-    lePopLeMaxBlock,
-    lePopConnSvg,
-    lePopLab50,
-    lePopLab33,
-    lePopLab25,
-    lePopLabUnf,
-    lePopLabLe5
-  )
-  lePopGauge.append(lePopLabels, lePopTrack)
-  lePopBody.append(lePopGauge)
-  lePop.append(lePopHeader, lePopBody)
-
-  /* Muss zu END_X in updateLePopover passen (Beschriftung links, direkt vor Linienende). */
-  const LE_POP_CONN_END_X = 83
-  lePopLabels.style.setProperty('--le-pop-conn-end', String(LE_POP_CONN_END_X))
-
-  /* Zwei-Wege-Sync zwischen Haupt-Eingaben (leInp / leMaxInp) und den
-     Popover-Duplikaten. Änderungen im Popover lösen ein 'input'-Event an der
-     Hauptquelle aus, damit `updateLeThreshold` + `updateLePopover` laufen. */
-  const syncInputPair = (srcInp, dupInp) => {
-    const fromSrc = () => {
-      if (dupInp.value !== srcInp.value) dupInp.value = srcInp.value
-    }
-    const fromDup = () => {
-      if (srcInp.value !== dupInp.value) {
-        srcInp.value = dupInp.value
-        srcInp.dispatchEvent(new Event('input', { bubbles: true }))
-      }
-    }
-    srcInp.addEventListener('input', fromSrc)
-    dupInp.addEventListener('input', fromDup)
-  }
-  syncInputPair(leInp, lePopLeInp)
-  syncInputPair(leMaxInp, lePopLeMaxInp)
-  syncInputPair(koAttr.inp, lePopKoInp)
-
-  const syncLePopInputTypography = () => {
-    const copyTypography = (src, dst) => {
-      const cs = getComputedStyle(src)
-      dst.style.fontFamily = cs.fontFamily
-      dst.style.fontSize = cs.fontSize
-      dst.style.fontWeight = cs.fontWeight
-      dst.style.letterSpacing = cs.letterSpacing
-      dst.style.lineHeight = cs.lineHeight
-    }
-    copyTypography(leInp, lePopLeInp)
-    copyTypography(leMaxInp, lePopLeMaxInp)
-    copyTypography(koAttr.inp, lePopKoInp)
-  }
-
   const totalWunden = () =>
     zoneUiMid.reduce((a, u) => a + (u.getWunden() || 0), 0)
 
@@ -2737,542 +2406,23 @@ export function mountHeroExpandBlock(
     return modSum
   }
 
-  /* Polyline für die Leader-Line einer Schwelle: geht von (0, lineY) am
-     Labels-Container (Anschluss an die Gauge-Linie) waagerecht bis zu einem
-     Knick-Punkt, dann senkrecht auf die Slot-Höhe des Labels, dann waagerecht
-     zum Text. Koordinaten in Prozent des SVG-ViewBox (0..100). */
-  const setConnPath = (poly, lineY, slotY, startX, kinkX, endX) => {
-    const lyV = 100 - lineY
-    const syV = 100 - slotY
-    const pts = `${startX.toFixed(2)},${lyV.toFixed(2)} ${kinkX.toFixed(2)},${lyV.toFixed(2)} ${kinkX.toFixed(2)},${syV.toFixed(2)} ${endX.toFixed(2)},${syV.toFixed(2)}`
-    poly.setAttribute('points', pts)
-  }
-
-  /** LE-Zahl am Balken (`data-le-val` → CSS `::after`); siehe syncGaugeLineLeVals. */
-
-  /** Unterste zutreffende Regel (Index 8→0); nur diese eine Zeile sichtbar (wie Balkenlogik). */
-  const refreshSchwellenRules = ({
-    leV,
-    maxV,
-    koV,
-    wsRaw,
-    negLe,
-    unfaehigThreshold: ufThresh,
-  }) => {
-    lePopRuleRowUnf.textContent = `LE≤${ufThresh}`
-    const maxOk = maxV != null && maxV > 0
-    const n2 = maxOk ? Math.round(maxV / 2) : NaN
-    const n75 = maxOk ? Math.round((3 * maxV) / 4) : NaN
-    const n3 = maxOk ? Math.round(maxV / 3) : NaN
-    const n4 = maxOk ? Math.round(maxV / 4) : NaN
-    let wsR = 0
-    let n15Neg = 0
-    if (negLe && koV != null && koV > 0) {
-      const wsThreshold =
-        wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
-      wsR = Math.round(wsThreshold)
-      n15Neg = Math.round(1.5 * koV)
-    }
-    const leOk = leV != null && Number.isFinite(leV)
-
-    for (let id = 0; id <= 8; id++) {
-      const el = lePopSchwellenRules.querySelector(`[data-rule-id="${id}"]`)
-      el?.classList.remove('init-hero-ex__le-pop__schwellen-rule--active')
-    }
-
-    /** @param {number} id */
-    const testRule = (id) => {
-      switch (id) {
-        case 8:
-          return (
-            negLe &&
-            koV != null &&
-            koV > 0 &&
-            leOk &&
-            leV < -n15Neg
-          )
-        case 7:
-          return negLe && koV != null && koV > 0 && leOk && leV < -koV
-        case 6:
-          return negLe && koV != null && koV > 0 && leOk && leV < -wsR
-        case 5:
-          return leOk && leV <= 0
-        case 4:
-          return maxOk && maxV > ufThresh && leOk && leV <= ufThresh
-        case 3:
-          return maxOk && leOk && leV < n4
-        case 2:
-          return maxOk && leOk && leV < n3
-        case 1:
-          return maxOk && leOk && leV < n2
-        case 0:
-          return maxOk && leOk && leV > n2
-        default:
-          return false
-      }
-    }
-
-    let winner = -1
-    for (let id = 8; id >= 0; id--) {
-      if (id >= 6 && id <= 8 && !negLe) continue
-      if (testRule(id)) {
-        winner = id
-        break
-      }
-    }
-
-    for (let id = 0; id <= 8; id++) {
-      const el = lePopSchwellenRules.querySelector(`[data-rule-id="${id}"]`)
-      if (!el) continue
-      if (winner === id) {
-        el.style.display = ''
-        el.classList.add('init-hero-ex__le-pop__schwellen-rule--active')
-        if (id === 0 && !negLe && maxOk && leOk) {
-          const wunden = totalWunden()
-          let status = 'ES GEHT'
-          if (leV >= n2 && hasZoneThirdWound()) status = '3.WUNDE!'
-          else if (wunden >= 1 && leV >= n2) status = 'VERLETZT'
-          else if (leV >= maxV) status = 'TOPFIT'
-          else if (leV < maxV && leV >= n75) status = 'ALLES OK'
-          el.textContent = status
-        }
-      } else {
-        el.style.display = 'none'
-      }
-    }
-  }
-
-  const updateLePopover = () => {
-    const modSum = refreshComputedPenaltyHighlights()
-    if (!lePop.isConnected) return
-    const w = totalWunden()
-    lePopWundenTxt.textContent = `W: ${w}`
-    lePopWunden.dataset.zero = w === 0 ? 'true' : 'false'
-
-    lePopModsVal.textContent = String(modSum.total)
-    lePopMods.dataset.zero = modSum.total === 0 ? 'true' : 'false'
-
-    const leV = parseLeIntSafe(leInp.value)
-    const maxV = parseLeIntSafe(leMaxInp.value)
-    const koV = parseKoIntSafe(koAttr.inp.value)
-    const wsRaw = parseWsIntSafe(ws.inp.value)
-    const deathMode = resolveDeathModeForLeUi(snap)
-    const deathTriggered = isDeathTriggeredForLeUi(leV, koV, deathMode)
-    const blinkStopBoundary = blinkStopLeBoundaryForMode(koV, deathMode)
-    const negLe =
-      leV != null && leV <= 0 && koV != null && koV > 0
-    const dead = leV != null && leV <= 0 && !negLe
-
-    lePop.classList.toggle('init-hero-ex__le-pop--neg-le', negLe)
-    lePopAbbrMax.style.display = negLe ? 'none' : ''
-    lePopAbbrKo.style.display = negLe ? '' : 'none'
-    lePopMaxInpCell.style.display = negLe ? 'none' : ''
-    lePopKoInpCell.style.display = negLe ? '' : 'none'
-
-    lePop.dataset.leDead = dead ? 'true' : 'false'
-
-    /* Knick-Positionen (%-SVG): ~50 % der vorigen horizontalen Ausdehnung (END 34→17). */
-    const START_X = 100
-    const KINK_50 = 89
-    const KINK_33 = 92
-    const KINK_25 = 96
-    const KINK_UNFAEHIG = 86
-    const KINK_LE5 = 86
-    const END_X = LE_POP_CONN_END_X
-
-    if (negLe) {
-      lePopSkull.style.display = ''
-      lePopFill.classList.add('init-hero-ex__le-pop__gauge-fill--from-top')
-      lePopFill.style.bottom = 'auto'
-      lePopFill.style.top = '0'
-      const depth = -leV
-      const cap = NEG_LE_KO_RANGE * koV
-      lePopFill.style.height = Math.min(100, (depth / cap) * 100).toFixed(3) + '%'
-      lePop.dataset.leBand = 'neg-le'
-      const negPulseOnPop = !deathTriggered && leV > blinkStopBoundary
-      const negPulseIrregularPop =
-        negPulseOnPop && leV <= -0.5 * koV
-      lePop.classList.toggle('init-hero-ex__le-pop--neg-pulse', negPulseOnPop)
-      lePop.classList.toggle(
-        'init-hero-ex__le-pop--neg-pulse--irregular',
-        negPulseIrregularPop
-      )
-
-      const pctBot = (m) => 100 - (m / NEG_LE_KO_RANGE) * 100
-      const wsThreshold = wsRaw != null && wsRaw > 0 ? wsRaw : Math.round(0.5 * koV)
-      const wsMult = Math.max(0, Math.min(NEG_LE_KO_RANGE, wsThreshold / koV))
-      const bWs = pctBot(wsMult)
-      const b1 = pctBot(1)
-      const b15 = pctBot(1.5)
-      const skullBot = (b1 + b15) / 2
-      lePopSkull.style.bottom = `${skullBot.toFixed(3)}%`
-      lePopSkull.style.top = 'auto'
-      lePopSkull.style.transform = 'translate(-50%, 50%)'
-
-      lePopLine50.style.display = 'none'
-      lePopLine50.removeAttribute('data-le-val')
-      lePopConn50.style.display = 'none'
-      lePopLab50.style.display = 'none'
-
-      lePopLine33.style.display = ''
-      lePopLine33.style.bottom = `${bWs.toFixed(3)}%`
-      lePopLine33.classList.add('init-hero-ex__le-pop__gauge-line--neg-ko')
-      lePopLine25.style.display = ''
-      lePopLine25.style.bottom = `${b1.toFixed(3)}%`
-      lePopLine25.classList.add(
-        'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-      )
-      lePopLineLe5.style.display = ''
-      lePopLineLe5.style.bottom = `${b15.toFixed(3)}%`
-      lePopLineLe5.classList.add(
-        'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-      )
-
-      lePopLab33.style.display = 'none'
-      const slotWs = dynamicSlotY(bWs)
-      const slotB1 = dynamicSlotY(b1)
-      const slotB15 = dynamicSlotY(b15)
-      lePopLab33.style.bottom = `${slotWs.toFixed(3)}%`
-      lePopLab25.style.display = 'none'
-      lePopLab25.style.bottom = `${slotB1.toFixed(3)}%`
-      lePopLabUnf.style.display = 'none'
-      lePopLabLe5.style.display = 'none'
-      lePopLabLe5.style.bottom = `${slotB15.toFixed(3)}%`
-
-      lePopLab33.textContent = ''
-      lePopLab25.textContent = ''
-      lePopLabLe5.textContent = ''
-      syncGaugeLineLeVals(lePopGaugeLines, {
-        negLe: true,
-        maxV,
-        koV,
-        wsRaw,
-        customLeThreshold,
-        unfaehigThreshold,
-      })
-
-      setConnPath(lePopConn33, bWs, slotWs, START_X, KINK_33, END_X)
-      setConnPath(lePopConn25, b1, slotB1, START_X, KINK_25, END_X)
-      setConnPath(lePopConnLe5, b15, slotB15, START_X, KINK_LE5, END_X)
-      lePopConn33.style.display = 'none'
-      lePopConn25.style.display = 'none'
-      lePopConnLe5.style.display = 'none'
-      lePopConnUnf.style.display = 'none'
-      lePopLineUnf.style.display = 'none'
-
-      lePopPct.style.display = 'none'
-      lePopPct.textContent = ''
-      lePopPct.removeAttribute('title')
-      refreshSchwellenRules({
-        leV,
-        maxV,
-        koV,
-        wsRaw,
-        negLe: true,
-        unfaehigThreshold,
-      })
-      return
-    }
-
-    lePop.classList.remove('init-hero-ex__le-pop--neg-pulse')
-    lePop.classList.remove('init-hero-ex__le-pop--neg-pulse--irregular')
-    lePopSkull.style.removeProperty('bottom')
-    lePopSkull.style.removeProperty('top')
-    lePopSkull.style.removeProperty('transform')
-    lePopPct.style.display = 'none'
-
-    lePopFill.classList.remove('init-hero-ex__le-pop__gauge-fill--from-top')
-    lePopFill.style.removeProperty('top')
-    lePopFill.style.removeProperty('bottom')
-    lePopLine33.classList.remove('init-hero-ex__le-pop__gauge-line--neg-ko')
-    lePopLine25.classList.remove(
-      'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-    )
-    lePopLineLe5.classList.remove(
-      'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-    )
-    lePopLineUnf.classList.remove(
-      'init-hero-ex__le-pop__gauge-line--neg-le-solid'
-    )
-    lePopLine50.style.display = ''
-    lePopConn50.style.display = 'none'
-    lePopLab50.style.display = 'none'
-    lePopLab33.style.bottom = `${SLOT_Y_THIRD}%`
-    lePopLab25.style.bottom = `${SLOT_Y_QUARTER}%`
-    lePopLabUnf.style.bottom = `${SLOT_Y_UNFAEHIG}%`
-    lePopLabLe5.style.bottom = `${SLOT_Y_LE5}%`
-
-    lePopSkull.style.display = dead ? '' : 'none'
-
-    let band = ''
-    let frac = null
-    if (dead) {
-      band = 'crit'
-      lePopFill.style.height = '0%'
-    } else if (leV != null && maxV != null && maxV > 0) {
-      frac = Math.max(0, Math.min(1, leV / maxV))
-      lePopFill.style.height = (frac * 100).toFixed(3) + '%'
-      band = leBarColorBand(leV, maxV)
-    } else {
-      lePopFill.style.height = '0%'
-    }
-    if (band) lePop.dataset.leBand = band
-    else delete lePop.dataset.leBand
-
-    if (maxV != null && maxV > 0 && leV != null) {
-      const leNonNeg = Math.max(0, leV)
-      const pctNum = Math.min(
-        100,
-        Math.round((leNonNeg / maxV) * 100)
-      )
-      const malPct = Boolean(dead || (band && band !== 'std'))
-      lePopPct.removeAttribute('title')
-      if (malPct) {
-        lePopPct.innerHTML = `<span class="init-hero-ex__le-pop__gauge-pct__num init-hero-ex__le-pop__gauge-pct__num--mal">${pctNum}</span>%`
-      } else {
-        lePopPct.textContent = `${pctNum}%`
-      }
-    } else {
-      lePopPct.textContent = '—'
-      lePopPct.removeAttribute('title')
-    }
-
-    setConnPath(lePopConn50, 50, SLOT_Y_HALF, START_X, KINK_50, END_X)
-    setConnPath(lePopConn33, 33.333, SLOT_Y_THIRD, START_X, KINK_33, END_X)
-    setConnPath(lePopConn25, 25, SLOT_Y_QUARTER, START_X, KINK_25, END_X)
-
-    lePopLab50.textContent = ''
-    lePopLab33.textContent = ''
-    lePopLab25.textContent = ''
-
-    if (customLeThreshold != null && maxV != null && maxV > customLeThreshold) {
-      const pct = (customLeThreshold / maxV) * 100
-      const slotLe5 = dynamicSlotY(pct)
-      lePopLineLe5.style.display = ''
-      lePopLineLe5.style.bottom = pct.toFixed(3) + '%'
-      lePopLabLe5.style.display = 'none'
-      lePopLabLe5.style.bottom = `${slotLe5.toFixed(3)}%`
-      lePopLabLe5.textContent = ''
-      lePopConnLe5.style.display = 'none'
-      setConnPath(lePopConnLe5, pct, slotLe5, START_X, KINK_LE5, END_X)
-    } else {
-      lePopLineLe5.style.display = 'none'
-      lePopLabLe5.style.display = 'none'
-      lePopConnLe5.style.display = 'none'
-    }
-    if (maxV != null && maxV > 0 && maxV > unfaehigThreshold) {
-      const pctUnf = (unfaehigThreshold / maxV) * 100
-      const slotUnf = dynamicSlotY(pctUnf)
-      lePopLineUnf.style.display = ''
-      lePopLineUnf.style.bottom = pctUnf.toFixed(3) + '%'
-      lePopLabUnf.style.display = 'none'
-      lePopLabUnf.style.bottom = `${slotUnf.toFixed(3)}%`
-      lePopLabUnf.textContent = ''
-      lePopConnUnf.style.display = 'none'
-      setConnPath(
-        lePopConnUnf,
-        pctUnf,
-        slotUnf,
-        START_X,
-        KINK_UNFAEHIG,
-        END_X
-      )
-    } else {
-      lePopLineUnf.style.display = 'none'
-      lePopLabUnf.style.display = 'none'
-      lePopConnUnf.style.display = 'none'
-    }
-
-    syncGaugeLineLeVals(lePopGaugeLines, {
-      negLe: false,
-      maxV,
-      koV,
-      wsRaw,
-      customLeThreshold,
-      unfaehigThreshold,
-    })
-
-    refreshSchwellenRules({
-      leV,
-      maxV,
-      koV,
-      wsRaw,
-      negLe: false,
-      unfaehigThreshold,
-    })
-  }
-
-  /** @type {((e: MouseEvent) => void) | null} */
-  let lePopOutsideHandler = null
-  /** @type {((e: KeyboardEvent) => void) | null} */
-  let lePopKeyHandler = null
-
-  const positionLePopover = () => {
-    if (!lePop.isConnected) return
-    const rootR = root.getBoundingClientRect()
-    const ibR = ibChain.getBoundingClientRect()
-    /* V359: rechte Kante = rechte Kante des gold umrahmten TP/TZ-Inputs-Blocks
-       (untere Heldenblock-Zeile mit Trefferzonen), nicht mehr bis F/Frontal. */
-    const spR = spTzInputRow.getBoundingClientRect()
-    const frR = frontalLbl.getBoundingClientRect()
-    const right = spR.right
-    const bottom = Math.max(spR.bottom, frR.bottom)
-    const baseLeft = Math.max(0, ibR.left - rootR.left)
-    const top = Math.max(0, ibR.top - rootR.top)
-    const popWScale = (() => {
-      const v = parseFloat(
-        getComputedStyle(document.documentElement)
-          .getPropertyValue('--init-hero-le-pop-width-scale')
-          .trim()
-      )
-      return Number.isFinite(v) && v > 0 ? v : 1.48
-    })()
-    const baseW = Math.max(96, (right - ibR.left) * 0.8)
-    const width = baseW * popWScale
-    /* Kein Links-Verschub: Mehrbreite nur nach rechts; LE/MAX/KO bleiben über
-       labels/stack-Sync ausgerichtet. */
-    const left = Math.max(0, baseLeft)
-    const height = Math.max(80, bottom - ibR.top)
-    lePop.style.left = `${Math.round(left * 1000) / 1000}px`
-    lePop.style.top = `${Math.round(top * 1000) / 1000}px`
-    lePop.style.width = `${Math.round(width * 1000) / 1000}px`
-    lePop.style.height = `${Math.round(height * 1000) / 1000}px`
-
-    const labelsR = lePopLabels.getBoundingClientRect()
-    const insetR = leValueMaxStack.getBoundingClientRect()
-    const chainLeft = insetR.left
-    const chainTop = insetR.top
-    const leftInPop = Math.max(0, chainLeft - labelsR.left)
-    const topInPop = Math.max(0, chainTop - labelsR.top)
-    lePopLeMaxBlock.style.left = `${Math.round(leftInPop * 1000) / 1000}px`
-    lePopLeMaxBlock.style.top = `${Math.round(topInPop * 1000) / 1000}px`
-    syncLePopInputTypography()
-  }
-
-  const closeLePopover = () => {
-    if (!lePop.isConnected) return
-    /* Wie Blur auf dem Haupt-LE: ausstehende Werte in die Szene schreiben.
-       Solange das Overlay offen ist, blockiert liveInputs die 2-Zeichen-Persistenz
-       (Remount-Risiko) — beim Schließen explizit committen. */
-    runSilentLeOverlaySync({ usePreview: true, commitAfter: true })
-    lePop.remove()
-    for (const g of leThreshGaugeSets) {
-      g.host.classList.remove('init-hero-ex__le-threshold--open')
-    }
-    if (lePopOutsideHandler) {
-      document.removeEventListener('mousedown', lePopOutsideHandler, true)
-      lePopOutsideHandler = null
-    }
-    if (lePopKeyHandler) {
-      document.removeEventListener('keydown', lePopKeyHandler, true)
-      lePopKeyHandler = null
-    }
-  }
-
-  const focusLePopoverFromSource = (source = 's') => {
-    if (source === 'le') {
-      lePopLeInp.focus()
-      lePopLeInp.select()
-      return
-    }
-    if (source === 'max') {
-      const leNow = parseLeIntSafe(leInp.value)
-      const focusKo = leNow != null && leNow <= 0
-      const target = focusKo ? lePopKoInp : lePopLeMaxInp
-      target.focus()
-      target.select()
-    }
-  }
-
-  const isLeMaxDirectEditMode = () => {
-    if (!canEdit) return false
+  const syncLeMaxInputVisibility = () => {
     const leNow = parseLeIntSafe(leInp.value)
-    return leNow != null && leNow <= 0
+    const koV = parseKoIntSafe(koAttr.inp.value)
+    const negLe =
+      leNow != null && leNow <= 0 && koV != null && koV > 0
+    leMaxInp.hidden = negLe
+    leMaxInp.style.display = negLe ? 'none' : ''
+    leValueMaxStack.classList.toggle(
+      'init-hero-ex__value-max-stack--neg-le',
+      negLe
+    )
   }
+  leInp.addEventListener('input', syncLeMaxInputVisibility)
+  leMaxInp.addEventListener('input', syncLeMaxInputVisibility)
+  syncLeMaxInputVisibility()
 
-  const syncLeMaxInputMode = () => {
-    if (!canEdit) return
-    const directMode = isLeMaxDirectEditMode()
-    if (directMode) {
-      leMaxInp.readOnly = false
-      leMaxInp.removeAttribute('aria-readonly')
-      leMaxInp.title = `${baseLeMaxTitle}${leMaxDirectHint}`
-    } else {
-      leMaxInp.readOnly = true
-      leMaxInp.setAttribute('aria-readonly', 'true')
-      leMaxInp.title = `${baseLeMaxTitle}${leReadOnlyHint}`
-    }
-    leInp.readOnly = true
-    leInp.setAttribute('aria-readonly', 'true')
-    leInp.title = `${baseLeTitle}${leReadOnlyHint}`
-  }
-
-  const isLeThreshHostTarget = (tgt) => {
-    for (const g of leThreshGaugeSets) {
-      if (g.host.contains(tgt)) return true
-    }
-    return false
-  }
-
-  const openLePopover = (source = 's') => {
-    if (!lePop.isConnected) {
-      root.appendChild(lePop)
-      for (const g of leThreshGaugeSets) {
-        g.host.classList.add('init-hero-ex__le-threshold--open')
-      }
-    }
-    updateLePopover()
-    positionLePopover()
-    focusLePopoverFromSource(source)
-    if (lePopOutsideHandler || lePopKeyHandler) return
-    /* Close on outside click (in der ausklappbaren Fläche) */
-    lePopOutsideHandler = (e) => {
-      const tgt = e.target
-      if (lePop.contains(tgt)) return
-      if (isLeThreshHostTarget(tgt)) return
-      closeLePopover()
-    }
-    document.addEventListener('mousedown', lePopOutsideHandler, true)
-    lePopKeyHandler = (e) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        closeLePopover()
-      }
-    }
-    document.addEventListener('keydown', lePopKeyHandler, true)
-  }
-
-  lePopClose.addEventListener('click', (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    closeLePopover()
-  })
-
-  const toggleLePopoverFromClick = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (lePop.isConnected) closeLePopover()
-    else openLePopover('s')
-  }
-  leThreshRail.box.addEventListener('click', toggleLePopoverFromClick)
-  leThreshRailAbbr.style.cursor = 'pointer'
-  leThreshRailAbbr.addEventListener('click', toggleLePopoverFromClick)
-  const openLePopoverFromInputClick = (source) => (e) => {
-    if (source === 'max' && isLeMaxDirectEditMode()) return
-    e.preventDefault()
-    e.stopPropagation()
-    openLePopover(source)
-  }
-  leInp.addEventListener('click', openLePopoverFromInputClick('le'))
-  leMaxInp.addEventListener('click', openLePopoverFromInputClick('max'))
-
-  leInp.addEventListener('input', updateLePopover)
-  leMaxInp.addEventListener('input', updateLePopover)
-  koAttr.inp.addEventListener('input', updateLePopover)
-  leInp.addEventListener('input', syncLeMaxInputMode)
-  syncLeMaxInputMode()
-
-  zoneMidRow.append(spTzPair)
+    zoneMidRow.append(spTzPair)
   attrKoTpWrap.append(mrAttr.cell, leChain)
 
   const leRailSlot = document.createElement('div')
@@ -5663,7 +4813,6 @@ export function mountHeroExpandBlock(
 
     updateLeThreshold()
     updateEnergyThreshold()
-    positionLePopover()
     syncModStripDockAndPad()
 
     /* TP/TZ-Kürzel auf gleicher Höhe wie RB/Wappen-Kürzel. */
@@ -5875,7 +5024,6 @@ export function mountHeroExpandBlock(
       refreshComputedPenaltyHighlights()
       updateLeThreshold()
       updateEnergyThreshold()
-      updateLePopover()
       applyUnfaehigVisualOverlay()
     }
     document.addEventListener('visibilitychange', onVisView)
@@ -5895,7 +5043,6 @@ export function mountHeroExpandBlock(
       refreshComputedPenaltyHighlights()
       updateLeThreshold()
       updateEnergyThreshold()
-      updateLePopover()
       applyUnfaehigVisualOverlay()
     }, MALUS_VIEW_POLL_MS)
     return
@@ -6037,17 +5184,14 @@ export function mountHeroExpandBlock(
   const refreshDerivedUiFromInputs = (metaForVisuals) => {
     updateLeThreshold()
     updateEnergyThreshold()
-    updateLePopover()
+    syncLeMaxInputVisibility()
     applyUnfaehigVisualOverlay(metaForVisuals)
   }
 
   const isLeRelatedLiveInput = (inp) =>
     inp === le.inp ||
     inp === leMax.inp ||
-    inp === koAttr.inp ||
-    inp === lePopLeInp ||
-    inp === lePopLeMaxInp ||
-    inp === lePopKoInp
+    inp === koAttr.inp
 
   const buildLiveLePreviewMeta = () => {
     const cNow = getCombat()
@@ -6065,13 +5209,11 @@ export function mountHeroExpandBlock(
   }
 
   /**
-   * Führt denselben LE-Visual-Sync wie der Overlay-Zyklus aus, optional mit
-   * Preview-Meta und optionalem Commit (wie beim Overlay-Schließen), ohne
-   * sichtbares Öffnen/Schließen des Overlays.
+   * LE-abgeleitete Anzeige (Schwellen, Mod-Chips) ohne separates Overlay.
    *
    * @param {{ usePreview?: boolean, commitAfter?: boolean }} [opts]
    */
-  function runSilentLeOverlaySync(opts = {}) {
+  function runSilentLeDerivedSync(opts = {}) {
     const previewMeta = opts.usePreview ? buildLiveLePreviewMeta() : undefined
     if (previewMeta) {
       refreshComputedPenaltyHighlights(previewMeta)
@@ -6088,7 +5230,7 @@ export function mountHeroExpandBlock(
 
   /** @type {ReturnType<typeof setTimeout> | null} */
   let liveRefreshTimer = null
-  /** Debounce für abgeleitete UI (LE-Schwelle, S-Popover, …) bei kurzer Eingabe. */
+  /** Debounce für abgeleitete UI (LE-Schwelle, Mod-Vorschau, …) bei kurzer Eingabe. */
   const LIVE_INPUT_DEBOUNCE_MS = 4000
 
   const scheduleLiveDerivedRefresh = (inp, metaForVisuals) => {
@@ -6096,7 +5238,7 @@ export function mountHeroExpandBlock(
     liveRefreshTimer = setTimeout(() => {
       liveRefreshTimer = null
       if (isLeRelatedLiveInput(inp)) {
-        runSilentLeOverlaySync({ usePreview: true })
+        runSilentLeDerivedSync({ usePreview: true })
       } else {
         refreshDerivedUiFromInputs(metaForVisuals)
       }
@@ -6487,10 +5629,6 @@ export function mountHeroExpandBlock(
     koAttr.inp,
     ...(showAuField ? [au.inp] : []),
     ...allZoneUis.map((u) => u.rsInp),
-    /* LE-Overlay LE/max: gleiche Blur/Enter/Persist/Fokus wie die Hauptfelder */
-    lePopLeInp,
-    lePopLeMaxInp,
-    lePopKoInp,
   ]
   let lastPointerDownInsideAt = 0
   root.addEventListener(
@@ -6534,7 +5672,7 @@ export function mountHeroExpandBlock(
           liveRefreshTimer = null
         }
         if (immediateDerivedForLe) {
-          runSilentLeOverlaySync({ usePreview: true })
+          runSilentLeDerivedSync({ usePreview: true })
         } else {
           refreshDerivedUiFromInputs(previewMeta ?? undefined)
         }
