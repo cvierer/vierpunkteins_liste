@@ -4217,8 +4217,13 @@ export function mountHeroExpandBlock(
     }
   }
 
+  let lastModStripChipCount = -1
+  let heroLayoutSyncing = false
+
   /** Unterrand-Reserve für absoluten Mod-Strip (ohne Layout-Klassenwechsel bei 7+). */
   const syncHeroModStripExpansion = (chipCount) => {
+    if (chipCount === lastModStripChipCount) return
+    lastModStripChipCount = chipCount
     root.style.removeProperty('--init-hero-ex-mod-strip-reserve')
     if (chipCount <= 4) return
     const v = 'var(--init-hero-mod-strip-chip-h, var(--init-hero-cell))'
@@ -4277,6 +4282,8 @@ export function mountHeroExpandBlock(
   /* Render von Sub-Badges + Mod-Strip: beim Mount und nach Szene-Persistenz,
      damit neue Auto-Bündel (z. B. LE-Schwelle) ohne volllständigen Listen-Remount sichtbar sind. */
   const renderModBadgesAndStrip = (metaForMods = meta) => {
+    heroLayoutSyncing = true
+    try {
     const modMeta = metaForMods ?? meta
     syncModToggleUiFromMeta(modMeta)
     const c = getCombat()
@@ -4914,29 +4921,42 @@ export function mountHeroExpandBlock(
       if (holder) holder.appendChild(badge)
       else cell.appendChild(badge)
     }
-    /* Mod-Strip: Chips. */
-    modStrip.replaceChildren()
-    modStrip.classList.remove('init-hero-ex__mods-strip--scroll')
-    syncHeroModStripExpansion(0)
+    /* Mod-Strip: Chips (ein DOM-Update am Ende — kein vorzeitiges Leeren). */
     if (ownerIniNum == null) {
+      modStrip.replaceChildren()
+      modStrip.classList.remove('init-hero-ex__mods-strip--scroll')
       modStrip.classList.remove('init-hero-ex__mods-strip--has')
-      requestAnimationFrame(() => {
-        syncModStripDockAndPad()
-      })
+      syncHeroModStripExpansion(0)
       refreshComputedPenaltyHighlights(modMeta)
       syncHeroMicroModDisplayTones()
       applyUnfaehigVisualOverlay(modMeta)
+      requestAnimationFrame(() => {
+        try {
+          syncModStripDockAndPad()
+          runSyncHeroRowLayout()
+        } finally {
+          heroLayoutSyncing = false
+        }
+      })
       return
     }
     const active = activeModsFull
     if (active.length === 0) {
+      modStrip.replaceChildren()
+      modStrip.classList.remove('init-hero-ex__mods-strip--scroll')
       modStrip.classList.remove('init-hero-ex__mods-strip--has')
-      requestAnimationFrame(() => {
-        syncModStripDockAndPad()
-      })
+      syncHeroModStripExpansion(0)
       refreshComputedPenaltyHighlights(modMeta)
       syncHeroMicroModDisplayTones()
       applyUnfaehigVisualOverlay(modMeta)
+      requestAnimationFrame(() => {
+        try {
+          syncModStripDockAndPad()
+          runSyncHeroRowLayout()
+        } finally {
+          heroLayoutSyncing = false
+        }
+      })
       return
     }
     modStrip.classList.add('init-hero-ex__mods-strip--has')
@@ -5231,10 +5251,10 @@ export function mountHeroExpandBlock(
       })
     }
 
-    modStrip.replaceChildren()
-    modStrip.appendChild(primaryStack)
-    const chipCount = modStrip.querySelectorAll('.init-hero-ex__mod-chip-card')
-      .length
+    const chipCount = primaryStack.querySelectorAll(
+      '.init-hero-ex__mod-chip-card'
+    ).length
+    modStrip.replaceChildren(primaryStack)
     modStrip.classList.toggle(
       'init-hero-ex__mods-strip--scroll',
       chipCount > 3
@@ -5244,9 +5264,16 @@ export function mountHeroExpandBlock(
     syncHeroMicroModDisplayTones()
     applyUnfaehigVisualOverlay(modMeta)
     requestAnimationFrame(() => {
-      syncModStripDockAndPad()
-      syncHeroRowLayout()
+      try {
+        syncModStripDockAndPad()
+        runSyncHeroRowLayout()
+      } finally {
+        heroLayoutSyncing = false
+      }
     })
+    } catch (_) {
+      heroLayoutSyncing = false
+    }
   }
 
   const waitMs = (ms) =>
@@ -5254,19 +5281,47 @@ export function mountHeroExpandBlock(
       window.setTimeout(resolve, ms)
     })
 
-  const refreshModStripFromScene = async (opts = {}) => {
+  let modStripRefreshRaf = 0
+  let modStripRefreshGen = 0
+
+  const refreshModStripFromScene = (opts = {}) => {
     const settle = opts?.settle === true
-    try {
-      const items = await OBR.scene.items.getItems([itemId])
-      const freshMeta = items?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
-      if (freshMeta) renderModBadgesAndStrip(freshMeta)
-      if (settle) {
-        await waitMs(80)
-        const items2 = await OBR.scene.items.getItems([itemId])
-        const freshMeta2 = items2?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
-        if (freshMeta2) renderModBadgesAndStrip(freshMeta2)
+    const gen = ++modStripRefreshGen
+    return new Promise((resolve) => {
+      if (modStripRefreshRaf) {
+        cancelAnimationFrame(modStripRefreshRaf)
       }
-    } catch (_) {}
+      modStripRefreshRaf = requestAnimationFrame(() => {
+        modStripRefreshRaf = 0
+        void (async () => {
+          try {
+            const items = await OBR.scene.items.getItems([itemId])
+            if (gen !== modStripRefreshGen) {
+              resolve()
+              return
+            }
+            const freshMeta = items?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+            if (freshMeta) renderModBadgesAndStrip(freshMeta)
+            if (settle && gen === modStripRefreshGen) {
+              await waitMs(80)
+              if (gen !== modStripRefreshGen) {
+                resolve()
+                return
+              }
+              const items2 = await OBR.scene.items.getItems([itemId])
+              const freshMeta2 = items2?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+              if (freshMeta2 && gen === modStripRefreshGen) {
+                renderModBadgesAndStrip(freshMeta2)
+              }
+            }
+          } catch (_) {
+            /* ignore */
+          } finally {
+            resolve()
+          }
+        })()
+      })
+    })
   }
 
   root.addEventListener(
@@ -5296,7 +5351,6 @@ export function mountHeroExpandBlock(
 
   let heroRowLayoutRaf = 0
   let lastPanelScrollH = -1
-  let heroLayoutSyncing = false
 
   /** Scroll-Ausgleich: untere und mittlere Heldenblock-Zeile gleiche Scroll-Breite. */
   const runSyncHeroRowLayout = () => {
