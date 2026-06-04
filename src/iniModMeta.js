@@ -847,6 +847,10 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
       wundenCount = Math.min(3, Math.max(0, wundenCount))
       syncDots()
     },
+    setWunden(count) {
+      wundenCount = Math.min(3, Math.max(0, Math.floor(Number(count)) || 0))
+      syncDots()
+    },
   }
 }
 
@@ -5516,6 +5520,49 @@ export function mountHeroExpandBlock(
     )
   }
 
+  /** Basis-Snapshot (Meta-Felder) → sichtbare Kästchen inkl. Wundmarken. */
+  const applyHeroSnapshotToInputs = (snap) => {
+    if (!snap || typeof snap !== 'object') return
+    const setModInp = (field, inp, raw) => {
+      if (!(inp instanceof HTMLInputElement)) return
+      inp.value = microDisplayForModField(field, String(raw ?? ''))
+    }
+    setModInp('at', at.inp, snap.at)
+    setModInp('pa', pa.inp, snap.pa)
+    setModInp('a', ausw.inp, snap.a)
+    le.inp.value = microDisplayForModField('le', String(snap.le ?? ''))
+    leMaxInp.value = String(snap.leMax ?? '')
+    setModInp('ae', ae.inp, snap.ae)
+    setModInp('au', au.inp, snap.au)
+    setModInp('fk', fk.inp, snap.fk)
+    setModInp('gs', gsInp, snap.gs)
+    setModInp('ib', ibInp, snap.ib)
+    setModInp('be', beInp, snap.be)
+    w6Inp.value = String(snap.w6 ?? '')
+    setModInp('ws', wsInp, snap.ws)
+    setModInp('mr', mrAttr.inp, snap.mr)
+    setModInp('ko', koAttr.inp, snap.ko)
+    tpInp.value = microDisplayForModField('tp', String(snap.tp ?? ''))
+    spInp.value = String(snap.sp ?? '')
+    tzInp.value = String(snap.tz ?? '')
+    if (typeof snap.frontal === 'boolean') frontalChk.checked = snap.frontal
+    const zones = snap.hitZones?.zones
+    if (zones && typeof zones === 'object') {
+      for (const ui of zoneUiMid) {
+        const zd = zones[ui.zoneId]
+        if (!zd) continue
+        ui.rsInp.value = microDisplayForModField(
+          ui.zoneId,
+          String(zd.rs ?? '')
+        )
+        if (typeof ui.setWunden === 'function') {
+          ui.setWunden(clampWound(zd.w ?? 0))
+        }
+        syncWappenRsFontSize(ui.rsInp)
+      }
+    }
+  }
+
   const refreshDerivedUiFromInputs = (metaForVisuals) => {
     updateLeThreshold()
     updateLePopover()
@@ -5754,13 +5801,16 @@ export function mountHeroExpandBlock(
     } catch (_) {}
     spTzCheckpoint = { sp: next.sp ?? '', tz: String(next.tz ?? '') }
     syncSpTzHistoryButtons()
-    await applyHeroExpandFields(itemId, persistBasisFromGathered(next))
+    const snapBasis = persistBasisFromGathered(next)
+    await applyHeroExpandFields(itemId, snapBasis)
+    applyHeroSnapshotToInputs(snapBasis)
     await refreshModStripFromScene({ settle: true })
     if (liveRefreshTimer != null) {
       clearTimeout(liveRefreshTimer)
       liveRefreshTimer = null
     }
     refreshDerivedUiFromInputs()
+    syncHeroRowLayout()
   })
 
   const allZoneUis = [...zoneUiMid]
@@ -5865,13 +5915,20 @@ export function mountHeroExpandBlock(
       if (canUndoCombatCalc(itemId)) {
         const before = undoCombatCalc(itemId)
         if (before != null) {
-          await applyHeroExpandFields(itemId, /** @type {any} */ (before))
+          const snapBasis = persistBasisFromGathered(/** @type {any} */ (before))
+          await applyHeroExpandFields(itemId, snapBasis)
+          applyHeroSnapshotToInputs(snapBasis)
+          spTzCheckpoint = {
+            sp: String(before.sp ?? ''),
+            tz: String(before.tz ?? ''),
+          }
           await refreshModStripFromScene()
           if (liveRefreshTimer != null) {
             clearTimeout(liveRefreshTimer)
             liveRefreshTimer = null
           }
           refreshDerivedUiFromInputs()
+          syncHeroRowLayout()
           syncSpTzHistoryButtons()
           return
         }
@@ -5892,13 +5949,20 @@ export function mountHeroExpandBlock(
       if (canRedoCombatCalc(itemId)) {
         const after = redoCombatCalc(itemId)
         if (after != null) {
-          await applyHeroExpandFields(itemId, /** @type {any} */ (after))
+          const snapBasis = persistBasisFromGathered(/** @type {any} */ (after))
+          await applyHeroExpandFields(itemId, snapBasis)
+          applyHeroSnapshotToInputs(snapBasis)
+          spTzCheckpoint = {
+            sp: String(after.sp ?? ''),
+            tz: String(after.tz ?? ''),
+          }
           await refreshModStripFromScene()
           if (liveRefreshTimer != null) {
             clearTimeout(liveRefreshTimer)
             liveRefreshTimer = null
           }
           refreshDerivedUiFromInputs()
+          syncHeroRowLayout()
           syncSpTzHistoryButtons()
           return
         }
