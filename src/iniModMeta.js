@@ -855,7 +855,7 @@ function mountZoneMiniWappen(itemId, canEdit, def, zSnap) {
 }
 
 /**
- * LE-Schwellen-Balken (Fill + Marker-Linien) für kompaktes S-Kästchen und S-Rail.
+ * LE-Schwellen-Balken (Fill + Marker-Linien) für LE-Rail und Energy-Rails.
  * @param {string} [boxExtraClass]
  */
 function createLeThresholdGaugeBox(boxExtraClass = '') {
@@ -1614,6 +1614,13 @@ export function mountHeroExpandBlock(
   const be = { inp: beInp }
   const w6 = { inp: w6Inp }
 
+  /** @type {HTMLElement | null} */
+  let auEnergyRailRoot = null
+  /** @type {HTMLElement | null} */
+  let aeEnergyRailRoot = null
+  /** @type {HTMLElement | null} */
+  let keEnergyRailRoot = null
+
   /** @param {{ showAu?: boolean, showFk?: boolean, extraField?: string }} vis */
   const applyConfigurableFieldVisibility = (vis) => {
     const showAu = vis.showAu === true
@@ -1637,6 +1644,15 @@ export function mountHeroExpandBlock(
     setFieldVisible(au.cell, au.inp, showAu)
     setFieldVisible(fk.cell, fk.inp, showFk)
     setFieldVisible(extra.cell, extra.inp, showExtra)
+    const setRailVisible = (railRoot, show) => {
+      if (!railRoot) return
+      railRoot.style.visibility = show ? 'visible' : 'hidden'
+      if (show) railRoot.removeAttribute('aria-hidden')
+      else railRoot.setAttribute('aria-hidden', 'true')
+    }
+    setRailVisible(auEnergyRailRoot, showAu)
+    setRailVisible(aeEnergyRailRoot, true)
+    setRailVisible(keEnergyRailRoot, showExtra && ef === 'ke')
   }
   applyConfigurableFieldVisibility(snap)
 
@@ -1748,12 +1764,12 @@ export function mountHeroExpandBlock(
     3,
     `${leMaxTitle}.${HERO_FIELD_MOD_INTEGRATED_HINT.trim()}`
   )
-  const leReadOnlyHint = ' (Bearbeitung im S-Overlay)'
+  const leReadOnlyHint = ' (Bearbeitung im LE-Overlay)'
   const leMaxDirectHint =
-    ' (LE <= 0: direkt hier bearbeitbar, MAX-Klick oeffnet kein S-Overlay)'
+    ' (LE <= 0: direkt hier bearbeitbar, MAX-Klick oeffnet kein LE-Overlay)'
   const baseLeTitle = leInp.title
   const baseLeMaxTitle = leMaxInp.title
-  /* Manuelles Tippen hier sperren: Bearbeitung nur ueber S-Popover (lePopLeInp /
+  /* Manuelles Tippen hier sperren: Bearbeitung nur ueber LE-Popover (lePopLeInp /
      lePopLeMaxInp). Mod-Auswahl per Klick auf die Zelle bleibt aktiv (Pick-Modus). */
   if (canEdit) {
     leInp.readOnly = true
@@ -1793,11 +1809,74 @@ export function mountHeroExpandBlock(
   const auMaxInp = mkMaxSubInp('aumax', snap.auMax, 3, auMaxTitle)
   const aeMaxInp = mkMaxSubInp('aemax', snap.aeMax, 3, aeMaxTitle)
   const keMaxInp = mkMaxSubInp('kemax', snap.keMax, 3, keMaxTitle)
-  attachValueMaxStack(ae.cell, aeMaxInp)
-  attachValueMaxStack(au.cell, auMaxInp)
-  if (showExtraField && extraField === 'ke') {
-    attachValueMaxStack(extra.cell, keMaxInp)
+
+  /**
+   * KE/AE/AU-Schwellenbalken (Wert+MAX im Balken); Kürzel bleibt in der Strip-Zelle.
+   * @param {HTMLElement} anchorCell
+   * @param {HTMLInputElement} mainInp
+   * @param {HTMLInputElement} maxInp
+   */
+  const mountEnergyThresholdRail = (anchorCell, mainInp, maxInp) => {
+    anchorCell.classList.add('init-hero-ex__micro-cell--energy-rail-anchor')
+    const stack = document.createElement('div')
+    stack.className =
+      'init-hero-ex__value-max-stack init-hero-ex__energy-rail-inset-stack'
+    if (mainInp.parentNode === anchorCell) mainInp.remove()
+    stack.append(mainInp, maxInp)
+    const gauge = createLeThresholdGaugeBox(
+      'init-hero-ex__le-threshold__box--energy'
+    )
+    gauge.box.prepend(stack)
+    const railRoot = document.createElement('div')
+    railRoot.className =
+      'init-hero-ex__energy-rail-root init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
+    railRoot.append(gauge.box)
+    const spacer = document.createElement('div')
+    spacer.className = 'init-hero-ex__energy-rail-anchor-spacer'
+    spacer.setAttribute('aria-hidden', 'true')
+    anchorCell.appendChild(spacer)
+    return { root: railRoot, host: railRoot, stack, ...gauge }
   }
+
+  const aeEnergyRail = mountEnergyThresholdRail(ae.cell, ae.inp, aeMaxInp)
+  const auEnergyRail = mountEnergyThresholdRail(au.cell, au.inp, auMaxInp)
+  /** @type {ReturnType<typeof mountEnergyThresholdRail> | null} */
+  let keEnergyRail = null
+  if (showExtraField && extraField === 'ke') {
+    keEnergyRail = mountEnergyThresholdRail(extra.cell, extra.inp, keMaxInp)
+  }
+  aeEnergyRailRoot = aeEnergyRail.root
+  auEnergyRailRoot = auEnergyRail.root
+  keEnergyRailRoot = keEnergyRail?.root ?? null
+
+  /** @type {{ host: HTMLElement, box: HTMLDivElement, fill: HTMLDivElement, line50: HTMLDivElement, line33: HTMLDivElement, line25: HTMLDivElement, line5: HTMLDivElement, lineUnf: HTMLDivElement, skull: SVGSVGElement, anchorCell: HTMLElement, abbrEl: HTMLElement, mainInp: HTMLInputElement, maxInp: HTMLInputElement }[]} */
+  const energyGaugeSets = [
+    {
+      ...aeEnergyRail,
+      anchorCell: ae.cell,
+      abbrEl: ae.ab,
+      mainInp: ae.inp,
+      maxInp: aeMaxInp,
+    },
+    {
+      ...auEnergyRail,
+      anchorCell: au.cell,
+      abbrEl: au.ab,
+      mainInp: au.inp,
+      maxInp: auMaxInp,
+    },
+  ]
+  if (keEnergyRail) {
+    energyGaugeSets.push({
+      ...keEnergyRail,
+      anchorCell: extra.cell,
+      abbrEl: extra.ab,
+      mainInp: extra.inp,
+      maxInp: keMaxInp,
+    })
+  }
+  applyConfigurableFieldVisibility(snap)
+
   const wsAbbrLbl = mkChainAbbr('WS', WS_RULES_TOOLTIP)
   const wsInp = mkChainInp(
     'ws',
@@ -1842,7 +1921,7 @@ export function mountHeroExpandBlock(
     return leAtPaMalusForBand(band)
   }
 
-  const leThreshRailAbbr = mkChainAbbr('S', LE_THRESHOLD_TOOLTIP)
+  const leThreshRailAbbr = mkChainAbbr('LE', LE_THRESHOLD_TOOLTIP)
   const leThreshRail = createLeThresholdGaugeBox(
     'init-hero-ex__le-threshold__box--tall'
   )
@@ -2125,13 +2204,47 @@ export function mountHeroExpandBlock(
       syncGaugeLineLeVals(g, gaugeValCtx)
     }
   }
+  const updateEnergyThreshold = () => {
+    for (const g of energyGaugeSets) {
+      g.host.classList.remove(
+        'init-hero-ex__le-threshold--neg-le',
+        'init-hero-ex__le-threshold--neg-pulse',
+        'init-hero-ex__le-threshold--neg-pulse--irregular'
+      )
+      g.fill.classList.remove('init-hero-ex__le-threshold__fill--from-top')
+      g.fill.style.bottom = '0'
+      g.fill.style.top = 'auto'
+      g.line5.style.display = 'none'
+      g.lineUnf.style.display = 'none'
+      g.skull.style.display = 'none'
+      g.line50.style.display = ''
+      g.line33.style.display = ''
+      g.line25.style.display = ''
+      const val = parseNonNegIntLoose(g.mainInp.value)
+      const maxV = parseNonNegIntLoose(g.maxInp.value)
+      if (val != null && maxV != null && maxV > 0) {
+        const frac = Math.max(0, Math.min(1, val / maxV))
+        g.fill.style.height = (frac * 100).toFixed(3) + '%'
+        g.host.dataset.leBand = leBarColorBand(val, maxV)
+      } else {
+        g.fill.style.height = '0%'
+        delete g.host.dataset.leBand
+      }
+    }
+  }
+  updateEnergyThreshold()
+  for (const g of energyGaugeSets) {
+    g.mainInp.addEventListener('input', updateEnergyThreshold)
+    g.maxInp.addEventListener('input', updateEnergyThreshold)
+  }
+
   updateLeThreshold()
   leInp.addEventListener('input', updateLeThreshold)
   leMaxInp.addEventListener('input', updateLeThreshold)
   koAttr.inp.addEventListener('input', updateLeThreshold)
 
-  /* S-Popover (LE-Detailanzeige). Aufbau als DOM-Subtree, wird erst bei
-     Klick auf das S-Kästchen in das Heldenblock-Root eingehängt und ist
+  /* LE-Popover (Detailanzeige). Aufbau als DOM-Subtree, wird erst bei
+     Klick auf LE-Kürzel/Balken in das Heldenblock-Root eingehängt und ist
      damit Bestandteil des ausklappbaren Bereichs (scrollt mit). */
   const lePop = document.createElement('div')
   lePop.className = 'init-hero-ex__le-pop'
@@ -3314,7 +3427,17 @@ export function mountHeroExpandBlock(
     ...(showAuField ? ['au'] : []),
   ].filter((f) => MOD_FIELDS.includes(f))
 
-  root.append(leadSpacer, strip, zoneMidRow, bottomStrip, spacerExp, sRailRoot)
+  const energyRailRoots = [aeEnergyRail.root, auEnergyRail.root]
+  if (keEnergyRail) energyRailRoots.push(keEnergyRail.root)
+  root.append(
+    leadSpacer,
+    strip,
+    zoneMidRow,
+    bottomStrip,
+    spacerExp,
+    sRailRoot,
+    ...energyRailRoots
+  )
   /*
    * modPop nicht unter .init-hero-ex haengen: als Geschwister von root
    * unter container (position: relative), sonst stoeren sie das CSS-Grid und
@@ -5162,7 +5285,7 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* S-Balken: rechts neben AU; Unterkante = TZ-Kästchen. */
+    /* LE-Balken: rechts neben AU; Unterkante = TZ-Kästchen. */
     if (tzInp) {
       const rootR = root.getBoundingClientRect()
       const auColR = au.cell.getBoundingClientRect()
@@ -5190,7 +5313,29 @@ export function mountHeroExpandBlock(
       }
     }
 
-    /* MOD+: Oberkante = Oberkante S-Balken (Kästchen, nicht S-Kürzel). */
+    /* KE/AE/AU-Balken: Unterkante = WS-Kästchen. */
+    if (wsInp && energyGaugeSets.length > 0) {
+      const rootR = root.getBoundingClientRect()
+      const wsBottom = wsInp.getBoundingClientRect().bottom - rootR.top
+      const gapPx =
+        readHeroCssLenPx(root, '--init-hero-label-input-gap') || 0
+      for (const rail of energyGaugeSets) {
+        const cellR = rail.anchorCell.getBoundingClientRect()
+        const abbrR = rail.abbrEl.getBoundingClientRect()
+        rail.root.style.left = `${Math.round((cellR.left - rootR.left) * 1000) / 1000}px`
+        const top = abbrR.bottom - rootR.top + gapPx
+        rail.root.style.top = `${Math.round(top * 1000) / 1000}px`
+        const barH = wsBottom - top - gapPx
+        if (Number.isFinite(barH) && barH > 0) {
+          rail.root.style.setProperty(
+            '--init-hero-ex-energy-rail-h',
+            `${Math.round(barH * 1000) / 1000}px`
+          )
+        }
+      }
+    }
+
+    /* MOD+: Oberkante = Oberkante LE-Balken (Kästchen, nicht LE-Kürzel). */
     modIbCol.style.marginTop = ''
     if (modIbCol && leThreshRail?.box) {
       const modShell = modIbCol.querySelector(
@@ -5207,6 +5352,7 @@ export function mountHeroExpandBlock(
     }
 
     updateLeThreshold()
+    updateEnergyThreshold()
     positionLePopover()
     syncModStripDockAndPad()
 
@@ -5260,6 +5406,16 @@ export function mountHeroExpandBlock(
     modStrip,
     leThreshRail.box,
     sRailRoot,
+    wsInp,
+    stackWs,
+    ae.cell,
+    au.cell,
+    extra.cell,
+    aeEnergyRail.box,
+    auEnergyRail.box,
+    aeEnergyRail.root,
+    auEnergyRail.root,
+    ...(keEnergyRail ? [keEnergyRail.box, keEnergyRail.root] : []),
     ...(stackMod ? [stackMod] : []),
     ...(modIbCol ? [modIbCol] : []),
   ]
@@ -5405,6 +5561,7 @@ export function mountHeroExpandBlock(
       if (document.visibilityState !== 'visible' || !root.isConnected) return
       refreshComputedPenaltyHighlights()
       updateLeThreshold()
+      updateEnergyThreshold()
       updateLePopover()
       applyUnfaehigVisualOverlay()
     }
@@ -5424,6 +5581,7 @@ export function mountHeroExpandBlock(
       }
       refreshComputedPenaltyHighlights()
       updateLeThreshold()
+      updateEnergyThreshold()
       updateLePopover()
       applyUnfaehigVisualOverlay()
     }, MALUS_VIEW_POLL_MS)
@@ -5565,6 +5723,7 @@ export function mountHeroExpandBlock(
 
   const refreshDerivedUiFromInputs = (metaForVisuals) => {
     updateLeThreshold()
+    updateEnergyThreshold()
     updateLePopover()
     applyUnfaehigVisualOverlay(metaForVisuals)
   }
@@ -6015,7 +6174,7 @@ export function mountHeroExpandBlock(
     koAttr.inp,
     ...(showAuField ? [au.inp] : []),
     ...allZoneUis.map((u) => u.rsInp),
-    /* S-Overlay LE/max: gleiche Blur/Enter/Persist/Fokus wie die Hauptfelder */
+    /* LE-Overlay LE/max: gleiche Blur/Enter/Persist/Fokus wie die Hauptfelder */
     lePopLeInp,
     lePopLeMaxInp,
     lePopKoInp,

@@ -963,6 +963,9 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
         var(--init-hero-label-input-gap)
     )
   ); /* Fallback; syncHeroRowLayout setzt Höhe bis TZ-Unterkante */
+  --init-hero-ex-energy-rail-h: calc(
+    2 * var(--init-hero-ex-row-stack-h) + var(--init-hero-ex-grid-row-gap)
+  ); /* Fallback; syncHeroRowLayout setzt Höhe bis WS-Unterkante */
   position: relative;
   display: grid;
   grid-template-columns: var(--init-col-expand) minmax(0, 1fr);
@@ -1519,7 +1522,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   align-items: flex-start;
   gap: var(--init-hero-label-input-gap);
   flex-shrink: 0;
-  /* flex-start: MOD+-Kachel oben bündig mit S-Balken (nicht ans MAX-Zeilenende) */
+  /* flex-start: MOD+-Kachel oben bündig mit LE-Balken (nicht ans MAX-Zeilenende) */
   align-self: flex-start;
 }
 
@@ -1791,7 +1794,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   border-top: 1px solid rgba(var(--rgb-gold), 0.48);
   border-radius: 0 0 4px 4px;
   text-align: center;
-  font-size: calc(0.72 * var(--init-hero-inp-font-size, 0.85rem));
+  font-size: calc(0.58 * var(--init-hero-inp-font-size, 0.85rem));
   font-weight: 700;
   line-height: 1;
   color: #121212;
@@ -1912,7 +1915,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   pointer-events: auto;
 }
 
-/* LE + MAX oben im S-Balken (ohne Kürzel); Gauge bleibt dahinter sichtbar. */
+/* LE + MAX oben im LE-Balken; Gauge bleibt dahinter sichtbar. */
 .init-hero-ex__s-rail-inset-stack {
   position: relative;
   z-index: 4;
@@ -1934,6 +1937,72 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 .init-hero-ex__s-rail-root .init-hero-ex__le-threshold__fill,
 .init-hero-ex__s-rail-root .init-hero-ex__le-threshold__line,
 .init-hero-ex__s-rail-root .init-hero-ex__le-threshold__skull {
+  z-index: 1;
+}
+
+/* KE/AE/AU-Rails: absolut über Strip-Spalte; Höhe per JS bis WS-Unterkante. */
+.init-hero-ex__energy-rail-root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 8;
+  display: block;
+  width: var(--init-hero-cell);
+  min-width: var(--init-hero-cell);
+  max-width: var(--init-hero-cell);
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.init-hero-ex__energy-rail-root .init-hero-ex__le-threshold__box--energy {
+  flex: 0 0 auto;
+  height: var(--init-hero-ex-energy-rail-h);
+  min-height: var(--init-hero-ex-energy-rail-h);
+  max-height: var(--init-hero-ex-energy-rail-h);
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  pointer-events: auto;
+}
+
+.init-hero-ex__micro-cell--energy-rail-anchor {
+  position: relative;
+}
+
+.init-hero-ex__energy-rail-anchor-spacer {
+  width: 100%;
+  height: calc(
+    var(--init-hero-cell) + 0.5 * var(--init-hero-cell)
+  );
+  min-height: calc(
+    var(--init-hero-cell) + 0.5 * var(--init-hero-cell)
+  );
+  visibility: hidden;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.init-hero-ex__energy-rail-inset-stack {
+  position: relative;
+  z-index: 4;
+  width: 100%;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.init-hero-ex__energy-rail-inset-stack .init-hero-ex__micro,
+.init-hero-ex__energy-rail-inset-stack .init-hero-ex__micro--max-sub {
+  background: color-mix(in srgb, var(--init-action-cell-fill) 78%, transparent);
+}
+
+.init-hero-ex__energy-rail-inset-stack .init-hero-ex__micro:focus,
+.init-hero-ex__energy-rail-inset-stack .init-hero-ex__micro--max-sub:focus {
+  background: color-mix(in srgb, var(--init-action-cell-fill-focus) 85%, transparent);
+}
+
+.init-hero-ex__energy-rail-root .init-hero-ex__le-threshold__fill,
+.init-hero-ex__energy-rail-root .init-hero-ex__le-threshold__line {
   z-index: 1;
 }
 
@@ -2223,7 +2292,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   outline-offset: 1px;
 }
 
-/* S-Popover: Details zu LE, Schwellen und Wunden über dem Heldenblock */
+/* LE-Popover: Details zu LE, Schwellen und Wunden über dem Heldenblock */
 .init-hero-ex__le-pop {
   /* Gleiche Schriftgröße wie Schwellen-Beschriftung (1/2=X …) für LE/MAX-Kästchen */
   --le-pop-threshold-font: calc(0.48rem * var(--init-ui-scale));
@@ -2291,7 +2360,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   color: rgba(120, 20, 14, 0.96);
 }
 
-/* Summe LE-/Wund-Modifikatoren (S-Overlay: nicht anzeigen) */
+/* Summe LE-/Wund-Modifikatoren (LE-Overlay: nicht anzeigen) */
 .init-hero-ex__le-pop__mods {
   display: none;
   align-items: center;
