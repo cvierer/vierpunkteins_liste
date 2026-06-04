@@ -2656,11 +2656,8 @@ export function mountHeroExpandBlock(
     sRailRoot,
     ...energyRailRoots
   )
-  /* Bis erster Layout-Sync: Rails nicht bei left:0 sichtbar (Flackern/Duplikat). */
-  sRailRoot.style.visibility = 'hidden'
-  for (const railEl of energyRailRoots) {
-    railEl.style.visibility = 'hidden'
-  }
+  /* Bis erster Layout-Sync: Rails unsichtbar, aber layoutbar (kein visibility-Flash). */
+  root.classList.add('init-hero-ex--rails-pending')
   /*
    * modPop nicht unter .init-hero-ex haengen: als Geschwister von root
    * unter container (position: relative), sonst stoeren sie das CSS-Grid und
@@ -4621,6 +4618,9 @@ export function mountHeroExpandBlock(
   /** LE-Rail + Energy-Rails nach Layout sichtbar (V1201-Recovery). */
   const revealClusterRailsAfterLayout = () => {
     applyConfigurableFieldVisibility(snap)
+    if (root.classList.contains('init-hero-ex--rails-pending')) {
+      root.classList.remove('init-hero-ex--rails-pending')
+    }
     if (
       clusterSRailRoot &&
       clusterSRailRoot.style.visibility === 'hidden' &&
@@ -4961,9 +4961,10 @@ export function mountHeroExpandBlock(
       heroClusterRailsAwaitFirstLayout = false
       revealClusterRailsAfterLayout()
     } else if (
-      clusterSRailRoot &&
-      clusterSRailRoot.style.visibility === 'hidden' &&
-      !clusterSRailRoot.hasAttribute('aria-hidden')
+      root.classList.contains('init-hero-ex--rails-pending') ||
+      (clusterSRailRoot &&
+        clusterSRailRoot.style.visibility === 'hidden' &&
+        !clusterSRailRoot.hasAttribute('aria-hidden'))
     ) {
       revealClusterRailsAfterLayout()
     }

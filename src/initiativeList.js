@@ -6213,6 +6213,137 @@ function bindStampContextRemove(el, stamp, items) {
   })
 }
 
+  /** (i) + Zahnrad links im aufgeklappten Heldenblock. */
+  const buildHeroExpandLeadButtons = (
+    rowId,
+    rowName,
+    tokenSceneItem,
+    canEditRow
+  ) => {
+    /** @type {HTMLElement[]} */
+    const leadButtons = []
+    if (isGmSync()) {
+      const infoHit = document.createElement('button')
+      infoHit.type = 'button'
+      infoHit.className = 'init-row-extra-info'
+      infoHit.innerHTML = HIT_ZONE_INFO_ICON_SVG
+      infoHit.title =
+        'Kampfprotokoll: Rechenwege und Trefferauswertung für diese Figur'
+      infoHit.setAttribute('aria-label', `Kampfprotokoll für ${rowName}`)
+      infoHit.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        hitZoneOverlay.setFocusReturn(infoHit)
+        hitZoneOverlay.open(
+          rowId,
+          rowName,
+          tokenSceneItem?.metadata?.[TRACKER_ITEM_META_KEY],
+          canEditRow
+        )
+      })
+      leadButtons.push(infoHit)
+    }
+    if (isGmSync() || canEditRow) {
+      const gearHero = document.createElement('button')
+      gearHero.type = 'button'
+      gearHero.className = 'init-row-extra-gear'
+      gearHero.innerHTML = KAMPF_GEAR_ICON_SVG
+      gearHero.title = isGmSync()
+        ? 'Helden-Einstellungen (Spielleitung)'
+        : 'Mein Held: Heldenfarbe'
+      gearHero.setAttribute(
+        'aria-label',
+        isGmSync()
+          ? `Helden-Einstellungen für ${rowName}`
+          : `Zeilenfarbe für ${rowName}`
+      )
+      gearHero.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        heroSettingsGearEl = gearHero
+        openHeroSettings(rowId, rowName, tokenSceneItem)
+      })
+      leadButtons.push(gearHero)
+    }
+    return leadButtons
+  }
+
+  /** Aufklappen ohne safeRenderList (vermeidet sofortiges Remount-Flackern). */
+  const setPlayerExtrasPanelOpen = (itemId, open) => {
+    const li = element.querySelector(
+      `li.init-row[data-item-id="${CSS.escape(itemId)}"]`
+    )
+    if (!li) {
+      safeRenderList(lastItems)
+      return
+    }
+    const expandBtn = li.querySelector('.init-row-expand-toggle')
+    let panel = li.querySelector('.init-row-extra-panel')
+    if (open) {
+      expandedPlayerExtrasIds.add(itemId)
+      li.classList.add('init-row--extras-open')
+      if (!panel) {
+        panel = document.createElement('div')
+        panel.className = 'init-row-extra-panel init-row-extra-panel--has-hero-ex'
+        li.appendChild(panel)
+      } else {
+        panel.classList.add('init-row-extra-panel--has-hero-ex')
+      }
+      panel.hidden = false
+      let body = panel.querySelector('.init-row-extra-panel__body')
+      if (!body?.querySelector('.init-hero-ex')) {
+        const tokenSceneItem = lastItems.find((i) => i.id === itemId)
+        const canEditRow = canEditSceneItem(tokenSceneItem)
+        const rowName =
+          li.querySelector('.init-row-name')?.textContent?.trim() || ''
+        if (!body) {
+          body = document.createElement('div')
+          body.className = 'init-row-extra-panel__body'
+          panel.appendChild(body)
+        }
+        try {
+          mountHeroExpandBlock(body, {
+            itemId,
+            meta: tokenSceneItem?.metadata?.[TRACKER_ITEM_META_KEY],
+            canEdit: canEditRow,
+            leadButtons: buildHeroExpandLeadButtons(
+              itemId,
+              rowName,
+              tokenSceneItem,
+              canEditRow
+            ),
+            displayName: rowName,
+          })
+        } catch (err) {
+          console.error(
+            '[vierpunkteins] mountHeroExpandBlock failed (in-place expand)',
+            itemId,
+            rowName,
+            err
+          )
+          body.replaceChildren()
+          const errNote = document.createElement('div')
+          errNote.className = 'init-row-extra-panel__mount-error'
+          errNote.textContent =
+            'Heldenblock konnte nicht geladen werden (Details in der Konsole).'
+          body.appendChild(errNote)
+        }
+      }
+    } else {
+      expandedPlayerExtrasIds.delete(itemId)
+      li.classList.remove('init-row--extras-open')
+      if (panel) panel.hidden = true
+    }
+    if (expandBtn instanceof HTMLButtonElement) {
+      expandBtn.classList.toggle('init-row-expand-toggle--open', open)
+      expandBtn.setAttribute('aria-expanded', open ? 'true' : 'false')
+    }
+    requestAnimationFrame(() => {
+      syncListScrollHeight()
+      runSwapLayout()
+    })
+  }
+
   /** Vor jedem Listen-Neuaufbau: offene Heldenblöcke persistieren (sonst gehen uncommitted Eingaben verloren). */
   const flushOpenHeroExpandPanelsBeforeRemount = async () => {
     const host = document.getElementById('initiative-list-host')
@@ -6391,6 +6522,19 @@ function bindStampContextRemove(el, stamp, items) {
       }
     }
 
+    /** Offene Heldenblöcke beim Listen-Neuaufbau behalten (kein Remount → kein Rail-Flackern). */
+    const preservedHeroExpandBodies = new Map()
+    for (const li of element.querySelectorAll('li.init-row[data-item-id]')) {
+      const itemId = li.getAttribute('data-item-id')
+      if (!itemId || !expandedPlayerExtrasIds.has(itemId)) continue
+      const body = li.querySelector(
+        ':scope > .init-row-extra-panel > .init-row-extra-panel__body'
+      )
+      if (body?.querySelector('.init-hero-ex')) {
+        preservedHeroExpandBodies.set(itemId, body)
+      }
+    }
+
     const frag = document.createDocumentFragment()
 
     for (let __idx = 0; __idx < mergedWithStamps.length; __idx++) {
@@ -6482,12 +6626,7 @@ function bindStampContextRemove(el, stamp, items) {
           expandBtn.addEventListener('click', (e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (expandedPlayerExtrasIds.has(row.id)) {
-              expandedPlayerExtrasIds.delete(row.id)
-            } else {
-              expandedPlayerExtrasIds.add(row.id)
-            }
-            safeRenderList(lastItems)
+            setPlayerExtrasPanelOpen(row.id, !expandedPlayerExtrasIds.has(row.id))
           })
           expandCol.appendChild(expandBtn)
         }
@@ -6721,68 +6860,28 @@ function bindStampContextRemove(el, stamp, items) {
         const extraPanel = document.createElement('div')
         extraPanel.className = 'init-row-extra-panel'
         const extrasOpen = canEdit && expandedPlayerExtrasIds.has(row.id)
-        const mountHeroExPanel = extrasOpen
-        if (!mountHeroExPanel) {
-          extraPanel.hidden = true
-        } else {
+        const preservedBody = preservedHeroExpandBodies.get(row.id)
+        if (preservedBody) {
+          preservedHeroExpandBodies.delete(row.id)
           extraPanel.classList.add('init-row-extra-panel--has-hero-ex')
-          extraPanel.hidden = canEdit ? !extrasOpen : false
+          extraPanel.hidden = !extrasOpen
+          extraPanel.appendChild(preservedBody)
+        } else if (extrasOpen) {
+          extraPanel.classList.add('init-row-extra-panel--has-hero-ex')
+          extraPanel.hidden = false
           const body = document.createElement('div')
           body.className = 'init-row-extra-panel__body'
-          /** @type {HTMLElement[]} */
-          const leadButtons = []
-          if (isGmSync()) {
-            const infoHit = document.createElement('button')
-            infoHit.type = 'button'
-            infoHit.className = 'init-row-extra-info'
-            infoHit.innerHTML = HIT_ZONE_INFO_ICON_SVG
-            infoHit.title =
-              'Kampfprotokoll: Rechenwege und Trefferauswertung für diese Figur'
-            infoHit.setAttribute(
-              'aria-label',
-              `Kampfprotokoll für ${row.name}`
-            )
-            infoHit.addEventListener('click', (e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              hitZoneOverlay.setFocusReturn(infoHit)
-              hitZoneOverlay.open(
-                row.id,
-                row.name,
-                tokenSceneItem?.metadata?.[TRACKER_ITEM_META_KEY],
-                canEdit
-              )
-            })
-            leadButtons.push(infoHit)
-          }
-          if (isGmSync() || canEdit) {
-            const gearHero = document.createElement('button')
-            gearHero.type = 'button'
-            gearHero.className = 'init-row-extra-gear'
-            gearHero.innerHTML = KAMPF_GEAR_ICON_SVG
-            gearHero.title = isGmSync()
-              ? 'Helden-Einstellungen (Spielleitung)'
-              : 'Mein Held: Heldenfarbe'
-            gearHero.setAttribute(
-              'aria-label',
-              isGmSync()
-                ? `Helden-Einstellungen für ${row.name}`
-                : `Zeilenfarbe für ${row.name}`
-            )
-            gearHero.addEventListener('click', (e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              heroSettingsGearEl = gearHero
-              openHeroSettings(row.id, row.name, tokenSceneItem)
-            })
-            leadButtons.push(gearHero)
-          }
           try {
             mountHeroExpandBlock(body, {
               itemId: row.id,
               meta: tokenSceneItem?.metadata?.[TRACKER_ITEM_META_KEY],
               canEdit,
-              leadButtons,
+              leadButtons: buildHeroExpandLeadButtons(
+                row.id,
+                row.name,
+                tokenSceneItem,
+                canEdit
+              ),
               displayName: row.name,
             })
           } catch (err) {
@@ -6800,6 +6899,8 @@ function bindStampContextRemove(el, stamp, items) {
             body.appendChild(errNote)
           }
           extraPanel.appendChild(body)
+        } else {
+          extraPanel.hidden = true
         }
 
         if (extrasOpen) li.classList.add('init-row--extras-open')
