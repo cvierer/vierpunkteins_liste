@@ -1505,11 +1505,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   overflow-y: clip;
 }
 
-/* IB-Kette: nur MOD (+ MOD+-Button), rechts neben S-Rail (LE | S | MOD). */
+/* IB-Kette: nur MOD (+ MOD+-Button), rechts neben Schwellen-Cluster (KE|AE|AU|LE). */
 .init-hero-ex__ib-chain {
   --init-hero-ex-s-rail-slot-gap: calc(0.08rem * var(--init-ui-scale));
   --init-hero-ib-mod-gap: calc(
-    var(--init-hero-ex-s-rail-w) + 2 * var(--init-hero-ex-s-rail-slot-gap)
+    4 * var(--init-hero-ex-s-rail-w) + 3 * var(--init-hero-strip-gap)
   );
   margin-left: max(
     0px,
@@ -1873,7 +1873,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   max-height: var(--init-hero-ex-s-rail-h);
 }
 
-/* S-Rail: absolut rechts neben LE; MOD folgt per ib-chain margin; Höhe per JS bis TZ. */
+/* LE-Rail: im Schwellen-Cluster; MOD folgt per ib-chain margin; Höhe per JS bis TZ. */
 .init-hero-ex__s-rail-root {
   position: absolute;
   top: 0;
@@ -1940,19 +1940,33 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   z-index: 1;
 }
 
-/* KE/AE/AU-Rails: absolut über Strip-Spalte; Höhe per JS bis WS-Unterkante. */
+/* KE/AE/AU-Rails: im Cluster neben LE; Höhe per JS bis WS-Unterkante. */
 .init-hero-ex__energy-rail-root {
   position: absolute;
   top: 0;
   left: 0;
   z-index: 8;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--init-hero-label-input-gap);
   width: var(--init-hero-cell);
   min-width: var(--init-hero-cell);
   max-width: var(--init-hero-cell);
   box-sizing: border-box;
   pointer-events: none;
   overflow: visible;
+}
+
+.init-hero-ex__energy-rail-root > .init-hero-ex__abbr {
+  flex-shrink: 0;
+  pointer-events: auto;
+  text-align: center;
+  min-height: var(--init-hero-abbr-line-h);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .init-hero-ex__energy-rail-root .init-hero-ex__le-threshold__box--energy {
@@ -1967,20 +1981,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 }
 
 .init-hero-ex__micro-cell--energy-rail-anchor {
-  position: relative;
-}
-
-.init-hero-ex__energy-rail-anchor-spacer {
-  width: 100%;
-  height: calc(
-    var(--init-hero-cell) + 0.5 * var(--init-hero-cell)
-  );
-  min-height: calc(
-    var(--init-hero-cell) + 0.5 * var(--init-hero-cell)
-  );
-  visibility: hidden;
-  pointer-events: none;
-  flex-shrink: 0;
+  display: none;
 }
 
 .init-hero-ex__energy-rail-inset-stack {

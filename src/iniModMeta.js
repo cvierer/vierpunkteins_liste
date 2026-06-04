@@ -1811,13 +1811,15 @@ export function mountHeroExpandBlock(
   const keMaxInp = mkMaxSubInp('kemax', snap.keMax, 3, keMaxTitle)
 
   /**
-   * KE/AE/AU-Schwellenbalken (Wert+MAX im Balken); Kürzel bleibt in der Strip-Zelle.
+   * KE/AE/AU-Schwellenbalken (Wert+MAX im Balken); Kürzel auf dem Rail wie bei LE.
    * @param {HTMLElement} anchorCell
+   * @param {HTMLElement} abbrEl
    * @param {HTMLInputElement} mainInp
    * @param {HTMLInputElement} maxInp
    */
-  const mountEnergyThresholdRail = (anchorCell, mainInp, maxInp) => {
+  const mountEnergyThresholdRail = (anchorCell, abbrEl, mainInp, maxInp) => {
     anchorCell.classList.add('init-hero-ex__micro-cell--energy-rail-anchor')
+    anchorCell.style.display = 'none'
     const stack = document.createElement('div')
     stack.className =
       'init-hero-ex__value-max-stack init-hero-ex__energy-rail-inset-stack'
@@ -1830,27 +1832,49 @@ export function mountHeroExpandBlock(
     const railRoot = document.createElement('div')
     railRoot.className =
       'init-hero-ex__energy-rail-root init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
-    railRoot.append(gauge.box)
-    const spacer = document.createElement('div')
-    spacer.className = 'init-hero-ex__energy-rail-anchor-spacer'
-    spacer.setAttribute('aria-hidden', 'true')
-    anchorCell.appendChild(spacer)
+    if (abbrEl.parentNode === anchorCell) abbrEl.remove()
+    railRoot.append(abbrEl, gauge.box)
     return { root: railRoot, host: railRoot, stack, ...gauge }
   }
 
-  const aeEnergyRail = mountEnergyThresholdRail(ae.cell, ae.inp, aeMaxInp)
-  const auEnergyRail = mountEnergyThresholdRail(au.cell, au.inp, auMaxInp)
+  const aeEnergyRail = mountEnergyThresholdRail(
+    ae.cell,
+    ae.ab,
+    ae.inp,
+    aeMaxInp
+  )
+  const auEnergyRail = mountEnergyThresholdRail(
+    au.cell,
+    au.ab,
+    au.inp,
+    auMaxInp
+  )
   /** @type {ReturnType<typeof mountEnergyThresholdRail> | null} */
   let keEnergyRail = null
   if (showExtraField && extraField === 'ke') {
-    keEnergyRail = mountEnergyThresholdRail(extra.cell, extra.inp, keMaxInp)
+    keEnergyRail = mountEnergyThresholdRail(
+      extra.cell,
+      extra.ab,
+      extra.inp,
+      keMaxInp
+    )
   }
   aeEnergyRailRoot = aeEnergyRail.root
   auEnergyRailRoot = auEnergyRail.root
   keEnergyRailRoot = keEnergyRail?.root ?? null
 
   /** @type {{ host: HTMLElement, box: HTMLDivElement, fill: HTMLDivElement, line50: HTMLDivElement, line33: HTMLDivElement, line25: HTMLDivElement, line5: HTMLDivElement, lineUnf: HTMLDivElement, skull: SVGSVGElement, anchorCell: HTMLElement, abbrEl: HTMLElement, mainInp: HTMLInputElement, maxInp: HTMLInputElement }[]} */
-  const energyGaugeSets = [
+  const energyGaugeSets = []
+  if (keEnergyRail) {
+    energyGaugeSets.push({
+      ...keEnergyRail,
+      anchorCell: extra.cell,
+      abbrEl: extra.ab,
+      mainInp: extra.inp,
+      maxInp: keMaxInp,
+    })
+  }
+  energyGaugeSets.push(
     {
       ...aeEnergyRail,
       anchorCell: ae.cell,
@@ -1864,17 +1888,8 @@ export function mountHeroExpandBlock(
       abbrEl: au.ab,
       mainInp: au.inp,
       maxInp: auMaxInp,
-    },
-  ]
-  if (keEnergyRail) {
-    energyGaugeSets.push({
-      ...keEnergyRail,
-      anchorCell: extra.cell,
-      abbrEl: extra.ab,
-      mainInp: extra.inp,
-      maxInp: keMaxInp,
-    })
-  }
+    }
+  )
   applyConfigurableFieldVisibility(snap)
 
   const wsAbbrLbl = mkChainAbbr('WS', WS_RULES_TOOLTIP)
@@ -5285,51 +5300,128 @@ export function mountHeroExpandBlock(
       zoneMidRow.style.paddingRight = `${bw - zw}px`
     }
 
-    /* LE-Balken: rechts neben AU; Unterkante = TZ-Kästchen. */
-    if (tzInp) {
+    /* KE | AE | AU | LE: nebeneinander, Lücke wie W6–FK (--init-hero-strip-gap). */
+    {
       const rootR = root.getBoundingClientRect()
-      const auColR = au.cell.getBoundingClientRect()
-      const slotGapPx = readHeroCssLenPx(root, '--init-hero-ex-s-rail-slot-gap')
-      if (Number.isFinite(slotGapPx) && slotGapPx >= 0) {
-        const left = auColR.right - rootR.left + slotGapPx
-        sRailRoot.style.left = `${Math.round(left * 1000) / 1000}px`
-        sRailRoot.style.top = `${Math.round((auColR.top - rootR.top) * 1000) / 1000}px`
-      }
-
-      const tzBottom = tzInp.getBoundingClientRect().bottom - rootR.top
-      const abbrBottom =
-        leThreshRailAbbr.getBoundingClientRect().bottom - rootR.top
+      const railW = readHeroCssLenPx(root, '--init-hero-ex-s-rail-w')
+      const railGap = readHeroCssLenPx(root, '--init-hero-strip-gap')
+      const labelGapPx =
+        readHeroCssLenPx(root, '--init-hero-label-input-gap') || 0
       const gapRaw =
         getComputedStyle(sRailRoot).rowGap || getComputedStyle(sRailRoot).gap
-      const gapPx =
-        parseFloat(gapRaw) ||
-        readHeroCssLenPx(root, '--init-hero-label-input-gap')
-      const barH = tzBottom - abbrBottom - gapPx
-      if (Number.isFinite(barH) && barH > 0) {
-        root.style.setProperty(
-          '--init-hero-ex-s-rail-h',
-          `${Math.round(barH * 1000) / 1000}px`
-        )
-      }
-    }
+      const sRailLabelGap =
+        parseFloat(gapRaw) || labelGapPx
 
-    /* KE/AE/AU-Balken: Unterkante = WS-Kästchen. */
-    if (wsInp && energyGaugeSets.length > 0) {
-      const rootR = root.getBoundingClientRect()
-      const wsBottom = wsInp.getBoundingClientRect().bottom - rootR.top
-      const gapPx =
-        readHeroCssLenPx(root, '--init-hero-label-input-gap') || 0
-      for (const rail of energyGaugeSets) {
-        const cellR = rail.anchorCell.getBoundingClientRect()
-        const abbrR = rail.abbrEl.getBoundingClientRect()
-        rail.root.style.left = `${Math.round((cellR.left - rootR.left) * 1000) / 1000}px`
-        const top = abbrR.bottom - rootR.top + gapPx
-        rail.root.style.top = `${Math.round(top * 1000) / 1000}px`
-        const barH = wsBottom - top - gapPx
-        if (Number.isFinite(barH) && barH > 0) {
-          rail.root.style.setProperty(
-            '--init-hero-ex-energy-rail-h',
-            `${Math.round(barH * 1000) / 1000}px`
+      /** @type {{ root: HTMLElement, abbrEl: HTMLElement, bottom: 'ws' | 'tz' }[]} */
+      const clusterRails = []
+      if (
+        keEnergyRailRoot &&
+        keEnergyRailRoot.style.visibility !== 'hidden' &&
+        !keEnergyRailRoot.hasAttribute('aria-hidden')
+      ) {
+        clusterRails.push({
+          root: keEnergyRailRoot,
+          abbrEl: extra.ab,
+          bottom: 'ws',
+        })
+      }
+      if (
+        aeEnergyRailRoot &&
+        aeEnergyRailRoot.style.visibility !== 'hidden'
+      ) {
+        clusterRails.push({
+          root: aeEnergyRailRoot,
+          abbrEl: ae.ab,
+          bottom: 'ws',
+        })
+      }
+      if (
+        auEnergyRailRoot &&
+        auEnergyRailRoot.style.visibility !== 'hidden' &&
+        !auEnergyRailRoot.hasAttribute('aria-hidden')
+      ) {
+        clusterRails.push({
+          root: auEnergyRailRoot,
+          abbrEl: au.ab,
+          bottom: 'ws',
+        })
+      }
+      clusterRails.push({
+        root: sRailRoot,
+        abbrEl: leThreshRailAbbr,
+        bottom: 'tz',
+      })
+
+      const fkHidden =
+        fk.cell.getAttribute('aria-hidden') === 'true' ||
+        fk.cell.style.visibility === 'hidden'
+      let startEl = fkHidden ? stackW6 : fk.cell
+      const extraInStrip =
+        extra.cell.style.display !== 'none' &&
+        !extra.cell.classList.contains(
+          'init-hero-ex__micro-cell--energy-rail-anchor'
+        )
+      if (extraInStrip) startEl = extra.cell
+      const startR = startEl.getBoundingClientRect()
+      let cursorLeft = startR.right - rootR.left
+      if (Number.isFinite(railGap) && railGap >= 0) {
+        cursorLeft += railGap
+      }
+      const refAbbr = fkHidden
+        ? stackW6.querySelector(':scope > .init-hero-ex__abbr')
+        : fk.ab
+      const railTop =
+        refAbbr instanceof HTMLElement
+          ? refAbbr.getBoundingClientRect().top - rootR.top
+          : startR.top - rootR.top
+
+      if (
+        Number.isFinite(railW) &&
+        railW > 0 &&
+        Number.isFinite(railGap) &&
+        railGap >= 0
+      ) {
+        const wsBottom = wsInp
+          ? wsInp.getBoundingClientRect().bottom - rootR.top
+          : null
+        const tzBottom = tzInp
+          ? tzInp.getBoundingClientRect().bottom - rootR.top
+          : null
+
+        for (const entry of clusterRails) {
+          entry.root.style.left = `${Math.round(cursorLeft * 1000) / 1000}px`
+          entry.root.style.top = `${Math.round(railTop * 1000) / 1000}px`
+          const abbrBottom =
+            entry.abbrEl.getBoundingClientRect().bottom - rootR.top
+          const boxGap =
+            entry.root === sRailRoot ? sRailLabelGap : labelGapPx
+          if (entry.bottom === 'ws' && wsBottom != null) {
+            const barH = wsBottom - abbrBottom - boxGap
+            if (Number.isFinite(barH) && barH > 0) {
+              entry.root.style.setProperty(
+                '--init-hero-ex-energy-rail-h',
+                `${Math.round(barH * 1000) / 1000}px`
+              )
+            }
+          } else if (entry.bottom === 'tz' && tzBottom != null) {
+            const barH = tzBottom - abbrBottom - boxGap
+            if (Number.isFinite(barH) && barH > 0) {
+              root.style.setProperty(
+                '--init-hero-ex-s-rail-h',
+                `${Math.round(barH * 1000) / 1000}px`
+              )
+            }
+          }
+          cursorLeft += railW + railGap
+        }
+
+        const n = clusterRails.length
+        const clusterW = n * railW + Math.max(0, n - 1) * railGap
+        const modGap = clusterW + railGap
+        if (Number.isFinite(modGap) && modGap >= 0) {
+          ibChain.style.setProperty(
+            '--init-hero-ib-mod-gap',
+            `${Math.round(modGap * 1000) / 1000}px`
           )
         }
       }
