@@ -2055,7 +2055,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   z-index: 1;
 }
 
-/* LE live edit: keine Fill-Transition (vermeidet Flackern beim Tippen). */
+/* Mount/Remount + Live-Edit: keine Fill-Transition (KE/AE/AU/LE sonst 0%→Wert). */
+.init-hero-ex--no-gauge-anim .init-hero-ex__le-threshold__fill,
 .init-hero-ex--gauge-live .init-hero-ex__le-threshold__fill {
   transition: none;
 }

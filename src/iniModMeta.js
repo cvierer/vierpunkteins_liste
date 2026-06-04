@@ -1068,6 +1068,8 @@ export function mountHeroExpandBlock(
     'init-hero-ex' +
     (canEdit ? '' : ' init-hero-ex--view') +
     (isVierbeinerTemplateMeta(meta) ? ' init-hero-ex--vierbeiner' : '')
+  /* Remount: Fill startet bei 0% — ohne Transition kein Flackern aller Rails. */
+  root.classList.add('init-hero-ex--no-gauge-anim')
 
   const leadSpacer = document.createElement('div')
   leadSpacer.className = 'init-hero-ex__lead-spacer'
@@ -5016,14 +5018,21 @@ export function mountHeroExpandBlock(
   for (const el of __spTzAlignEls) {
     spTzAlignRo.observe(el)
   }
+  const releaseNoGaugeMountAnim = () => {
+    if (!isHeroInteractionActive()) {
+      root.classList.remove('init-hero-ex--no-gauge-anim')
+    }
+  }
   requestAnimationFrame(() => {
     syncHeroRowLayout()
     requestAnimationFrame(() => {
       syncHeroRowLayout()
+      renderModBadgesAndStrip()
+      requestAnimationFrame(() => {
+        requestAnimationFrame(releaseNoGaugeMountAnim)
+      })
     })
   })
-
-  renderModBadgesAndStrip()
 
   const FLASH_HERO_KEY = 'vierpunkteins_kampf_flash_neg'
 
@@ -5790,6 +5799,7 @@ export function mountHeroExpandBlock(
     'focusin',
     () => {
       markHeroInteraction()
+      root.classList.add('init-hero-ex--no-gauge-anim')
     },
     { capture: true, passive: true }
   )
