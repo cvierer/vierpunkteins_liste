@@ -4224,6 +4224,10 @@ export function mountHeroExpandBlock(
   /** Reentrancy-Guard für laufenden Layout-Sync. */
   let heroLayoutSyncing = false
   let lastFkKeLayoutSig = ''
+  let lastClusterRailLayoutSig = ''
+  let lastScrollPadSig = ''
+  let lastSpAbbrTy = NaN
+  let lastTzAbbrTy = NaN
 
   /** Unterrand-Reserve für absoluten Mod-Strip (ohne Layout-Klassenwechsel bei 7+). */
   const syncHeroModStripExpansion = (chipCount) => {
@@ -5399,17 +5403,19 @@ export function mountHeroExpandBlock(
     if (heroLayoutSyncing) return
     heroLayoutSyncing = true
     try {
-    zoneMidRow.style.paddingRight = ''
-    bottomStrip.style.paddingRight = ''
-    spTzGrid.style.width = ''
-
     /* Scroll-Ausgleich: beide Zeilen gleich breit halten. */
     const zw = zoneMidRow.scrollWidth
     const bw = bottomStrip.scrollWidth
-    if (zw > bw) {
-      bottomStrip.style.paddingRight = `${zw - bw}px`
-    } else if (bw > zw) {
-      zoneMidRow.style.paddingRight = `${bw - zw}px`
+    const scrollPadSig = `${zw}|${bw}`
+    if (scrollPadSig !== lastScrollPadSig) {
+      lastScrollPadSig = scrollPadSig
+      zoneMidRow.style.paddingRight = ''
+      bottomStrip.style.paddingRight = ''
+      if (zw > bw) {
+        bottomStrip.style.paddingRight = `${zw - bw}px`
+      } else if (bw > zw) {
+        zoneMidRow.style.paddingRight = `${bw - zw}px`
+      }
     }
 
     /* KE | AE | AU | LE: nebeneinander, Lücke wie W6–FK (--init-hero-strip-gap). */
@@ -5516,16 +5522,28 @@ export function mountHeroExpandBlock(
 
         const leSlotLeft =
           leRailSlot.getBoundingClientRect().left - rootR.left
+        const fkRightForSig = fk.cell.getBoundingClientRect().right - rootR.left
+        const keLeftForSig = extra?.cell
+          ? extra.cell.getBoundingClientRect().left - rootR.left
+          : 0
+        const clusterRailSig = [
+          clusterRails.length,
+          Math.round(anchorLeft),
+          Math.round(railTop),
+          Math.round(leSlotLeft),
+          Math.round(wsBottom ?? -1),
+          Math.round(tzBottom ?? -1),
+          Math.round(railW),
+          Math.round(railGap),
+          fkHidden ? 1 : 0,
+          Math.round(fkRightForSig),
+          Math.round(keLeftForSig),
+        ].join('|')
 
-        for (const entry of clusterRails) {
-          if (
-            entry.root.style.visibility !== 'hidden' &&
-            !entry.root.hasAttribute('aria-hidden')
-          ) {
-            entry._layoutHide = true
-            entry.root.style.visibility = 'hidden'
-          }
-        }
+        if (clusterRailSig === lastClusterRailLayoutSig) {
+          /* Geometrie unverändert — kein visibility:hidden-Zyklus (verhindert Balken-Flackern). */
+        } else {
+        lastClusterRailLayoutSig = clusterRailSig
 
         for (const entry of clusterRails) {
           const leftPx =
@@ -5634,12 +5652,6 @@ export function mountHeroExpandBlock(
             `${Math.round(railGap * 1000) / 1000}px`
           )
         }
-
-        for (const entry of clusterRails) {
-          if (entry._layoutHide) {
-            entry.root.style.visibility = ''
-            delete entry._layoutHide
-          }
         }
       }
     }
@@ -5661,14 +5673,11 @@ export function mountHeroExpandBlock(
       }
     }
 
-    updateLeThreshold()
-    updateEnergyThreshold()
+    /* LE/KE-Füllstände nicht im Layout-Sync (0,18s CSS-Transition + unnötige Arbeit). */
     positionLePopover()
     syncModStripDockAndPad()
 
     /* TP/TZ-Kürzel auf gleicher Höhe wie RB/Wappen-Kürzel. */
-    spAbbr.style.transform = ''
-    tzAbbr.style.transform = ''
     const refWappenAbbr = zoneMidRow.querySelector(
       '.init-hero-ex__micro-cell--wappen:not([aria-hidden="true"]) > .init-hero-ex__abbr'
     )
@@ -5677,9 +5686,25 @@ export function mountHeroExpandBlock(
       for (const el of [spAbbr, tzAbbr]) {
         if (!el) continue
         const delta = refTop - el.getBoundingClientRect().top
-        if (Number.isFinite(delta) && Math.abs(delta) > 0.5) {
-          el.style.transform = `translateY(${Math.round(delta * 1000) / 1000}px)`
-        }
+        const ty =
+          Number.isFinite(delta) && Math.abs(delta) > 0.5
+            ? Math.round(delta * 1000) / 1000
+            : 0
+        const isSp = el === spAbbr
+        const lastTy = isSp ? lastSpAbbrTy : lastTzAbbrTy
+        if (ty === lastTy) continue
+        if (isSp) lastSpAbbrTy = ty
+        else lastTzAbbrTy = ty
+        el.style.transform = ty ? `translateY(${ty}px)` : ''
+      }
+    } else {
+      if (lastSpAbbrTy !== 0) {
+        lastSpAbbrTy = 0
+        spAbbr.style.transform = ''
+      }
+      if (lastTzAbbrTy !== 0) {
+        lastTzAbbrTy = 0
+        tzAbbr.style.transform = ''
       }
     }
 
@@ -6578,8 +6603,15 @@ export function mountHeroExpandBlock(
   }
   refreshDerivedUiFromInputs()
   frontalChk.addEventListener('change', () => {
+    heroLayoutRoLock = true
     updateFrontalOrientationHint()
     commit()
+    requestAnimationFrame(() => {
+      runSyncHeroRowLayout()
+      requestAnimationFrame(() => {
+        heroLayoutRoLock = false
+      })
+    })
   })
 
   /** Wunden + LE-Schwelle im Hintergrund neu ableiten (Szene-Sync, Remount-Rennen). */
