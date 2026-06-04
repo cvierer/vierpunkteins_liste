@@ -5328,7 +5328,7 @@ export function mountHeroExpandBlock(
       const sRailLabelGap =
         parseFloat(gapRaw) || labelGapPx
 
-      /** @type {{ root: HTMLElement, abbrEl: HTMLElement, bottom: 'ws' | 'tz' }[]} */
+      /** @type {{ root: HTMLElement, abbrEl: HTMLElement, mainInp: HTMLInputElement, bottom: 'ws' | 'tz' }[]} */
       const clusterRails = []
       if (
         keEnergyRailRoot &&
@@ -5338,6 +5338,7 @@ export function mountHeroExpandBlock(
         clusterRails.push({
           root: keEnergyRailRoot,
           abbrEl: extra.ab,
+          mainInp: extra.inp,
           bottom: 'ws',
         })
       }
@@ -5348,6 +5349,7 @@ export function mountHeroExpandBlock(
         clusterRails.push({
           root: aeEnergyRailRoot,
           abbrEl: ae.ab,
+          mainInp: ae.inp,
           bottom: 'ws',
         })
       }
@@ -5359,12 +5361,14 @@ export function mountHeroExpandBlock(
         clusterRails.push({
           root: auEnergyRailRoot,
           abbrEl: au.ab,
+          mainInp: au.inp,
           bottom: 'ws',
         })
       }
       clusterRails.push({
         root: sRailRoot,
         abbrEl: leThreshRailAbbr,
+        mainInp: leInp,
         bottom: 'tz',
       })
 
@@ -5380,15 +5384,37 @@ export function mountHeroExpandBlock(
       ) {
         clusterAnchorCell = extra.cell
       }
+      const keRailShown =
+        keEnergyRailRoot &&
+        keEnergyRailRoot.style.visibility !== 'hidden' &&
+        !keEnergyRailRoot.hasAttribute('aria-hidden')
       let cursorLeft =
         clusterAnchorCell.getBoundingClientRect().left - rootR.left
       const refAbbr = fkHidden
         ? stackW6.querySelector(':scope > .init-hero-ex__abbr')
         : fk.ab
-      const railTop =
+      const refInpEl = fkHidden ? w6.inp : fk.inp
+      /** FK→KE wie KE→AE: Lücke + Spaltenbreite (nicht nur Flex-Gap vor Platzhalter). */
+      if (
+        !fkHidden &&
+        keRailShown &&
+        Number.isFinite(railW) &&
+        railW > 0 &&
+        Number.isFinite(railGap) &&
+        railGap >= 0
+      ) {
+        const fkRight = fk.cell.getBoundingClientRect().right - rootR.left
+        cursorLeft = fkRight + railGap + railW
+      }
+      let railTop = clusterAnchorCell.getBoundingClientRect().top - rootR.top
+      if (
+        refInpEl instanceof HTMLInputElement &&
         refAbbr instanceof HTMLElement
-          ? refAbbr.getBoundingClientRect().top - rootR.top
-          : clusterAnchorCell.getBoundingClientRect().top - rootR.top
+      ) {
+        const refInpTop = refInpEl.getBoundingClientRect().top - rootR.top
+        const refAbbrH = refAbbr.getBoundingClientRect().height
+        railTop = refInpTop - refAbbrH - labelGapPx
+      }
 
       if (
         Number.isFinite(railW) &&
@@ -5436,6 +5462,41 @@ export function mountHeroExpandBlock(
           }
           if (entry.root !== sRailRoot) {
             cursorLeft += railW + railGap
+          }
+        }
+
+        /* Feinabgleich: Hauptwert-Kästchen KE/AE/AU/LE auf FK/W6-Oberkante. */
+        if (refInpEl instanceof HTMLInputElement) {
+          const refInpTop = refInpEl.getBoundingClientRect().top - rootR.top
+          for (const entry of clusterRails) {
+            const inpTop =
+              entry.mainInp.getBoundingClientRect().top - rootR.top
+            const shift = refInpTop - inpTop
+            if (Number.isFinite(shift) && Math.abs(shift) > 0.5) {
+              const curTop = parseFloat(entry.root.style.top) || railTop
+              entry.root.style.top = `${Math.round((curTop + shift) * 1000) / 1000}px`
+              const abbrBottom =
+                entry.abbrEl.getBoundingClientRect().bottom - rootR.top
+              const boxGap =
+                entry.root === sRailRoot ? sRailLabelGap : labelGapPx
+              if (entry.bottom === 'ws' && wsBottom != null) {
+                const barH = wsBottom - abbrBottom - boxGap
+                if (Number.isFinite(barH) && barH > 0) {
+                  entry.root.style.setProperty(
+                    '--init-hero-ex-energy-rail-h',
+                    `${Math.round(barH * 1000) / 1000}px`
+                  )
+                }
+              } else if (entry.bottom === 'tz' && tzBottom != null) {
+                const barH = tzBottom - abbrBottom - boxGap
+                if (Number.isFinite(barH) && barH > 0) {
+                  root.style.setProperty(
+                    '--init-hero-ex-s-rail-h',
+                    `${Math.round(barH * 1000) / 1000}px`
+                  )
+                }
+              }
+            }
           }
         }
 
