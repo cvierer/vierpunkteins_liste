@@ -1621,6 +1621,8 @@ export function mountHeroExpandBlock(
   let aeEnergyRailRoot = null
   /** @type {HTMLElement | null} */
   let keEnergyRailRoot = null
+  /** @type {HTMLElement | null} */
+  let clusterSRailRoot = null
 
   /** @param {{ showAu?: boolean, showFk?: boolean, extraField?: string }} vis */
   const applyConfigurableFieldVisibility = (vis) => {
@@ -1658,6 +1660,7 @@ export function mountHeroExpandBlock(
     setRailVisible(auEnergyRailRoot, showAu)
     setRailVisible(aeEnergyRailRoot, true)
     setRailVisible(keEnergyRailRoot, showExtra && ef === 'ke')
+    setRailVisible(clusterSRailRoot, true)
   }
   applyConfigurableFieldVisibility(snap)
 
@@ -1940,6 +1943,7 @@ export function mountHeroExpandBlock(
   sRailRoot.className =
     'init-hero-ex__s-rail-root init-hero-ex__le-threshold init-hero-ex__le-threshold--rail'
   sRailRoot.append(leThreshRailAbbr, leThreshRail.box)
+  clusterSRailRoot = sRailRoot
 
   /** @type {{ host: HTMLElement, box: HTMLDivElement, fill: HTMLDivElement, line50: HTMLDivElement, line33: HTMLDivElement, line25: HTMLDivElement, line5: HTMLDivElement, lineUnf: HTMLDivElement, skull: SVGSVGElement }[]} */
   const leThreshGaugeSets = [{ host: sRailRoot, ...leThreshRail }]
@@ -2269,16 +2273,26 @@ export function mountHeroExpandBlock(
       }
     }
   }
-  updateEnergyThreshold()
-  for (const g of energyGaugeSets) {
-    g.mainInp.addEventListener('input', updateEnergyThreshold)
-    g.maxInp.addEventListener('input', updateEnergyThreshold)
+  let gaugeRefreshRaf = 0
+  const scheduleGaugeRefresh = () => {
+    if (gaugeRefreshRaf) return
+    gaugeRefreshRaf = requestAnimationFrame(() => {
+      gaugeRefreshRaf = 0
+      updateLeThreshold()
+      updateEnergyThreshold()
+    })
   }
 
   updateLeThreshold()
-  leInp.addEventListener('input', updateLeThreshold)
-  leMaxInp.addEventListener('input', updateLeThreshold)
-  koAttr.inp.addEventListener('input', updateLeThreshold)
+  updateEnergyThreshold()
+  for (const g of energyGaugeSets) {
+    g.mainInp.addEventListener('input', scheduleGaugeRefresh)
+    g.maxInp.addEventListener('input', scheduleGaugeRefresh)
+  }
+
+  leInp.addEventListener('input', scheduleGaugeRefresh)
+  leMaxInp.addEventListener('input', scheduleGaugeRefresh)
+  koAttr.inp.addEventListener('input', scheduleGaugeRefresh)
 
   const totalWunden = () =>
     zoneUiMid.reduce((a, u) => a + (u.getWunden() || 0), 0)
@@ -4580,6 +4594,19 @@ export function mountHeroExpandBlock(
     }
   }
 
+  /** LE-Rail + Energy-Rails nach Layout sichtbar (V1201-Recovery). */
+  const revealClusterRailsAfterLayout = () => {
+    applyConfigurableFieldVisibility(snap)
+    if (
+      clusterSRailRoot &&
+      clusterSRailRoot.style.visibility === 'hidden' &&
+      !clusterSRailRoot.hasAttribute('aria-hidden')
+    ) {
+      clusterSRailRoot.style.visibility = 'visible'
+      clusterSRailRoot.removeAttribute('aria-hidden')
+    }
+  }
+
   /** Scroll-Ausgleich: untere und mittlere Heldenblock-Zeile gleiche Scroll-Breite. */
   const runSyncHeroRowLayout = () => {
     if (heroLayoutSyncing) return
@@ -4799,39 +4826,6 @@ export function mountHeroExpandBlock(
             root.style.removeProperty('--init-hero-fk-ke-gap')
           }
 
-          /* Feinabgleich: Hauptwert-Kästchen KE/AE/AU/LE auf FK/W6-Oberkante. */
-          if (refInpEl instanceof HTMLInputElement) {
-            const refInpTop = refInpEl.getBoundingClientRect().top - rootR.top
-            for (const entry of clusterRails) {
-              const inpTop =
-                entry.mainInp.getBoundingClientRect().top - rootR.top
-              const shift = refInpTop - inpTop
-              if (Number.isFinite(shift) && Math.abs(shift) > 0.5) {
-                const curTop = parseFloat(entry.root.style.top) || railTop
-                setClusterPxIf(entry.root, 'top', curTop + shift)
-                const abbrBottom =
-                  entry.abbrEl.getBoundingClientRect().bottom - rootR.top
-                const boxGap =
-                  entry.root === sRailRoot ? sRailLabelGap : labelGapPx
-                if (entry.bottom === 'ws' && wsBottom != null) {
-                  const barH = wsBottom - abbrBottom - boxGap
-                  if (Number.isFinite(barH) && barH > 0) {
-                    setClusterVarIf(
-                      entry.root,
-                      '--init-hero-ex-energy-rail-h',
-                      barH
-                    )
-                  }
-                } else if (entry.bottom === 'tz' && tzBottom != null) {
-                  const barH = tzBottom - abbrBottom - boxGap
-                  if (Number.isFinite(barH) && barH > 0) {
-                    setClusterVarIf(root, '--init-hero-ex-s-rail-h', barH)
-                  }
-                }
-              }
-            }
-          }
-
           /* Flex-Platzhalter (extra/ae/au/leRailSlot) + strip-gap; kein clusterW margin. */
           if (Number.isFinite(railGap) && railGap >= 0) {
             const gapPx = fmtClusterPx(railGap)
@@ -4841,9 +4835,37 @@ export function mountHeroExpandBlock(
           }
         }
 
-        if (heroClusterRailsAwaitFirstLayout) {
-          heroClusterRailsAwaitFirstLayout = false
-          applyConfigurableFieldVisibility(snap)
+        /* Feinabgleich auch bei unveränderter clusterSig (nur top/rail-h, kein Flackern). */
+        if (refInpEl instanceof HTMLInputElement) {
+          const refInpTop = refInpEl.getBoundingClientRect().top - rootR.top
+          for (const entry of clusterRails) {
+            const inpTop =
+              entry.mainInp.getBoundingClientRect().top - rootR.top
+            const shift = refInpTop - inpTop
+            if (Number.isFinite(shift) && Math.abs(shift) > 0.5) {
+              const curTop = parseFloat(entry.root.style.top) || railTop
+              setClusterPxIf(entry.root, 'top', curTop + shift)
+              const abbrBottom =
+                entry.abbrEl.getBoundingClientRect().bottom - rootR.top
+              const boxGap =
+                entry.root === sRailRoot ? sRailLabelGap : labelGapPx
+              if (entry.bottom === 'ws' && wsBottom != null) {
+                const barH = wsBottom - abbrBottom - boxGap
+                if (Number.isFinite(barH) && barH > 0) {
+                  setClusterVarIf(
+                    entry.root,
+                    '--init-hero-ex-energy-rail-h',
+                    barH
+                  )
+                }
+              } else if (entry.bottom === 'tz' && tzBottom != null) {
+                const barH = tzBottom - abbrBottom - boxGap
+                if (Number.isFinite(barH) && barH > 0) {
+                  setClusterVarIf(root, '--init-hero-ex-s-rail-h', barH)
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -4903,6 +4925,17 @@ export function mountHeroExpandBlock(
         panelBody.style.setProperty('--init-row-extra-panel-body-max-h', px)
         panelBody.style.maxHeight = px
       }
+    }
+
+    if (heroClusterRailsAwaitFirstLayout) {
+      heroClusterRailsAwaitFirstLayout = false
+      revealClusterRailsAfterLayout()
+    } else if (
+      clusterSRailRoot &&
+      clusterSRailRoot.style.visibility === 'hidden' &&
+      !clusterSRailRoot.hasAttribute('aria-hidden')
+    ) {
+      revealClusterRailsAfterLayout()
     }
     } finally {
       heroLayoutSyncing = false
@@ -5239,8 +5272,7 @@ export function mountHeroExpandBlock(
   }
 
   const refreshDerivedUiFromInputs = (metaForVisuals) => {
-    updateLeThreshold()
-    updateEnergyThreshold()
+    scheduleGaugeRefresh()
     syncLeMaxInputVisibility()
     applyUnfaehigVisualOverlay(metaForVisuals)
   }
