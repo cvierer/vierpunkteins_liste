@@ -1,4 +1,4 @@
-# vierpunkteins_kampf
+# vierpunkteins_liste
 
 **[v1.0.2]** Owlbear-Rodeo-Erweiterung: Kampfliste und Initiative für Charakter-Tokens (CHARACTER). Auf GitHub Pages zeigt `V.{Run-Nummer}` die CI-Buildnummer; lokal nutzt die UI den Fallback aus `src/buildVersion.js`.
 
