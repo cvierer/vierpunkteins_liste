@@ -162,7 +162,10 @@ import {
   krTransferMarkPresent,
   normalizeKrDigit,
   patchKrCounterByDelta,
-  patchKrCyclePrimarySlotKind,
+  patchKrStepPrimarySlotKind,
+  cycleKrPrimarySlotKind,
+  resolveKrPrimarySlotKind,
+  isKrPrimarySlotIniLocked,
   patchEnsureZaoSlotForLink,
   patchKrLhChargeBackToAbw,
   ensureParadeExtraShield,
@@ -711,39 +714,260 @@ const SVG_FA_BOLT = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.or
 
 /** Leuchtendes Lila — Hover (Stand V991 / ein Prompt zuvor). */
 const SVG_FA_BOLT_HOVER = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 28" aria-hidden="true"><ellipse cx="9" cy="14" rx="5.2" ry="12.4" fill="#b388ff" opacity="0.55"/><ellipse cx="9" cy="14" rx="4.4" ry="11.6" fill="#7c4dff" opacity="0.38"/><path fill="#4527a0" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/><path fill="#651fff" d="M9 3.4 Q10.6 8.7 11.6 14 Q10.6 19.3 9 24.6 Q7.4 19.3 6.4 14 Q7.4 8.7 9 3.4 Z"/><path fill="#8e24aa" d="M9 6.6 Q9.7 10.3 10.05 14 Q9.7 17.7 9 21.4 Q8.3 17.7 7.95 14 Q8.3 10.3 9 6.6 Z"/><path fill="#ce93d8" opacity="0.72" d="M9 8.2 Q9.55 11.2 9.75 14 Q9.55 16.8 9 19.8 Q8.45 16.8 8.25 14 Q8.45 11.2 9 8.2 Z"/><path fill="#f3e5f5" opacity="0.88" d="M8.35 10.2 Q8.55 12.4 8.62 14 Q8.55 15.6 8.35 17.8 Q8.15 15.6 8.08 14 Q8.15 12.4 8.35 10.2 Z"/><path fill="none" stroke="#4a148c" stroke-width="0.45" stroke-linejoin="round" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/></svg>`
-/** @param {'ang' | 'sra' | 'lh' | 'uo'} k */
-function nextKrPrimarySlotKind(k) {
-  if (k === 'ang') return 'sra'
-  if (k === 'sra') return 'lh'
-  if (k === 'lh') return 'uo'
+/** @param {'ang' | 'sra' | 'lh' | 'uo'} kind */
+function krPrimaryKindLabelLong(kind) {
+  if (kind === 'uo') {
+    return 'Umwandel-Objekt (UO) — Ladung im Abwehr-Schild'
+  }
+  if (kind === 'sra') {
+    return 'Sonstige reg. Aktion (A) — z. B. Atem holen, Bewegen, Position, Taktik'
+  }
+  if (kind === 'lh') {
+    return 'Längerfristige Handlung (L.H.)'
+  }
+  return 'Angriff (AN)'
+}
+
+/** @param {'ang' | 'sra' | 'lh' | 'uo'} kind */
+function krPrimaryMainKindClass(kind) {
+  if (kind === 'uo') return 'uo'
+  if (kind === 'sra') return 'sra'
+  if (kind === 'lh') return 'lh'
   return 'ang'
 }
 
-/** @param {'ang' | 'sra' | 'lh' | 'uo'} k */
-function prevKrPrimarySlotKind(k) {
-  if (k === 'ang') return 'uo'
-  if (k === 'sra') return 'ang'
-  if (k === 'lh') return 'sra'
-  return 'lh'
-}
-
 /**
- * Zyklus der Mutter-Primäraktion (AN → A → L.H. → UO → AN …).
+ * Primär-Shell nach Slot-Wechsel sofort aktualisieren (ohne auf renderList zu warten).
  *
- * Bei INI < 0 (`iniLocked`) wird das Schwert (`'ang'`) ausgeblendet.
- *
- * @param {'ang' | 'sra' | 'lh' | 'uo'} k
- * @param {'next' | 'prev'} dir
- * @param {boolean} [iniLocked]
- * @returns {'ang' | 'sra' | 'lh' | 'uo'}
+ * @param {{
+ *   shell: HTMLElement,
+ *   main: HTMLElement,
+ *   exec: HTMLButtonElement,
+ *   icon: HTMLElement,
+ *   prevBtn: HTMLButtonElement,
+ *   nextBtn: HTMLButtonElement,
+ * }} els
+ * @param {'ang' | 'sra' | 'lh' | 'uo'} kind
+ * @param {unknown} trackerMeta
+ * @param {{
+ *   isZaoSlot: boolean,
+ *   zaoSlotOverride?: { marks?: number, linkId?: string } | null,
+ *   canEdit: boolean,
+ *   primaryLadungAllowed: boolean,
+ *   phaseRowActive: boolean,
+ *   combatRound: number | null,
+ *   boundaryAsActiveVisual: boolean,
+ *   iniLockHint: string,
+ * }} ctx
  */
-function cycleKrPrimarySlotKind(k, dir, iniLocked = false) {
-  let next =
-    dir === 'next' ? nextKrPrimarySlotKind(k) : prevKrPrimarySlotKind(k)
-  if (iniLocked && next === 'ang') {
-    next = dir === 'next' ? nextKrPrimarySlotKind(next) : prevKrPrimarySlotKind(next)
+function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
+  const { shell, main, exec, icon, prevBtn, nextBtn } = els
+  const {
+    isZaoSlot,
+    zaoSlotOverride = null,
+    canEdit,
+    primaryLadungAllowed,
+    phaseRowActive,
+    combatRound,
+    boundaryAsActiveVisual,
+    iniLockHint,
+  } = ctx
+  const isUoKind = kind === 'uo'
+  const iniLocked = isKrPrimarySlotIniLocked(
+    trackerMeta,
+    isZaoSlot ? zaoSlotOverride?.linkId : null
+  )
+  const kindLabelLong = krPrimaryKindLabelLong(kind)
+  const primaryTooltipLabel =
+    kind === 'uo'
+      ? 'Umwandel-Objekt (UO)'
+      : kind === 'sra'
+        ? `${ACTION_STAMP_LABEL[KR_SRA]}: Sonstige reguläre Aktion wie Atem holen, Bewegen, Position und Taktik`
+        : kind === 'lh'
+          ? ACTION_STAMP_LABEL[KR_LH_ACTION]
+          : ACTION_STAMP_LABEL[KR_ANG]
+
+  shell.dataset.krSlotKind = kind
+  main.className = `init-kr-primary-main init-kr-primary-main--${krPrimaryMainKindClass(kind)}`
+
+  let field = KR_ANG
+  if (kind === 'sra') field = KR_SRA
+  else if (kind === 'lh') field = KR_LH_ACTION
+  const counterKind = krFieldToCounterKind(field)
+  exec.className = `init-kr-primary-main__exec init-kr-primary-main__exec--${counterKind}`
+
+  const v = isZaoSlot
+    ? zaoSlotOverride?.marks === 1
+      ? 0
+      : 1
+    : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
+  const lhVoided =
+    !isZaoSlot && kind === 'lh' && Boolean(trackerMeta?.[KR_LH_VOID_BY_TRANSFER])
+  const lhStatePrimary =
+    !isZaoSlot && kind === 'lh' ? readLhState(trackerMeta) : { max: 0, rem: 0 }
+  const lhFullyLoaded = !isZaoSlot && kind === 'lh' && v < 1
+  const lhNoChargeVisual =
+    kind === 'lh' &&
+    (lhVoided || v >= 1) &&
+    !lhFullyLoaded &&
+    lhStatePrimary.max <= 0
+  main.classList.toggle('init-kr-primary-main--lh-voided', lhVoided)
+  main.classList.toggle('init-kr-primary-main--lh-empty', lhNoChargeVisual)
+
+  icon.className = 'init-kr-primary-main__icon'
+  icon.removeAttribute('style')
+  icon.classList.remove(
+    'init-kr-primary-main__icon--uo-slot',
+    'init-kr-primary-main__icon--lh-split',
+    'init-kr-primary-main__icon--lh-pie',
+    'init-kr-primary-main__icon--lh-pie-full',
+    'init-kr-primary-main__icon--hidden-by-abw-transfer'
+  )
+
+  if (kind === 'uo') {
+    icon.classList.add('init-kr-primary-main__icon--uo-slot')
+    icon.innerHTML = ''
+  } else if (kind === 'sra') {
+    icon.innerHTML = SVG_PRIMARY_ACTION
+  } else if (kind === 'lh') {
+    if (lhVoided) {
+      icon.classList.add('init-kr-primary-main__icon--lh-split')
+      icon.innerHTML =
+        '<span class="init-kr-primary-lh-split" aria-hidden="true"><span class="init-kr-primary-lh-split__live init-kr-primary-lh-split__live--void"></span><span class="init-kr-primary-lh-split__blank"></span></span>'
+    } else if (lhStatePrimary.max > 0) {
+      const heroIniNum = (() => {
+        const raw = trackerMeta?.initiative
+        const n = Number(String(raw ?? '').trim().replace(',', '.'))
+        return Number.isFinite(n) ? n : null
+      })()
+      const mechanics = readLhMechanics(trackerMeta)
+      const commitRound =
+        Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
+        (combatRound ?? 1)
+      const effectiveRound = combatRound ?? commitRound
+      const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
+      const priorSpendPie = readLhCommitKrPriorSpendForRound(
+        trackerMeta,
+        effectiveRound
+      )
+      const lhPieFracValue = lhPieFraction(
+        effectiveRound,
+        currentNavIniForRender,
+        commitRound,
+        heroIniNum,
+        mechanics.actionsPerKr,
+        mechanics.triggerIniStep,
+        lhStatePrimary.max,
+        Number.isFinite(commitIniStored) ? commitIniStored : undefined,
+        priorSpendPie
+      )
+      icon.classList.add('init-kr-primary-main__icon--lh-pie')
+      icon.style.setProperty('--lh-pie-frac', String(lhPieFracValue))
+      icon.innerHTML =
+        `<span class="init-kr-primary-lh-pie" aria-hidden="true">` +
+        `<span class="init-kr-primary-lh-pie__disc" aria-hidden="true"></span>` +
+        `<span class="init-kr-primary-lh-pie__base">${SVG_PRIMARY_LH_STAR}</span>` +
+        `<span class="init-kr-primary-lh-pie__fill">${SVG_PRIMARY_LH_STAR}</span>` +
+        `</span>`
+      if (lhPieFracValue >= 1) {
+        icon.classList.add('init-kr-primary-main__icon--lh-pie-full')
+      }
+    } else {
+      icon.innerHTML = SVG_PRIMARY_LH_STAR
+    }
+  } else {
+    icon.innerHTML = SVG_PRIMARY_ATTACK
   }
-  return next
+
+  if (
+    !isUoKind &&
+    !isZaoSlot &&
+    (lhVoided ||
+      ((kind === 'ang' || kind === 'sra') &&
+        Boolean(trackerMeta?.[KR_PRIMARY_VOID_BY_ABW_TRANSFER])))
+  ) {
+    icon.classList.add('init-kr-primary-main__icon--hidden-by-abw-transfer')
+  }
+
+  const hasPrimaryCharge = isUoKind ? false : krTransferMarkPresent(v)
+  const primarySpentVisual = !isUoKind && !hasPrimaryCharge && !lhVoided
+  exec.classList.toggle(
+    'init-kr-primary-main__exec--spent',
+    primarySpentVisual && phaseRowActive
+  )
+  shell.classList.toggle(
+    'init-kr-primary-shell--spent',
+    primarySpentVisual && phaseRowActive
+  )
+  shell.classList.toggle(
+    'init-kr-primary-shell--inactive-charged',
+    !phaseRowActive && (hasPrimaryCharge || isUoKind) && !lhVoided
+  )
+  const inactiveEmpty = !phaseRowActive && !hasPrimaryCharge && !lhVoided
+  shell.classList.toggle('init-kr-primary-shell--inactive-empty', inactiveEmpty)
+  shell.classList.toggle(
+    'init-kr-primary-shell--inactive-empty-ang',
+    inactiveEmpty && kind === 'ang'
+  )
+
+  const lhLockActive =
+    isLhLockingActions(trackerMeta, combatRound) && kind !== 'lh'
+  exec.classList.toggle('init-kr-primary-main__exec--lh-locked', lhLockActive)
+  shell.classList.toggle('init-kr-primary-shell--lh-locked', lhLockActive)
+
+  let lhPieFullyFilled = false
+  if (kind === 'lh' && !lhVoided && lhStatePrimary.max > 0) {
+    const heroIniNum = (() => {
+      const raw = trackerMeta?.initiative
+      const n = Number(String(raw ?? '').trim().replace(',', '.'))
+      return Number.isFinite(n) ? n : null
+    })()
+    const mechanics = readLhMechanics(trackerMeta)
+    const commitRound =
+      Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
+      (combatRound ?? 1)
+    const effectiveRound = combatRound ?? commitRound
+    const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
+    const priorSpendPie = readLhCommitKrPriorSpendForRound(
+      trackerMeta,
+      effectiveRound
+    )
+    lhPieFullyFilled =
+      lhPieFraction(
+        effectiveRound,
+        currentNavIniForRender,
+        commitRound,
+        heroIniNum,
+        mechanics.actionsPerKr,
+        mechanics.triggerIniStep,
+        lhStatePrimary.max,
+        Number.isFinite(commitIniStored) ? commitIniStored : undefined,
+        priorSpendPie
+      ) >= 1
+  }
+  const lhPieStampReady =
+    kind === 'lh' && lhPieFullyFilled && primaryLadungAllowed
+  exec.disabled =
+    !canEdit ||
+    isUoKind ||
+    lhLockActive ||
+    (hasPrimaryCharge && !primaryLadungAllowed) ||
+    (kind === 'lh' && !lhPieStampReady)
+  exec.title = canEdit
+    ? isUoKind
+      ? 'Umwandel-Objekt (UO): Ladung liegt im Abwehr-Schild — nicht stempelbar; Pfeile wählen andere Aktion.'
+      : hasPrimaryCharge
+        ? !primaryLadungAllowed
+          ? `${primaryTooltipLabel}: Ladung stempeln erst, wenn die Navigation auf dieser Zeile steht (aktuell anderer Zug).`
+          : `${primaryTooltipLabel}: Untere Ladung anklicken — an aktueller Listenposition stempeln und Ladung verbrauchen`
+        : lhVoided
+          ? `${ACTION_STAMP_LABEL[KR_LH_ACTION]}: Ladungen ins Abwehr-Schild gelegt — unten Schild zurück ins Feld; Rechtsklick hebt die Leerung auf (ohne Stempel).`
+          : `${primaryTooltipLabel}: Rechtsklick auf das Kästchen — Ladung zurück, letzten Stempel entfernen`
+    : `${primaryTooltipLabel} (nur Anzeige)`
+
+  const switchTitleSuffix = iniLocked ? iniLockHint : ''
+  prevBtn.title = `Vorige Aktion (${kindLabelLong})${switchTitleSuffix}`
+  nextBtn.title = `Nächste Aktion (${kindLabelLong})${switchTitleSuffix}`
 }
 
 /**
@@ -758,6 +982,12 @@ function cycleKrPrimarySlotKind(k, dir, iniLocked = false) {
  * @param {boolean} [phaseRowActive] — Navigierte Zeile (Stempeln erlaubt); sonst gedimmte Darstellung.
  * @param {boolean} [convertAllowedByLock] — Spieler-Umwandlung erlaubt (Schloss + Helden-Einstellung);
  *        steuert Sichtbarkeit der Umtauschpfeile und Klick-Guard bei UO.
+ * @param {{
+ *   rowActiveId?: string | null,
+ *   rowActivePhaseLinkId?: string | null,
+ *   currentNavIni?: number | null,
+ *   visibilityCtx?: ReturnType<typeof buildConvertListVisibilityCtx> | null,
+ * } | null} [convertCheckCtx] — Live-Prüfung beim Klick (UO-Guard).
  */
 function appendKrPrimarySplitCell(
   container,
@@ -770,7 +1000,8 @@ function appendKrPrimarySplitCell(
   combatRound = null,
   zaoSlotOverride = null,
   boundaryAsActiveVisual = false,
-  convertAllowedByLock = true
+  convertAllowedByLock = true,
+  convertCheckCtx = null
 ) {
   const isZaoSlot = Boolean(zaoSlotOverride)
   const kind = isZaoSlot
@@ -794,6 +1025,11 @@ function appendKrPrimarySplitCell(
 
   const shell = document.createElement('div')
   shell.className = 'init-kr-primary-shell'
+  shell.dataset.krOwnerId = ownerItemId
+  shell.dataset.krSlotKind = kind
+  if (isZaoSlot && zaoSlotOverride?.linkId) {
+    shell.dataset.krZaoLinkId = zaoSlotOverride.linkId
+  }
   const v = isZaoSlot
     ? zaoSlotOverride.marks === 1
       ? 0
@@ -834,21 +1070,6 @@ function appendKrPrimarySplitCell(
   if (switchLocked) {
     prevBtn.title = 'ZAO: Aktion ist fest und kann nicht umgeschaltet werden.'
   }
-  if (canEdit && !switchLocked) {
-    prevBtn.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const next = cycleKrPrimarySlotKind(kind, 'prev', iniLocked)
-      if (next === 'uo' && !convertAllowedByLock) return
-      if (isZaoSlot) {
-        void patchKrCyclePrimarySlotKind(ownerItemId, next, {
-          linkId: zaoSlotOverride.linkId,
-        })
-      } else {
-        void patchKrCyclePrimarySlotKind(ownerItemId, next)
-      }
-    })
-  }
   const nextBtn = document.createElement('button')
   nextBtn.type = 'button'
   nextBtn.className = 'init-kr-primary-switch__btn'
@@ -859,21 +1080,6 @@ function appendKrPrimarySplitCell(
   nextBtn.disabled = !canEdit || switchLocked
   if (switchLocked) {
     nextBtn.title = prevBtn.title
-  }
-  if (canEdit && !switchLocked) {
-    nextBtn.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const next = cycleKrPrimarySlotKind(kind, 'next', iniLocked)
-      if (next === 'uo' && !convertAllowedByLock) return
-      if (isZaoSlot) {
-        void patchKrCyclePrimarySlotKind(ownerItemId, next, {
-          linkId: zaoSlotOverride.linkId,
-        })
-      } else {
-        void patchKrCyclePrimarySlotKind(ownerItemId, next)
-      }
-    })
   }
   switchCol.append(prevBtn, nextBtn)
 
@@ -1006,6 +1212,86 @@ function appendKrPrimarySplitCell(
     icon.classList.add('init-kr-primary-main__icon--hidden-by-abw-transfer')
   }
   exec.append(icon)
+  const visualCtx = {
+    isZaoSlot,
+    zaoSlotOverride,
+    canEdit,
+    primaryLadungAllowed,
+    phaseRowActive,
+    combatRound,
+    boundaryAsActiveVisual,
+    iniLockHint,
+  }
+  /** @param {'next' | 'prev'} dir */
+  const runPrimarySwitch = async (dir) => {
+    if (shell.dataset.krSwitchBusy === '1') return
+    shell.dataset.krSwitchBusy = '1'
+    prevBtn.disabled = true
+    nextBtn.disabled = true
+    try {
+      let freshMeta = trackerMeta
+      try {
+        const freshItems = await OBR.scene.items.getItems([ownerItemId])
+        const fm = freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+        if (fm && typeof fm === 'object') freshMeta = fm
+      } catch {
+        /* Mount-Snapshot nutzen */
+      }
+      const linkId = isZaoSlot ? zaoSlotOverride?.linkId ?? null : null
+      const curKind = resolveKrPrimarySlotKind(freshMeta, linkId)
+      const iniLockedLive = isKrPrimarySlotIniLocked(freshMeta, linkId)
+      const nextKind = cycleKrPrimarySlotKind(curKind, dir, iniLockedLive)
+      const convertAllowedLive = convertCheckCtx
+        ? isHeroConvertAllowedForViewer(
+            freshMeta,
+            convertCheckCtx.rowActiveId ?? null,
+            convertCheckCtx.rowActivePhaseLinkId ?? null,
+            convertCheckCtx.currentNavIni ?? null,
+            {
+              ownerItemId,
+              visibilityCtx: convertCheckCtx.visibilityCtx ?? null,
+            }
+          )
+        : convertAllowedByLock
+      if (nextKind === 'uo' && !convertAllowedLive) return
+
+      const result = await patchKrStepPrimarySlotKind(ownerItemId, dir, {
+        linkId,
+      })
+      if (!result?.applied) return
+
+      let metaAfter = freshMeta
+      try {
+        const afterItems = await OBR.scene.items.getItems([ownerItemId])
+        const am = afterItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+        if (am && typeof am === 'object') metaAfter = am
+      } catch {
+        /* früheres Snapshot */
+      }
+      syncKrPrimaryShellKindVisual(
+        { shell, main, exec, icon, prevBtn, nextBtn },
+        result.kind,
+        metaAfter,
+        visualCtx
+      )
+    } finally {
+      delete shell.dataset.krSwitchBusy
+      prevBtn.disabled = !canEdit || switchLocked
+      nextBtn.disabled = !canEdit || switchLocked
+    }
+  }
+  if (canEdit && !switchLocked) {
+    prevBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      void runPrimarySwitch('prev')
+    })
+    nextBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      void runPrimarySwitch('next')
+    })
+  }
   const hasPrimaryCharge = isUoKind ? false : krTransferMarkPresent(v)
   const primarySpentVisual = !isUoKind && !hasPrimaryCharge && !lhVoided
   exec.classList.toggle(
@@ -1961,7 +2247,13 @@ function appendKrCounterPair(
         ownerItemId: ownerItemId,
         visibilityCtx: visibilityCtxForRender,
       }
-    )
+    ),
+    {
+      rowActiveId,
+      rowActivePhaseLinkId,
+      currentNavIni: currentNavIniForRender,
+      visibilityCtx: visibilityCtxForRender,
+    }
   )
   if (showDistanceCell && typeof wireDistanceProbeCell === 'function') {
     const distCell = document.createElement('div')

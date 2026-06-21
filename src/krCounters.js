@@ -1381,6 +1381,114 @@ export async function patchKrFirstSlotKind(itemId, kind) {
   })
 }
 
+/** @param {'ang' | 'sra' | 'lh' | 'uo'} k */
+export function nextKrPrimarySlotKind(k) {
+  if (k === 'ang') return 'sra'
+  if (k === 'sra') return 'lh'
+  if (k === 'lh') return 'uo'
+  return 'ang'
+}
+
+/** @param {'ang' | 'sra' | 'lh' | 'uo'} k */
+export function prevKrPrimarySlotKind(k) {
+  if (k === 'ang') return 'uo'
+  if (k === 'sra') return 'ang'
+  if (k === 'lh') return 'sra'
+  return 'lh'
+}
+
+/**
+ * Zyklus der Mutter-/ZAO-Primäraktion (AN → A → L.H. → UO → AN …).
+ *
+ * @param {'ang' | 'sra' | 'lh' | 'uo'} k
+ * @param {'next' | 'prev'} dir
+ * @param {boolean} [iniLocked]
+ * @returns {'ang' | 'sra' | 'lh' | 'uo'}
+ */
+export function cycleKrPrimarySlotKind(k, dir, iniLocked = false) {
+  let next =
+    dir === 'next' ? nextKrPrimarySlotKind(k) : prevKrPrimarySlotKind(k)
+  if (iniLocked && next === 'ang') {
+    next =
+      dir === 'next'
+        ? nextKrPrimarySlotKind(next)
+        : prevKrPrimarySlotKind(next)
+  }
+  return next
+}
+
+/**
+ * @param {unknown} meta
+ * @param {string | null | undefined} [linkId]
+ * @returns {'ang' | 'sra' | 'lh' | 'uo'}
+ */
+export function resolveKrPrimarySlotKind(meta, linkId = null) {
+  const isZao = typeof linkId === 'string' && linkId.length > 0
+  if (isZao) {
+    return readEffectiveZaoSlotKind(readZaoSlot(meta, linkId))
+  }
+  return readKrFirstSlotKind(meta)
+}
+
+/**
+ * @param {unknown} meta
+ * @param {string | null | undefined} [linkId]
+ */
+export function isKrPrimarySlotIniLocked(meta, linkId = null) {
+  const isZao = typeof linkId === 'string' && linkId.length > 0
+  return (
+    !isZao &&
+    isHeroIniBelowZero(meta) &&
+    readHeroIniNegAngMode(meta) !== 'yes'
+  )
+}
+
+/**
+ * Primär-Aktionsmodus per Pfeil schalten — liest den Slot-Typ frisch aus der Szene.
+ *
+ * @param {string} itemId
+ * @param {'next' | 'prev'} dir
+ * @param {{ linkId?: string | null }} [opts]
+ * @returns {Promise<{ applied: boolean, kind: 'ang' | 'sra' | 'lh' | 'uo', prevKind: 'ang' | 'sra' | 'lh' | 'uo', nextKind: 'ang' | 'sra' | 'lh' | 'uo' } | null>}
+ */
+export async function patchKrStepPrimarySlotKind(itemId, dir, opts = {}) {
+  if (dir !== 'next' && dir !== 'prev') return null
+  const linkId = opts.linkId ?? null
+  const patchOpts =
+    typeof linkId === 'string' && linkId.length > 0 ? { linkId } : {}
+
+  const items = await OBR.scene.items.getItems()
+  const item = items.find((i) => i.id === itemId)
+  if (!item || !canEditSceneItem(item)) return null
+  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+  if (!meta) return null
+
+  const prevKind = resolveKrPrimarySlotKind(meta, linkId)
+  const iniLocked = isKrPrimarySlotIniLocked(meta, linkId)
+  const nextKind = cycleKrPrimarySlotKind(prevKind, dir, iniLocked)
+  if (prevKind === nextKind) {
+    return { applied: false, kind: prevKind, prevKind, nextKind }
+  }
+
+  await patchKrCyclePrimarySlotKind(itemId, nextKind, patchOpts)
+
+  let kindAfter = prevKind
+  try {
+    const fresh = await OBR.scene.items.getItems([itemId])
+    const m = fresh?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (m) kindAfter = resolveKrPrimarySlotKind(m, linkId)
+  } catch {
+    /* Szene kurz nicht lesbar */
+  }
+
+  return {
+    applied: kindAfter !== prevKind,
+    kind: kindAfter,
+    prevKind,
+    nextKind,
+  }
+}
+
 /**
  * Primär-Aktionsmodus zyklisch wechseln inkl. UO (Umwandel-Objekt).
  *
