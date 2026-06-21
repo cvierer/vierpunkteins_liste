@@ -6559,20 +6559,16 @@ select.init-row-extra-select {
   box-shadow: none;
 }
 
-/* Aktive Fläche: niedriger als die Zeile; Abstand zur Tausch-Spalte im Flex-Gap */
+/* Aktive Fläche: Highlight nur über Pseudo-Elemente (kein Layout-Shift). */
 .init-row--active .init-row-main {
   isolation: isolate;
-  padding-top: 0.06rem;
-  padding-bottom: 0.06rem;
-  margin-bottom: 0.08rem;
   background: transparent;
   border-color: transparent;
   box-shadow: none;
 }
 
-/* Highlight bis inkl. Spaltenzwischenraum vor dem Tausch; nur reine
-   Tausch-Spalte unbedeckt (verhindert helle Gitterlücke neben INI / Heldenhintergrund). */
-.init-row--active .init-row-main::before {
+/* Voller Rahmen: Aktion oder Runden-Marker ohne Reaktions-Substep. */
+.init-row--active:not(.init-row--active-sub-reaction) .init-row-main::before {
   content: '';
   position: absolute;
   z-index: 0;
@@ -6584,6 +6580,19 @@ select.init-row-extra-select {
   background: var(--init-nav-active-fill);
   border: 1px solid var(--init-nav-active-border);
   box-shadow: var(--init-nav-active-shadow);
+  pointer-events: none;
+}
+
+/* Reaktionsphase: nur untere Akzentlinie, gleiche Zeilenhöhe wie inaktiv. */
+.init-row--active-sub-reaction .init-row-main::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  right: var(--init-col-swap);
+  bottom: 0;
+  height: 2px;
+  background: var(--init-nav-active-border);
   pointer-events: none;
 }
 

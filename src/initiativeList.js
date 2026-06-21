@@ -391,6 +391,16 @@ function navigationMatchesRow(
   return a === r
 }
 
+/** Nav-Highlight: voller Rahmen (Aktion) oder Unterlinie (Reaktion). */
+function applyNavActiveRowClasses(li, combat) {
+  li.classList.add('init-row--active')
+  if (combat.currentTurnSubStep === 'reaction') {
+    li.classList.add('init-row--active-sub-reaction')
+  } else if (combat.currentTurnSubStep === 'action') {
+    li.classList.add('init-row--active-sub-action')
+  }
+}
+
 function matchesMergedEntryActive(e, rowActiveId, rowActivePhaseLinkId) {
   if (!rowActiveId) return false
   if (e.kind === 'token') {
@@ -2277,6 +2287,8 @@ function appendKrCounterPair(
     /** Kampf muss laufen und Runden-Intro bestätigt sein — sonst keine Schild-Stempel. */
     combatStarted = false,
     roundIntroPending = false,
+    /** 'action' | 'reaction' | null — Nav-Substep für Stempel-Gates und Zeilen-Optik. */
+    currentTurnSubStep = null,
     /** 2.A.-Zeile: Schilde nur Spiegel des Mutter-`KR_ABW`, kein Stempeln hier. */
     abwMirrorLinkUi = false,
     /** Mutter-Zeile: Distanz-Kästchen zwischen Aktion und Frei. */
@@ -2284,17 +2296,22 @@ function appendKrCounterPair(
     wireDistanceProbeCell = null,
     refreshDistCellIdle = null,
   } = options || {}
-  const primaryLadungAllowed = navigationMatchesRow(
+  const navMatchesRow = navigationMatchesRow(
     ownerItemId,
     navigationPhaseLinkId,
     rowActiveId,
     rowActivePhaseLinkId
   )
+  const isActionSub = currentTurnSubStep === 'action'
+  const isReactionSub = currentTurnSubStep === 'reaction'
+  const primaryLadungAllowed = navMatchesRow && isActionSub
   const abwCombatAllowsStamp = Boolean(combatStarted && !roundIntroPending)
   const abwNavAllowsStamp =
     rowActiveId !== ROUND_START_STEP_ID && rowActiveId !== ROUND_END_STEP_ID
-  const abwLadungAllowed = abwCombatAllowsStamp && abwNavAllowsStamp
-  const faLadungAllowed = Boolean(combatStarted) && abwNavAllowsStamp
+  const abwLadungAllowed =
+    abwCombatAllowsStamp && abwNavAllowsStamp && navMatchesRow && isReactionSub
+  const faLadungAllowed =
+    Boolean(combatStarted) && abwNavAllowsStamp && navMatchesRow && isReactionSub
   // Optik (kein Mechanik-Effekt): an den KR-Grenzen — sowohl Beginn als auch
   // Ende der Kampfrunde — werden alle Icons in voller Stärke gezeigt; die
   // Sperren (primaryLadungAllowed/abwLadungAllowed/faLadungAllowed) bleiben
@@ -6960,7 +6977,7 @@ function bindStampContextRemove(el, stamp, items) {
         li.className = 'init-row init-row--token-draggable'
         if (!canEdit) li.classList.add('init-row--locked')
         if (row.id === rowActiveId && !rowActivePhaseLinkId) {
-          li.classList.add('init-row--active')
+          applyNavActiveRowClasses(li, combat)
         }
         li.dataset.itemId = row.id
         li.draggable = false
@@ -7028,6 +7045,7 @@ function bindStampContextRemove(el, stamp, items) {
             lhContainer: lhCol,
             combatStarted: combat.started,
             roundIntroPending: combat.roundIntroPending,
+            currentTurnSubStep: combat.currentTurnSubStep,
             showDistanceCell: true,
             wireDistanceProbeCell,
             refreshDistCellIdle: applyDistCellIdleState,
@@ -7386,6 +7404,7 @@ function bindStampContextRemove(el, stamp, items) {
             hideLh: true,
             combatStarted: combat.started,
             roundIntroPending: combat.roundIntroPending,
+            currentTurnSubStep: combat.currentTurnSubStep,
           }
         )
 
@@ -7762,6 +7781,7 @@ function bindStampContextRemove(el, stamp, items) {
                   lhContainer: lhCol,
                   combatStarted: combat.started,
                   roundIntroPending: combat.roundIntroPending,
+                  currentTurnSubStep: combat.currentTurnSubStep,
                 }
               : {
                   hideAbw: true,
@@ -7779,12 +7799,14 @@ function bindStampContextRemove(el, stamp, items) {
                   lhContainer: lhCol,
                   combatStarted: combat.started,
                   roundIntroPending: combat.roundIntroPending,
+                  currentTurnSubStep: combat.currentTurnSubStep,
                 }
             : {
                 hideFa: true,
                 lhContainer: lhCol,
                 combatStarted: combat.started,
                 roundIntroPending: combat.roundIntroPending,
+                currentTurnSubStep: combat.currentTurnSubStep,
               }
         )
 
@@ -7842,7 +7864,7 @@ function bindStampContextRemove(el, stamp, items) {
           ownerId === rowActiveId &&
           link.id === rowActivePhaseLinkId
         ) {
-          li.classList.add('init-row--active')
+          applyNavActiveRowClasses(li, combat)
         }
 
         const iniInput = document.createElement('input')
