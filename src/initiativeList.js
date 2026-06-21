@@ -2303,15 +2303,13 @@ function appendKrCounterPair(
     rowActivePhaseLinkId
   )
   const isActionSub = currentTurnSubStep !== 'reaction'
-  const isReactionSub = currentTurnSubStep === 'reaction'
   const primaryLadungAllowed = navMatchesRow && isActionSub
   const abwCombatAllowsStamp = Boolean(combatStarted && !roundIntroPending)
   const abwNavAllowsStamp =
     rowActiveId !== ROUND_START_STEP_ID && rowActiveId !== ROUND_END_STEP_ID
-  const abwLadungAllowed =
-    abwCombatAllowsStamp && abwNavAllowsStamp && navMatchesRow && isReactionSub
-  const faLadungAllowed =
-    Boolean(combatStarted) && abwNavAllowsStamp && navMatchesRow && isReactionSub
+  // Abwehr-Reaktion: jeder Spieler an der eigenen Zeile, unabhängig vom Nav-Zug.
+  const abwLadungAllowed = abwCombatAllowsStamp && abwNavAllowsStamp
+  const faLadungAllowed = Boolean(combatStarted) && abwNavAllowsStamp
   // Optik (kein Mechanik-Effekt): an den KR-Grenzen — sowohl Beginn als auch
   // Ende der Kampfrunde — werden alle Icons in voller Stärke gezeigt; die
   // Sperren (primaryLadungAllowed/abwLadungAllowed/faLadungAllowed) bleiben
