@@ -796,19 +796,30 @@ function krPrimaryMainKindClass(kind) {
 function syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitch) {
   shell.classList.toggle('init-kr-primary-shell--no-switch', hideSwitch)
   if (!switchCol) return
+
+  const mainInShell = main.parentElement === shell
+  const switchInShell = switchCol.parentElement === shell
+
   if (hideSwitch) {
-    if (switchCol.parentElement === shell) {
-      shell.removeChild(switchCol)
-    }
-    if (main.parentElement !== shell) {
+    if (switchInShell) shell.removeChild(switchCol)
+    if (!mainInShell) shell.append(main)
+    return
+  }
+
+  if (!mainInShell) {
+    if (switchInShell) {
       shell.append(main)
+    } else {
+      shell.append(switchCol, main)
     }
-  } else {
-    if (switchCol.parentElement !== shell) {
-      shell.insertBefore(switchCol, main)
-    } else if (shell.firstChild !== switchCol) {
-      shell.insertBefore(switchCol, main)
-    }
+    return
+  }
+  if (!switchInShell) {
+    shell.insertBefore(switchCol, main)
+    return
+  }
+  if (shell.firstChild !== switchCol) {
+    shell.insertBefore(switchCol, main)
   }
 }
 
@@ -1085,6 +1096,11 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
  *   currentNavIni?: number | null,
  *   visibilityCtx?: ReturnType<typeof buildConvertListVisibilityCtx> | null,
  * } | null} [convertCheckCtx] — Live-Prüfung beim Klick (UO-Guard).
+ * @param {{
+ *   lhContainer?: HTMLElement | null,
+ *   zaoSlotOverride?: { kind?: string, marks?: number, linkId?: string } | null,
+ *   hideAbw?: boolean,
+ * } | null} [lhSyncOpts] — Schildplatz-L.H. nach Slot-Kind-Wechsel sofort syncen.
  */
 function appendKrPrimarySplitCell(
   container,
@@ -1098,7 +1114,8 @@ function appendKrPrimarySplitCell(
   zaoSlotOverride = null,
   boundaryAsActiveVisual = false,
   convertAllowedByLock = true,
-  convertCheckCtx = null
+  convertCheckCtx = null,
+  lhSyncOpts = null
 ) {
   const isZaoSlot = Boolean(zaoSlotOverride)
   const linkIdForSwitch = isZaoSlot ? zaoSlotOverride?.linkId ?? null : null
@@ -1325,6 +1342,17 @@ function appendKrPrimarySplitCell(
   const switchEls = { shell, main, exec, icon, prevBtn, nextBtn, switchCol }
   shell.dataset.krSwitchKey = switchSessionKey
 
+  const refreshLhAbwAfterKind = (metaForLh) => {
+    if (!lhSyncOpts?.lhContainer) return
+    syncLhAbwContainer(lhSyncOpts.lhContainer, ownerItemId, metaForLh, {
+      zaoSlotOverride: lhSyncOpts.zaoSlotOverride ?? zaoSlotOverride,
+      hideAbw: lhSyncOpts.hideAbw ?? false,
+      canEdit,
+      primaryLadungAllowed,
+      combatRound,
+    })
+  }
+
   const isConvertAllowedLive = (metaForCheck) => {
     if (convertCheckCtx) {
       return isHeroConvertAllowedForViewer(
@@ -1354,9 +1382,11 @@ function appendKrPrimarySplitCell(
         metaRollback,
         visualCtx
       )
+      refreshLhAbwAfterKind(metaRollback)
     } catch {
       shell.dataset.krSlotKind = kind
       syncKrPrimaryShellKindVisual(switchEls, kind, trackerMeta, visualCtx)
+      refreshLhAbwAfterKind(trackerMeta)
     }
   }
 
@@ -1381,6 +1411,7 @@ function appendKrPrimarySplitCell(
             afterMeta,
             visualCtx
           )
+          refreshLhAbwAfterKind(afterMeta)
         } catch {
           syncKrPrimaryShellKindVisual(
             switchEls,
@@ -1388,6 +1419,7 @@ function appendKrPrimarySplitCell(
             freshMeta,
             visualCtx
           )
+          refreshLhAbwAfterKind(freshMeta)
         }
       }
       return result
@@ -1566,9 +1598,29 @@ function appendKrPrimarySplitCell(
     main.appendChild(restoreBtn)
   }
   main.appendChild(exec)
-  shell.append(switchCol, main)
+
+  const hideMotherSwitchForLhMount =
+    !isZaoSlot && kind === 'lh' && lhStatePrimary.max > 0
+  const hideConvertSwitchForLockMount = !shouldShowKrPrimaryConvertSwitch(
+    convertAllowedByLock,
+    switchLocked
+  )
+  const hideSwitchColAtMount =
+    hideMotherSwitchForLhMount ||
+    isHeroExtraSlot ||
+    hideConvertSwitchForLockMount
+  if (hideSwitchColAtMount) {
+    shell.append(main)
+    shell.classList.add('init-kr-primary-shell--no-switch')
+  } else {
+    shell.append(switchCol, main)
+  }
   container.appendChild(shell)
-  syncKrPrimaryShellKindVisual(switchEls, kind, trackerMeta, visualCtx)
+  try {
+    syncKrPrimaryShellKindVisual(switchEls, kind, trackerMeta, visualCtx)
+  } catch (err) {
+    console.error('[vierpunkteins] syncKrPrimaryShellKindVisual failed', err)
+  }
 }
 
 /**
@@ -2163,6 +2215,108 @@ function appendLhAbortOverlay(counterEl, ownerItemId) {
   counterEl.appendChild(btn)
 }
 
+/**
+ * L.H.-Eingabe im Schildplatz (`init-col-lh`) — nach Umwandel-Pfeil sofort syncen.
+ *
+ * @param {{
+ *   zaoSlotOverride?: { kind?: string, marks?: number, linkId?: string } | null,
+ *   hideAbw?: boolean,
+ *   canEdit: boolean,
+ *   primaryLadungAllowed: boolean,
+ *   combatRound?: number | null,
+ * }} opts
+ */
+function syncLhAbwContainer(
+  lhContainer,
+  ownerItemId,
+  trackerMeta,
+  opts
+) {
+  if (!lhContainer) return
+  lhContainer.replaceChildren()
+
+  const {
+    zaoSlotOverride = null,
+    hideAbw = false,
+    canEdit,
+    primaryLadungAllowed,
+    combatRound = null,
+  } = opts
+
+  const motherKindIsLh =
+    !zaoSlotOverride && readKrFirstSlotKind(trackerMeta) === 'lh'
+  const lhSt = readLhState(trackerMeta)
+  let lhAtAbwActive = false
+  if (zaoSlotOverride) {
+    lhAtAbwActive =
+      zaoSlotOverride.kind === 'lh' && zaoSlotOverride.marks >= 1
+  } else if (!hideAbw) {
+    lhAtAbwActive = motherKindIsLh
+  }
+
+  const lhEndsThisKrUi =
+    isLhActive(trackerMeta) && !isLhLockingActions(trackerMeta, combatRound)
+
+  if (!lhAtAbwActive || (lhEndsThisKrUi && !isLhActive(trackerMeta))) {
+    return
+  }
+
+  let counter
+  if (lhSt.max > 0) {
+    const heroIniNum = (() => {
+      const raw = trackerMeta?.initiative
+      const n = Number(String(raw ?? '').trim().replace(',', '.'))
+      return Number.isFinite(n) ? n : null
+    })()
+    const mechanics = readLhMechanics(trackerMeta)
+    const commitRound =
+      Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
+      (combatRound ?? 1)
+    const effectiveRound = combatRound ?? commitRound
+    const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
+    const priorSpendStep = readLhCommitKrPriorSpendForRound(
+      trackerMeta,
+      effectiveRound
+    )
+    const step = lhDisplayStepFromNav(
+      heroIniNum,
+      mechanics,
+      commitRound,
+      effectiveRound,
+      currentNavIniForRender,
+      lhSt.max,
+      Number.isFinite(commitIniStored) ? commitIniStored : undefined,
+      priorSpendStep
+    )
+    counter = createLhCounterInputWidget(
+      ownerItemId,
+      canEdit,
+      true,
+      lhSt.max,
+      step,
+      primaryLadungAllowed
+    )
+  } else {
+    counter = createLhCounterInputWidget(
+      ownerItemId,
+      canEdit,
+      false,
+      0,
+      0,
+      primaryLadungAllowed
+    )
+  }
+  counter.classList.add('init-lh-counter--at-abw')
+  const lhOverlayEligible =
+    motherKindIsLh ||
+    (zaoSlotOverride?.kind === 'lh' && lhAtAbwActive)
+  if (lhOverlayEligible && lhSt.max === 0 && canEdit && primaryLadungAllowed) {
+    appendLhPlayOverlay(counter)
+  } else if (lhOverlayEligible && lhSt.max > 0 && canEdit) {
+    appendLhAbortOverlay(counter, ownerItemId)
+  }
+  lhContainer.appendChild(counter)
+}
 
 function appendFaCounter(
   container,
@@ -2314,6 +2468,13 @@ function appendKrCounterPair(
   // Nur KR-Grenzen-Optik (CSS grayscale), nicht Reaktions-Substep-Sperre.
   const abwRoundBoundaryShell = atRoundBoundaryNav
   const lhRoundLockedVisual = atRoundBoundaryNav
+  const lhSyncOpts = lhContainer
+    ? {
+        lhContainer,
+        zaoSlotOverride,
+        hideAbw,
+      }
+    : null
   appendKrPrimarySplitCell(
     container,
     ownerItemId,
@@ -2340,7 +2501,8 @@ function appendKrCounterPair(
       rowActivePhaseLinkId,
       currentNavIni: currentNavIniForRender,
       visibilityCtx: visibilityCtxForRender,
-    }
+    },
+    lhSyncOpts
   )
   if (showDistanceCell && typeof wireDistanceProbeCell === 'function') {
     const distCell = document.createElement('div')
@@ -2357,97 +2519,14 @@ function appendKrCounterPair(
     }
     container.appendChild(distCell)
   }
-  // Schildplatz: entweder L.H.-Counter-Eingabe (vor Werte-Setzung),
-  // L.H.-Fortschritts-Kuchen (nach Werte-Setzung), Schilde oder Replacement.
-  // Die L.H. kann in Mutter ODER in einem 2.A.O. beginnen.
-  const lhSt = readLhState(trackerMeta)
-  let lhAtAbwActive = false
-  if (zaoSlotOverride) {
-    lhAtAbwActive =
-      zaoSlotOverride.kind === 'lh' && zaoSlotOverride.marks >= 1
-  } else if (!hideAbw) {
-    lhAtAbwActive = readKrFirstSlotKind(trackerMeta) === 'lh'
-  }
-
   if (lhContainer) {
-    const motherKindIsLh =
-      !zaoSlotOverride && readKrFirstSlotKind(trackerMeta) === 'lh'
-    const lhSt = readLhState(trackerMeta)
-    let lhAtAbwActive = false
-    if (zaoSlotOverride) {
-      lhAtAbwActive =
-        zaoSlotOverride.kind === 'lh' && zaoSlotOverride.marks >= 1
-    } else {
-      lhAtAbwActive = motherKindIsLh
-    }
-
-    // End-KR (LH endet in dieser KR) vs. laufender Tracker: während
-    // `isLhLockingActions` true ist, ist die bisherige „Phase F“-Logik aktiv
-    // (Schildspalte/UX wie mittendrin). Wird die End-KR erreicht, bleibt der
-    // grosse Bruch in der Schildspalte trotzdem sichtbar, solange
-    // `isLhActive` — erst nach L.H.-Stempel räumt `clearLhTrackerActivity` die
-    // Anzeige; parallel zeigt `appendKrPrimarySplitCell` weiter das n/x am
-    // Pie-Stern.
-    const lhEndsThisKrUi =
-      isLhActive(trackerMeta) && !isLhLockingActions(trackerMeta, combatRound)
-
-    if (lhAtAbwActive && (!lhEndsThisKrUi || isLhActive(trackerMeta))) {
-      let counter
-      if (lhSt.max > 0) {
-        const heroIniNum = (() => {
-          const raw = trackerMeta?.initiative
-          const n = Number(String(raw ?? '').trim().replace(',', '.'))
-          return Number.isFinite(n) ? n : null
-        })()
-        const mechanics = readLhMechanics(trackerMeta)
-        const commitRound =
-          Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
-          (combatRound ?? 1)
-        const effectiveRound = combatRound ?? commitRound
-        const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
-        const priorSpendStep = readLhCommitKrPriorSpendForRound(
-          trackerMeta,
-          effectiveRound
-        )
-        const step = lhDisplayStepFromNav(
-          heroIniNum,
-          mechanics,
-          commitRound,
-          effectiveRound,
-          currentNavIniForRender,
-          lhSt.max,
-          Number.isFinite(commitIniStored) ? commitIniStored : undefined,
-          priorSpendStep
-        )
-        counter = createLhCounterInputWidget(
-          ownerItemId,
-          canEdit,
-          true,
-          lhSt.max,
-          step,
-          primaryLadungAllowed
-        )
-      } else {
-        counter = createLhCounterInputWidget(
-          ownerItemId,
-          canEdit,
-          false,
-          0,
-          0,
-          primaryLadungAllowed
-        )
-      }
-      counter.classList.add('init-lh-counter--at-abw')
-      const lhOverlayEligible =
-        motherKindIsLh ||
-        (zaoSlotOverride?.kind === 'lh' && lhAtAbwActive)
-      if (lhOverlayEligible && lhSt.max === 0 && canEdit && primaryLadungAllowed) {
-        appendLhPlayOverlay(counter)
-      } else if (lhOverlayEligible && lhSt.max > 0 && canEdit) {
-        appendLhAbortOverlay(counter, ownerItemId)
-      }
-      lhContainer.appendChild(counter)
-    }
+    syncLhAbwContainer(lhContainer, ownerItemId, trackerMeta, {
+      zaoSlotOverride,
+      hideAbw,
+      canEdit,
+      primaryLadungAllowed,
+      combatRound,
+    })
   }
 
   if (hideAbw) {
