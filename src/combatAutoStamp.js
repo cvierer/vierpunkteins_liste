@@ -1,5 +1,5 @@
 import OBR from '@owlbear-rodeo/sdk'
-import { getCombat } from './combatRoom.js'
+import { getCombat, getIniTieOrder } from './combatRoom.js'
 import { isLhLockingActions, lhCompletionStampReady } from './lhMeta.js'
 import {
   motherHasTransferablePrimaryCharge,
@@ -10,8 +10,9 @@ import {
   readZaoSlot,
   stampLhCompletion,
 } from './krCounters.js'
-import { normalizePhases } from './phaseLinks.js'
-import { TRACKER_ITEM_META_KEY } from './participants.js'
+import { normalizePhases, resolveCurrentNavIniForCombat } from './phaseLinks.js'
+import { collectSortedParticipants, TRACKER_ITEM_META_KEY } from './participants.js'
+import { getManualIniTieOverridePairs } from './manualIniTieOverrides.js'
 
 function lhLockRoundFromCombat() {
   const c = getCombat()
@@ -19,30 +20,34 @@ function lhLockRoundFromCombat() {
   return Number.isFinite(c.round) ? c.round : null
 }
 
-/** Nav-INI wie in der Initiative-Liste (`#initiative-list-host`). */
-function readNavIniFromListHost() {
-  try {
-    const host = document.querySelector('#initiative-list-host')
-    if (host instanceof HTMLElement) {
-      const raw = host.dataset.currentNavIni
-      if (raw === '+inf') return Number.POSITIVE_INFINITY
-      if (raw === '-inf') return Number.NEGATIVE_INFINITY
-      if (raw && raw !== '') {
-        const n = Number(raw)
-        if (Number.isFinite(n)) return n
-      }
-    }
-  } catch {
-    /* fall-through */
-  }
-  return Number.POSITIVE_INFINITY
+/** Nav-INI aus Kampf-Schritt (wie Initiative-Liste), nicht DOM-Fallback. */
+async function resolveNavIniForAutoStamp() {
+  const c = getCombat()
+  if (!c.started || c.roundIntroPending) return null
+  const items = await OBR.scene.items.getItems()
+  const tieOrder = getIniTieOrder()
+  const rows = collectSortedParticipants(
+    items,
+    tieOrder,
+    getManualIniTieOverridePairs()
+  )
+  const combatRound =
+    c.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
+  return resolveCurrentNavIniForCombat(
+    rows,
+    items,
+    tieOrder,
+    combatRound,
+    c
+  )
 }
 
-function lhStampReady(meta, zaoLhSlot = false) {
+function lhStampReady(meta, currentNavIni, zaoLhSlot = false) {
+  if (currentNavIni == null) return false
   return lhCompletionStampReady(
     meta,
     lhLockRoundFromCombat(),
-    readNavIniFromListHost(),
+    currentNavIni,
     { zaoLhSlot }
   )
 }
@@ -63,21 +68,29 @@ function zaoRootCanAutoStamp(meta, linkId) {
  * @param {{ kind: string, id?: string, ownerId?: string, linkId?: string, sub?: string }} step
  * @param {unknown} meta
  * @param {{ parentId?: string | null } | null | undefined} [link]
+ * @param {number | null | undefined} [currentNavIni]
  */
-export function canAutoStampForCombatStep(step, meta, link = null) {
+export async function canAutoStampForCombatStep(
+  step,
+  meta,
+  link = null,
+  currentNavIni = undefined
+) {
   if (!step || step.sub !== 'action') return false
+  const navIni =
+    currentNavIni !== undefined ? currentNavIni : await resolveNavIniForAutoStamp()
   if (step.kind === 'token') {
     if (!meta) return false
     const firstKind = readKrFirstSlotKind(meta)
     if (firstKind === 'uo') return false
-    if (firstKind === 'lh') return lhStampReady(meta, false)
+    if (firstKind === 'lh') return lhStampReady(meta, navIni, false)
     return motherHasTransferablePrimaryCharge(meta)
   }
   if (step.kind === 'phase' && step.ownerId && step.linkId) {
     if (!meta || !link || link.parentId !== null) return false
     const slot = readZaoSlot(meta, step.linkId)
     if (!slot || slot.kind === 'uo') return false
-    if (slot.kind === 'lh') return lhStampReady(meta, true)
+    if (slot.kind === 'lh') return lhStampReady(meta, navIni, true)
     return zaoRootCanAutoStamp(meta, step.linkId)
   }
   return false
@@ -89,12 +102,15 @@ export function canAutoStampForCombatStep(step, meta, link = null) {
  */
 export async function autoStampForCombatStep(step) {
   if (!step || step.sub !== 'action') return false
+  const currentNavIni = await resolveNavIniForAutoStamp()
 
   if (step.kind === 'token' && step.id) {
     const items = await OBR.scene.items.getItems()
     const item = items.find((i) => i.id === step.id)
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-    if (!canAutoStampForCombatStep(step, meta)) return false
+    if (!(await canAutoStampForCombatStep(step, meta, null, currentNavIni))) {
+      return false
+    }
     if (readKrFirstSlotKind(meta) === 'lh') {
       await stampLhCompletion(step.id, null)
       return true
@@ -113,7 +129,9 @@ export async function autoStampForCombatStep(step) {
     if (!meta) return false
     const phases = normalizePhases(meta.phases)
     const link = phases.links.find((l) => l.id === step.linkId)
-    if (!canAutoStampForCombatStep(step, meta, link)) return false
+    if (!(await canAutoStampForCombatStep(step, meta, link, currentNavIni))) {
+      return false
+    }
     const slot = readZaoSlot(meta, step.linkId)
     if (slot?.kind === 'lh') {
       await stampLhCompletion(step.ownerId, step.linkId)

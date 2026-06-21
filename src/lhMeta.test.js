@@ -64,6 +64,38 @@ describe('lhCompletionStampReady', () => {
   it('false ohne laufende L.H. (max 0)', () => {
     expect(lhCompletionStampReady({ initiative: '17' }, 1, 17)).toBe(false)
   })
+
+  it('false bei null Nav-INI', () => {
+    expect(
+      lhCompletionStampReady(
+        {
+          initiative: '17',
+          [LH_MAX]: 5,
+          [LH_REM]: 5,
+          lhCommitRound: 1,
+          lhCommitIni: 17,
+        },
+        1,
+        null
+      )
+    ).toBe(false)
+  })
+
+  it('false bei +inf Nav-INI und frischer mehrteiliger L.H.', () => {
+    expect(
+      lhCompletionStampReady(
+        {
+          initiative: '17',
+          [LH_MAX]: 5,
+          [LH_REM]: 5,
+          lhCommitRound: 1,
+          lhCommitIni: 17,
+        },
+        1,
+        Number.POSITIVE_INFINITY
+      )
+    ).toBe(false)
+  })
 })
 
 describe('lhDisplayStepFromNav', () => {

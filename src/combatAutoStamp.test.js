@@ -11,7 +11,31 @@ vi.mock('@owlbear-rodeo/sdk', () => ({
 }))
 
 vi.mock('./combatRoom.js', () => ({
-  getCombat: vi.fn(() => ({ started: true, round: 1 })),
+  getCombat: vi.fn(() => ({
+    started: true,
+    round: 1,
+    roundIntroPending: false,
+    currentItemId: 'hero-a',
+    currentPhaseLinkId: null,
+    currentTurnSubStep: 'action',
+  })),
+  getIniTieOrder: vi.fn(() => []),
+}))
+
+vi.mock('./manualIniTieOverrides.js', () => ({
+  getManualIniTieOverridePairs: vi.fn(() => []),
+}))
+
+vi.mock('./participants.js', () => ({
+  collectSortedParticipants: vi.fn(() => [
+    { id: 'hero-a', initiative: '17' },
+  ]),
+  TRACKER_ITEM_META_KEY: 'vierpunkteins_kampf.tracker/metadata',
+}))
+
+vi.mock('./phaseLinks.js', () => ({
+  normalizePhases: vi.fn((p) => p ?? { links: [] }),
+  resolveCurrentNavIniForCombat: vi.fn(() => 17),
 }))
 
 vi.mock('./lhMeta.js', () => ({
@@ -41,6 +65,7 @@ import {
   stampLhCompletion,
 } from './krCounters.js'
 import { lhCompletionStampReady } from './lhMeta.js'
+import { resolveCurrentNavIniForCombat } from './phaseLinks.js'
 import OBR from '@owlbear-rodeo/sdk'
 import {
   autoStampForCombatStep,
@@ -70,66 +95,97 @@ describe('shouldAutoStampActionToReaction', () => {
 
 describe('canAutoStampForCombatStep', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(lhCompletionStampReady).mockReturnValue(false)
+    vi.mocked(resolveCurrentNavIniForCombat).mockReturnValue(17)
   })
 
-  it('false bei uo', () => {
+  it('false bei uo', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('uo')
     expect(
-      canAutoStampForCombatStep(
+      await canAutoStampForCombatStep(
         { kind: 'token', id: 'a', sub: 'action' },
-        {}
+        {},
+        null,
+        17
       )
     ).toBe(false)
   })
 
-  it('false ohne transferable charge', () => {
+  it('false ohne transferable charge', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('ang')
     vi.mocked(motherHasTransferablePrimaryCharge).mockReturnValue(false)
     expect(
-      canAutoStampForCombatStep(
+      await canAutoStampForCombatStep(
         { kind: 'token', id: 'a', sub: 'action' },
-        { krAng: 0 }
+        { krAng: 0 },
+        null,
+        17
       )
     ).toBe(false)
   })
 
-  it('true bei Mutter-L.H. wenn Pie stempelbar', () => {
+  it('true bei Mutter-L.H. wenn Pie stempelbar', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
     vi.mocked(lhCompletionStampReady).mockReturnValue(true)
     expect(
-      canAutoStampForCombatStep(
+      await canAutoStampForCombatStep(
         { kind: 'token', id: 'a', sub: 'action' },
-        { lhMax: 1 }
-      )
-    ).toBe(true)
-  })
-
-  it('false bei Mutter-L.H. wenn Pie noch nicht voll', () => {
-    vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
-    vi.mocked(lhCompletionStampReady).mockReturnValue(false)
-    expect(
-      canAutoStampForCombatStep(
-        { kind: 'token', id: 'a', sub: 'action' },
-        { lhMax: 3 }
-      )
-    ).toBe(false)
-  })
-
-  it('true bei ZAO-L.H.-Wurzel wenn Pie stempelbar', () => {
-    vi.mocked(readZaoSlot).mockReturnValue({ kind: 'lh', marks: 1 })
-    vi.mocked(lhCompletionStampReady).mockReturnValue(true)
-    expect(
-      canAutoStampForCombatStep(
-        { kind: 'phase', ownerId: 'a', linkId: 'zao-lh', sub: 'action' },
         { lhMax: 1 },
-        { parentId: null }
+        null,
+        17
       )
     ).toBe(true)
     expect(lhCompletionStampReady).toHaveBeenCalledWith(
       { lhMax: 1 },
       1,
-      Number.POSITIVE_INFINITY,
+      17,
+      { zaoLhSlot: false }
+    )
+  })
+
+  it('false bei Mutter-L.H. wenn Pie noch nicht voll', async () => {
+    vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(lhCompletionStampReady).mockReturnValue(false)
+    expect(
+      await canAutoStampForCombatStep(
+        { kind: 'token', id: 'a', sub: 'action' },
+        { lhMax: 3 },
+        null,
+        17
+      )
+    ).toBe(false)
+  })
+
+  it('false bei Mutter-L.H. ohne Nav-INI', async () => {
+    vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(lhCompletionStampReady).mockReturnValue(true)
+    expect(
+      await canAutoStampForCombatStep(
+        { kind: 'token', id: 'a', sub: 'action' },
+        { lhMax: 1 },
+        null,
+        null
+      )
+    ).toBe(false)
+    expect(lhCompletionStampReady).not.toHaveBeenCalled()
+  })
+
+  it('true bei ZAO-L.H.-Wurzel wenn Pie stempelbar', async () => {
+    vi.mocked(readZaoSlot).mockReturnValue({ kind: 'lh', marks: 1 })
+    vi.mocked(lhCompletionStampReady).mockReturnValue(true)
+    expect(
+      await canAutoStampForCombatStep(
+        { kind: 'phase', ownerId: 'a', linkId: 'zao-lh', sub: 'action' },
+        { lhMax: 1 },
+        { parentId: null },
+        9
+      )
+    ).toBe(true)
+    expect(lhCompletionStampReady).toHaveBeenCalledWith(
+      { lhMax: 1 },
+      1,
+      9,
       { zaoLhSlot: true }
     )
   })
@@ -142,6 +198,7 @@ describe('autoStampForCombatStep', () => {
     vi.mocked(motherHasTransferablePrimaryCharge).mockReturnValue(true)
     vi.mocked(readZaoSlot).mockReturnValue({ kind: 'ang', marks: 1 })
     vi.mocked(lhCompletionStampReady).mockReturnValue(false)
+    vi.mocked(resolveCurrentNavIniForCombat).mockReturnValue(17)
   })
 
   it('stempelt Mutter-Primärfeld bei ang und gibt true zurück', async () => {
@@ -208,6 +265,27 @@ describe('autoStampForCombatStep', () => {
     })
     expect(ok).toBe(false)
     expect(stampLhCompletion).not.toHaveBeenCalled()
+  })
+
+  it('überspringt Mutter-L.H. wenn Kampf-Nav-INI fehlt', async () => {
+    vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(resolveCurrentNavIniForCombat).mockReturnValue(null)
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
+      {
+        id: 'hero-a',
+        metadata: {
+          'vierpunkteins_kampf.tracker/metadata': { krFirstSlotKind: 'lh' },
+        },
+      },
+    ])
+    const ok = await autoStampForCombatStep({
+      kind: 'token',
+      id: 'hero-a',
+      sub: 'action',
+    })
+    expect(ok).toBe(false)
+    expect(stampLhCompletion).not.toHaveBeenCalled()
+    expect(lhCompletionStampReady).not.toHaveBeenCalled()
   })
 
   it('überspringt uo auf Mutter und gibt false zurück', async () => {

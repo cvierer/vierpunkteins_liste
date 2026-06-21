@@ -762,6 +762,7 @@ function ownerIniFromLhMeta(meta) {
  */
 export function lhCompletionStampReady(meta, currentRound, currentNavIni, opts = {}) {
   if (!meta || typeof meta !== 'object') return false
+  if (currentNavIni == null) return false
   const st = readLhState(meta)
   if (st.max <= 0) return false
   if (!opts.zaoLhSlot) {
@@ -803,7 +804,18 @@ export function lhCompletionStampReady(meta, currentRound, currentNavIni, opts =
     Number.isFinite(commitIniStored) ? commitIniStored : undefined,
     priorSpend
   )
-  return frac >= 1
+  if (frac < 1) return false
+  const navStep = lhDisplayStepFromNav(
+    heroIni,
+    mechanics,
+    commitRound,
+    effectiveRound,
+    currentNavIni,
+    st.max,
+    Number.isFinite(commitIniStored) ? commitIniStored : undefined,
+    priorSpend
+  )
+  return navStep >= st.max
 }
 
 export function lhDisplayStepFromNav(
