@@ -200,10 +200,10 @@ import {
 import {
   isKrSlotPatchSuppressingRenderList,
   noteDeferredRenderListItems,
-  registerKrSlotKindPatched,
   registerKrSlotPatchRenderFlush,
 } from './krSlotPatchGate.js'
 import {
+  awaitKrPrimarySwitchIdle,
   enqueueKrPrimarySwitchStep,
   getKrPrimarySwitchSessionKey,
   processKrPrimarySwitchQueue,
@@ -1345,26 +1345,32 @@ function appendKrPrimarySplitCell(
   }
 
   /** @param {'next' | 'prev'} dir */
+  let switchQueueTail = Promise.resolve()
   const enqueuePrimarySwitch = async (dir) => {
-    let freshMeta = trackerMeta
-    try {
-      const freshItems = await OBR.scene.items.getItems([ownerItemId])
-      freshMeta =
-        freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? trackerMeta
-    } catch {
-      /* render-closure fallback */
+    const run = async () => {
+      let freshMeta = trackerMeta
+      try {
+        const freshItems = await OBR.scene.items.getItems([ownerItemId])
+        freshMeta =
+          freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? trackerMeta
+      } catch {
+        /* render-closure fallback */
+      }
+      const startKind = resolveKrPrimarySlotKind(freshMeta, linkIdForSwitch)
+      const canConvertToUo = isConvertAllowedLive(freshMeta)
+      const step = enqueueKrPrimarySwitchStep(switchSessionKey, dir, {
+        itemId: ownerItemId,
+        linkId: linkIdForSwitch,
+        startKind,
+        baseMeta: freshMeta,
+        canConvertToUo,
+      })
+      if (!step) return
+      await processKrPrimarySwitchQueue(switchSessionKey, switchPatchHandlers)
+      await awaitKrPrimarySwitchIdle(switchSessionKey)
     }
-    const startKind = resolveKrPrimarySlotKind(freshMeta, linkIdForSwitch)
-    const canConvertToUo = isConvertAllowedLive(freshMeta)
-    const step = enqueueKrPrimarySwitchStep(switchSessionKey, dir, {
-      itemId: ownerItemId,
-      linkId: linkIdForSwitch,
-      startKind,
-      baseMeta: freshMeta,
-      canConvertToUo,
-    })
-    if (!step) return
-    await processKrPrimarySwitchQueue(switchSessionKey, switchPatchHandlers)
+    switchQueueTail = switchQueueTail.then(run, run)
+    await switchQueueTail
   }
 
   if (canEdit && !switchLocked) {
@@ -2327,14 +2333,7 @@ function appendKrCounterPair(
     lhAtAbwActive =
       zaoSlotOverride.kind === 'lh' && zaoSlotOverride.marks >= 1
   } else if (!hideAbw) {
-    const motherKindIsLh = readKrFirstSlotKind(trackerMeta) === 'lh'
-    const motherLhCharged =
-      normalizeKrDigit(readKrPrimaryLadung(trackerMeta)) === 0
-    const someLhZaoLoaded = Object.values(readZaoSlots(trackerMeta)).some(
-      (s) => s.kind === 'lh' && s.marks === 1
-    )
-    lhAtAbwActive =
-      motherKindIsLh && (motherLhCharged || lhSt.max > 0 || someLhZaoLoaded)
+    lhAtAbwActive = readKrFirstSlotKind(trackerMeta) === 'lh'
   }
 
   if (lhContainer) {
@@ -2346,13 +2345,7 @@ function appendKrCounterPair(
       lhAtAbwActive =
         zaoSlotOverride.kind === 'lh' && zaoSlotOverride.marks >= 1
     } else {
-      const motherLhCharged =
-        normalizeKrDigit(readKrPrimaryLadung(trackerMeta)) === 0
-      const someLhZaoLoaded = Object.values(readZaoSlots(trackerMeta)).some(
-        (s) => s.kind === 'lh' && s.marks === 1
-      )
-      lhAtAbwActive =
-        motherKindIsLh && (motherLhCharged || lhSt.max > 0 || someLhZaoLoaded)
+      lhAtAbwActive = motherKindIsLh
     }
 
     // End-KR (LH endet in dieser KR) vs. laufender Tracker: während
@@ -8256,34 +8249,6 @@ function bindStampContextRemove(el, stamp, items) {
     void OBR.scene.items.getItems().then((fresh) => {
       enqueueRenderList(fresh)
     })
-  })
-
-  registerKrSlotKindPatched((itemId, linkId, kind) => {
-    const idx = lastItems.findIndex((i) => i.id === itemId)
-    if (idx < 0) return
-    const old = lastItems[idx]
-    const oldMeta = old.metadata?.[TRACKER_ITEM_META_KEY]
-    if (!oldMeta || typeof oldMeta !== 'object') return
-    const newMeta = { ...oldMeta }
-    if (linkId) {
-      const slots = { ...readZaoSlots(newMeta) }
-      const prev = slots[linkId] || {
-        kind: readKrFirstSlotKind(newMeta),
-        marks: 1,
-      }
-      slots[linkId] = { ...prev, kind }
-      newMeta[KR_ZAO_SLOTS] = slots
-    } else {
-      newMeta[KR_FIRST_SLOT_KIND] = kind
-    }
-    lastItems[idx] = {
-      ...old,
-      metadata: {
-        ...old.metadata,
-        [TRACKER_ITEM_META_KEY]: newMeta,
-      },
-    }
-    noteDeferredRenderListItems(lastItems)
   })
 
   const safeRenderList = (items) => {

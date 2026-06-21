@@ -1,6 +1,7 @@
 import {
   cycleKrPrimarySlotKindRespectingLocks,
   isKrPrimarySlotIniLocked,
+  resolveKrPrimarySlotKind,
 } from './krCounters.js'
 import {
   registerKrSwitchSessionActiveGuard,
@@ -15,6 +16,7 @@ import {
  *   linkId: string | null,
  *   dirs: ('next' | 'prev')[],
  *   processing: boolean,
+ *   virtualKind: KrPrimaryKind,
  * }} KrPrimarySwitchSession
  */
 
@@ -63,21 +65,21 @@ export function clearKrPrimarySwitchSession(key) {
 }
 
 /**
- * @param {KrPrimaryKind} startKind
+ * @param {KrPrimaryKind} anchorKind
  * @param {('next' | 'prev')[]} queuedDirs
  * @param {unknown} baseMeta
  * @param {string | null} linkId
  * @param {boolean} canConvertToUo
  */
 function virtualKindAfterDirs(
-  startKind,
+  anchorKind,
   queuedDirs,
   baseMeta,
   linkId,
   canConvertToUo
 ) {
   const iniLocked = isKrPrimarySlotIniLocked(baseMeta, linkId)
-  let kind = startKind
+  let kind = anchorKind
   for (const dir of queuedDirs) {
     kind = cycleKrPrimarySlotKindRespectingLocks(kind, dir, {
       iniLocked,
@@ -85,6 +87,17 @@ function virtualKindAfterDirs(
     })
   }
   return kind
+}
+
+/**
+ * @param {string} key
+ */
+export async function awaitKrPrimarySwitchIdle(key) {
+  while (true) {
+    const session = sessions.get(key)
+    if (!session || (!session.processing && session.dirs.length === 0)) return
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
 }
 
 /**
@@ -103,17 +116,19 @@ export function enqueueKrPrimarySwitchStep(key, dir, opts) {
   const { itemId, linkId, startKind, baseMeta, canConvertToUo } = opts
   let session = sessions.get(key)
   if (!session) {
+    const anchorKind = resolveKrPrimarySlotKind(baseMeta, linkId) ?? startKind
     session = {
       itemId,
       linkId,
       dirs: [],
       processing: false,
+      virtualKind: anchorKind,
     }
     sessions.set(key, session)
   }
 
   const currentKind = virtualKindAfterDirs(
-    startKind,
+    session.virtualKind,
     session.dirs,
     baseMeta,
     linkId,
@@ -162,6 +177,7 @@ export async function processKrPrimarySwitchQueue(key, handlers) {
         await handlers.onFailure?.()
         break
       }
+      session.virtualKind = result.nextKind
     }
   } finally {
     session.processing = false

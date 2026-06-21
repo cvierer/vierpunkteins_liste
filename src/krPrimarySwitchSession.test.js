@@ -5,6 +5,7 @@ import {
 } from './krCounters.js'
 import {
   clearKrPrimarySwitchSession,
+  awaitKrPrimarySwitchIdle,
   enqueueKrPrimarySwitchStep,
   getKrPrimarySwitchSessionKey,
   hasActiveKrPrimarySwitchSessions,
@@ -79,6 +80,26 @@ describe('krPrimarySwitchSession', () => {
     expect(step?.targetKind).toBe('lh')
   })
 
+  it('plant über session.virtualKind statt frischem startKind bei pending dirs', () => {
+    enqueueKrPrimarySwitchStep(key, 'next', {
+      itemId,
+      linkId: null,
+      startKind: 'ang',
+      baseMeta: { [KR_FIRST_SLOT_KIND]: 'ang' },
+      canConvertToUo: true,
+    })
+
+    const step = enqueueKrPrimarySwitchStep(key, 'next', {
+      itemId,
+      linkId: null,
+      startKind: 'sra',
+      baseMeta: { [KR_FIRST_SLOT_KIND]: 'sra' },
+      canConvertToUo: true,
+    })
+
+    expect(step?.targetKind).toBe('lh')
+  })
+
   it('iniLocked überspringt AN im Zyklus', () => {
     const iniLockedMeta = {
       initiative: '-1',
@@ -141,6 +162,29 @@ describe('krPrimarySwitchSession', () => {
     expect(flushed).toHaveBeenCalledOnce()
     expect(flushed.mock.calls[0][0]?.[0]?.id).toBe('flush-me')
     expect(completed).toHaveBeenCalledOnce()
+  })
+
+  it('awaitKrPrimarySwitchIdle wartet bis Queue leer', async () => {
+    enqueueKrPrimarySwitchStep(key, 'next', {
+      itemId,
+      linkId: null,
+      startKind: 'ang',
+      baseMeta,
+      canConvertToUo: true,
+    })
+
+    const patchFn = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      return {
+        applied: true,
+        nextKind: /** @type {const} */ ('sra'),
+      }
+    })
+
+    void processKrPrimarySwitchQueue(key, { patchFn })
+    expect(hasActiveKrPrimarySwitchSessions()).toBe(true)
+    await awaitKrPrimarySwitchIdle(key)
+    expect(hasActiveKrPrimarySwitchSessions()).toBe(false)
   })
 
   it('processKrPrimarySwitchQueue bei Fehler leert Session', async () => {

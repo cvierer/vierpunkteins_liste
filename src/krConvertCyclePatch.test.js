@@ -66,8 +66,10 @@ import {
   KR_ABW,
   KR_ANG,
   KR_FIRST_SLOT_KIND,
+  KR_LH_ACTION,
   KR_SRA,
   patchKrCyclePrimarySlotKind,
+  patchKrStepPrimarySlotKind,
   patchKrTransferPrimaryToAbw,
 } from './krCounters.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
@@ -102,5 +104,22 @@ describe('krConvertCyclePatch', () => {
     }
     const applied = await patchKrTransferPrimaryToAbw('hero-1')
     expect(applied).toBe(false)
+  })
+
+  it('ang→sra→lh mit leerer Primärladung (KR-Beginn)', async () => {
+    itemMetaRef.current = {
+      [KR_FIRST_SLOT_KIND]: 'ang',
+      [KR_ANG]: 1,
+      [KR_ABW]: 1,
+    }
+
+    const toSra = await patchKrStepPrimarySlotKind('hero-1', 'next')
+    expect(toSra?.applied).toBe(true)
+    expect(itemMetaRef.current[KR_FIRST_SLOT_KIND]).toBe('sra')
+
+    const toLh = await patchKrStepPrimarySlotKind('hero-1', 'next')
+    expect(toLh?.applied).toBe(true)
+    expect(itemMetaRef.current[KR_FIRST_SLOT_KIND]).toBe('lh')
+    expect(itemMetaRef.current[KR_LH_ACTION]).toBe(1)
   })
 })
