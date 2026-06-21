@@ -56,6 +56,8 @@ export { LH_DONE_INI } from './lhMeta.js'
 
 let lhPrevCombat = null
 let lhRunInFlight = false
+/** @type {{ items: import('@owlbear-rodeo/sdk').Item[], tieOrderIds: string[] } | null} */
+let lhRunPendingArgs = null
 /**
  * Migrationsflag (Phase 8): einmal pro Session beim ersten echten runLong
  * werden die ausgemusterten Felder `LH_DONE_ROUND` / `LH_DONE_INI` entfernt
@@ -279,12 +281,20 @@ export async function runLongHandlungAfterCombatUpdate(items, tieOrderIds) {
   // Render und State-Updates ineinander und die Liste kann transient
   // einen leeren Zwischenstand zeigen (Symptom: Spielerliste leer,
   // GM-Navigation tot).
-  if (lhRunInFlight) return
+  if (lhRunInFlight) {
+    lhRunPendingArgs = { items, tieOrderIds }
+    return
+  }
   lhRunInFlight = true
   try {
     await runLongHandlungAfterCombatUpdateInner(items, tieOrderIds)
   } finally {
     lhRunInFlight = false
+    if (lhRunPendingArgs) {
+      const pending = lhRunPendingArgs
+      lhRunPendingArgs = null
+      void runLongHandlungAfterCombatUpdate(pending.items, pending.tieOrderIds)
+    }
   }
 }
 

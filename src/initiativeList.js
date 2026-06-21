@@ -264,7 +264,7 @@ import {
   readHeroGsSchritt,
   runHeroExModsAfterCombatUpdate,
 } from './heroExMods.js'
-import { cancelLh } from './lhEngine.js'
+import { cancelLh, registerLhCommitRenderFlush } from './lhEngine.js'
 import { createHitZoneOverlay, HIT_ZONE_INFO_ICON_SVG } from './hitZoneOverlay.js'
 import {
   bulkApplyIniFromIbBeW6ForTrackedParticipants,
@@ -6814,22 +6814,50 @@ function bindStampContextRemove(el, stamp, items) {
   }
 
   const renderList = async (items) => {
-    // Defensiver Schutz: ein transient leerer Items-Snapshot (kann während
-    // kaskadierender setMetadata/updateItems-Aufrufe nach einem LH-Ende mit
-    // synthetischer Done-Zeile auftreten) darf NICHT die ganze Liste leeren
-    // und die Tracker-IDs auf [] zurücksetzen — sonst geht die Combat-Nav
-    // beim GM tot und der Spieler sieht eine leere Liste. Wenn vorher Items
-    // da waren und jetzt keine, einfach den letzten konsistenten Stand
-    // beibehalten; das nächste echte Change-Event holt den korrekten Stand
-    // garantiert nach.
-    if ((!items || items.length === 0) && lastItems && lastItems.length > 0) {
-      return
+    // Defensiver Schutz: transient leerer Items-Snapshot (kaskadierende
+    // updateItems nach L.H.-Commit) — erst nachziehen, nicht komplett abbrechen.
+    if (!items || items.length === 0) {
+      if (lastItems && lastItems.length > 0) {
+        try {
+          const refetched = await OBR.scene.items.getItems()
+          if (refetched.length > 0) {
+            items = refetched
+          } else {
+            setTimeout(() => {
+              void (async () => {
+                try {
+                  const retry = await OBR.scene.items.getItems()
+                  if (retry.length > 0) await renderList(retry)
+                } catch {
+                  /* ignore */
+                }
+              })()
+            }, 0)
+            return
+          }
+        } catch {
+          return
+        }
+      }
     }
     await flushOpenHeroExpandPanelsBeforeRemount()
     try {
       items = await OBR.scene.items.getItems()
     } catch {
       /* Szene kurz nicht lesbar — übergebenen Snapshot nutzen */
+    }
+    if ((!items || items.length === 0) && lastItems && lastItems.length > 0) {
+      setTimeout(() => {
+        void (async () => {
+          try {
+            const retry = await OBR.scene.items.getItems()
+            if (retry.length > 0) await renderList(retry)
+          } catch {
+            /* ignore */
+          }
+        })()
+      }, 0)
+      return
     }
     const listItems = filterItemsForListViewer(items ?? [], isGmSync())
     if (
@@ -8358,6 +8386,12 @@ function bindStampContextRemove(el, stamp, items) {
   })
 
   registerKrPrimarySwitchComplete(() => {
+    void OBR.scene.items.getItems().then((fresh) => {
+      enqueueRenderList(fresh)
+    })
+  })
+
+  registerLhCommitRenderFlush(() => {
     void OBR.scene.items.getItems().then((fresh) => {
       enqueueRenderList(fresh)
     })

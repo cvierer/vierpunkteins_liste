@@ -48,6 +48,37 @@ import {
   readLhState,
 } from './lhMeta.js'
 
+/** @type {Promise<void> | null} */
+let lhLifecyclePromise = null
+
+/** @type {(() => void) | null} */
+let onLhCommitRenderFlush = null
+
+/**
+ * @param {() => void} fn
+ */
+export function registerLhCommitRenderFlush(fn) {
+  onLhCommitRenderFlush = fn
+}
+
+function notifyLhCommitRenderFlush() {
+  onLhCommitRenderFlush?.()
+}
+
+/**
+ * Wartet auf laufenden L.H.-Start/Abbrechen (Counter-Blur vs. Kampf-Navigation).
+ */
+export async function awaitLhLifecycleIdle() {
+  if (lhLifecyclePromise) await lhLifecyclePromise
+}
+
+function trackLhLifecyclePromise(promise) {
+  lhLifecyclePromise = promise.finally(() => {
+    if (lhLifecyclePromise === promise) lhLifecyclePromise = null
+  })
+  return lhLifecyclePromise
+}
+
 /**
  * Migrationshelfer: bereinigt ausgelaufene Legacy-Felder, falls vorhanden.
  * In-place; idempotent.
@@ -91,13 +122,14 @@ export function actionStepText(meta, combatRound = null) {
  * @param {{ stampPhaseLinkId?: string | null, commitIni?: number | null }} [opts]
  */
 export async function startOrCancelLh(itemId, text, opts) {
-  const o = opts ?? {}
-  const trimmed = String(text ?? '').trim()
-  const n =
-    trimmed === '' ? 0 : Math.floor(Number(trimmed.replace(',', '.')))
-  if (trimmed !== '' && (!Number.isFinite(n) || n < 0)) return
-  const round = getCombat().started ? getCombat().round : 1
-  await OBR.scene.items.updateItems([itemId], (drafts) => {
+  const run = async () => {
+    const o = opts ?? {}
+    const trimmed = String(text ?? '').trim()
+    const n =
+      trimmed === '' ? 0 : Math.floor(Number(trimmed.replace(',', '.')))
+    if (trimmed !== '' && (!Number.isFinite(n) || n < 0)) return
+    const round = getCombat().started ? getCombat().round : 1
+    await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
@@ -215,6 +247,10 @@ export async function startOrCancelLh(itemId, text, opts) {
   } else {
     void clearKrLhStampsForItem(itemId)
   }
+  notifyLhCommitRenderFlush()
+  }
+
+  return trackLhLifecyclePromise(run())
 }
 
 /**

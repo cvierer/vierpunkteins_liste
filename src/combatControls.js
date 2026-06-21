@@ -24,7 +24,7 @@ import {
   patchCombatActionRedo,
   RESET_ROUND_INTRO,
 } from './combatRoom.js'
-import { getRoomSettings } from './roomSettings.js'
+import { awaitLhLifecycleIdle } from './lhEngine.js'
 import { getTrackedParticipantIds } from './listState.js'
 import {
   hasPrimaryActionStampAtCombatStep,
@@ -274,6 +274,7 @@ export async function setupCombatControls(root) {
 
   const applyCombatNext = async () => {
     try {
+    await awaitLhLifecycleIdle()
     const c0 = getCombat()
     if (c0.started && c0.roundIntroPending) {
       const stepsCommit = await combatTurnSteps()
@@ -424,6 +425,7 @@ export async function setupCombatControls(root) {
 
   const applyCombatPrev = async () => {
     try {
+    await awaitLhLifecycleIdle()
     const cIntro = getCombat()
     if (cIntro.started && cIntro.roundIntroPending) {
       await patchCombat({
