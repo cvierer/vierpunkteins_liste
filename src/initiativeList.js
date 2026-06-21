@@ -7,6 +7,10 @@ import {
   shouldShowKrPrimaryConvertSwitch,
 } from './convertLockViewer.js'
 import {
+  shouldKrPrimaryLhEmptyVisual,
+  shouldKrPrimaryShellNoCharge,
+} from './krPrimaryShellVisual.js'
+import {
   collectSortedParticipants,
   filterItemsForListViewer,
   getTokenListDisplayName,
@@ -783,10 +787,33 @@ function krPrimaryMainKindClass(kind) {
  *   iniLockHint: string,
  *   isRegularZaoSlot?: boolean,
  *   lhNeedsSecond?: boolean,
+ *   switchCol?: HTMLElement,
+ *   convertAllowedByLock?: boolean,
+ *   switchLocked?: boolean,
+ *   isHeroExtraSlot?: boolean,
  * }} ctx
  */
+function syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitch) {
+  shell.classList.toggle('init-kr-primary-shell--no-switch', hideSwitch)
+  if (!switchCol) return
+  if (hideSwitch) {
+    if (switchCol.parentElement === shell) {
+      shell.removeChild(switchCol)
+    }
+    if (main.parentElement !== shell) {
+      shell.append(main)
+    }
+  } else {
+    if (switchCol.parentElement !== shell) {
+      shell.insertBefore(switchCol, main)
+    } else if (shell.firstChild !== switchCol) {
+      shell.insertBefore(switchCol, main)
+    }
+  }
+}
+
 function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
-  const { shell, main, exec, icon, prevBtn, nextBtn } = els
+  const { shell, main, exec, icon, prevBtn, nextBtn, switchCol } = els
   const {
     isZaoSlot,
     zaoSlotOverride = null,
@@ -798,6 +825,9 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     iniLockHint,
     isRegularZaoSlot = false,
     lhNeedsSecond = false,
+    convertAllowedByLock = true,
+    switchLocked = false,
+    isHeroExtraSlot = false,
   } = ctx
   const isUoKind = kind === 'uo'
   const iniLocked = isKrPrimarySlotIniLocked(
@@ -832,12 +862,7 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     !isZaoSlot && kind === 'lh' && Boolean(trackerMeta?.[KR_LH_VOID_BY_TRANSFER])
   const lhStatePrimary =
     !isZaoSlot && kind === 'lh' ? readLhState(trackerMeta) : { max: 0, rem: 0 }
-  const lhFullyLoaded = !isZaoSlot && kind === 'lh' && v < 1
-  const lhNoChargeVisual =
-    kind === 'lh' &&
-    (lhVoided || v >= 1) &&
-    !lhFullyLoaded &&
-    lhStatePrimary.max <= 0
+  const lhNoChargeVisual = shouldKrPrimaryLhEmptyVisual(kind, lhVoided)
   main.classList.toggle('init-kr-primary-main--lh-voided', lhVoided)
   main.classList.toggle('init-kr-primary-main--lh-empty', lhNoChargeVisual)
 
@@ -938,11 +963,11 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   )
   shell.classList.toggle(
     'init-kr-primary-shell--no-charge',
-    !isRegularZaoSlot &&
-      !isUoKind &&
-      !hasPrimaryCharge &&
-      !lhVoided &&
-      !(kind === 'lh' && lhStatePrimary.max > 0)
+    shouldKrPrimaryShellNoCharge(kind, {
+      isRegularZaoSlot,
+      hasPrimaryCharge,
+      lhVoided,
+    })
   )
   shell.classList.toggle(
     'init-kr-primary-shell--nav-blocked',
@@ -1030,6 +1055,16 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   const switchTitleSuffix = iniLocked ? iniLockHint : ''
   prevBtn.title = `Vorige Aktion (${kindLabelLong})${switchTitleSuffix}`
   nextBtn.title = `Nächste Aktion (${kindLabelLong})${switchTitleSuffix}`
+
+  const hideMotherSwitchForLh =
+    !isZaoSlot && kind === 'lh' && lhStatePrimary.max > 0
+  const hideConvertSwitchForLock = !shouldShowKrPrimaryConvertSwitch(
+    convertAllowedByLock,
+    switchLocked
+  )
+  const hideSwitchCol =
+    hideMotherSwitchForLh || isHeroExtraSlot || hideConvertSwitchForLock
+  syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitchCol)
 }
 
 /**
@@ -1161,10 +1196,6 @@ function appendKrPrimarySplitCell(
     !isZaoSlot && kind === 'lh' && Boolean(trackerMeta?.[KR_LH_VOID_BY_TRANSFER])
   const lhStatePrimary =
     !isZaoSlot && kind === 'lh' ? readLhState(trackerMeta) : { max: 0, rem: 0 }
-  // Mit der neuen Regel: Counter-Eingabe wandert in die Schildspalte und wird
-  // dort getriggert, wenn Mutter-L.H. + L.H.-2.A.O. beide geladen sind.
-  // Hier nur noch: visuelle „voll geladen“-Markierung an der Mutter.
-  const lhFullyLoaded = !isZaoSlot && kind === 'lh' && v < 1
 
   const main = document.createElement('div')
   main.className =
@@ -1185,11 +1216,7 @@ function appendKrPrimarySplitCell(
   // Ohne laufende L.H.: leeres Primär-L.H. ausgrauen. Mit gesetztem lhMax
   // (Counter im Schild) ist v oft >= 1 ohne KR-Markierung — Stern trotzdem
   // vollfarbig (v. a. INI < 0).
-  const lhNoChargeVisual =
-    kind === 'lh' &&
-    (lhVoided || v >= 1) &&
-    !lhFullyLoaded &&
-    lhStatePrimary.max <= 0
+  const lhNoChargeVisual = shouldKrPrimaryLhEmptyVisual(kind, lhVoided)
   if (lhNoChargeVisual) {
     main.classList.add('init-kr-primary-main--lh-empty')
   }
@@ -1291,8 +1318,11 @@ function appendKrPrimarySplitCell(
     iniLockHint,
     isRegularZaoSlot,
     lhNeedsSecond,
+    convertAllowedByLock,
+    switchLocked,
+    isHeroExtraSlot,
   }
-  const switchEls = { shell, main, exec, icon, prevBtn, nextBtn }
+  const switchEls = { shell, main, exec, icon, prevBtn, nextBtn, switchCol }
   shell.dataset.krSwitchKey = switchSessionKey
 
   const isConvertAllowedLive = (metaForCheck) => {
@@ -1336,10 +1366,31 @@ function appendKrPrimarySplitCell(
       const freshMeta =
         freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? trackerMeta
       const uoAllowed = isConvertAllowedLive(freshMeta)
-      return patchKrStepPrimarySlotKind(itemId, dir, {
+      const result = await patchKrStepPrimarySlotKind(itemId, dir, {
         ...patchOpts,
         uoAllowed,
       })
+      if (result?.applied) {
+        try {
+          const afterItems = await OBR.scene.items.getItems([ownerItemId])
+          const afterMeta =
+            afterItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? freshMeta
+          syncKrPrimaryShellKindVisual(
+            switchEls,
+            result.nextKind,
+            afterMeta,
+            visualCtx
+          )
+        } catch {
+          syncKrPrimaryShellKindVisual(
+            switchEls,
+            result.nextKind,
+            freshMeta,
+            visualCtx
+          )
+        }
+      }
+      return result
     },
     onFailure: rollbackSwitchVisual,
   }
@@ -1515,27 +1566,9 @@ function appendKrPrimarySplitCell(
     main.appendChild(restoreBtn)
   }
   main.appendChild(exec)
-  // Pfeil-Tauscher am Mutterobjekt ausblenden, sobald eine L.H. mit Wert
-  // aktiv ist. Bei selektierter, aber noch nicht committeter L.H.
-  // (lhMax === 0) bleiben die Tauschpfeile sichtbar — der Play-Button
-  // erscheint stattdessen in der Spalte der Umwandlungspfeile.
-  const hideMotherSwitchForLh =
-    !isZaoSlot && kind === 'lh' && lhStatePrimary.max > 0
-  const hideConvertSwitchForLock = !shouldShowKrPrimaryConvertSwitch(
-    convertAllowedByLock,
-    switchLocked
-  )
-  if (
-    hideMotherSwitchForLh ||
-    isHeroExtraSlot ||
-    hideConvertSwitchForLock
-  ) {
-    shell.append(main)
-    shell.classList.add('init-kr-primary-shell--no-switch')
-  } else {
-    shell.append(switchCol, main)
-  }
+  shell.append(switchCol, main)
   container.appendChild(shell)
+  syncKrPrimaryShellKindVisual(switchEls, kind, trackerMeta, visualCtx)
 }
 
 /**
