@@ -1,6 +1,8 @@
 /** Während Primär-Slot-Patches: vollen renderList-Lauf unterdrücken/debouncen. */
 
 let suppressDepth = 0
+/** @type {() => boolean} */
+let switchSessionActiveGuard = () => false
 /** @type {import('@owlbear-rodeo/sdk').Item[] | null | undefined} */
 let pendingDeferredItems = undefined
 /** @type {((items: import('@owlbear-rodeo/sdk').Item[] | undefined) => void) | null} */
@@ -8,6 +10,17 @@ let onFlushDeferredRender = null
 /** @type {ReturnType<typeof setTimeout> | null} */
 let flushTimer = null
 const DEFERRED_RENDER_MS = 200
+
+/**
+ * @param {() => boolean} fn
+ */
+export function registerKrSwitchSessionActiveGuard(fn) {
+  switchSessionActiveGuard = fn
+}
+
+function shouldBlockDeferredRenderFlush() {
+  return suppressDepth > 0 || switchSessionActiveGuard()
+}
 
 /**
  * @param {(items: import('@owlbear-rodeo/sdk').Item[] | undefined) => void} fn
@@ -26,13 +39,14 @@ export function noteDeferredRenderListItems(items) {
 }
 
 function flushDeferredRenderNow() {
-  if (suppressDepth > 0) return
+  if (shouldBlockDeferredRenderFlush()) return
   const items = pendingDeferredItems
   pendingDeferredItems = undefined
   onFlushDeferredRender?.(items)
 }
 
 export function scheduleKrSlotPatchRenderFlush() {
+  if (shouldBlockDeferredRenderFlush()) return
   if (flushTimer != null) clearTimeout(flushTimer)
   flushTimer = setTimeout(() => {
     flushTimer = null

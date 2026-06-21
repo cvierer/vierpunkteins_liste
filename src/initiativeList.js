@@ -164,7 +164,6 @@ import {
   normalizeKrDigit,
   patchKrCounterByDelta,
   patchKrStepPrimarySlotKind,
-  cycleKrPrimarySlotKind,
   resolveKrPrimarySlotKind,
   isKrPrimarySlotIniLocked,
   patchEnsureZaoSlotForLink,
@@ -204,6 +203,14 @@ import {
   registerKrSlotKindPatched,
   registerKrSlotPatchRenderFlush,
 } from './krSlotPatchGate.js'
+import {
+  enqueueKrPrimarySwitchStep,
+  getKrPrimarySwitchSession,
+  getKrPrimarySwitchSessionKey,
+  hasActiveKrPrimarySwitchSessions,
+  processKrPrimarySwitchQueue,
+  registerKrPrimarySwitchSync,
+} from './krPrimarySwitchSession.js'
 import {
   areOrientationRingsAtTokenCenter,
 } from './heroOrientationRingsOverlay.js'
@@ -745,29 +752,6 @@ function krPrimaryMainKindClass(kind) {
 }
 
 /**
- * Meta-Snapshot für optimistisches Primär-Icon nach Pfeil-Klick.
- *
- * @param {unknown} baseMeta
- * @param {'ang' | 'sra' | 'lh' | 'uo'} kind
- * @param {string | null} linkId
- */
-function buildOptimisticMetaForKind(baseMeta, kind, linkId) {
-  const m = { ...(/** @type {Record<string, unknown>} */ (baseMeta || {})) }
-  if (typeof linkId === 'string' && linkId.length > 0) {
-    const slots = { ...readZaoSlots(m) }
-    const prev = slots[linkId] || {
-      kind: readKrFirstSlotKind(m),
-      marks: 1,
-    }
-    slots[linkId] = { ...prev, kind }
-    m[KR_ZAO_SLOTS] = slots
-  } else {
-    m[KR_FIRST_SLOT_KIND] = kind
-  }
-  return m
-}
-
-/**
  * Primär-Shell nach Slot-Wechsel sofort aktualisieren (ohne auf renderList zu warten).
  *
  * @param {{
@@ -1255,14 +1239,23 @@ function appendKrPrimarySplitCell(
   }
   const switchEls = { shell, main, exec, icon, prevBtn, nextBtn }
   const linkIdForSwitch = isZaoSlot ? zaoSlotOverride?.linkId ?? null : null
-  /** @type {('next' | 'prev')[]} */
-  const pendingSwitchDirs = []
-  let switchQueueProcessing = false
+  const switchSessionKey = getKrPrimarySwitchSessionKey(
+    ownerItemId,
+    linkIdForSwitch
+  )
+  shell.dataset.krSwitchKey = switchSessionKey
 
   const readLocalSwitchKind = () => {
+    const session = getKrPrimarySwitchSession(switchSessionKey)
+    if (session?.targetKind) return session.targetKind
     const ds = shell.dataset.krSlotKind
     if (ds === 'ang' || ds === 'sra' || ds === 'lh' || ds === 'uo') return ds
     return kind
+  }
+
+  const readMetaForSwitch = () => {
+    const session = getKrPrimarySwitchSession(switchSessionKey)
+    return session?.rollingMeta ?? trackerMeta
   }
 
   const isConvertAllowedLive = (metaForCheck) => {
@@ -1300,47 +1293,61 @@ function appendKrPrimarySplitCell(
     }
   }
 
-  const processPrimarySwitchQueue = async () => {
-    if (switchQueueProcessing) return
-    switchQueueProcessing = true
-    try {
-      while (pendingSwitchDirs.length > 0) {
-        const dir = pendingSwitchDirs.shift()
-        if (!dir) continue
-        const result = await patchKrStepPrimarySlotKind(ownerItemId, dir, {
-          linkId: linkIdForSwitch,
-        })
-        if (!result?.applied) {
-          await rollbackSwitchVisual()
-          pendingSwitchDirs.length = 0
-          break
-        }
-      }
-    } finally {
-      switchQueueProcessing = false
-      if (pendingSwitchDirs.length > 0) {
-        void processPrimarySwitchQueue()
-      }
-    }
+  const switchPatchHandlers = {
+    patchFn: patchKrStepPrimarySlotKind,
+    onFailure: rollbackSwitchVisual,
+  }
+
+  const activeSession = getKrPrimarySwitchSession(switchSessionKey)
+  if (activeSession) {
+    shell.dataset.krSlotKind = activeSession.targetKind
+    syncKrPrimaryShellKindVisual(
+      switchEls,
+      activeSession.targetKind,
+      activeSession.rollingMeta,
+      visualCtx
+    )
+    registerKrPrimarySwitchSync(switchSessionKey, (targetKind, rollingMeta) => {
+      shell.dataset.krSlotKind = targetKind
+      syncKrPrimaryShellKindVisual(
+        switchEls,
+        targetKind,
+        /** @type {Record<string, unknown>} */ (rollingMeta),
+        visualCtx
+      )
+    })
   }
 
   /** @param {'next' | 'prev'} dir */
   const enqueuePrimarySwitch = (dir) => {
     const localKind = readLocalSwitchKind()
-    const iniLockedLive = isKrPrimarySlotIniLocked(trackerMeta, linkIdForSwitch)
-    const nextKind = cycleKrPrimarySlotKind(localKind, dir, iniLockedLive)
-    if (nextKind === 'uo' && !isConvertAllowedLive(trackerMeta)) return
+    const metaForSwitch = readMetaForSwitch()
+    const step = enqueueKrPrimarySwitchStep(switchSessionKey, dir, {
+      itemId: ownerItemId,
+      linkId: linkIdForSwitch,
+      startKind: localKind,
+      baseMeta: metaForSwitch,
+      canConvertToUo: isConvertAllowedLive(metaForSwitch),
+    })
+    if (!step) return
 
-    shell.dataset.krSlotKind = nextKind
+    shell.dataset.krSlotKind = step.targetKind
     syncKrPrimaryShellKindVisual(
       switchEls,
-      nextKind,
-      buildOptimisticMetaForKind(trackerMeta, nextKind, linkIdForSwitch),
+      step.targetKind,
+      step.rollingMeta,
       visualCtx
     )
-
-    pendingSwitchDirs.push(dir)
-    void processPrimarySwitchQueue()
+    registerKrPrimarySwitchSync(switchSessionKey, (targetKind, rollingMeta) => {
+      shell.dataset.krSlotKind = targetKind
+      syncKrPrimaryShellKindVisual(
+        switchEls,
+        targetKind,
+        /** @type {Record<string, unknown>} */ (rollingMeta),
+        visualCtx
+      )
+    })
+    void processKrPrimarySwitchQueue(switchSessionKey, switchPatchHandlers)
   }
 
   if (canEdit && !switchLocked) {
@@ -8288,7 +8295,10 @@ function bindStampContextRemove(el, stamp, items) {
   })
 
   const safeRenderList = (items) => {
-    if (isKrSlotPatchSuppressingRenderList()) {
+    if (
+      isKrSlotPatchSuppressingRenderList() ||
+      hasActiveKrPrimarySwitchSessions()
+    ) {
       noteDeferredRenderListItems(items)
       return
     }
