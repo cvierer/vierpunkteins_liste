@@ -51,7 +51,7 @@ describe('krPrimarySwitchSession', () => {
     expect(hasActiveKrPrimarySwitchSessions()).toBe(true)
   })
 
-  it('blockiert UO wenn canConvertToUo false', () => {
+  it('überspringt UO wenn canConvertToUo false (lh+next → ang)', () => {
     const step = enqueueKrPrimarySwitchStep(key, 'next', {
       itemId,
       linkId: null,
@@ -59,8 +59,19 @@ describe('krPrimarySwitchSession', () => {
       baseMeta: { [KR_FIRST_SLOT_KIND]: 'lh' },
       canConvertToUo: false,
     })
-    expect(step).toBeNull()
-    expect(hasActiveKrPrimarySwitchSessions()).toBe(false)
+    expect(step?.targetKind).toBe('ang')
+    expect(hasActiveKrPrimarySwitchSessions()).toBe(true)
+  })
+
+  it('überspringt UO bei prev von ang wenn canConvertToUo false (ang+prev → lh)', () => {
+    const step = enqueueKrPrimarySwitchStep(key, 'prev', {
+      itemId,
+      linkId: null,
+      startKind: 'ang',
+      baseMeta: { [KR_FIRST_SLOT_KIND]: 'ang' },
+      canConvertToUo: false,
+    })
+    expect(step?.targetKind).toBe('lh')
   })
 
   it('iniLocked überspringt AN im Zyklus', () => {

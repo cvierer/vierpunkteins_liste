@@ -1486,6 +1486,24 @@ export function cycleKrPrimarySlotKind(k, dir, iniLocked = false) {
 }
 
 /**
+ * Wie `cycleKrPrimarySlotKind`, überspringt zusätzlich UO wenn Umwandeln gesperrt.
+ *
+ * @param {'ang' | 'sra' | 'lh' | 'uo'} k
+ * @param {'next' | 'prev'} dir
+ * @param {{ iniLocked?: boolean, uoAllowed?: boolean }} [locks]
+ * @returns {'ang' | 'sra' | 'lh' | 'uo'}
+ */
+export function cycleKrPrimarySlotKindRespectingLocks(k, dir, locks = {}) {
+  const iniLocked = locks.iniLocked ?? false
+  const uoAllowed = locks.uoAllowed !== false
+  let next = cycleKrPrimarySlotKind(k, dir, iniLocked)
+  if (!uoAllowed && next === 'uo') {
+    next = cycleKrPrimarySlotKind(next, dir, iniLocked)
+  }
+  return next
+}
+
+/**
  * @param {'ang' | 'sra' | 'lh' | 'uo'} startKind
  * @param {number} netSteps positiv = next, negativ = prev
  * @param {boolean} [iniLocked]
@@ -1533,13 +1551,14 @@ export function isKrPrimarySlotIniLocked(meta, linkId = null) {
  *
  * @param {string} itemId
  * @param {'next' | 'prev'} dir
- * @param {{ linkId?: string | null }} [opts]
+ * @param {{ linkId?: string | null, uoAllowed?: boolean }} [opts]
  * @returns {Promise<{ applied: boolean, kind: 'ang' | 'sra' | 'lh' | 'uo', prevKind: 'ang' | 'sra' | 'lh' | 'uo', nextKind: 'ang' | 'sra' | 'lh' | 'uo' } | null>}
  */
 export async function patchKrStepPrimarySlotKind(itemId, dir, opts = {}) {
   if (dir !== 'next' && dir !== 'prev') return null
   return runWithKrSlotPatchSuppressed(async () => {
     const linkId = opts.linkId ?? null
+    const uoAllowed = opts.uoAllowed !== false
     const patchOpts =
       typeof linkId === 'string' && linkId.length > 0 ? { linkId } : {}
 
@@ -1551,7 +1570,10 @@ export async function patchKrStepPrimarySlotKind(itemId, dir, opts = {}) {
 
     const prevKind = resolveKrPrimarySlotKind(meta, linkId)
     const iniLocked = isKrPrimarySlotIniLocked(meta, linkId)
-    const nextKind = cycleKrPrimarySlotKind(prevKind, dir, iniLocked)
+    const nextKind = cycleKrPrimarySlotKindRespectingLocks(prevKind, dir, {
+      iniLocked,
+      uoAllowed,
+    })
     if (prevKind === nextKind) {
       return { applied: false, kind: prevKind, prevKind, nextKind }
     }
@@ -1623,12 +1645,45 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
   if (prev === nextKind) return false
 
   if (nextKind === 'uo') {
-    await patchKrTransferPrimaryToAbw(itemId)
-    return true
+    const transferred = await patchKrTransferPrimaryToAbw(itemId)
+    if (transferred) return true
+    return false
   }
   if (prev === 'uo') {
-    await patchKrTransferAbwToPrimary(itemId, nextKind)
-    return true
+    const transferred = await patchKrTransferAbwToPrimary(itemId, nextKind)
+    if (transferred) return true
+    const abw = normalizeKrDigit(meta[KR_ABW])
+    if (
+      !krTransferMarkPresent(abw) &&
+      !motherHasTransferablePrimaryCharge(meta)
+    ) {
+      await OBR.scene.items.updateItems([itemId], (drafts) => {
+        for (const d of drafts) {
+          const m = d.metadata[TRACKER_ITEM_META_KEY]
+          if (!m) continue
+          m[KR_FIRST_SLOT_KIND] = nextKind
+          delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+          if (nextKind === 'lh') {
+            m[KR_LH_ACTION] = 1
+            m[KR_LH_SECOND] = 0
+            delete m[KR_LH_VOID_BY_TRANSFER]
+          } else if (nextKind === 'sra') {
+            m[KR_PAIR_MODE] = 'sra_ang'
+            m[KR_ANG] = 1
+            m[KR_SRA] = 1
+          } else {
+            m[KR_PAIR_MODE] = 'ang_abw'
+            m[KR_ANG] = 1
+          }
+          syncKrPrimaryLadungFromPrimaryField(m)
+          if (nextKind === 'ang') {
+            syncReactionShieldForDualAng(m)
+          }
+        }
+      })
+      return true
+    }
+    return false
   }
   return patchKrFirstSlotKind(itemId, nextKind, { metaSnapshot: meta })
 }
@@ -1687,23 +1742,23 @@ export function motherHasTransferablePrimaryCharge(meta) {
 export async function patchKrTransferPrimaryToAbw(itemId) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
+  if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta) return
-  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  if (!meta) return false
+  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return false
   const abw = normalizeKrDigit(meta[KR_ABW])
 
   {
     const roomMeta = await OBR.room.getMetadata()
     const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
-    if (motherPrimarySelfStamped(stamps.entries, itemId)) return
+    if (motherPrimarySelfStamped(stamps.entries, itemId)) return false
   }
 
   if (motherHasTransferablePrimaryCharge(meta)) {
     const firstKind = readKrFirstSlotKind(meta)
     const field = primaryFieldForKind(meta)
     const nextAbw = addOneAbwTransferChargeValue(abw)
-    if (nextAbw === abw) return
+    if (nextAbw === abw) return false
 
     if (firstKind === 'lh') {
       await OBR.scene.items.updateItems([itemId], (drafts) => {
@@ -1719,7 +1774,7 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
           syncKrPrimaryLadungFromPrimaryField(m)
         }
       })
-      return
+      return true
     }
     const primary = normalizeKrDigit(meta[field])
     const nextPrimary = consumeOneChargeValue(primary)
@@ -1734,7 +1789,7 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
         syncKrPrimaryLadungFromPrimaryField(m)
       }
     })
-    return
+    return true
   }
 
   // Fallback: Mutter leer — letzter regulärer 2.A.-Slot mit Ladung → entladen & entfernen.
@@ -1754,7 +1809,7 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
   }
   if (sourceZaoId) {
     const nextAbw = addOneAbwTransferChargeValue(abw)
-    if (nextAbw === abw) return
+    if (nextAbw === abw) return false
     await OBR.scene.items.updateItems([itemId], (drafts) => {
       for (const d of drafts) {
         const m = d.metadata[TRACKER_ITEM_META_KEY]
@@ -1775,8 +1830,9 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
         })
       }
     })
-    return
+    return true
   }
+  return false
 }
 
 /**
@@ -1892,20 +1948,20 @@ export async function patchKrTransferAbwToZaoPrimary(
 export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
+  if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta) return
-  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  if (!meta) return false
+  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return false
   const roundForLh = lhLockRoundFromCombat()
   const rawFirstKind = readKrFirstSlotKind(meta)
   const exitingUo = rawFirstKind === 'uo'
   if (abwToPrimaryBlockedByEndKrPendingZao(meta, roundForLh, { exitingUo })) {
-    return
+    return false
   }
   if (!isConvertAnytimeEnabled(meta)) {
     const roomMeta = await OBR.room.getMetadata()
     const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
-    if (motherPrimarySelfStamped(stamps.entries, itemId)) return
+    if (motherPrimarySelfStamped(stamps.entries, itemId)) return false
   }
   const firstKind =
     exitingUo && targetKind && (targetKind === 'ang' || targetKind === 'sra' || targetKind === 'lh')
@@ -1920,7 +1976,7 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
     isLhActive(meta) &&
     !lhEndKrConvertMode(meta, roundForLh)
   ) {
-    return
+    return false
   }
   /* INI < 0: kein Schwert — wie bei den Tauschpfeilen wird Angriff wie S.R.A. behandelt. */
   const transferKind =
@@ -1980,16 +2036,16 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
         }
       }
     })
-    return
+    return true
   }
 
-  if (!krTransferMarkPresent(abw)) return
+  if (!krTransferMarkPresent(abw)) return false
   const nextAbw = consumeOneChargeValue(abw)
-  if (nextAbw === abw) return
+  if (nextAbw === abw) return false
 
   if (!motherHasCharge) {
     if (abwToPrimaryBlockedByPendingZao(meta, { exitingUo })) {
-      return
+      return false
     }
     await OBR.scene.items.updateItems([itemId], (drafts) => {
       for (const d of drafts) {
@@ -2016,7 +2072,7 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
         syncReactionShieldForDualAng(m)
       }
     })
-    return
+    return true
   }
 
   const pSnap = normalizePhases(meta.phases)
@@ -2025,7 +2081,7 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
       ? nextChainedZaoParentForTransfer(iniStr, pSnap, phaseOffset)
       : null
   if (!nextSpec) {
-    return
+    return false
   }
   const newLinkId = crypto.randomUUID()
   await OBR.scene.items.updateItems([itemId], (drafts) => {
@@ -2053,6 +2109,7 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
       m[KR_ZAO_SLOTS] = s
     }
   })
+  return true
 }
 
 export async function patchKrTransferAngToAbw(itemId) {

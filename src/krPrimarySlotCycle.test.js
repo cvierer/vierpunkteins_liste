@@ -4,6 +4,7 @@ import {
   KR_ZAO_SLOTS,
   HERO_INI_NEG_ANG_MODE,
   cycleKrPrimarySlotKind,
+  cycleKrPrimarySlotKindRespectingLocks,
   advanceKrPrimarySlotKindSteps,
   isKrPrimarySlotIniLocked,
   nextKrPrimarySlotKind,
@@ -29,6 +30,18 @@ describe('krPrimarySlotCycle', () => {
   it('cycleKrPrimarySlotKind überspringt ang bei iniLocked', () => {
     expect(cycleKrPrimarySlotKind('uo', 'next', true)).toBe('sra')
     expect(cycleKrPrimarySlotKind('sra', 'prev', true)).toBe('uo')
+  })
+
+  it('cycleKrPrimarySlotKindRespectingLocks überspringt uo wenn uoAllowed false', () => {
+    expect(
+      cycleKrPrimarySlotKindRespectingLocks('lh', 'next', { uoAllowed: false })
+    ).toBe('ang')
+    expect(
+      cycleKrPrimarySlotKindRespectingLocks('ang', 'prev', { uoAllowed: false })
+    ).toBe('lh')
+    expect(
+      cycleKrPrimarySlotKindRespectingLocks('lh', 'next', { uoAllowed: true })
+    ).toBe('uo')
   })
 
   it('resolveKrPrimarySlotKind liest Mutter und ZAO', () => {

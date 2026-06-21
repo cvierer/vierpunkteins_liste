@@ -1,5 +1,5 @@
 import {
-  cycleKrPrimarySlotKind,
+  cycleKrPrimarySlotKindRespectingLocks,
   isKrPrimarySlotIniLocked,
 } from './krCounters.js'
 import {
@@ -51,12 +51,22 @@ export function clearKrPrimarySwitchSession(key) {
  * @param {('next' | 'prev')[]} queuedDirs
  * @param {unknown} baseMeta
  * @param {string | null} linkId
+ * @param {boolean} canConvertToUo
  */
-function virtualKindAfterDirs(startKind, queuedDirs, baseMeta, linkId) {
+function virtualKindAfterDirs(
+  startKind,
+  queuedDirs,
+  baseMeta,
+  linkId,
+  canConvertToUo
+) {
   const iniLocked = isKrPrimarySlotIniLocked(baseMeta, linkId)
   let kind = startKind
   for (const dir of queuedDirs) {
-    kind = cycleKrPrimarySlotKind(kind, dir, iniLocked)
+    kind = cycleKrPrimarySlotKindRespectingLocks(kind, dir, {
+      iniLocked,
+      uoAllowed: canConvertToUo,
+    })
   }
   return kind
 }
@@ -90,11 +100,15 @@ export function enqueueKrPrimarySwitchStep(key, dir, opts) {
     startKind,
     session.dirs,
     baseMeta,
-    linkId
+    linkId,
+    canConvertToUo
   )
   const iniLocked = isKrPrimarySlotIniLocked(baseMeta, linkId)
-  const nextKind = cycleKrPrimarySlotKind(currentKind, dir, iniLocked)
-  if (nextKind === 'uo' && !canConvertToUo) return null
+  const nextKind = cycleKrPrimarySlotKindRespectingLocks(currentKind, dir, {
+    iniLocked,
+    uoAllowed: canConvertToUo,
+  })
+  if (nextKind === currentKind) return null
 
   session.dirs.push(dir)
   return { targetKind: nextKind }

@@ -1296,11 +1296,6 @@ function appendKrPrimarySplitCell(
   const switchEls = { shell, main, exec, icon, prevBtn, nextBtn }
   shell.dataset.krSwitchKey = switchSessionKey
 
-  const readPersistedSwitchKind = () =>
-    isZaoSlot
-      ? readEffectiveZaoSlotKind(zaoSlotOverride)
-      : readKrFirstSlotKind(trackerMeta)
-
   const isConvertAllowedLive = (metaForCheck) => {
     if (convertCheckCtx) {
       return isHeroConvertAllowedForViewer(
@@ -1337,7 +1332,16 @@ function appendKrPrimarySplitCell(
   }
 
   const switchPatchHandlers = {
-    patchFn: patchKrStepPrimarySlotKind,
+    patchFn: async (itemId, dir, patchOpts) => {
+      const freshItems = await OBR.scene.items.getItems([ownerItemId])
+      const freshMeta =
+        freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? trackerMeta
+      const uoAllowed = isConvertAllowedLive(freshMeta)
+      return patchKrStepPrimarySlotKind(itemId, dir, {
+        ...patchOpts,
+        uoAllowed,
+      })
+    },
     onFailure: rollbackSwitchVisual,
   }
 
@@ -1357,13 +1361,23 @@ function appendKrPrimarySplitCell(
   }
 
   /** @param {'next' | 'prev'} dir */
-  const enqueuePrimarySwitch = (dir) => {
+  const enqueuePrimarySwitch = async (dir) => {
+    let freshMeta = trackerMeta
+    try {
+      const freshItems = await OBR.scene.items.getItems([ownerItemId])
+      freshMeta =
+        freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? trackerMeta
+    } catch {
+      /* render-closure fallback */
+    }
+    const startKind = resolveKrPrimarySlotKind(freshMeta, linkIdForSwitch)
+    const canConvertToUo = isConvertAllowedLive(freshMeta)
     const step = enqueueKrPrimarySwitchStep(switchSessionKey, dir, {
       itemId: ownerItemId,
       linkId: linkIdForSwitch,
-      startKind: readPersistedSwitchKind(),
-      baseMeta: trackerMeta,
-      canConvertToUo: isConvertAllowedLive(trackerMeta),
+      startKind,
+      baseMeta: freshMeta,
+      canConvertToUo,
     })
     if (!step) return
     setSwitchBusy(true)
@@ -1374,12 +1388,12 @@ function appendKrPrimarySplitCell(
     prevBtn.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      enqueuePrimarySwitch('prev')
+      void enqueuePrimarySwitch('prev')
     })
     nextBtn.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      enqueuePrimarySwitch('next')
+      void enqueuePrimarySwitch('next')
     })
   }
   const displayIsUoKind = kind === 'uo'
