@@ -9,7 +9,12 @@ import {
   getKrPrimarySwitchSessionKey,
   hasActiveKrPrimarySwitchSessions,
   processKrPrimarySwitchQueue,
+  registerKrPrimarySwitchComplete,
 } from './krPrimarySwitchSession.js'
+import {
+  noteDeferredRenderListItems,
+  registerKrSlotPatchRenderFlush,
+} from './krSlotPatchGate.js'
 
 describe('krPrimarySwitchSession', () => {
   const itemId = 'token-1'
@@ -108,6 +113,34 @@ describe('krPrimarySwitchSession', () => {
 
     expect(patchFn).toHaveBeenCalledOnce()
     expect(hasActiveKrPrimarySwitchSessions()).toBe(false)
+  })
+
+  it('processKrPrimarySwitchQueue ruft am Ende force-flush und Complete-Callback auf', async () => {
+    const flushed = vi.fn()
+    const completed = vi.fn()
+    registerKrSlotPatchRenderFlush(flushed)
+    registerKrPrimarySwitchComplete(completed)
+    noteDeferredRenderListItems([{ id: 'flush-me' }])
+
+    enqueueKrPrimarySwitchStep(key, 'next', {
+      itemId,
+      linkId: null,
+      startKind: 'ang',
+      baseMeta,
+      canConvertToUo: true,
+    })
+
+    const patchFn = vi.fn(async () => ({
+      applied: true,
+      nextKind: /** @type {const} */ ('sra'),
+    }))
+
+    await processKrPrimarySwitchQueue(key, { patchFn })
+
+    expect(hasActiveKrPrimarySwitchSessions()).toBe(false)
+    expect(flushed).toHaveBeenCalledOnce()
+    expect(flushed.mock.calls[0][0]?.[0]?.id).toBe('flush-me')
+    expect(completed).toHaveBeenCalledOnce()
   })
 
   it('processKrPrimarySwitchQueue bei Fehler leert Session', async () => {

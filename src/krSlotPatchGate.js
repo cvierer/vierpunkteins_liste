@@ -19,7 +19,7 @@ export function registerKrSwitchSessionActiveGuard(fn) {
 }
 
 function shouldBlockDeferredRenderFlush() {
-  return suppressDepth > 0 || switchSessionActiveGuard()
+  return suppressDepth > 0
 }
 
 /**
@@ -75,6 +75,18 @@ export function flushKrSlotPatchRenderNow() {
     flushTimer = null
   }
   flushDeferredRenderNow()
+}
+
+/** Flush erzwingen — ignoriert Session-Guard, wartet nur auf laufenden OBR-Patch. */
+export function forceKrSlotPatchRenderNow() {
+  if (flushTimer != null) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  if (suppressDepth > 0) return
+  const items = pendingDeferredItems
+  pendingDeferredItems = undefined
+  onFlushDeferredRender?.(items)
 }
 
 /**

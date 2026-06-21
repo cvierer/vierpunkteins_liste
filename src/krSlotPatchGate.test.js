@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   flushKrSlotPatchRenderNow,
+  forceKrSlotPatchRenderNow,
   isKrSlotPatchSuppressingRenderList,
   mergeDeferredRenderItems,
   noteDeferredRenderListItems,
@@ -53,7 +54,7 @@ describe('krSlotPatchGate', () => {
     vi.useRealTimers()
   })
 
-  it('plant keinen deferred flush solange Switch-Session aktiv', async () => {
+  it('deferred flush läuft trotz aktiver Switch-Session-Guard', async () => {
     vi.useFakeTimers()
     const flushed = vi.fn()
     registerKrSlotPatchRenderFlush(flushed)
@@ -61,8 +62,18 @@ describe('krSlotPatchGate', () => {
     noteDeferredRenderListItems([{ id: 'x' }])
     await runWithKrSlotPatchSuppressed(async () => {})
     vi.advanceTimersByTime(250)
-    expect(flushed).not.toHaveBeenCalled()
+    expect(flushed).toHaveBeenCalledOnce()
     vi.useRealTimers()
+  })
+
+  it('forceKrSlotPatchRenderNow flushed trotz aktiver Switch-Session-Guard', () => {
+    const flushed = vi.fn()
+    registerKrSlotPatchRenderFlush(flushed)
+    registerKrSwitchSessionActiveGuard(() => true)
+    noteDeferredRenderListItems([{ id: 'z', metadata: { t: { kind: 'uo' } } }])
+    forceKrSlotPatchRenderNow()
+    expect(flushed).toHaveBeenCalledOnce()
+    expect(flushed.mock.calls[0][0]?.[0]?.id).toBe('z')
   })
 
   it('flushKrSlotPatchRenderNow flushed sofort nach Session-Ende', () => {

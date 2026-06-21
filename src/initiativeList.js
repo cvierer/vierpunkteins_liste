@@ -205,10 +205,9 @@ import {
 } from './krSlotPatchGate.js'
 import {
   enqueueKrPrimarySwitchStep,
-  getKrPrimarySwitchSession,
   getKrPrimarySwitchSessionKey,
-  hasActiveKrPrimarySwitchSessions,
   processKrPrimarySwitchQueue,
+  registerKrPrimarySwitchComplete,
 } from './krPrimarySwitchSession.js'
 import {
   areOrientationRingsAtTokenCenter,
@@ -1345,21 +1344,6 @@ function appendKrPrimarySplitCell(
     onFailure: rollbackSwitchVisual,
   }
 
-  const setSwitchBusy = (busy) => {
-    switchCol.classList.toggle('init-kr-primary-switch--busy', busy)
-    const locked = !canEdit || switchLocked || busy
-    prevBtn.disabled = locked
-    nextBtn.disabled = locked
-  }
-
-  const activeSession = getKrPrimarySwitchSession(switchSessionKey)
-  if (
-    activeSession &&
-    (activeSession.processing || activeSession.dirs.length > 0)
-  ) {
-    setSwitchBusy(true)
-  }
-
   /** @param {'next' | 'prev'} dir */
   const enqueuePrimarySwitch = async (dir) => {
     let freshMeta = trackerMeta
@@ -1380,8 +1364,7 @@ function appendKrPrimarySplitCell(
       canConvertToUo,
     })
     if (!step) return
-    setSwitchBusy(true)
-    void processKrPrimarySwitchQueue(switchSessionKey, switchPatchHandlers)
+    await processKrPrimarySwitchQueue(switchSessionKey, switchPatchHandlers)
   }
 
   if (canEdit && !switchLocked) {
@@ -8269,6 +8252,12 @@ function bindStampContextRemove(el, stamp, items) {
     })
   })
 
+  registerKrPrimarySwitchComplete(() => {
+    void OBR.scene.items.getItems().then((fresh) => {
+      enqueueRenderList(fresh)
+    })
+  })
+
   registerKrSlotKindPatched((itemId, linkId, kind) => {
     const idx = lastItems.findIndex((i) => i.id === itemId)
     if (idx < 0) return
@@ -8298,10 +8287,7 @@ function bindStampContextRemove(el, stamp, items) {
   })
 
   const safeRenderList = (items) => {
-    if (
-      isKrSlotPatchSuppressingRenderList() ||
-      hasActiveKrPrimarySwitchSessions()
-    ) {
+    if (isKrSlotPatchSuppressingRenderList()) {
       noteDeferredRenderListItems(items)
       return
     }

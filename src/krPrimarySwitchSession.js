@@ -4,7 +4,7 @@ import {
 } from './krCounters.js'
 import {
   registerKrSwitchSessionActiveGuard,
-  flushKrSlotPatchRenderNow,
+  forceKrSlotPatchRenderNow,
 } from './krSlotPatchGate.js'
 
 /** @typedef {'ang' | 'sra' | 'lh' | 'uo'} KrPrimaryKind */
@@ -20,6 +20,22 @@ import {
 
 /** @type {Map<string, KrPrimarySwitchSession>} */
 const sessions = new Map()
+
+/** @type {(() => void) | null} */
+let onSwitchComplete = null
+
+/**
+ * @param {() => void} fn
+ */
+export function registerKrPrimarySwitchComplete(fn) {
+  onSwitchComplete = fn
+}
+
+function finishSwitchSession(key) {
+  clearKrPrimarySwitchSession(key)
+  forceKrSlotPatchRenderNow()
+  onSwitchComplete?.()
+}
 
 /**
  * @param {string} itemId
@@ -132,6 +148,7 @@ export async function processKrPrimarySwitchQueue(key, handlers) {
   const session = sessions.get(key)
   if (!session || session.processing) return
   session.processing = true
+  let failed = false
   try {
     while (session.dirs.length > 0) {
       const dir = session.dirs.shift()
@@ -141,20 +158,18 @@ export async function processKrPrimarySwitchQueue(key, handlers) {
       })
       if (!result?.applied) {
         session.dirs.length = 0
+        failed = true
         await handlers.onFailure?.()
-        clearKrPrimarySwitchSession(key)
-        flushKrSlotPatchRenderNow()
-        return
+        break
       }
     }
   } finally {
     session.processing = false
     const still = sessions.get(key)
-    if (still && still.dirs.length > 0) {
+    if (still && still.dirs.length > 0 && !failed) {
       void processKrPrimarySwitchQueue(key, handlers)
-    } else if (still && still.dirs.length === 0 && !still.processing) {
-      clearKrPrimarySwitchSession(key)
-      flushKrSlotPatchRenderNow()
+    } else {
+      finishSwitchSession(key)
     }
   }
 }
