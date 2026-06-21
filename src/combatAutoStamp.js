@@ -1,6 +1,10 @@
 import OBR from '@owlbear-rodeo/sdk'
 import { getCombat, getIniTieOrder } from './combatRoom.js'
-import { isLhLockingActions, lhCompletionStampReady } from './lhMeta.js'
+import {
+  isLhActive,
+  isLhLockingActions,
+  lhCompletionStampReady,
+} from './lhMeta.js'
 import {
   motherHasTransferablePrimaryCharge,
   patchKrCounterByDelta,
@@ -83,14 +87,20 @@ export async function canAutoStampForCombatStep(
     if (!meta) return false
     const firstKind = readKrFirstSlotKind(meta)
     if (firstKind === 'uo') return false
-    if (firstKind === 'lh') return lhStampReady(meta, navIni, false)
+    if (firstKind === 'lh') {
+      if (!isLhActive(meta)) return false
+      return lhStampReady(meta, navIni, false)
+    }
     return motherHasTransferablePrimaryCharge(meta)
   }
   if (step.kind === 'phase' && step.ownerId && step.linkId) {
     if (!meta || !link || link.parentId !== null) return false
     const slot = readZaoSlot(meta, step.linkId)
     if (!slot || slot.kind === 'uo') return false
-    if (slot.kind === 'lh') return lhStampReady(meta, navIni, true)
+    if (slot.kind === 'lh') {
+      if (!isLhActive(meta)) return false
+      return lhStampReady(meta, navIni, true)
+    }
     return zaoRootCanAutoStamp(meta, step.linkId)
   }
   return false

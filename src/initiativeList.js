@@ -4590,10 +4590,19 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       return
     }
 
-    await patchCombat({
-      ...combatPatchForStep(steps[0]),
-      round: c.round,
-    })
+    // Transient idx<0 (z. B. nach L.H.-Umwandel / leerer OBR-Snapshot): Kampfstand
+    // nicht auf steps[0] zurücksetzen — das blockierte Navigation in der Liste.
+    await new Promise((r) => setTimeout(r, 0))
+    const cRetry = getCombat()
+    const stepsRetry = buildCombatTurnSteps(
+      rows,
+      items,
+      getIniTieOrder(),
+      combatRound
+    )
+    if (stepsRetry.length > 0 && findCombatStepIndex(stepsRetry, cRetry) >= 0) {
+      return
+    }
   }
 
   let heroSettingsItemId = null
@@ -6820,44 +6829,23 @@ function bindStampContextRemove(el, stamp, items) {
       if (lastItems && lastItems.length > 0) {
         try {
           const refetched = await OBR.scene.items.getItems()
-          if (refetched.length > 0) {
-            items = refetched
-          } else {
-            setTimeout(() => {
-              void (async () => {
-                try {
-                  const retry = await OBR.scene.items.getItems()
-                  if (retry.length > 0) await renderList(retry)
-                } catch {
-                  /* ignore */
-                }
-              })()
-            }, 0)
-            return
-          }
+          items = refetched.length > 0 ? refetched : lastItems
         } catch {
-          return
+          items = lastItems
         }
       }
     }
     await flushOpenHeroExpandPanelsBeforeRemount()
     try {
-      items = await OBR.scene.items.getItems()
+      const refetched = await OBR.scene.items.getItems()
+      if (refetched.length > 0) {
+        items = refetched
+      }
     } catch {
       /* Szene kurz nicht lesbar — übergebenen Snapshot nutzen */
     }
     if ((!items || items.length === 0) && lastItems && lastItems.length > 0) {
-      setTimeout(() => {
-        void (async () => {
-          try {
-            const retry = await OBR.scene.items.getItems()
-            if (retry.length > 0) await renderList(retry)
-          } catch {
-            /* ignore */
-          }
-        })()
-      }, 0)
-      return
+      items = lastItems
     }
     const listItems = filterItemsForListViewer(items ?? [], isGmSync())
     if (
@@ -6873,7 +6861,7 @@ function bindStampContextRemove(el, stamp, items) {
       getManualIniTieOverridePairs()
     )
     setTrackedParticipantIds(tokenRows.map((r) => r.id))
-    void reconcileCombat(tokenRows, items)
+    await reconcileCombat(tokenRows, items)
 
     const combat = getCombat()
     const introActive = Boolean(combat.started && combat.roundIntroPending)
@@ -8425,7 +8413,10 @@ function bindStampContextRemove(el, stamp, items) {
       } catch {
         /* nicht kritisch */
       }
-      const fresh = await OBR.scene.items.getItems()
+      let fresh = await OBR.scene.items.getItems()
+      if (!fresh?.length && lastItems?.length) {
+        fresh = lastItems
+      }
       safeRenderList(fresh)
     })()
   })

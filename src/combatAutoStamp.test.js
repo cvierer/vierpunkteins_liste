@@ -39,6 +39,7 @@ vi.mock('./phaseLinks.js', () => ({
 }))
 
 vi.mock('./lhMeta.js', () => ({
+  isLhActive: vi.fn(() => false),
   isLhLockingActions: vi.fn(() => false),
   lhCompletionStampReady: vi.fn(() => false),
 }))
@@ -64,7 +65,7 @@ import {
   readZaoSlot,
   stampLhCompletion,
 } from './krCounters.js'
-import { lhCompletionStampReady } from './lhMeta.js'
+import { lhCompletionStampReady, isLhActive } from './lhMeta.js'
 import { resolveCurrentNavIniForCombat } from './phaseLinks.js'
 import OBR from '@owlbear-rodeo/sdk'
 import {
@@ -96,6 +97,7 @@ describe('shouldAutoStampActionToReaction', () => {
 describe('canAutoStampForCombatStep', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(isLhActive).mockReturnValue(false)
     vi.mocked(lhCompletionStampReady).mockReturnValue(false)
     vi.mocked(resolveCurrentNavIniForCombat).mockReturnValue(17)
   })
@@ -127,6 +129,7 @@ describe('canAutoStampForCombatStep', () => {
 
   it('true bei Mutter-L.H. wenn Pie stempelbar', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(true)
     vi.mocked(lhCompletionStampReady).mockReturnValue(true)
     expect(
       await canAutoStampForCombatStep(
@@ -146,6 +149,7 @@ describe('canAutoStampForCombatStep', () => {
 
   it('false bei Mutter-L.H. wenn Pie noch nicht voll', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(true)
     vi.mocked(lhCompletionStampReady).mockReturnValue(false)
     expect(
       await canAutoStampForCombatStep(
@@ -159,6 +163,7 @@ describe('canAutoStampForCombatStep', () => {
 
   it('false bei Mutter-L.H. ohne Nav-INI', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(true)
     vi.mocked(lhCompletionStampReady).mockReturnValue(true)
     expect(
       await canAutoStampForCombatStep(
@@ -171,8 +176,24 @@ describe('canAutoStampForCombatStep', () => {
     expect(lhCompletionStampReady).not.toHaveBeenCalled()
   })
 
+  it('false bei Mutter-L.H. nur Umwandel ohne laufende L.H.', async () => {
+    vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(false)
+    vi.mocked(lhCompletionStampReady).mockReturnValue(true)
+    expect(
+      await canAutoStampForCombatStep(
+        { kind: 'token', id: 'a', sub: 'action' },
+        { krFirstSlotKind: 'lh' },
+        null,
+        17
+      )
+    ).toBe(false)
+    expect(lhCompletionStampReady).not.toHaveBeenCalled()
+  })
+
   it('true bei ZAO-L.H.-Wurzel wenn Pie stempelbar', async () => {
     vi.mocked(readZaoSlot).mockReturnValue({ kind: 'lh', marks: 1 })
+    vi.mocked(isLhActive).mockReturnValue(true)
     vi.mocked(lhCompletionStampReady).mockReturnValue(true)
     expect(
       await canAutoStampForCombatStep(
@@ -228,6 +249,7 @@ describe('autoStampForCombatStep', () => {
 
   it('stempelt Mutter-L.H. über stampLhCompletion', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(true)
     vi.mocked(lhCompletionStampReady).mockReturnValue(true)
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
       {
@@ -249,6 +271,7 @@ describe('autoStampForCombatStep', () => {
 
   it('überspringt Mutter-L.H. ohne vollen Pie', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(true)
     vi.mocked(lhCompletionStampReady).mockReturnValue(false)
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
       {
@@ -269,7 +292,30 @@ describe('autoStampForCombatStep', () => {
 
   it('überspringt Mutter-L.H. wenn Kampf-Nav-INI fehlt', async () => {
     vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(true)
     vi.mocked(resolveCurrentNavIniForCombat).mockReturnValue(null)
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
+      {
+        id: 'hero-a',
+        metadata: {
+          'vierpunkteins_kampf.tracker/metadata': { krFirstSlotKind: 'lh' },
+        },
+      },
+    ])
+    const ok = await autoStampForCombatStep({
+      kind: 'token',
+      id: 'hero-a',
+      sub: 'action',
+    })
+    expect(ok).toBe(false)
+    expect(stampLhCompletion).not.toHaveBeenCalled()
+    expect(lhCompletionStampReady).not.toHaveBeenCalled()
+  })
+
+  it('überspringt Mutter-L.H. nur Umwandel ohne laufende L.H.', async () => {
+    vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(false)
+    vi.mocked(lhCompletionStampReady).mockReturnValue(true)
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
       {
         id: 'hero-a',
@@ -349,6 +395,7 @@ describe('autoStampForCombatStep', () => {
   })
 
   it('stempelt ZAO-L.H.-Wurzel über stampLhCompletion', async () => {
+    vi.mocked(isLhActive).mockReturnValue(true)
     vi.mocked(lhCompletionStampReady).mockReturnValue(true)
     vi.mocked(readZaoSlot).mockReturnValue({ kind: 'lh', marks: 1 })
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
