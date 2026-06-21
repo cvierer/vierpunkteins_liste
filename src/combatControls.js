@@ -39,15 +39,33 @@ import { clearCombatLog } from './combatLog.js'
 import { autoStampForCombatStep } from './combatAutoStamp.js'
 
 async function combatTurnSteps() {
-  const items = await OBR.scene.items.getItems()
+  let items = await OBR.scene.items.getItems()
+  if (!items?.length) {
+    await new Promise((r) => setTimeout(r, 0))
+    items = await OBR.scene.items.getItems()
+  }
+  const tieOrder = getIniTieOrder()
   const rows = collectSortedParticipants(
     items,
-    getIniTieOrder(),
+    tieOrder,
     getManualIniTieOverridePairs()
   )
   const c = getCombat()
   const combatRound = c.started ? c.round : null
-  return buildCombatTurnSteps(rows, items, getIniTieOrder(), combatRound)
+  return buildCombatTurnSteps(rows, items, tieOrder, combatRound)
+}
+
+/** Primär-Stempel nur auf Aktion-Substep — nicht auf Reaktions-Substep derselben Zeile. */
+async function maybeAutoStampOrAdvanceToReaction(cur, c) {
+  if (cur?.kind === 'token' && c.currentTurnSubStep === 'reaction') {
+    return false
+  }
+  if (await advanceTokenMotherToReactionSubstep(cur, c)) return true
+  if (isStampableCombatStep(cur) && !hasPrimaryActionStampAtCombatStep(c)) {
+    const stamped = await autoStampForCombatStep(cur)
+    if (stamped) return true
+  }
+  return false
 }
 
 function isTypingTarget(el) {
@@ -330,33 +348,27 @@ export async function setupCombatControls(root) {
       return
     }
 
-    const steps = await combatTurnSteps()
+    let steps = await combatTurnSteps()
     const c = getCombat()
     if (steps.length === 0) {
-      // Transient leerer Steps-Snapshot (OBR-Sync-Race nach LH-Ende /
-      // Stempel-Kaskade): NICHT mehr auf `started:false` zurücksetzen, sonst
-      // verschwindet die ganze Liste beim Spieler und die Navigation klemmt.
-      // Combat manuell beenden bleibt über den Toggle-Button erreichbar.
-      return
+      await new Promise((r) => setTimeout(r, 0))
+      steps = await combatTurnSteps()
+      if (steps.length === 0) {
+        // Transient leerer Steps-Snapshot (OBR nach L.H.-Umwandel): nicht
+        // started:false — nächster Weiter-Versuch nach Szene-Sync.
+        return
+      }
     }
     const idx = findCombatStepIndex(steps, c)
     if (idx < 0) {
-      // Aktueller Schritt ist transient nicht in steps (z. B. 2.A.-Wurzel kurz
-      // ausgeblendet während die LH abschliesst): NICHT mehr stumpf auf
-      // steps[0] (round_start) zurückspringen — das war die Ursache des
-      // Hängers an „Beginn der KR x" nach einem LH-Ende mit synthetischer
-      // Done-Zeile (gerade Werte). Stattdessen einen Tick warten und neu
-      // ziehen; bis dahin sind die Items konsistent.
       await new Promise((r) => setTimeout(r, 0))
       const stepsRetry = await combatTurnSteps()
       const cRetry = getCombat()
       const idxRetry = findCombatStepIndex(stepsRetry, cRetry)
       if (stepsRetry.length === 0) return
       if (idxRetry < 0) {
-        await patchCombat({
-          ...RESET_ROUND_INTRO,
-          ...combatPatchForStep(stepsRetry[0]),
-        })
+        // Kampfstand nicht in steps (z. B. L.H.-Objekt / transient Merge):
+        // nicht auf steps[0] zurücksetzen — das blockierte die Listen-Navigation.
         return
       }
       const nextIdxRetry = (idxRetry + 1) % stepsRetry.length
@@ -376,14 +388,7 @@ export async function setupCombatControls(root) {
         return
       }
       const curRetry = stepsRetry[idxRetry]
-      if (await advanceTokenMotherToReactionSubstep(curRetry, cRetry)) return
-      if (
-        isStampableCombatStep(curRetry) &&
-        !hasPrimaryActionStampAtCombatStep(cRetry)
-      ) {
-        const stamped = await autoStampForCombatStep(curRetry)
-        if (stamped) return
-      }
+      if (await maybeAutoStampOrAdvanceToReaction(curRetry, cRetry)) return
       await patchCombat({
         ...combatPatchForStep(stepsRetry[nextIdxRetry]),
         round: cRetry.round,
@@ -409,11 +414,7 @@ export async function setupCombatControls(root) {
     }
 
     const cur = steps[idx]
-    if (await advanceTokenMotherToReactionSubstep(cur, c)) return
-    if (isStampableCombatStep(cur) && !hasPrimaryActionStampAtCombatStep(c)) {
-      const stamped = await autoStampForCombatStep(cur)
-      if (stamped) return
-    }
+    if (await maybeAutoStampOrAdvanceToReaction(cur, c)) return
     await patchCombat({
       ...combatPatchForStep(steps[nextIdx]),
       round: c.round,
@@ -457,10 +458,6 @@ export async function setupCombatControls(root) {
       const idxRetry = findCombatStepIndex(stepsRetry, cRetry)
       if (stepsRetry.length === 0) return
       if (idxRetry < 0) {
-        await patchCombat({
-          ...RESET_ROUND_INTRO,
-          ...combatPatchForStep(stepsRetry[0]),
-        })
         return
       }
       if (await undoStampsAtCurrentCombatStep(cRetry)) return

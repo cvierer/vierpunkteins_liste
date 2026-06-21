@@ -1556,6 +1556,36 @@ export function combatPatchForStep(step) {
 }
 
 /**
+ * Nav-INI direkt aus Kampf-Metadaten (Fallback wenn Schritt transient nicht in steps).
+ */
+export function resolveNavIniFromCombatPosition(
+  tokenRows,
+  items,
+  combat
+) {
+  if (!combat?.started) return null
+  const itemId = combat.currentItemId
+  if (typeof itemId !== 'string') return null
+  if (itemId === ROUND_END_STEP_ID) return Number.NEGATIVE_INFINITY
+  if (itemId === ROUND_START_STEP_ID) return Number.POSITIVE_INFINITY
+  const phaseId =
+    typeof combat.currentPhaseLinkId === 'string'
+      ? combat.currentPhaseLinkId
+      : null
+  if (!phaseId) {
+    const row = tokenRows.find((r) => r.id === itemId)
+    const n = Number(String(row?.initiative ?? '').replace(',', '.'))
+    return Number.isFinite(n) ? n : null
+  }
+  const row = tokenRows.find((r) => r.id === itemId)
+  const it = items.find((i) => i.id === itemId)
+  const meta = it?.metadata?.[TRACKER_ITEM_META_KEY]
+  const links = normalizePhases(meta?.phases).links
+  const hook = hookIniForLink(phaseId, row?.initiative ?? '', links)
+  return Number.isFinite(hook) ? hook : null
+}
+
+/**
  * Navigations-INI aus Kampf-Schritt (unabhängig von gefilterter Listen-Merge).
  */
 export function resolveCurrentNavIniForCombat(
@@ -1574,7 +1604,9 @@ export function resolveCurrentNavIniForCombat(
     null
   )
   const idx = findCombatStepIndex(steps, combat)
-  if (idx < 0) return null
+  if (idx < 0) {
+    return resolveNavIniFromCombatPosition(tokenRows, items, combat)
+  }
   const step = steps[idx]
   if (step.kind === 'roundEnd') return Number.NEGATIVE_INFINITY
   if (step.kind === 'roundStart') return Number.POSITIVE_INFINITY

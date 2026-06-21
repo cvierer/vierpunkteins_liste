@@ -16,6 +16,8 @@ import {
   combatPatchForStep,
   findCombatStepIndex,
   isStampableCombatStep,
+  resolveCurrentNavIniForCombat,
+  resolveNavIniFromCombatPosition,
 } from './phaseLinks.js'
 
 function item(id, meta = {}) {
@@ -153,5 +155,43 @@ describe('buildCombatTurnSteps action step per row', () => {
     expect(isStampableCombatStep({ kind: 'roundStart', id: ROUND_START_STEP_ID })).toBe(
       false
     )
+  })
+})
+
+describe('resolveNavIniFromCombatPosition', () => {
+  const tokenRows = [{ id: 'hero-a', initiative: '17', name: 'A' }]
+  const items = [
+    item('hero-a', {
+      initiative: '17',
+      krFirstSlotKind: 'lh',
+      phases: { links: [{ id: 'zao1', parentId: null }] },
+      krZaoSlots: { zao1: { kind: 'lh', marks: 1 } },
+    }),
+  ]
+
+  it('liefert Helden-INI auf Mutterzeile', () => {
+    expect(
+      resolveNavIniFromCombatPosition(tokenRows, items, {
+        started: true,
+        round: 1,
+        currentItemId: 'hero-a',
+        currentPhaseLinkId: null,
+        currentTurnSubStep: 'action',
+      })
+    ).toBe(17)
+  })
+
+  it('resolveCurrentNavIniForCombat nutzt Fallback wenn Schritt nicht in steps', () => {
+    const combat = {
+      started: true,
+      round: 1,
+      roundIntroPending: false,
+      currentItemId: 'hero-a',
+      currentPhaseLinkId: 'zao1',
+      currentTurnSubStep: 'action',
+    }
+    expect(
+      resolveCurrentNavIniForCombat(tokenRows, items, [], 1, combat)
+    ).toBe(17)
   })
 })

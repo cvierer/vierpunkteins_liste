@@ -203,6 +203,7 @@ import {
 } from './krCounters.js'
 import {
   isKrSlotPatchSuppressingRenderList,
+  mergeDeferredRenderItems,
   noteDeferredRenderListItems,
   registerKrSlotPatchRenderFlush,
 } from './krSlotPatchGate.js'
@@ -4579,10 +4580,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         phaseId
       )
       if (!linkStillInMeta) {
-        await patchCombat({
-          ...combatPatchForStep(steps[0]),
-          round: c.round,
-        })
+        // Phasen-Link weg (ephemeral / L.H.-Kante): Kampf nicht auf steps[0] setzen.
         return
       }
       // Phasen-Link existiert noch, aber kein Eintrag in steps: nicht auf Mutter zurückspringen
@@ -8369,24 +8367,25 @@ function bindStampContextRemove(el, stamp, items) {
 
   registerKrSlotPatchRenderFlush(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      enqueueRenderList(fresh)
+      enqueueRenderList(mergeDeferredRenderItems(fresh, lastItems))
     })
   })
 
   registerKrPrimarySwitchComplete(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      enqueueRenderList(fresh)
+      enqueueRenderList(mergeDeferredRenderItems(fresh, lastItems))
     })
   })
 
   registerLhCommitRenderFlush(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      enqueueRenderList(fresh)
+      enqueueRenderList(mergeDeferredRenderItems(fresh, lastItems))
     })
   })
 
-  const safeRenderList = (items) => {
-    if (isKrSlotPatchSuppressingRenderList()) {
+  const safeRenderList = (items, opts = {}) => {
+    const force = opts?.force === true
+    if (!force && isKrSlotPatchSuppressingRenderList()) {
       noteDeferredRenderListItems(items)
       return
     }
@@ -8397,6 +8396,13 @@ function bindStampContextRemove(el, stamp, items) {
   OBR.scene.items.onChange(safeRenderList)
   onCombatChange(() => {
     void (async () => {
+      let quickFresh = await OBR.scene.items.getItems()
+      if (!quickFresh?.length && lastItems?.length) {
+        quickFresh = lastItems
+      }
+      // Sofort rendern — nicht nach L.H./ExMod-Hooks warten (Listen-Nav bleibt sonst hängen).
+      safeRenderList(quickFresh, { force: true })
+
       const c = getCombat()
       const r =
         c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
@@ -8404,9 +8410,11 @@ function bindStampContextRemove(el, stamp, items) {
       const items = await OBR.scene.items.getItems()
       await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())
       try {
-        const c = getCombat()
+        const cAfterLh = getCombat()
         const cr =
-          c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
+          cAfterLh?.started && Number.isFinite(Number(cAfterLh.round))
+            ? Number(cAfterLh.round)
+            : null
         await runHeroExModsAfterCombatUpdate(items, getIniTieOrder(), {
           currentRound: cr,
         })
@@ -8417,7 +8425,7 @@ function bindStampContextRemove(el, stamp, items) {
       if (!fresh?.length && lastItems?.length) {
         fresh = lastItems
       }
-      safeRenderList(fresh)
+      safeRenderList(fresh, { force: true })
     })()
   })
   onIniTieOrderChange(() => safeRenderList(lastItems))
