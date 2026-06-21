@@ -138,6 +138,7 @@ import {
   KR_ABW,
   KR_PARADE_EXTRA,
   KR_ANG,
+  KR_FIRST_SLOT_KIND,
   KR_FREE_ACTION,
   KR_LH_ACTION,
   KR_LH_SECOND,
@@ -197,6 +198,12 @@ import {
   undoKrActionStamp,
   undoLastZaoSlotStamp,
 } from './krCounters.js'
+import {
+  isKrSlotPatchSuppressingRenderList,
+  noteDeferredRenderListItems,
+  registerKrSlotKindPatched,
+  registerKrSlotPatchRenderFlush,
+} from './krSlotPatchGate.js'
 import {
   areOrientationRingsAtTokenCenter,
 } from './heroOrientationRingsOverlay.js'
@@ -261,6 +268,7 @@ import {
   HERO_EX_UNFAEHIG_THRESHOLD,
   defaultUnfaehigThresholdForTemplate,
   HERO_EXPAND_BODY_FLUSH,
+  HERO_EXPAND_HAS_PENDING_INPUT,
   mountHeroExpandBlock,
   readHeroExtraField,
 } from './iniModMeta.js'
@@ -734,6 +742,29 @@ function krPrimaryMainKindClass(kind) {
   if (kind === 'sra') return 'sra'
   if (kind === 'lh') return 'lh'
   return 'ang'
+}
+
+/**
+ * Meta-Snapshot für optimistisches Primär-Icon nach Pfeil-Klick.
+ *
+ * @param {unknown} baseMeta
+ * @param {'ang' | 'sra' | 'lh' | 'uo'} kind
+ * @param {string | null} linkId
+ */
+function buildOptimisticMetaForKind(baseMeta, kind, linkId) {
+  const m = { ...(/** @type {Record<string, unknown>} */ (baseMeta || {})) }
+  if (typeof linkId === 'string' && linkId.length > 0) {
+    const slots = { ...readZaoSlots(m) }
+    const prev = slots[linkId] || {
+      kind: readKrFirstSlotKind(m),
+      marks: 1,
+    }
+    slots[linkId] = { ...prev, kind }
+    m[KR_ZAO_SLOTS] = slots
+  } else {
+    m[KR_FIRST_SLOT_KIND] = kind
+  }
+  return m
 }
 
 /**
@@ -1222,74 +1253,106 @@ function appendKrPrimarySplitCell(
     boundaryAsActiveVisual,
     iniLockHint,
   }
-  /** @param {'next' | 'prev'} dir */
-  const runPrimarySwitch = async (dir) => {
-    if (shell.dataset.krSwitchBusy === '1') return
-    shell.dataset.krSwitchBusy = '1'
-    prevBtn.disabled = true
-    nextBtn.disabled = true
+  const switchEls = { shell, main, exec, icon, prevBtn, nextBtn }
+  const linkIdForSwitch = isZaoSlot ? zaoSlotOverride?.linkId ?? null : null
+  /** @type {('next' | 'prev')[]} */
+  const pendingSwitchDirs = []
+  let switchQueueProcessing = false
+
+  const readLocalSwitchKind = () => {
+    const ds = shell.dataset.krSlotKind
+    if (ds === 'ang' || ds === 'sra' || ds === 'lh' || ds === 'uo') return ds
+    return kind
+  }
+
+  const isConvertAllowedLive = (metaForCheck) => {
+    if (convertCheckCtx) {
+      return isHeroConvertAllowedForViewer(
+        metaForCheck,
+        convertCheckCtx.rowActiveId ?? null,
+        convertCheckCtx.rowActivePhaseLinkId ?? null,
+        convertCheckCtx.currentNavIni ?? null,
+        {
+          ownerItemId,
+          visibilityCtx: convertCheckCtx.visibilityCtx ?? null,
+        }
+      )
+    }
+    return convertAllowedByLock
+  }
+
+  const rollbackSwitchVisual = async () => {
     try {
-      let freshMeta = trackerMeta
-      try {
-        const freshItems = await OBR.scene.items.getItems([ownerItemId])
-        const fm = freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
-        if (fm && typeof fm === 'object') freshMeta = fm
-      } catch {
-        /* Mount-Snapshot nutzen */
-      }
-      const linkId = isZaoSlot ? zaoSlotOverride?.linkId ?? null : null
-      const curKind = resolveKrPrimarySlotKind(freshMeta, linkId)
-      const iniLockedLive = isKrPrimarySlotIniLocked(freshMeta, linkId)
-      const nextKind = cycleKrPrimarySlotKind(curKind, dir, iniLockedLive)
-      const convertAllowedLive = convertCheckCtx
-        ? isHeroConvertAllowedForViewer(
-            freshMeta,
-            convertCheckCtx.rowActiveId ?? null,
-            convertCheckCtx.rowActivePhaseLinkId ?? null,
-            convertCheckCtx.currentNavIni ?? null,
-            {
-              ownerItemId,
-              visibilityCtx: convertCheckCtx.visibilityCtx ?? null,
-            }
-          )
-        : convertAllowedByLock
-      if (nextKind === 'uo' && !convertAllowedLive) return
-
-      const result = await patchKrStepPrimarySlotKind(ownerItemId, dir, {
-        linkId,
-      })
-      if (!result?.applied) return
-
-      let metaAfter = freshMeta
-      try {
-        const afterItems = await OBR.scene.items.getItems([ownerItemId])
-        const am = afterItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
-        if (am && typeof am === 'object') metaAfter = am
-      } catch {
-        /* früheres Snapshot */
-      }
+      const freshItems = await OBR.scene.items.getItems([ownerItemId])
+      const metaRollback =
+        freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? trackerMeta
+      const actualKind = resolveKrPrimarySlotKind(metaRollback, linkIdForSwitch)
+      shell.dataset.krSlotKind = actualKind
       syncKrPrimaryShellKindVisual(
-        { shell, main, exec, icon, prevBtn, nextBtn },
-        result.kind,
-        metaAfter,
+        switchEls,
+        actualKind,
+        metaRollback,
         visualCtx
       )
-    } finally {
-      delete shell.dataset.krSwitchBusy
-      prevBtn.disabled = !canEdit || switchLocked
-      nextBtn.disabled = !canEdit || switchLocked
+    } catch {
+      shell.dataset.krSlotKind = kind
+      syncKrPrimaryShellKindVisual(switchEls, kind, trackerMeta, visualCtx)
     }
   }
+
+  const processPrimarySwitchQueue = async () => {
+    if (switchQueueProcessing) return
+    switchQueueProcessing = true
+    try {
+      while (pendingSwitchDirs.length > 0) {
+        const dir = pendingSwitchDirs.shift()
+        if (!dir) continue
+        const result = await patchKrStepPrimarySlotKind(ownerItemId, dir, {
+          linkId: linkIdForSwitch,
+        })
+        if (!result?.applied) {
+          await rollbackSwitchVisual()
+          pendingSwitchDirs.length = 0
+          break
+        }
+      }
+    } finally {
+      switchQueueProcessing = false
+      if (pendingSwitchDirs.length > 0) {
+        void processPrimarySwitchQueue()
+      }
+    }
+  }
+
+  /** @param {'next' | 'prev'} dir */
+  const enqueuePrimarySwitch = (dir) => {
+    const localKind = readLocalSwitchKind()
+    const iniLockedLive = isKrPrimarySlotIniLocked(trackerMeta, linkIdForSwitch)
+    const nextKind = cycleKrPrimarySlotKind(localKind, dir, iniLockedLive)
+    if (nextKind === 'uo' && !isConvertAllowedLive(trackerMeta)) return
+
+    shell.dataset.krSlotKind = nextKind
+    syncKrPrimaryShellKindVisual(
+      switchEls,
+      nextKind,
+      buildOptimisticMetaForKind(trackerMeta, nextKind, linkIdForSwitch),
+      visualCtx
+    )
+
+    pendingSwitchDirs.push(dir)
+    void processPrimarySwitchQueue()
+  }
+
   if (canEdit && !switchLocked) {
     prevBtn.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      void runPrimarySwitch('prev')
+      enqueuePrimarySwitch('prev')
     })
     nextBtn.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      void runPrimarySwitch('next')
+      enqueuePrimarySwitch('next')
     })
   }
   const hasPrimaryCharge = isUoKind ? false : krTransferMarkPresent(v)
@@ -6644,6 +6707,7 @@ function bindStampContextRemove(el, stamp, items) {
     /** @type {Promise<void>[]} */
     const tasks = []
     for (const body of bodies) {
+      if (!body[HERO_EXPAND_HAS_PENDING_INPUT]) continue
       const fn = body[HERO_EXPAND_BODY_FLUSH]
       if (typeof fn === 'function') tasks.push(fn())
     }
@@ -8183,13 +8247,52 @@ function bindStampContextRemove(el, stamp, items) {
     }
   }
 
-  const safeRenderList = (items) => {
+  const enqueueRenderList = (items) => {
     renderListQueuedItems = items ?? renderListQueuedItems
     if (renderListScheduleRaf) return
     renderListScheduleRaf = requestAnimationFrame(() => {
       renderListScheduleRaf = 0
       void drainRenderListQueue()
     })
+  }
+
+  registerKrSlotPatchRenderFlush((items) => {
+    enqueueRenderList(items ?? lastItems)
+  })
+
+  registerKrSlotKindPatched((itemId, linkId, kind) => {
+    const idx = lastItems.findIndex((i) => i.id === itemId)
+    if (idx < 0) return
+    const old = lastItems[idx]
+    const oldMeta = old.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!oldMeta || typeof oldMeta !== 'object') return
+    const newMeta = { ...oldMeta }
+    if (linkId) {
+      const slots = { ...readZaoSlots(newMeta) }
+      const prev = slots[linkId] || {
+        kind: readKrFirstSlotKind(newMeta),
+        marks: 1,
+      }
+      slots[linkId] = { ...prev, kind }
+      newMeta[KR_ZAO_SLOTS] = slots
+    } else {
+      newMeta[KR_FIRST_SLOT_KIND] = kind
+    }
+    lastItems[idx] = {
+      ...old,
+      metadata: {
+        ...old.metadata,
+        [TRACKER_ITEM_META_KEY]: newMeta,
+      },
+    }
+  })
+
+  const safeRenderList = (items) => {
+    if (isKrSlotPatchSuppressingRenderList()) {
+      noteDeferredRenderListItems(items)
+      return
+    }
+    enqueueRenderList(items)
   }
 
   OBR.scene.items.getItems().then(safeRenderList)

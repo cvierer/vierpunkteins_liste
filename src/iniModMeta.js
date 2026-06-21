@@ -271,6 +271,10 @@ export const HERO_EX_ZUSATZ = 'heroExZusatz'
 
 /** Auf dem Container von `mountHeroExpandBlock`: vor Listen-Remount flushen. */
 export const HERO_EXPAND_BODY_FLUSH = Symbol('vierpunkteinsHeroExpandFlush')
+/** Gesetzt solange uncommittete Heldenblock-Eingaben (persistTimer) pending sind. */
+export const HERO_EXPAND_HAS_PENDING_INPUT = Symbol(
+  'vierpunkteinsHeroExpandPendingInput'
+)
 
 function strOrEmpty(v) {
   if (v === undefined || v === null) return ''
@@ -5435,12 +5439,18 @@ export function mountHeroExpandBlock(
       await applyHeroExpandFields(itemId, snap)
       if (gen !== persistGeneration) return
       await refreshModStripFromScene()
+      if (container instanceof HTMLElement) {
+        delete container[HERO_EXPAND_HAS_PENDING_INPUT]
+      }
     })()
   }
 
   const schedulePersistHeroExpand = (snapshot) => {
     persistNextSnapshot = snapshot
     persistQueued = true
+    if (container instanceof HTMLElement) {
+      container[HERO_EXPAND_HAS_PENDING_INPUT] = true
+    }
     if (persistTimer != null) clearTimeout(persistTimer)
     persistTimer = setTimeout(flushPersistHeroExpand, PERSIST_DEBOUNCE_MS)
   }
@@ -5451,6 +5461,9 @@ export function mountHeroExpandBlock(
     }
     persistQueued = false
     persistNextSnapshot = null
+    if (container instanceof HTMLElement) {
+      delete container[HERO_EXPAND_HAS_PENDING_INPUT]
+    }
   }
 
   /** Vor Listen-Remount: Debounce abbrechen, Szene-Meta einlesen, Kästchen sofort persistieren. */
@@ -5488,6 +5501,9 @@ export function mountHeroExpandBlock(
       )
       await applyHeroExpandFields(itemId, snapFlush)
       await refreshModStripFromScene()
+      if (container instanceof HTMLElement) {
+        delete container[HERO_EXPAND_HAS_PENDING_INPUT]
+      }
     } catch (err) {
       console.warn(
         '[vierpunkteins] flushHeroExpandBeforeListRemount failed',

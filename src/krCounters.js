@@ -1,6 +1,10 @@
 import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem, isGmSync } from './editAccess.js'
 import {
+  notifyKrSlotKindPatched,
+  runWithKrSlotPatchSuppressed,
+} from './krSlotPatchGate.js'
+import {
   getTokenListDisplayName,
   TRACKER_ITEM_META_KEY,
 } from './participants.js'
@@ -850,10 +854,12 @@ export function lhEndKrConvertArrowGates(meta, combatRound) {
  * @param {string} linkId
  * @param {{ kind?: 'ang'|'sra'|'lh'|'uo', marks?: 0|1, lodgedAbw?: boolean }} patch
  */
-export async function patchZaoSlot(itemId, linkId, patch) {
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
+export async function patchZaoSlot(itemId, linkId, patch, opts = {}) {
+  if (!opts.skipFetch) {
+    const items = await OBR.scene.items.getItems([itemId])
+    const item = items?.[0]
+    if (!item || !canEditSceneItem(item)) return false
+  }
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
@@ -897,6 +903,7 @@ export async function patchZaoSlot(itemId, linkId, patch) {
       syncReactionShieldForDualAng(m)
     }
   })
+  return true
 }
 
 /**
@@ -1320,16 +1327,27 @@ export function readKrFirstSlotKind(meta) {
  *
  * @param {string} itemId
  * @param {'ang' | 'sra' | 'lh'} kind
+ * @param {{ skipFetch?: boolean, metaSnapshot?: unknown }} [opts]
+ * @returns {Promise<boolean>}
  */
-export async function patchKrFirstSlotKind(itemId, kind) {
-  if (kind !== 'ang' && kind !== 'sra' && kind !== 'lh') return
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
-  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+export async function patchKrFirstSlotKind(itemId, kind, opts = {}) {
+  if (kind !== 'ang' && kind !== 'sra' && kind !== 'lh') return false
+  /** @type {Record<string, unknown>} */
+  let meta = {}
+  if (opts.metaSnapshot && typeof opts.metaSnapshot === 'object') {
+    meta = /** @type {Record<string, unknown>} */ (opts.metaSnapshot)
+  } else {
+    const items = await OBR.scene.items.getItems([itemId])
+    const item = items?.[0]
+    if (!item || !canEditSceneItem(item)) return false
+    meta =
+      /** @type {Record<string, unknown>} */ (
+        item?.metadata?.[TRACKER_ITEM_META_KEY] || {}
+      )
+  }
   const prevKind = readKrFirstSlotKind(meta || {})
-  if (prevKind === kind) return
-  if (prevKind === 'uo') return
+  if (prevKind === kind) return false
+  if (prevKind === 'uo') return false
 
   const oldPF = primaryFieldForKind(meta || {})
   const newPF =
@@ -1379,6 +1397,7 @@ export async function patchKrFirstSlotKind(itemId, kind) {
       }
     }
   })
+  return true
 }
 
 /** @param {'ang' | 'sra' | 'lh' | 'uo'} k */
@@ -1418,6 +1437,23 @@ export function cycleKrPrimarySlotKind(k, dir, iniLocked = false) {
 }
 
 /**
+ * @param {'ang' | 'sra' | 'lh' | 'uo'} startKind
+ * @param {number} netSteps positiv = next, negativ = prev
+ * @param {boolean} [iniLocked]
+ * @returns {'ang' | 'sra' | 'lh' | 'uo'}
+ */
+export function advanceKrPrimarySlotKindSteps(startKind, netSteps, iniLocked = false) {
+  const steps = Math.abs(Math.floor(netSteps))
+  if (steps === 0) return startKind
+  const dir = netSteps > 0 ? 'next' : 'prev'
+  let k = startKind
+  for (let i = 0; i < steps; i++) {
+    k = cycleKrPrimarySlotKind(k, dir, iniLocked)
+  }
+  return k
+}
+
+/**
  * @param {unknown} meta
  * @param {string | null | undefined} [linkId]
  * @returns {'ang' | 'sra' | 'lh' | 'uo'}
@@ -1453,40 +1489,40 @@ export function isKrPrimarySlotIniLocked(meta, linkId = null) {
  */
 export async function patchKrStepPrimarySlotKind(itemId, dir, opts = {}) {
   if (dir !== 'next' && dir !== 'prev') return null
-  const linkId = opts.linkId ?? null
-  const patchOpts =
-    typeof linkId === 'string' && linkId.length > 0 ? { linkId } : {}
+  return runWithKrSlotPatchSuppressed(async () => {
+    const linkId = opts.linkId ?? null
+    const patchOpts =
+      typeof linkId === 'string' && linkId.length > 0 ? { linkId } : {}
 
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return null
-  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta) return null
+    const items = await OBR.scene.items.getItems([itemId])
+    const item = items?.[0]
+    if (!item || !canEditSceneItem(item)) return null
+    const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!meta) return null
 
-  const prevKind = resolveKrPrimarySlotKind(meta, linkId)
-  const iniLocked = isKrPrimarySlotIniLocked(meta, linkId)
-  const nextKind = cycleKrPrimarySlotKind(prevKind, dir, iniLocked)
-  if (prevKind === nextKind) {
-    return { applied: false, kind: prevKind, prevKind, nextKind }
-  }
+    const prevKind = resolveKrPrimarySlotKind(meta, linkId)
+    const iniLocked = isKrPrimarySlotIniLocked(meta, linkId)
+    const nextKind = cycleKrPrimarySlotKind(prevKind, dir, iniLocked)
+    if (prevKind === nextKind) {
+      return { applied: false, kind: prevKind, prevKind, nextKind }
+    }
 
-  await patchKrCyclePrimarySlotKind(itemId, nextKind, patchOpts)
+    const applied = await patchKrCyclePrimarySlotKind(itemId, nextKind, {
+      ...patchOpts,
+      preloadedItem: item,
+    })
+    if (!applied) {
+      return { applied: false, kind: prevKind, prevKind, nextKind }
+    }
 
-  let kindAfter = prevKind
-  try {
-    const fresh = await OBR.scene.items.getItems([itemId])
-    const m = fresh?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
-    if (m) kindAfter = resolveKrPrimarySlotKind(m, linkId)
-  } catch {
-    /* Szene kurz nicht lesbar */
-  }
-
-  return {
-    applied: kindAfter !== prevKind,
-    kind: kindAfter,
-    prevKind,
-    nextKind,
-  }
+    notifyKrSlotKindPatched(itemId, linkId, nextKind)
+    return {
+      applied: true,
+      kind: nextKind,
+      prevKind,
+      nextKind,
+    }
+  })
 }
 
 /**
@@ -1494,7 +1530,8 @@ export async function patchKrStepPrimarySlotKind(itemId, dir, opts = {}) {
  *
  * @param {string} itemId
  * @param {'ang' | 'sra' | 'lh' | 'uo'} nextKind
- * @param {{ linkId?: string | null }} [opts]
+ * @param {{ linkId?: string | null, preloadedItem?: import('@owlbear-rodeo/sdk').Item | null }} [opts]
+ * @returns {Promise<boolean>}
  */
 export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
   if (
@@ -1503,46 +1540,48 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
     nextKind !== 'lh' &&
     nextKind !== 'uo'
   ) {
-    return
+    return false
   }
   const linkId = opts.linkId ?? null
   const isZao = typeof linkId === 'string' && linkId.length > 0
 
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
+  let item = opts.preloadedItem ?? null
+  if (!item) {
+    const items = await OBR.scene.items.getItems([itemId])
+    item = items?.[0] ?? null
+  }
+  if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta) return
+  if (!meta) return false
 
   if (isZao) {
     const slot = readZaoSlot(meta, linkId)
     const prev = readEffectiveZaoSlotKind(slot)
-    if (prev === nextKind) return
+    if (prev === nextKind) return false
 
     if (nextKind === 'uo') {
       await patchKrTransferZaoPrimaryToAbw(itemId, linkId)
-      return
+      return true
     }
     if (prev === 'uo') {
       await patchKrTransferAbwToZaoPrimary(itemId, linkId, nextKind)
-      return
+      return true
     }
-    await patchZaoSlot(itemId, linkId, { kind: nextKind })
-    return
+    return patchZaoSlot(itemId, linkId, { kind: nextKind }, { skipFetch: true })
   }
 
   const prev = readKrFirstSlotKind(meta)
-  if (prev === nextKind) return
+  if (prev === nextKind) return false
 
   if (nextKind === 'uo') {
     await patchKrTransferPrimaryToAbw(itemId)
-    return
+    return true
   }
   if (prev === 'uo') {
     await patchKrTransferAbwToPrimary(itemId, nextKind)
-    return
+    return true
   }
-  await patchKrFirstSlotKind(itemId, nextKind)
+  return patchKrFirstSlotKind(itemId, nextKind, { metaSnapshot: meta })
 }
 
 /**

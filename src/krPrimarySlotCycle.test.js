@@ -4,6 +4,7 @@ import {
   KR_ZAO_SLOTS,
   HERO_INI_NEG_ANG_MODE,
   cycleKrPrimarySlotKind,
+  advanceKrPrimarySlotKindSteps,
   isKrPrimarySlotIniLocked,
   nextKrPrimarySlotKind,
   prevKrPrimarySlotKind,
@@ -71,5 +72,11 @@ describe('krPrimarySlotCycle', () => {
     expect(freshNext).toBe('lh')
     expect(staleNext === prevKind).toBe(true)
     expect(freshNext !== prevKind).toBe(true)
+  })
+
+  it('advanceKrPrimarySlotKindSteps wendet mehrere Schritte an', () => {
+    expect(advanceKrPrimarySlotKindSteps('ang', 3, false)).toBe('uo')
+    expect(advanceKrPrimarySlotKindSteps('uo', -1, false)).toBe('lh')
+    expect(advanceKrPrimarySlotKindSteps('ang', 1, true)).toBe('sra')
   })
 })
