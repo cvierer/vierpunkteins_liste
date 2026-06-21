@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
+  flushKrSlotPatchRenderNow,
   isKrSlotPatchSuppressingRenderList,
   mergeDeferredRenderItems,
   noteDeferredRenderListItems,
@@ -62,5 +63,15 @@ describe('krSlotPatchGate', () => {
     vi.advanceTimersByTime(250)
     expect(flushed).not.toHaveBeenCalled()
     vi.useRealTimers()
+  })
+
+  it('flushKrSlotPatchRenderNow flushed sofort nach Session-Ende', () => {
+    const flushed = vi.fn()
+    registerKrSlotPatchRenderFlush(flushed)
+    registerKrSwitchSessionActiveGuard(() => false)
+    noteDeferredRenderListItems([{ id: 'y', metadata: { t: { kind: 'lh' } } }])
+    flushKrSlotPatchRenderNow()
+    expect(flushed).toHaveBeenCalledOnce()
+    expect(flushed.mock.calls[0][0]?.[0]?.id).toBe('y')
   })
 })

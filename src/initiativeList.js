@@ -199,7 +199,6 @@ import {
 } from './krCounters.js'
 import {
   isKrSlotPatchSuppressingRenderList,
-  mergeDeferredRenderItems,
   noteDeferredRenderListItems,
   registerKrSlotKindPatched,
   registerKrSlotPatchRenderFlush,
@@ -210,7 +209,6 @@ import {
   getKrPrimarySwitchSessionKey,
   hasActiveKrPrimarySwitchSessions,
   processKrPrimarySwitchQueue,
-  registerKrPrimarySwitchSync,
 } from './krPrimarySwitchSession.js'
 import {
   areOrientationRingsAtTokenCenter,
@@ -1074,19 +1072,16 @@ function appendKrPrimarySplitCell(
     ownerItemId,
     linkIdForSwitch
   )
-  const sessionAtMount = getKrPrimarySwitchSession(switchSessionKey)
-  const metadataKind = isZaoSlot
+  const kind = isZaoSlot
     ? readEffectiveZaoSlotKind(zaoSlotOverride)
     : readKrFirstSlotKind(trackerMeta)
-  const kind = sessionAtMount?.targetKind ?? metadataKind
-  const mountMeta = sessionAtMount?.rollingMeta ?? trackerMeta
   const isUoKind = kind === 'uo'
   // INI < 0 greift nur am Mutter-Primärslot, nicht an 2.A.O.-Slots.
   // Bei angMode 'yes' bleibt das Schwert erlaubt, auch bei INI < 0.
   const iniLocked =
     !isZaoSlot &&
-    isHeroIniBelowZero(mountMeta) &&
-    readHeroIniNegAngMode(mountMeta) !== 'yes'
+    isHeroIniBelowZero(trackerMeta) &&
+    readHeroIniNegAngMode(trackerMeta) !== 'yes'
   const iniLockHint =
     ' — INI < 0: Schwert als Option gesperrt, nur noch eine Ladung.'
   /** @type {string} */
@@ -1107,7 +1102,7 @@ function appendKrPrimarySplitCell(
     ? zaoSlotOverride.marks === 1
       ? 0
       : 1
-    : normalizeKrDigit(readKrPrimaryLadung(mountMeta))
+    : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
   const kindLabelLong =
     kind === 'uo'
       ? 'Umwandel-Objekt (UO) — Ladung im Abwehr-Schild'
@@ -1164,9 +1159,9 @@ function appendKrPrimarySplitCell(
   const lhExplicitSecond = false
   const lhNeedsSecond = false
   const lhVoided =
-    !isZaoSlot && kind === 'lh' && Boolean(mountMeta?.[KR_LH_VOID_BY_TRANSFER])
+    !isZaoSlot && kind === 'lh' && Boolean(trackerMeta?.[KR_LH_VOID_BY_TRANSFER])
   const lhStatePrimary =
-    !isZaoSlot && kind === 'lh' ? readLhState(mountMeta) : { max: 0, rem: 0 }
+    !isZaoSlot && kind === 'lh' ? readLhState(trackerMeta) : { max: 0, rem: 0 }
   // Mit der neuen Regel: Counter-Eingabe wandert in die Schildspalte und wird
   // dort getriggert, wenn Mutter-L.H. + L.H.-2.A.O. beide geladen sind.
   // Hier nur noch: visuelle „voll geladen“-Markierung an der Mutter.
@@ -1213,22 +1208,22 @@ function appendKrPrimarySplitCell(
   let lhPieFullyFilled = false
   if (kind === 'lh' && !lhVoided && !lhNeedsSecond) {
     const lhStForPie = isZaoSlot
-      ? readLhState(mountMeta)
+      ? readLhState(trackerMeta)
       : lhStatePrimary
     if (lhStForPie.max > 0) {
       const heroIniNum = (() => {
-        const raw = mountMeta?.initiative
+        const raw = trackerMeta?.initiative
         const n = Number(String(raw ?? '').trim().replace(',', '.'))
         return Number.isFinite(n) ? n : null
       })()
-      const mechanics = readLhMechanics(mountMeta)
+      const mechanics = readLhMechanics(trackerMeta)
       const commitRound =
-        Math.max(1, Math.floor(Number(mountMeta?.[LH_COMMIT_ROUND])) || 0) ||
+        Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
         (combatRound ?? 1)
       const effectiveRound = combatRound ?? commitRound
-      const commitIniStored = Number(mountMeta?.[LH_COMMIT_INI])
+      const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
       const priorSpendPie = readLhCommitKrPriorSpendForRound(
-        mountMeta,
+        trackerMeta,
         effectiveRound
       )
       lhPieFracValue = lhPieFraction(
@@ -1281,7 +1276,7 @@ function appendKrPrimarySplitCell(
     !isZaoSlot &&
     (lhVoided ||
       ((kind === 'ang' || kind === 'sra') &&
-        Boolean(mountMeta?.[KR_PRIMARY_VOID_BY_ABW_TRANSFER])))
+        Boolean(trackerMeta?.[KR_PRIMARY_VOID_BY_ABW_TRANSFER])))
   ) {
     icon.classList.add('init-kr-primary-main__icon--hidden-by-abw-transfer')
   }
@@ -1301,18 +1296,10 @@ function appendKrPrimarySplitCell(
   const switchEls = { shell, main, exec, icon, prevBtn, nextBtn }
   shell.dataset.krSwitchKey = switchSessionKey
 
-  const readLocalSwitchKind = () => {
-    const session = getKrPrimarySwitchSession(switchSessionKey)
-    if (session?.targetKind) return session.targetKind
-    const ds = shell.dataset.krSlotKind
-    if (ds === 'ang' || ds === 'sra' || ds === 'lh' || ds === 'uo') return ds
-    return kind
-  }
-
-  const readMetaForSwitch = () => {
-    const session = getKrPrimarySwitchSession(switchSessionKey)
-    return session?.rollingMeta ?? trackerMeta
-  }
+  const readPersistedSwitchKind = () =>
+    isZaoSlot
+      ? readEffectiveZaoSlotKind(zaoSlotOverride)
+      : readKrFirstSlotKind(trackerMeta)
 
   const isConvertAllowedLive = (metaForCheck) => {
     if (convertCheckCtx) {
@@ -1354,55 +1341,32 @@ function appendKrPrimarySplitCell(
     onFailure: rollbackSwitchVisual,
   }
 
+  const setSwitchBusy = (busy) => {
+    switchCol.classList.toggle('init-kr-primary-switch--busy', busy)
+    const locked = !canEdit || switchLocked || busy
+    prevBtn.disabled = locked
+    nextBtn.disabled = locked
+  }
+
   const activeSession = getKrPrimarySwitchSession(switchSessionKey)
-  if (activeSession) {
-    shell.dataset.krSlotKind = activeSession.targetKind
-    syncKrPrimaryShellKindVisual(
-      switchEls,
-      activeSession.targetKind,
-      activeSession.rollingMeta,
-      visualCtx
-    )
-    registerKrPrimarySwitchSync(switchSessionKey, (targetKind, rollingMeta) => {
-      shell.dataset.krSlotKind = targetKind
-      syncKrPrimaryShellKindVisual(
-        switchEls,
-        targetKind,
-        /** @type {Record<string, unknown>} */ (rollingMeta),
-        visualCtx
-      )
-    })
+  if (
+    activeSession &&
+    (activeSession.processing || activeSession.dirs.length > 0)
+  ) {
+    setSwitchBusy(true)
   }
 
   /** @param {'next' | 'prev'} dir */
   const enqueuePrimarySwitch = (dir) => {
-    const localKind = readLocalSwitchKind()
-    const metaForSwitch = readMetaForSwitch()
     const step = enqueueKrPrimarySwitchStep(switchSessionKey, dir, {
       itemId: ownerItemId,
       linkId: linkIdForSwitch,
-      startKind: localKind,
-      baseMeta: metaForSwitch,
-      canConvertToUo: isConvertAllowedLive(metaForSwitch),
+      startKind: readPersistedSwitchKind(),
+      baseMeta: trackerMeta,
+      canConvertToUo: isConvertAllowedLive(trackerMeta),
     })
     if (!step) return
-
-    shell.dataset.krSlotKind = step.targetKind
-    syncKrPrimaryShellKindVisual(
-      switchEls,
-      step.targetKind,
-      step.rollingMeta,
-      visualCtx
-    )
-    registerKrPrimarySwitchSync(switchSessionKey, (targetKind, rollingMeta) => {
-      shell.dataset.krSlotKind = targetKind
-      syncKrPrimaryShellKindVisual(
-        switchEls,
-        targetKind,
-        /** @type {Record<string, unknown>} */ (rollingMeta),
-        visualCtx
-      )
-    })
+    setSwitchBusy(true)
     void processKrPrimarySwitchQueue(switchSessionKey, switchPatchHandlers)
   }
 
@@ -1418,56 +1382,47 @@ function appendKrPrimarySplitCell(
       enqueuePrimarySwitch('next')
     })
   }
-  const displayKind = readLocalSwitchKind()
-  const displayMeta = readMetaForSwitch()
-  syncKrPrimaryShellKindVisual(
-    switchEls,
-    displayKind,
-    displayMeta,
-    visualCtx
-  )
-
-  const displayIsUoKind = displayKind === 'uo'
+  const displayIsUoKind = kind === 'uo'
   const displayLhVoided =
     !isZaoSlot &&
-    displayKind === 'lh' &&
-    Boolean(displayMeta?.[KR_LH_VOID_BY_ABW_TRANSFER])
+    kind === 'lh' &&
+    Boolean(trackerMeta?.[KR_LH_VOID_BY_ABW_TRANSFER])
   const vDisplay = isZaoSlot
     ? zaoSlotOverride.marks === 1
       ? 0
       : 1
-    : normalizeKrDigit(readKrPrimaryLadung(displayMeta))
+    : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
   const hasPrimaryCharge = displayIsUoKind ? false : krTransferMarkPresent(vDisplay)
   /** @type {string} */
   let displayField = KR_ANG
-  if (displayKind === 'sra') displayField = KR_SRA
-  else if (displayKind === 'lh') displayField = KR_LH_ACTION
+  if (kind === 'sra') displayField = KR_SRA
+  else if (kind === 'lh') displayField = KR_LH_ACTION
   const displayLabelDe = ACTION_STAMP_LABEL[displayField] || 'Aktion'
   const displayPrimaryTooltipLabel =
-    displayKind === 'uo'
+    kind === 'uo'
       ? 'Umwandel-Objekt (UO)'
-      : displayKind === 'sra'
+      : kind === 'sra'
         ? `${displayLabelDe}: Sonstige reguläre Aktion wie Atem holen, Bewegen, Position und Taktik`
         : displayLabelDe
   const lhLockActive =
-    isLhLockingActions(displayMeta, combatRound) && displayKind !== 'lh'
+    isLhLockingActions(trackerMeta, combatRound) && kind !== 'lh'
   let displayLhPieFullyFilled = false
-  if (displayKind === 'lh' && !displayLhVoided && !lhNeedsSecond) {
-    const lhStDisplay = readLhState(displayMeta)
+  if (kind === 'lh' && !displayLhVoided && !lhNeedsSecond) {
+    const lhStDisplay = readLhState(trackerMeta)
     if (lhStDisplay.max > 0) {
       const heroIniNum = (() => {
-        const raw = displayMeta?.initiative
+        const raw = trackerMeta?.initiative
         const n = Number(String(raw ?? '').trim().replace(',', '.'))
         return Number.isFinite(n) ? n : null
       })()
-      const mechanics = readLhMechanics(displayMeta)
+      const mechanics = readLhMechanics(trackerMeta)
       const commitRound =
-        Math.max(1, Math.floor(Number(displayMeta?.[LH_COMMIT_ROUND])) || 0) ||
+        Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
         (combatRound ?? 1)
       const effectiveRound = combatRound ?? commitRound
-      const commitIniStored = Number(displayMeta?.[LH_COMMIT_INI])
+      const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
       const priorSpendPie = readLhCommitKrPriorSpendForRound(
-        displayMeta,
+        trackerMeta,
         effectiveRound
       )
       displayLhPieFullyFilled =
@@ -1485,15 +1440,15 @@ function appendKrPrimarySplitCell(
     }
   }
   const lhPieStampReady =
-    displayKind === 'lh' && displayLhPieFullyFilled && primaryLadungAllowed
+    kind === 'lh' && displayLhPieFullyFilled && primaryLadungAllowed
   const stampOk =
     !canEdit ||
-    (primaryLadungAllowed && !(displayKind === 'lh' && lhNeedsSecond))
+    (primaryLadungAllowed && !(kind === 'lh' && lhNeedsSecond))
   exec.setAttribute(
     'aria-label',
-    canEdit && displayKind === 'lh' && lhNeedsSecond
+    canEdit && kind === 'lh' && lhNeedsSecond
       ? `${displayLabelDe}: Zweite Ladung fehlt — eine Abwehr-Schildladung per UO ins Schild legen.`
-      : canEdit && displayKind === 'lh' && displayLhVoided
+      : canEdit && kind === 'lh' && displayLhVoided
         ? `${displayLabelDe}: Feld geleert ins Abwehr-Schild — unten Schild zurückladen; Rechtsklick macht die Leerung rückgängig.`
         : primaryLadungAria(vDisplay, displayPrimaryTooltipLabel, stampOk)
   )
@@ -1502,7 +1457,7 @@ function appendKrPrimarySplitCell(
       e.preventDefault()
       if (lhLockActive) return
       if (!primaryLadungAllowed) return
-      if (displayKind === 'lh') {
+      if (kind === 'lh') {
         if (!lhPieStampReady) return
         const anchorPid = isZaoSlot ? zaoSlotOverride.linkId : null
         void stampLhCompletion(ownerItemId, anchorPid)
@@ -1524,7 +1479,7 @@ function appendKrPrimarySplitCell(
         if (zaoSlotOverride?.kind === 'lh') return
         void undoLastZaoSlotStamp(ownerItemId, zaoSlotOverride.linkId)
       } else {
-        if (displayKind === 'lh') return
+        if (kind === 'lh') return
         void patchKrCounterByDelta(ownerItemId, displayField, -1)
       }
     })
@@ -8294,8 +8249,10 @@ function bindStampContextRemove(el, stamp, items) {
     })
   }
 
-  registerKrSlotPatchRenderFlush((items) => {
-    enqueueRenderList(mergeDeferredRenderItems(items, lastItems) ?? lastItems)
+  registerKrSlotPatchRenderFlush(() => {
+    void OBR.scene.items.getItems().then((fresh) => {
+      enqueueRenderList(fresh)
+    })
   })
 
   registerKrSlotKindPatched((itemId, linkId, kind) => {

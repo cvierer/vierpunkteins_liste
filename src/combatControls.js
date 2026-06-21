@@ -27,6 +27,7 @@ import {
 import { getRoomSettings } from './roomSettings.js'
 import { getTrackedParticipantIds } from './listState.js'
 import {
+  hasPrimaryActionStampAtCombatStep,
   resetAllKrCountersInScene,
   resetAllTrackerStateForCombatStart,
   undoKrActionStamp,
@@ -81,7 +82,7 @@ function hasStampsAtCurrentStep(c) {
  */
 async function advanceTokenMotherToReactionSubstep(cur, c) {
   if (cur?.kind !== 'token' || c.currentTurnSubStep === 'reaction') return false
-  if (isStampableCombatStep(cur) && !hasStampsAtCurrentStep(c)) {
+  if (isStampableCombatStep(cur) && !hasPrimaryActionStampAtCombatStep(c)) {
     await autoStampForCombatStep(cur)
   }
   await patchCombat({
@@ -377,7 +378,7 @@ export async function setupCombatControls(root) {
       if (await advanceTokenMotherToReactionSubstep(curRetry, cRetry)) return
       if (
         isStampableCombatStep(curRetry) &&
-        !hasStampsAtCurrentStep(cRetry)
+        !hasPrimaryActionStampAtCombatStep(cRetry)
       ) {
         const stamped = await autoStampForCombatStep(curRetry)
         if (stamped) return
@@ -408,7 +409,7 @@ export async function setupCombatControls(root) {
 
     const cur = steps[idx]
     if (await advanceTokenMotherToReactionSubstep(cur, c)) return
-    if (isStampableCombatStep(cur) && !hasStampsAtCurrentStep(c)) {
+    if (isStampableCombatStep(cur) && !hasPrimaryActionStampAtCombatStep(c)) {
       const stamped = await autoStampForCombatStep(cur)
       if (stamped) return
     }

@@ -10,6 +10,7 @@ import {
 } from './participants.js'
 import {
   ACTION_STAMPS_KEY,
+  getActionStamps,
   getCombat,
   normalizeActionStamps,
   patchActionStamps,
@@ -803,6 +804,54 @@ export function motherPrimarySelfStamped(entries, itemId) {
 
 /** @deprecated Nutze `motherPrimarySelfStamped` — Alias für Kompatibilität. */
 export const motherPrimaryActionStamped = motherPrimarySelfStamped
+
+/** @param {unknown} field */
+export function isPrimaryActionStampField(field) {
+  return typeof field === 'string' && MOTHER_PRIMARY_STAMP_FIELDS.has(field)
+}
+
+/**
+ * @param {unknown} entry
+ * @param {import('./combatRoom.js').ReturnType<typeof getCombat>} combat
+ */
+export function stampEntryMatchesCombatStep(entry, combat) {
+  if (!entry || typeof entry !== 'object') return false
+  const e = /** @type {{ itemId?: string, anchorRowId?: string, anchorPhaseLinkId?: string | null }} */ (
+    entry
+  )
+  if (!combat?.started || combat.roundIntroPending) return false
+  const rid = combat.currentItemId
+  if (typeof rid !== 'string') return false
+  if (rid === ROUND_START_STEP_ID || rid === ROUND_END_STEP_ID) return false
+  const rowAnchor =
+    typeof e.anchorRowId === 'string' ? e.anchorRowId : e.itemId
+  const phaseCombat =
+    typeof combat.currentPhaseLinkId === 'string'
+      ? combat.currentPhaseLinkId
+      : null
+  const phaseStamp =
+    typeof e.anchorPhaseLinkId === 'string' ? e.anchorPhaseLinkId : null
+  return rowAnchor === rid && phaseStamp === phaseCombat
+}
+
+/**
+ * Primäraktions-Stempel (Schwert/Stern/L.H.) am aktuellen Nav-Punkt — ohne Abwehr/FA.
+ *
+ * @param {import('./combatRoom.js').ReturnType<typeof getCombat>} combat
+ * @param {unknown[] | null | undefined} [entries]
+ */
+export function hasPrimaryActionStampAtCombatStep(combat, entries = null) {
+  const list = entries ?? getActionStamps().entries
+  if (!Array.isArray(list)) return false
+  return list.some(
+    (e) =>
+      stampEntryMatchesCombatStep(e, combat) &&
+      !(/** @type {{ paradeExtra?: boolean }} */ (e)).paradeExtra &&
+      isPrimaryActionStampField(
+        /** @type {{ field?: unknown }} */ (e).field
+      )
+  )
+}
 
 /**
  * KR, in der eine L.H. endet: Tracker noch aktiv, aber keine „mittendrin“-Sperre.

@@ -68,6 +68,15 @@ export function scheduleKrSlotPatchRenderFlush() {
   }, DEFERRED_RENDER_MS)
 }
 
+/** Sofortiger Flush ohne Debounce (z. B. nach Primär-Switch-Session). */
+export function flushKrSlotPatchRenderNow() {
+  if (flushTimer != null) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  flushDeferredRenderNow()
+}
+
 /**
  * @template T
  * @param {() => T | Promise<T>} fn

@@ -4343,6 +4343,11 @@ select.init-row-extra-select {
   background: transparent;
 }
 
+.init-kr-primary-switch--busy {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .init-kr-primary-switch__btn {
   flex: 1 1 50%;
   min-height: 0;

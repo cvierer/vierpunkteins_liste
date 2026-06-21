@@ -9,7 +9,6 @@ import {
   getKrPrimarySwitchSessionKey,
   hasActiveKrPrimarySwitchSessions,
   processKrPrimarySwitchQueue,
-  registerKrPrimarySwitchSync,
 } from './krPrimarySwitchSession.js'
 
 describe('krPrimarySwitchSession', () => {
@@ -35,7 +34,7 @@ describe('krPrimarySwitchSession', () => {
       enqueueKrPrimarySwitchStep(key, 'next', {
         itemId,
         linkId: null,
-        startKind: 'sra',
+        startKind: 'ang',
         baseMeta,
         canConvertToUo: true,
       })?.targetKind
@@ -44,7 +43,7 @@ describe('krPrimarySwitchSession', () => {
       enqueueKrPrimarySwitchStep(key, 'next', {
         itemId,
         linkId: null,
-        startKind: 'lh',
+        startKind: 'ang',
         baseMeta,
         canConvertToUo: true,
       })?.targetKind
@@ -80,8 +79,7 @@ describe('krPrimarySwitchSession', () => {
     expect(step?.targetKind).toBe('sra')
   })
 
-  it('processKrPrimarySwitchQueue leert Session und ruft sync', async () => {
-    const synced = vi.fn()
+  it('processKrPrimarySwitchQueue leert Session nach Erfolg', async () => {
     enqueueKrPrimarySwitchStep(key, 'next', {
       itemId,
       linkId: null,
@@ -89,7 +87,6 @@ describe('krPrimarySwitchSession', () => {
       baseMeta,
       canConvertToUo: true,
     })
-    registerKrPrimarySwitchSync(key, synced)
 
     const patchFn = vi.fn(async () => ({
       applied: true,
@@ -99,7 +96,6 @@ describe('krPrimarySwitchSession', () => {
     await processKrPrimarySwitchQueue(key, { patchFn })
 
     expect(patchFn).toHaveBeenCalledOnce()
-    expect(synced).toHaveBeenCalled()
     expect(hasActiveKrPrimarySwitchSessions()).toBe(false)
   })
 

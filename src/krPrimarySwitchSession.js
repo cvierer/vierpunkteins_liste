@@ -1,14 +1,10 @@
 import {
-  KR_FIRST_SLOT_KIND,
-  KR_ZAO_SLOTS,
   cycleKrPrimarySlotKind,
   isKrPrimarySlotIniLocked,
-  readKrFirstSlotKind,
-  readZaoSlots,
 } from './krCounters.js'
 import {
   registerKrSwitchSessionActiveGuard,
-  scheduleKrSlotPatchRenderFlush,
+  flushKrSlotPatchRenderNow,
 } from './krSlotPatchGate.js'
 
 /** @typedef {'ang' | 'sra' | 'lh' | 'uo'} KrPrimaryKind */
@@ -18,10 +14,7 @@ import {
  *   itemId: string,
  *   linkId: string | null,
  *   dirs: ('next' | 'prev')[],
- *   targetKind: KrPrimaryKind,
- *   rollingMeta: Record<string, unknown>,
  *   processing: boolean,
- *   syncFn: ((targetKind: KrPrimaryKind, rollingMeta: unknown) => void) | null,
  * }} KrPrimarySwitchSession
  */
 
@@ -54,29 +47,18 @@ export function clearKrPrimarySwitchSession(key) {
 }
 
 /**
+ * @param {KrPrimaryKind} startKind
+ * @param {('next' | 'prev')[]} queuedDirs
  * @param {unknown} baseMeta
- * @param {KrPrimaryKind} kind
  * @param {string | null} linkId
  */
-function patchMetaForKind(baseMeta, kind, linkId) {
-  const m = { ...(/** @type {Record<string, unknown>} */ (baseMeta || {})) }
-  if (typeof linkId === 'string' && linkId.length > 0) {
-    const slots = { ...readZaoSlots(m) }
-    const prev = slots[linkId] || {
-      kind: readKrFirstSlotKind(m),
-      marks: 1,
-    }
-    slots[linkId] = { ...prev, kind }
-    m[KR_ZAO_SLOTS] = slots
-  } else {
-    m[KR_FIRST_SLOT_KIND] = kind
+function virtualKindAfterDirs(startKind, queuedDirs, baseMeta, linkId) {
+  const iniLocked = isKrPrimarySlotIniLocked(baseMeta, linkId)
+  let kind = startKind
+  for (const dir of queuedDirs) {
+    kind = cycleKrPrimarySlotKind(kind, dir, iniLocked)
   }
-  return m
-}
-
-/** @param {KrPrimarySwitchSession} session */
-function notifySessionSync(session) {
-  session.syncFn?.(session.targetKind, session.rollingMeta)
+  return kind
 }
 
 /**
@@ -89,7 +71,7 @@ function notifySessionSync(session) {
  *   baseMeta: unknown,
  *   canConvertToUo: boolean,
  * }} opts
- * @returns {{ targetKind: KrPrimaryKind, rollingMeta: Record<string, unknown> } | null}
+ * @returns {{ targetKind: KrPrimaryKind } | null}
  */
 export function enqueueKrPrimarySwitchStep(key, dir, opts) {
   const { itemId, linkId, startKind, baseMeta, canConvertToUo } = opts
@@ -99,35 +81,23 @@ export function enqueueKrPrimarySwitchStep(key, dir, opts) {
       itemId,
       linkId,
       dirs: [],
-      targetKind: startKind,
-      rollingMeta: { ...(/** @type {Record<string, unknown>} */ (baseMeta || {})) },
       processing: false,
-      syncFn: null,
     }
     sessions.set(key, session)
   }
 
-  const currentKind = session.targetKind
-  const iniLocked = isKrPrimarySlotIniLocked(session.rollingMeta, linkId)
+  const currentKind = virtualKindAfterDirs(
+    startKind,
+    session.dirs,
+    baseMeta,
+    linkId
+  )
+  const iniLocked = isKrPrimarySlotIniLocked(baseMeta, linkId)
   const nextKind = cycleKrPrimarySlotKind(currentKind, dir, iniLocked)
   if (nextKind === 'uo' && !canConvertToUo) return null
 
-  session.targetKind = nextKind
-  session.rollingMeta = patchMetaForKind(session.rollingMeta, nextKind, linkId)
   session.dirs.push(dir)
-  notifySessionSync(session)
-  return { targetKind: nextKind, rollingMeta: session.rollingMeta }
-}
-
-/**
- * @param {string} key
- * @param {(targetKind: KrPrimaryKind, rollingMeta: unknown) => void} syncFn
- */
-export function registerKrPrimarySwitchSync(key, syncFn) {
-  const session = sessions.get(key)
-  if (!session) return
-  session.syncFn = syncFn
-  notifySessionSync(session)
+  return { targetKind: nextKind }
 }
 
 /**
@@ -159,16 +129,9 @@ export async function processKrPrimarySwitchQueue(key, handlers) {
         session.dirs.length = 0
         await handlers.onFailure?.()
         clearKrPrimarySwitchSession(key)
-        scheduleKrSlotPatchRenderFlush()
+        flushKrSlotPatchRenderNow()
         return
       }
-      session.targetKind = result.nextKind
-      session.rollingMeta = patchMetaForKind(
-        session.rollingMeta,
-        result.nextKind,
-        session.linkId
-      )
-      notifySessionSync(session)
     }
   } finally {
     session.processing = false
@@ -177,7 +140,7 @@ export async function processKrPrimarySwitchQueue(key, handlers) {
       void processKrPrimarySwitchQueue(key, handlers)
     } else if (still && still.dirs.length === 0 && !still.processing) {
       clearKrPrimarySwitchSession(key)
-      scheduleKrSlotPatchRenderFlush()
+      flushKrSlotPatchRenderNow()
     }
   }
 }
