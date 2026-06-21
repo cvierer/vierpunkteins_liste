@@ -396,7 +396,7 @@ function applyNavActiveRowClasses(li, combat) {
   li.classList.add('init-row--active')
   if (combat.currentTurnSubStep === 'reaction') {
     li.classList.add('init-row--active-sub-reaction')
-  } else if (combat.currentTurnSubStep === 'action') {
+  } else {
     li.classList.add('init-row--active-sub-action')
   }
 }
@@ -2302,7 +2302,7 @@ function appendKrCounterPair(
     rowActiveId,
     rowActivePhaseLinkId
   )
-  const isActionSub = currentTurnSubStep === 'action'
+  const isActionSub = currentTurnSubStep !== 'reaction'
   const isReactionSub = currentTurnSubStep === 'reaction'
   const primaryLadungAllowed = navMatchesRow && isActionSub
   const abwCombatAllowsStamp = Boolean(combatStarted && !roundIntroPending)

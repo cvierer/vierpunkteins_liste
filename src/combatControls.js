@@ -75,6 +75,36 @@ function hasStampsAtCurrentStep(c) {
   return getActionStamps().entries.some((e) => stampMatchesCurrentCombatStep(e, c))
 }
 
+/**
+ * Helden-Mutterzeile: Reaktion als Substep auf demselben Turn-Index.
+ * @returns {Promise<boolean>} true wenn nur Substep gewechselt wurde
+ */
+async function advanceTokenMotherToReactionSubstep(cur, c) {
+  if (cur?.kind !== 'token' || c.currentTurnSubStep === 'reaction') return false
+  if (isStampableCombatStep(cur) && !hasStampsAtCurrentStep(c)) {
+    await autoStampForCombatStep(cur)
+  }
+  await patchCombat({
+    currentItemId: cur.id,
+    currentPhaseLinkId: null,
+    currentTurnSubStep: 'reaction',
+    round: c.round,
+  })
+  return true
+}
+
+/** @returns {Promise<boolean>} true wenn von Reaktion zurück auf Aktion */
+async function retreatTokenMotherToActionSubstep(cur, c) {
+  if (cur?.kind !== 'token' || c.currentTurnSubStep !== 'reaction') return false
+  await patchCombat({
+    currentItemId: cur.id,
+    currentPhaseLinkId: null,
+    currentTurnSubStep: 'action',
+    round: c.round,
+  })
+  return true
+}
+
 async function undoStampsAtCurrentCombatStep(c) {
   const matching = getActionStamps().entries.filter((e) =>
     stampMatchesCurrentCombatStep(e, c)
@@ -344,6 +374,7 @@ export async function setupCombatControls(root) {
         return
       }
       const curRetry = stepsRetry[idxRetry]
+      if (await advanceTokenMotherToReactionSubstep(curRetry, cRetry)) return
       if (
         isStampableCombatStep(curRetry) &&
         !hasStampsAtCurrentStep(cRetry)
@@ -376,6 +407,7 @@ export async function setupCombatControls(root) {
     }
 
     const cur = steps[idx]
+    if (await advanceTokenMotherToReactionSubstep(cur, c)) return
     if (isStampableCombatStep(cur) && !hasStampsAtCurrentStep(c)) {
       const stamped = await autoStampForCombatStep(cur)
       if (stamped) return
@@ -430,6 +462,8 @@ export async function setupCombatControls(root) {
       }
       if (await undoStampsAtCurrentCombatStep(cRetry)) return
       if (isAtFirstRoundStart(cRetry)) return
+      const curRetry = stepsRetry[idxRetry]
+      if (await retreatTokenMotherToActionSubstep(curRetry, cRetry)) return
       const prevIdxRetry =
         (idxRetry - 1 + stepsRetry.length) % stepsRetry.length
       let roundRetry = cRetry.round
@@ -444,6 +478,8 @@ export async function setupCombatControls(root) {
     }
     if (await undoStampsAtCurrentCombatStep(c)) return
     if (isAtFirstRoundStart(c)) return
+    const cur = steps[idx]
+    if (await retreatTokenMotherToActionSubstep(cur, c)) return
     const prevIdx = (idx - 1 + steps.length) % steps.length
     let round = c.round
     if (idx === 0 && prevIdx === steps.length - 1) {

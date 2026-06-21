@@ -1464,10 +1464,7 @@ function mergedEntryToCombatSteps(e) {
     return [{ kind: 'roundEnd', id: ROUND_END_STEP_ID }]
   }
   if (e.kind === 'token') {
-    return [
-      { kind: 'token', id: e.row.id, sub: 'action' },
-      { kind: 'token', id: e.row.id, sub: 'reaction' },
-    ]
+    return [{ kind: 'token', id: e.row.id, sub: 'action' }]
   }
   if (e.kind === 'phase') {
     if (e.link.lhEnd === true) {
@@ -1600,10 +1597,10 @@ export function resolveCurrentNavIniForCombat(
 export function findCombatStepIndex(steps, combat) {
   const phaseId = combat.currentPhaseLinkId
   const wantSub =
-    combat.currentTurnSubStep === 'action'
-      ? 'action'
-      : combat.currentTurnSubStep === 'reaction'
-        ? 'reaction'
+    combat.currentTurnSubStep === 'reaction'
+      ? 'reaction'
+      : combat.currentTurnSubStep === 'action' || combat.currentTurnSubStep == null
+        ? 'action'
         : null
   return steps.findIndex((s) => {
     let positionMatch = false
@@ -1618,7 +1615,10 @@ export function findCombatStepIndex(steps, combat) {
         s.ownerId === combat.currentItemId && s.linkId === phaseId
     }
     if (!positionMatch) return false
-    if (s.kind === 'token' || s.kind === 'phase') {
+    if (s.kind === 'token') {
+      return true
+    }
+    if (s.kind === 'phase') {
       if (!s.sub) return wantSub === null
       return s.sub === wantSub
     }

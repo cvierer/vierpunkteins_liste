@@ -41,7 +41,7 @@ describe('buildCombatTurnSteps action step per row', () => {
     item('hero-b', { initiative: '5', krFirstSlotKind: 'sra' }),
   ]
 
-  it('emittiert action- und reaction-Schritt pro Token und 2.AO-Wurzel', () => {
+  it('emittiert einen Token-Schritt und action+reaction pro 2.AO-Wurzel', () => {
     const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
     expect(steps[0]).toEqual({ kind: 'roundStart', id: ROUND_START_STEP_ID })
     expect(steps[steps.length - 1]).toEqual({
@@ -49,10 +49,7 @@ describe('buildCombatTurnSteps action step per row', () => {
       id: ROUND_END_STEP_ID,
     })
     const heroAToken = steps.filter((s) => s.kind === 'token' && s.id === 'hero-a')
-    expect(heroAToken).toEqual([
-      { kind: 'token', id: 'hero-a', sub: 'action' },
-      { kind: 'token', id: 'hero-a', sub: 'reaction' },
-    ])
+    expect(heroAToken).toEqual([{ kind: 'token', id: 'hero-a', sub: 'action' }])
     const heroAZao = steps.filter(
       (s) =>
         s.kind === 'phase' && s.ownerId === 'hero-a' && s.linkId === 'zao1'
@@ -74,7 +71,7 @@ describe('buildCombatTurnSteps action step per row', () => {
     expect(steps.filter((s) => s.kind === 'roundStart' || s.kind === 'roundEnd')).toHaveLength(2)
   })
 
-  it('findCombatStepIndex: action und reaction sind getrennte Schritte', () => {
+  it('findCombatStepIndex: Token action und reaction teilen denselben Index', () => {
     const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
     const actionIdx = findCombatStepIndex(steps, {
       currentItemId: 'hero-a',
@@ -86,34 +83,44 @@ describe('buildCombatTurnSteps action step per row', () => {
       currentPhaseLinkId: null,
       currentTurnSubStep: 'reaction',
     })
+    const legacyNullIdx = findCombatStepIndex(steps, {
+      currentItemId: 'hero-a',
+      currentPhaseLinkId: null,
+      currentTurnSubStep: null,
+    })
     expect(actionIdx).toBeGreaterThanOrEqual(0)
-    expect(reactionIdx).toBe(actionIdx + 1)
+    expect(reactionIdx).toBe(actionIdx)
+    expect(legacyNullIdx).toBe(actionIdx)
     expect(steps[actionIdx]).toMatchObject({
       kind: 'token',
       id: 'hero-a',
       sub: 'action',
     })
-    expect(steps[reactionIdx]).toMatchObject({
-      kind: 'token',
-      id: 'hero-a',
-      sub: 'reaction',
-    })
   })
 
-  it('combatPatchForStep setzt currentTurnSubStep action oder reaction', () => {
+  it('findCombatStepIndex: 2.AO action und reaction sind getrennte Schritte', () => {
+    const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
+    const actionIdx = findCombatStepIndex(steps, {
+      currentItemId: 'hero-a',
+      currentPhaseLinkId: 'zao1',
+      currentTurnSubStep: 'action',
+    })
+    const reactionIdx = findCombatStepIndex(steps, {
+      currentItemId: 'hero-a',
+      currentPhaseLinkId: 'zao1',
+      currentTurnSubStep: 'reaction',
+    })
+    expect(actionIdx).toBeGreaterThanOrEqual(0)
+    expect(reactionIdx).toBe(actionIdx + 1)
+  })
+
+  it('combatPatchForStep setzt currentTurnSubStep action auf Token-Schritt', () => {
     expect(
       combatPatchForStep({ kind: 'token', id: 'hero-a', sub: 'action' })
     ).toMatchObject({
       currentItemId: 'hero-a',
       currentPhaseLinkId: null,
       currentTurnSubStep: 'action',
-    })
-    expect(
-      combatPatchForStep({ kind: 'token', id: 'hero-a', sub: 'reaction' })
-    ).toMatchObject({
-      currentItemId: 'hero-a',
-      currentPhaseLinkId: null,
-      currentTurnSubStep: 'reaction',
     })
     expect(
       combatPatchForStep({ kind: 'roundStart', id: ROUND_START_STEP_ID })
