@@ -3,6 +3,7 @@ import {
   LH_MAX,
   LH_REM,
   lhAwaitingCompletionStamp,
+  lhCompletionStampReady,
   lhDisplayStepFromNav,
   lhEndsInRound,
   lhPieFraction,
@@ -23,6 +24,45 @@ describe('lhAwaitingCompletionStamp', () => {
     expect(
       lhAwaitingCompletionStamp({ [LH_MAX]: 3, [LH_REM]: 2 })
     ).toBe(false)
+  })
+})
+
+describe('lhCompletionStampReady', () => {
+  it('true wenn Pie voll (frac >= 1)', () => {
+    expect(
+      lhCompletionStampReady(
+        {
+          initiative: '17',
+          [LH_MAX]: 1,
+          [LH_REM]: 1,
+          lhCommitRound: 1,
+          lhCommitIni: 17,
+        },
+        1,
+        17
+      )
+    ).toBe(true)
+  })
+
+  it('false bei voided Mutter-L.H.', () => {
+    expect(
+      lhCompletionStampReady(
+        {
+          initiative: '17',
+          krFirstSlotKind: 'lh',
+          krLhVoidByTransfer: true,
+          [LH_MAX]: 1,
+          [LH_REM]: 1,
+          lhCommitRound: 1,
+        },
+        1,
+        17
+      )
+    ).toBe(false)
+  })
+
+  it('false ohne laufende L.H. (max 0)', () => {
+    expect(lhCompletionStampReady({ initiative: '17' }, 1, 17)).toBe(false)
   })
 })
 

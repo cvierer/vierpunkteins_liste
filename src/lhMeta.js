@@ -738,6 +738,74 @@ export function lhPieFraction(
   return Math.max(0, Math.min(1, ticksPassed / max))
 }
 
+const KR_FIRST_SLOT_KIND = 'krFirstSlotKind'
+const KR_LH_VOID_BY_TRANSFER = 'krLhVoidByTransfer'
+
+function ownerIniFromLhMeta(meta) {
+  const n = Number(
+    String(/** @type {any} */ (meta)?.initiative ?? '')
+      .trim()
+      .replace(',', '.')
+  )
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * L.H.-Abschluss stempelbar (voller Pie-Stern) — gleiche Logik wie
+ * `lhPieStampReady` in der Initiative-Liste.
+ *
+ * @param {unknown} meta
+ * @param {number | null | undefined} currentRound
+ * @param {number | null | undefined} currentNavIni
+ * @param {{ zaoLhSlot?: boolean }} [opts] — ZAO-L.H.-Slot: kein Mutter-Void-Check
+ * @returns {boolean}
+ */
+export function lhCompletionStampReady(meta, currentRound, currentNavIni, opts = {}) {
+  if (!meta || typeof meta !== 'object') return false
+  const st = readLhState(meta)
+  if (st.max <= 0) return false
+  if (!opts.zaoLhSlot) {
+    const firstKind = String(
+      /** @type {any} */ (meta)[KR_FIRST_SLOT_KIND] ?? 'ang'
+    )
+      .trim()
+      .toLowerCase()
+    if (firstKind === 'lh' && /** @type {any} */ (meta)[KR_LH_VOID_BY_TRANSFER]) {
+      return false
+    }
+  }
+  const heroIni = ownerIniFromLhMeta(meta)
+  if (heroIni == null) return false
+  const mechanics = readLhMechanics(meta)
+  const crNum = Number(currentRound)
+  const effectiveRound =
+    Number.isFinite(crNum) && crNum >= 1
+      ? crNum
+      : Math.max(
+          1,
+          Math.floor(Number(/** @type {any} */ (meta)[LH_COMMIT_ROUND])) || 0
+        ) || 1
+  const commitRound =
+    Math.max(
+      1,
+      Math.floor(Number(/** @type {any} */ (meta)[LH_COMMIT_ROUND])) || 0
+    ) || effectiveRound
+  const commitIniStored = Number(/** @type {any} */ (meta)[LH_COMMIT_INI])
+  const priorSpend = readLhCommitKrPriorSpendForRound(meta, effectiveRound)
+  const frac = lhPieFraction(
+    effectiveRound,
+    currentNavIni,
+    commitRound,
+    heroIni,
+    mechanics.actionsPerKr,
+    mechanics.triggerIniStep,
+    st.max,
+    Number.isFinite(commitIniStored) ? commitIniStored : undefined,
+    priorSpend
+  )
+  return frac >= 1
+}
+
 export function lhDisplayStepFromNav(
   heroIniNum,
   mechanics,

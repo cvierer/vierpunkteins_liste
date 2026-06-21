@@ -1,16 +1,14 @@
 import OBR from '@owlbear-rodeo/sdk'
 import { getCombat } from './combatRoom.js'
-import { isLhLockingActions } from './lhMeta.js'
+import { isLhLockingActions, lhCompletionStampReady } from './lhMeta.js'
 import {
-  KR_ANG,
-  KR_LH_ACTION,
-  KR_SRA,
   motherHasTransferablePrimaryCharge,
   patchKrCounterByDelta,
   patchZaoSlotStampPrimary,
   primaryFieldForKind,
   readKrFirstSlotKind,
   readZaoSlot,
+  stampLhCompletion,
 } from './krCounters.js'
 import { normalizePhases } from './phaseLinks.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
@@ -21,6 +19,34 @@ function lhLockRoundFromCombat() {
   return Number.isFinite(c.round) ? c.round : null
 }
 
+/** Nav-INI wie in der Initiative-Liste (`#initiative-list-host`). */
+function readNavIniFromListHost() {
+  try {
+    const host = document.querySelector('#initiative-list-host')
+    if (host instanceof HTMLElement) {
+      const raw = host.dataset.currentNavIni
+      if (raw === '+inf') return Number.POSITIVE_INFINITY
+      if (raw === '-inf') return Number.NEGATIVE_INFINITY
+      if (raw && raw !== '') {
+        const n = Number(raw)
+        if (Number.isFinite(n)) return n
+      }
+    }
+  } catch {
+    /* fall-through */
+  }
+  return Number.POSITIVE_INFINITY
+}
+
+function lhStampReady(meta, zaoLhSlot = false) {
+  return lhCompletionStampReady(
+    meta,
+    lhLockRoundFromCombat(),
+    readNavIniFromListHost(),
+    { zaoLhSlot }
+  )
+}
+
 /**
  * @param {unknown} meta
  * @param {string} linkId
@@ -28,13 +54,7 @@ function lhLockRoundFromCombat() {
 function zaoRootCanAutoStamp(meta, linkId) {
   const slot = readZaoSlot(meta, linkId)
   if (!slot || slot.kind === 'uo' || slot.marks !== 1) return false
-  const field =
-    slot.kind === 'sra'
-      ? KR_SRA
-      : slot.kind === 'lh'
-        ? KR_LH_ACTION
-        : KR_ANG
-  if (field === KR_LH_ACTION) return false
+  if (slot.kind === 'lh') return false
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return false
   return true
 }
@@ -48,11 +68,16 @@ export function canAutoStampForCombatStep(step, meta, link = null) {
   if (!step || step.sub !== 'action') return false
   if (step.kind === 'token') {
     if (!meta) return false
-    if (readKrFirstSlotKind(meta) === 'uo') return false
+    const firstKind = readKrFirstSlotKind(meta)
+    if (firstKind === 'uo') return false
+    if (firstKind === 'lh') return lhStampReady(meta, false)
     return motherHasTransferablePrimaryCharge(meta)
   }
   if (step.kind === 'phase' && step.ownerId && step.linkId) {
     if (!meta || !link || link.parentId !== null) return false
+    const slot = readZaoSlot(meta, step.linkId)
+    if (!slot || slot.kind === 'uo') return false
+    if (slot.kind === 'lh') return lhStampReady(meta, true)
     return zaoRootCanAutoStamp(meta, step.linkId)
   }
   return false
@@ -70,6 +95,10 @@ export async function autoStampForCombatStep(step) {
     const item = items.find((i) => i.id === step.id)
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
     if (!canAutoStampForCombatStep(step, meta)) return false
+    if (readKrFirstSlotKind(meta) === 'lh') {
+      await stampLhCompletion(step.id, null)
+      return true
+    }
     const field = primaryFieldForKind(meta)
     await patchKrCounterByDelta(step.id, field, 1, {
       stampAnchor: { rowId: step.id, phaseLinkId: null },
@@ -85,6 +114,11 @@ export async function autoStampForCombatStep(step) {
     const phases = normalizePhases(meta.phases)
     const link = phases.links.find((l) => l.id === step.linkId)
     if (!canAutoStampForCombatStep(step, meta, link)) return false
+    const slot = readZaoSlot(meta, step.linkId)
+    if (slot?.kind === 'lh') {
+      await stampLhCompletion(step.ownerId, step.linkId)
+      return true
+    }
     await patchZaoSlotStampPrimary(step.ownerId, step.linkId)
     return true
   }
