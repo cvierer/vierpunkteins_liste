@@ -13,6 +13,7 @@ import {
   HERO_EX_LAST_SAFE_LE,
   patchHeroExModsWithAutoBundles,
   relabelAutoBundleInMods,
+  resolveUnfaehigOverlayState,
   updateLastSafeLeIfSafe,
 } from './heroAutoMods.js'
 import { cloneDefaultWappenDefs } from './wappenDefs.js'
@@ -422,6 +423,55 @@ describe('patchHeroExModsWithAutoBundles + heroExAutoSuppressed', () => {
       hitZones: { notiz: '', zones: zones },
     })
     expect(computeAutoTriggerSignature(s, 'auto-le-unfaehig')).toBe(1024)
+  })
+})
+
+describe('resolveUnfaehigOverlayState', () => {
+  const ctx = { round: 1, navIni: Number.POSITIVE_INFINITY }
+
+  it('stale Meta LE=10 + gathered LE=-2 → active und Standard-Markierungen', () => {
+    const meta = {
+      heroExLe: '10',
+      heroExLeMax: '40',
+      heroExUnfaehigThreshold: '5',
+    }
+    const gathered = snap({ le: '-2', unfaehigThreshold: '5' })
+    const state = resolveUnfaehigOverlayState(meta, gathered, ctx, {
+      mode: 'overlay',
+    })
+    expect(state.active).toBe(true)
+    expect(state.ufSrc.leTriggered).toBe(true)
+    expect(state.marked.has('at')).toBe(true)
+    expect(state.marked.has('pa')).toBe(true)
+    expect(state.marked.has('fk')).toBe(true)
+  })
+
+  it('unterdrücktes auto-le-unfaehig → inactive trotz negativem gathered LE', () => {
+    const meta = {
+      heroExLe: '10',
+      heroExLeMax: '40',
+      heroExUnfaehigThreshold: '5',
+      [HERO_EX_AUTO_SUPPRESSED]: { 'auto-le-unfaehig': 1 },
+    }
+    const gathered = snap({ le: '-2', unfaehigThreshold: '5' })
+    const state = resolveUnfaehigOverlayState(meta, gathered, ctx)
+    expect(state.active).toBe(false)
+    expect(state.marked.size).toBe(0)
+  })
+
+  it('persistiertes LE=-2 → active (Meta und gathered gleich)', () => {
+    const meta = {
+      heroExLe: '-2',
+      heroExLeMax: '40',
+      heroExUnfaehigThreshold: '5',
+    }
+    const state = resolveUnfaehigOverlayState(
+      meta,
+      snap({ le: '-2', unfaehigThreshold: '5' }),
+      ctx
+    )
+    expect(state.active).toBe(true)
+    expect(state.ufSrc.leTriggered).toBe(true)
   })
 })
 

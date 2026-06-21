@@ -59,7 +59,7 @@ export const AUTO_MOD_BUNDLE_PREFIX = 'auto-'
 const AUTO_ZONE_PREFIX = `${AUTO_MOD_BUNDLE_PREFIX}zone-`
 const AUTO_LE_BAND_BUNDLE_ID = 'auto-le-band'
 const AUTO_LE_TAW_ZFW_BUNDLE_ID = 'auto-le-tawzfw'
-const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
+export const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
 const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
 const AUTO_BLUTEND_BUNDLE_ID = 'auto-blutend'
 
@@ -546,6 +546,81 @@ export function computeUnfaehigSources(snap, meta, ctx) {
   )
 
   return { leTriggered, armSet, nonArm3w, leg3w }
+}
+
+const UNFAEHIG_MARK_ALLOWED_FIELDS = Object.freeze([
+  'at',
+  'pa',
+  'a',
+  'tp',
+  'fk',
+  'gs',
+])
+const UNFAEHIG_MARK_DEFAULT_FIELDS = [...UNFAEHIG_MARK_ALLOWED_FIELDS]
+
+/**
+ * Unfähig-Durchstreichung / Mod-Badges: Bundle + Markierungsfelder aus Live-Snap
+ * (gather) und gepatchten Mods — nicht nur aus persistierter Szene-Meta.
+ *
+ * @param {Record<string, unknown>} metaBase
+ * @param {Record<string, unknown>} gatheredSnap LE/Wunden wie gather() oder Snapshot
+ * @param {HeroAutoModCtx | undefined} ctx
+ * @param {{ markFields?: string[], mode?: 'overlay' | 'display' }} [opts]
+ */
+export function resolveUnfaehigOverlayState(metaBase, gatheredSnap, ctx, opts = {}) {
+  const mode = opts.mode === 'display' ? 'display' : 'overlay'
+  const evalMeta = { ...(metaBase && typeof metaBase === 'object' ? metaBase : {}) }
+  const snap =
+    gatheredSnap && typeof gatheredSnap === 'object'
+      ? gatheredSnap
+      : snapshotFromTrackerMeta(evalMeta)
+  const ctxResolved = ctx ?? defaultHeroAutoModCtx()
+  patchHeroExModsWithAutoBundles(evalMeta, snap, ctxResolved)
+
+  const active = readHeroExMods(evalMeta).some(
+    (m) => String(m?.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
+  )
+  const ufSrc = computeUnfaehigSources(snap, evalMeta, ctxResolved)
+  /** @type {Set<string>} */
+  const marked = new Set()
+
+  if (!active) {
+    return { active: false, marked, ufSrc, armOnly: false, evalMeta }
+  }
+
+  const armOnly =
+    !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
+
+  if (armOnly) {
+    if (mode === 'display') {
+      for (const key of ['at', 'pa', 'ff', 'kk']) marked.add(key)
+    }
+    marked.add('fk')
+    return { active: true, marked, ufSrc, armOnly: true, evalMeta }
+  }
+
+  const baseMarked =
+    Array.isArray(opts.markFields) && opts.markFields.length > 0
+      ? opts.markFields
+      : UNFAEHIG_MARK_DEFAULT_FIELDS
+
+  if (mode === 'display') {
+    for (const key of baseMarked) {
+      const keyNorm = String(key).toLowerCase()
+      if (UNFAEHIG_MARK_ALLOWED_FIELDS.includes(keyNorm)) marked.add(keyNorm)
+    }
+    if (ufSrc.nonArm3w) {
+      for (const field of UNFAEHIG_FIXED_ZERO_FIELDS) marked.add(field)
+    }
+  } else {
+    for (const key of baseMarked) {
+      marked.add(String(key).toLowerCase())
+    }
+  }
+  if (ufSrc.armSet.length > 0) marked.add('fk')
+  if (ufSrc.leg3w) marked.add('gs')
+
+  return { active: true, marked, ufSrc, armOnly: false, evalMeta }
 }
 
 /**

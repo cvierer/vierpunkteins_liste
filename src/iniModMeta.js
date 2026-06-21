@@ -49,6 +49,7 @@ import {
   patchHeroExModsWithAutoBundles,
   refreshAutoBundlesForItem,
   removeBundleWithAutoCleanup,
+  resolveUnfaehigOverlayState,
   UNFAEHIG_FIXED_ZERO_FIELDS,
   updateLastSafeLeIfSafe,
 } from './heroAutoMods.js'
@@ -1029,6 +1030,36 @@ export function mountHeroExpandBlock(
       /* fall-through */
     }
     return Number.POSITIVE_INFINITY
+  }
+
+  /** Nach `gather` / `persistBasisFromGathered` gesetzt (Mount-Reihenfolge). */
+  const heroSnapAccess = {
+    /** @type {null | (() => Record<string, unknown>)} */
+    gather: null,
+    /** @type {null | ((snapLike: Record<string, unknown>) => Record<string, unknown>)} */
+    persistBasis: null,
+  }
+
+  const buildUnfaehigEvalCtx = () => {
+    const combUf = getCombat()
+    const roundUf =
+      combUf?.started && Number.isFinite(Number(combUf.round))
+        ? Number(combUf.round)
+        : null
+    return { round: roundUf, navIni: readCurrentNavIniGlobal() }
+  }
+
+  /** Live-Inputs (Edit) oder Meta-Snapshot (Viewer / vor gather-Hook). */
+  const resolveGatheredSnapForUnfaehig = (configSnap) => {
+    if (
+      canEdit &&
+      root.isConnected &&
+      heroSnapAccess.gather &&
+      heroSnapAccess.persistBasis
+    ) {
+      return heroSnapAccess.persistBasis(heroSnapAccess.gather())
+    }
+    return configSnap
   }
 
   const ownerIniNum = readOwnerIniReferenceForMods(meta)
@@ -2327,35 +2358,26 @@ export function mountHeroExpandBlock(
     gs: gsCell,
   }
   const applyUnfaehigVisualOverlay = (metaForMods = meta) => {
-    const s = readHeroExpandSnapshot(metaForMods)
-    /* Rein optisch: Effekt nur wenn das Auto-Bündel in den gepatchten Mods
-       vorhanden ist (gleiche Quelle wie Mod-Chip). Live-LE steht in gather(),
-       nicht always in meta — bundle presence matches threshold rule in heroAutoMods. */
-    const active = readHeroExMods(metaForMods).some(
-      (m) => String(m?.bundleId ?? '') === 'auto-le-unfaehig'
-    )
-
     for (const cell of Object.values(unfaehigVisualTargets)) {
       if (!(cell instanceof HTMLElement)) continue
       cell.classList.remove('init-hero-ex__micro-cell--unfaehig-mark')
     }
-    if (!active) return
 
-    const combUf = getCombat()
-    const roundUf =
-      combUf?.started && Number.isFinite(Number(combUf.round))
-        ? Number(combUf.round)
-        : null
-    const navIniUf = readCurrentNavIniGlobal()
-    const ufSrc = computeUnfaehigSources(s, metaForMods, {
-      round: roundUf,
-      navIni: navIniUf,
-    })
-    const armOnly =
-      !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
+    const metaBase = metaForMods ?? meta
+    const configSnap = readHeroExpandSnapshot(metaBase)
+    const ufState = resolveUnfaehigOverlayState(
+      metaBase,
+      resolveGatheredSnapForUnfaehig(configSnap),
+      buildUnfaehigEvalCtx(),
+      {
+        mode: 'overlay',
+        markFields: configSnap.unfaehigMarkFields,
+      }
+    )
 
-    if (armOnly) {
-      /* Arm-W3: nur FK bekommt Diagonale (Fixwert 0); andere Arm-Felder ohne. */
+    if (!ufState.active) return
+
+    if (ufState.armOnly) {
       const fkCell = unfaehigVisualTargets.fk
       if (fkCell instanceof HTMLElement) {
         fkCell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
@@ -2363,20 +2385,13 @@ export function mountHeroExpandBlock(
       return
     }
 
-    const marked = new Set(
-      Array.isArray(s.unfaehigMarkFields)
-        ? s.unfaehigMarkFields.map((x) => String(x).toLowerCase())
-        : []
-    )
-    if (ufSrc.armSet.length > 0) marked.add('fk')
-    if (ufSrc.leg3w) marked.add('gs')
-    for (const key of marked) {
+    for (const key of ufState.marked) {
       const cell = unfaehigVisualTargets[key]
       if (cell instanceof HTMLElement) {
         cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
       }
     }
-    const hasAnyFixed = Object.values(s.unfaehigFixedFields || {}).some((v) =>
+    const hasAnyFixed = Object.values(configSnap.unfaehigFixedFields || {}).some((v) =>
       Number.isFinite(Number(v))
     )
     if (hasAnyFixed) gsCell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
@@ -3854,14 +3869,19 @@ export function mountHeroExpandBlock(
       })
     )
     const unfaehigDisplay = (() => {
-      const active = readHeroExMods(modMeta).some(
-        (m) => String(m?.bundleId ?? '') === 'auto-le-unfaehig'
+      const ufState = resolveUnfaehigOverlayState(
+        modMeta,
+        resolveGatheredSnapForUnfaehig(snapForFieldBadges),
+        { round, navIni },
+        {
+          mode: 'display',
+          markFields: snapForFieldBadges.unfaehigMarkFields,
+        }
       )
-      const marked = new Set()
-      if (!active) {
+      if (!ufState.active) {
         return {
-          active,
-          marked,
+          active: false,
+          marked: ufState.marked,
           leg3w: false,
           armOnly: false,
           armSide: '',
@@ -3869,56 +3889,29 @@ export function mountHeroExpandBlock(
           leTriggered: false,
         }
       }
-      const combUf = getCombat()
-      const roundUf =
-        combUf?.started && Number.isFinite(Number(combUf.round))
-          ? Number(combUf.round)
-          : null
-      const navIniUf = readCurrentNavIniGlobal()
-      const ufSrc = computeUnfaehigSources(snapForFieldBadges, modMeta, {
-        round: roundUf,
-        navIni: navIniUf,
-      })
-      const armOnly = !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
-      if (armOnly) {
-        for (const key of ['at', 'pa', 'ff', 'kk']) marked.add(key)
-        marked.add('fk')
+      if (ufState.armOnly) {
         const armSetSides = []
-        if (ufSrc.armSet.includes('schildarm')) armSetSides.push('LA')
-        if (ufSrc.armSet.includes('schwertarm')) armSetSides.push('RA')
+        if (ufState.ufSrc.armSet.includes('schildarm')) armSetSides.push('LA')
+        if (ufState.ufSrc.armSet.includes('schwertarm')) armSetSides.push('RA')
         const armSide = armSetSides.length === 1 ? armSetSides[0] : 'AR'
         return {
-          active,
-          marked,
+          active: true,
+          marked: ufState.marked,
           leg3w: false,
           armOnly: true,
           armSide,
           armSetSides,
-          leTriggered: Boolean(ufSrc.leTriggered),
+          leTriggered: Boolean(ufState.ufSrc.leTriggered),
         }
       }
-      const baseMarked = Array.isArray(snapForFieldBadges.unfaehigMarkFields)
-        ? snapForFieldBadges.unfaehigMarkFields
-        : []
-      for (const key of baseMarked) {
-        const keyNorm = String(key).toLowerCase()
-        if (UNFAEHIG_FIXED_ALLOWED_FIELDS.includes(keyNorm)) marked.add(keyNorm)
-      }
-      if (ufSrc.nonArm3w) {
-        for (const field of UNFAEHIG_FIXED_ZERO_FIELDS) {
-          marked.add(field)
-        }
-      }
-      if (ufSrc.armSet.length > 0) marked.add('fk')
-      if (ufSrc.leg3w) marked.add('gs')
       return {
-        active,
-        marked,
-        leg3w: Boolean(ufSrc.leg3w),
+        active: true,
+        marked: ufState.marked,
+        leg3w: Boolean(ufState.ufSrc.leg3w),
         armOnly: false,
         armSide: '',
         armSetSides: [],
-        leTriggered: Boolean(ufSrc.leTriggered),
+        leTriggered: Boolean(ufState.ufSrc.leTriggered),
       }
     })()
 
@@ -5279,6 +5272,8 @@ export function mountHeroExpandBlock(
       readCurrentNavIniGlobal()
     )
   }
+  heroSnapAccess.gather = gather
+  heroSnapAccess.persistBasis = persistBasisFromGathered
 
   /** Basis-Snapshot (Meta-Felder) → sichtbare Kästchen inkl. Wundmarken. */
   const applyHeroSnapshotToInputs = (snap) => {
