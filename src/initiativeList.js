@@ -2322,8 +2322,9 @@ function appendKrCounterPair(
       rowActiveId === ROUND_END_STEP_ID)
   const phaseRowActive =
     primaryLadungAllowed || abwLadungAllowed || atRoundBoundaryNav
-  const abwRoundBoundaryShell = !abwLadungAllowed && !atRoundBoundaryNav
-  const lhRoundLockedVisual = !faLadungAllowed && !atRoundBoundaryNav
+  // Nur KR-Grenzen-Optik (CSS grayscale), nicht Reaktions-Substep-Sperre.
+  const abwRoundBoundaryShell = atRoundBoundaryNav
+  const lhRoundLockedVisual = atRoundBoundaryNav
   appendKrPrimarySplitCell(
     container,
     ownerItemId,
