@@ -38,6 +38,20 @@ export function noteDeferredRenderListItems(items) {
   if (items != null) pendingDeferredItems = items
 }
 
+/**
+ * Bevorzugt pro Token die lokal gepatchten Items (z. B. nach Slot-Kind-Wechsel).
+ *
+ * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} pending
+ * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} lastItems
+ * @returns {import('@owlbear-rodeo/sdk').Item[] | undefined}
+ */
+export function mergeDeferredRenderItems(pending, lastItems) {
+  if (pending == null) return lastItems ?? undefined
+  if (lastItems == null) return pending
+  const lastById = new Map(lastItems.map((item) => [item.id, item]))
+  return pending.map((item) => lastById.get(item.id) ?? item)
+}
+
 function flushDeferredRenderNow() {
   if (shouldBlockDeferredRenderFlush()) return
   const items = pendingDeferredItems
