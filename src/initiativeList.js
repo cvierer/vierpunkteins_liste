@@ -403,6 +403,63 @@ function applyNavActiveRowClasses(li, combat) {
   }
 }
 
+function clearNavActiveRowClasses(li) {
+  li.classList.remove(
+    'init-row--active',
+    'init-row--active-sub-reaction',
+    'init-row--active-sub-action'
+  )
+}
+
+/**
+ * Aktive Zeile in der bestehenden Liste sofort nachziehen (ohne renderList).
+ * Verhindert hängende Nav-Ansicht wenn L.H.-Umwandel renderList verzögert/blockiert.
+ *
+ * @param {HTMLElement | null | undefined} listRoot
+ * @param {ReturnType<typeof getCombat>} [combat]
+ * @param {{ scroll?: boolean }} [opts]
+ */
+function syncListNavHighlightFromCombat(listRoot, combat = getCombat(), opts = {}) {
+  if (!listRoot) return
+  const scroll = opts.scroll !== false
+  for (const li of listRoot.querySelectorAll('li.init-row--active')) {
+    clearNavActiveRowClasses(li)
+  }
+  if (!combat?.started) return
+
+  const activeId =
+    typeof combat.currentItemId === 'string' ? combat.currentItemId : null
+  const phaseId =
+    typeof combat.currentPhaseLinkId === 'string'
+      ? combat.currentPhaseLinkId
+      : null
+
+  let target = null
+  if (activeId === ROUND_START_STEP_ID && !phaseId) {
+    target = listRoot.querySelector('li.init-row--round-start')
+  } else if (activeId === ROUND_END_STEP_ID && !phaseId) {
+    target = listRoot.querySelector('li.init-row--round-end')
+  } else if (activeId && phaseId) {
+    target = listRoot.querySelector(
+      `li.init-row--phase[data-phase-owner-id="${CSS.escape(activeId)}"][data-phase-link-id="${CSS.escape(phaseId)}"]`
+    )
+  } else if (activeId) {
+    target = listRoot.querySelector(
+      `li.init-row[data-item-id="${CSS.escape(activeId)}"]`
+    )
+  }
+
+  if (!target) return
+  applyNavActiveRowClasses(target, combat)
+  if (scroll) {
+    target.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: 'smooth',
+    })
+  }
+}
+
 function matchesMergedEntryActive(e, rowActiveId, rowActivePhaseLinkId) {
   if (!rowActiveId) return false
   if (e.kind === 'token') {
@@ -3261,6 +3318,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let renderListQueuedItems = undefined
   /** @type {number} */
   let renderListScheduleRaf = 0
+  let renderListDrainWanted = false
   let lastItems = []
 
   void hideDistanceRings()
@@ -6859,7 +6917,6 @@ function bindStampContextRemove(el, stamp, items) {
       getManualIniTieOverridePairs()
     )
     setTrackedParticipantIds(tokenRows.map((r) => r.id))
-    await reconcileCombat(tokenRows, items)
 
     const combat = getCombat()
     const introActive = Boolean(combat.started && combat.roundIntroPending)
@@ -8155,6 +8212,9 @@ function bindStampContextRemove(el, stamp, items) {
     }
 
     element.replaceChildren(frag)
+    syncListNavHighlightFromCombat(element, combat, { scroll: false })
+
+    void reconcileCombat(tokenRows, items)
 
     const shouldRestoreScroll =
       listScrollEl && savedListScrollTop != null
@@ -8333,7 +8393,10 @@ function bindStampContextRemove(el, stamp, items) {
   }
 
   const drainRenderListQueue = async () => {
-    if (renderListProcessing) return
+    if (renderListProcessing) {
+      renderListDrainWanted = true
+      return
+    }
     renderListProcessing = true
     try {
       while (renderListQueuedItems !== undefined) {
@@ -8350,7 +8413,8 @@ function bindStampContextRemove(el, stamp, items) {
       }
     } finally {
       renderListProcessing = false
-      if (renderListQueuedItems !== undefined) {
+      if (renderListQueuedItems !== undefined || renderListDrainWanted) {
+        renderListDrainWanted = false
         void drainRenderListQueue()
       }
     }
@@ -8395,12 +8459,15 @@ function bindStampContextRemove(el, stamp, items) {
   OBR.scene.items.getItems().then(safeRenderList)
   OBR.scene.items.onChange(safeRenderList)
   onCombatChange(() => {
+    syncListNavHighlightFromCombat(element)
+    if (lastItems?.length) {
+      safeRenderList(lastItems, { force: true })
+    }
     void (async () => {
       let quickFresh = await OBR.scene.items.getItems()
       if (!quickFresh?.length && lastItems?.length) {
         quickFresh = lastItems
       }
-      // Sofort rendern — nicht nach L.H./ExMod-Hooks warten (Listen-Nav bleibt sonst hängen).
       safeRenderList(quickFresh, { force: true })
 
       const c = getCombat()
