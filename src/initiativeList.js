@@ -512,11 +512,11 @@ function syncKrPrimaryStampGatesInList(listRoot, items) {
     const switchCol = shell.querySelector('.init-kr-primary-switch')
     const prevBtn = switchCol?.querySelector(
       '.init-kr-primary-switch__btn:first-of-type'
-    )
+    ) ?? null
     const nextBtn = switchCol?.querySelector(
       '.init-kr-primary-switch__btn:last-of-type'
-    )
-    if (!main || !exec || !icon || !prevBtn || !nextBtn) continue
+    ) ?? null
+    if (!main || !exec || !icon) continue
 
     syncKrPrimaryShellKindVisual(
       { shell, main, exec, icon, prevBtn, nextBtn, switchCol },
@@ -1551,13 +1551,16 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   }
   const lhPieStampReady =
     kind === 'lh' && lhPieFullyFilled && primaryLadungAllowed
-  exec.disabled =
-    !canEdit ||
-    isUoKind ||
-    lhLockActive ||
-    (kind === 'lh' && hasPrimaryCharge && lhNeedsSecond) ||
-    (hasPrimaryCharge && !primaryLadungAllowed) ||
-    (kind === 'lh' && !lhPieStampReady)
+  // Kein disabled für Nav-/L.H.-Gates: Klicks laufen mit Live-Prüfung im Handler;
+  // sonst bleibt exec.disabled nach Nav-Sync hängen (v. a. bei L.H. ohne Switch-Spalte).
+  const navBlocked =
+    hasPrimaryCharge && !primaryLadungAllowed
+  const lhStampBlocked = kind === 'lh' && hasPrimaryCharge && !lhPieStampReady
+  exec.disabled = !canEdit || isUoKind
+  exec.setAttribute(
+    'aria-disabled',
+    navBlocked || lhStampBlocked || lhLockActive ? 'true' : 'false'
+  )
   const primaryStampHighlight =
     canEdit &&
     !lhLockActive &&
@@ -1588,8 +1591,12 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     : `${primaryTooltipLabel} (nur Anzeige)`
 
   const switchTitleSuffix = iniLocked ? iniLockHint : ''
-  prevBtn.title = `Vorige Aktion (${kindLabelLong})${switchTitleSuffix}`
-  nextBtn.title = `Nächste Aktion (${kindLabelLong})${switchTitleSuffix}`
+  if (prevBtn) {
+    prevBtn.title = `Vorige Aktion (${kindLabelLong})${switchTitleSuffix}`
+  }
+  if (nextBtn) {
+    nextBtn.title = `Nächste Aktion (${kindLabelLong})${switchTitleSuffix}`
+  }
 
   const hideMotherSwitchForLh =
     !isZaoSlot && kind === 'lh' && lhStatePrimary.max > 0
@@ -1599,7 +1606,9 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   )
   const hideSwitchCol =
     hideMotherSwitchForLh || isHeroExtraSlot || hideConvertSwitchForLock
-  syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitchCol)
+  if (switchCol) {
+    syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitchCol)
+  }
 }
 
 /**

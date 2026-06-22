@@ -66,11 +66,38 @@ async function maybeAutoStampOrAdvanceToReaction(cur, c) {
   if (cur?.kind === 'token' && c.currentTurnSubStep === 'reaction') {
     return false
   }
-  if (await advanceTokenMotherToReactionSubstep(cur, c)) return true
-  if (isStampableCombatStep(cur) && !hasPrimaryActionStampAtCombatStep(c)) {
-    const stamped = await autoStampForCombatStep(cur)
-    if (stamped) return true
+
+  const stampable =
+    isStampableCombatStep(cur) && !hasPrimaryActionStampAtCombatStep(c)
+  if (stampable) {
+    let stamped = await autoStampForCombatStep(cur)
+    if (!stamped && cur?.id) {
+      await OBR.scene.items.getItems([cur.id])
+      stamped = await autoStampForCombatStep(cur)
+    }
+    if (stamped) {
+      if (c.currentTurnSubStep === 'action') {
+        if (cur?.kind === 'token') {
+          await patchCombat({
+            currentItemId: cur.id,
+            currentPhaseLinkId: null,
+            currentTurnSubStep: 'reaction',
+            round: c.round,
+          })
+        } else if (cur?.kind === 'phase' && cur.ownerId && cur.linkId) {
+          await patchCombat({
+            currentItemId: cur.ownerId,
+            currentPhaseLinkId: cur.linkId,
+            currentTurnSubStep: 'reaction',
+            round: c.round,
+          })
+        }
+      }
+      return true
+    }
   }
+
+  if (await advanceTokenMotherToReactionSubstep(cur, c)) return true
   return false
 }
 

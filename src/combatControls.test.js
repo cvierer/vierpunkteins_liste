@@ -52,20 +52,20 @@ describe('advanceTokenMotherToReactionSubstep', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(hasPrimaryActionStampAtCombatStep).mockReturnValue(false)
-    vi.mocked(autoStampForCombatStep).mockResolvedValue(false)
     vi.mocked(canAutoStampForCombatStep).mockResolvedValue(true)
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([])
   })
 
-  it('bleibt auf action wenn Stempel fehlschlägt aber noch möglich wäre', async () => {
+  it('bleibt auf action wenn Auto-Stempel noch aussteht', async () => {
     const cur = { kind: 'token', id: 'hero-a', sub: 'action' }
     const ok = await advanceTokenMotherToReactionSubstep(cur, combat)
     expect(ok).toBe(false)
     expect(patchCombat).not.toHaveBeenCalled()
+    expect(autoStampForCombatStep).not.toHaveBeenCalled()
   })
 
-  it('wechselt zu reaction nach erfolgreichem Auto-Stempel', async () => {
-    vi.mocked(autoStampForCombatStep).mockResolvedValue(true)
+  it('wechselt zu reaction wenn bereits gestempelt', async () => {
+    vi.mocked(hasPrimaryActionStampAtCombatStep).mockReturnValue(true)
     const cur = { kind: 'token', id: 'hero-a', sub: 'action' }
     const ok = await advanceTokenMotherToReactionSubstep(cur, combat)
     expect(ok).toBe(true)
@@ -79,21 +79,20 @@ describe('advanceTokenMotherToReactionSubstep', () => {
     const cur = { kind: 'token', id: 'hero-a', sub: 'action' }
     const ok = await advanceTokenMotherToReactionSubstep(cur, combat)
     expect(ok).toBe(true)
-    expect(autoStampForCombatStep).toHaveBeenCalled()
     expect(patchCombat).toHaveBeenCalledWith(
       expect.objectContaining({ currentTurnSubStep: 'reaction' })
     )
   })
 
-  it('retried Auto-Stempel nach frischem getItems', async () => {
-    vi.mocked(autoStampForCombatStep)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
-    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([{ id: 'hero-a' }])
+  it('lädt Item per getItems-Fallback für canAutoStamp', async () => {
+    vi.mocked(canAutoStampForCombatStep).mockResolvedValue(true)
+    vi.mocked(OBR.scene.items.getItems)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'hero-a', metadata: {} }])
     const cur = { kind: 'token', id: 'hero-a', sub: 'action' }
     const ok = await advanceTokenMotherToReactionSubstep(cur, combat)
-    expect(ok).toBe(true)
-    expect(autoStampForCombatStep).toHaveBeenCalledTimes(2)
+    expect(ok).toBe(false)
     expect(OBR.scene.items.getItems).toHaveBeenCalledWith(['hero-a'])
+    expect(canAutoStampForCombatStep).toHaveBeenCalled()
   })
 })

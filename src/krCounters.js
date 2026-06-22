@@ -2283,8 +2283,7 @@ export async function patchKrCloseZaoSlotToAbw(itemId, linkId) {
  * @param {string} linkId
  */
 export async function patchZaoSlotStampPrimary(itemId, linkId) {
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
+  const item = await findSceneItemById(itemId)
   if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return false
@@ -2561,8 +2560,18 @@ export function readKrLhSecondCharge(meta) {
   return normalizeKrDigit(meta[KR_LH_SECOND], 1) >= 1 ? 1 : 0
 }
 
+/** @param {string} itemId */
+async function findSceneItemById(itemId) {
+  let items = await OBR.scene.items.getItems([itemId])
+  let item = items?.[0]
+  if (!item) {
+    const all = await OBR.scene.items.getItems()
+    item = all.find((i) => i.id === itemId)
+  }
+  return item ?? null
+}
+
 /**
- * Links +1 (10→0), Rechts −1 (0→10).
  * @param {{ stampAnchor?: { rowId: string, phaseLinkId: string | null }, skipLhSecondCheck?: boolean }} [options]
  */
 export async function patchKrCounterByDelta(itemId, field, delta, options = {}) {
@@ -2570,8 +2579,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
   const paradeExtraSlotIdx = paradeExtraIndexForField(field)
   const isParadeExtraField = paradeExtraSlotIdx !== null
   if (field === KR_FREE_ACTION && !getCombat().started) return false
-  const items = await OBR.scene.items.getItems([itemId])
-  const item = items?.[0]
+  const item = await findSceneItemById(itemId)
   if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return false
@@ -2602,7 +2610,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
   if (field === KR_FREE_ACTION && !inc && cur === 0) {
     return false
   }
-  const next = inc ? (cur + 1) % mod : (cur + mod - 1) % mod
+  let next = inc ? (cur + 1) % mod : (cur + mod - 1) % mod
   const lhSecondBefore =
     field === KR_LH_ACTION ? readKrLhSecondCharge(meta) : 1
   if (
@@ -2622,6 +2630,19 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
   } else {
     if (cur === 0 && next > 0) addCount = next
     else if (next < cur) removeCount = cur - next
+  }
+  if (
+    inc &&
+    addCount <= 0 &&
+    removeCount <= 0 &&
+    primaryChargeStampEligible(meta) &&
+    (field === KR_ANG || field === KR_SRA || field === KR_LH_ACTION)
+  ) {
+    const marks = marksFromChargeValue(cur)
+    if (marks > 0) {
+      addCount = 1
+      next = consumeOneChargeValue(cur)
+    }
   }
   if (addCount <= 0 && removeCount <= 0) return false
 
@@ -2861,8 +2882,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
  * @param {string | null} anchorPhaseLinkId  null = Mutter-Slot, sonst LH-End n.A.-Link
  */
 export async function stampLhCompletion(itemId, anchorPhaseLinkId = null) {
-  const items = await OBR.scene.items.getItems([itemId])
-  const item = items?.[0]
+  const item = await findSceneItemById(itemId)
   if (!item || !canEditSceneItem(item)) return false
   const ownerName = getTokenListDisplayName(item) || String(item?.name ?? '')
   const skipGmStamp = canEditSceneItem(item) && !isGmSync()
