@@ -111,6 +111,7 @@ import {
   combatPatchForStep,
   finalizePhasesWithOrderedRoots,
   findCombatStepIndex,
+  findCombatStepIndexLoose,
   formatIniForSort,
   hookIniForLink,
   iniNumeric,
@@ -267,6 +268,7 @@ import {
   runHeroExModsAfterCombatUpdate,
 } from './heroExMods.js'
 import { cancelLh, registerLhCommitRenderFlush } from './lhEngine.js'
+import { shouldRemountLhRunningCounter } from './lhNavCounterSync.js'
 import { createHitZoneOverlay, HIT_ZONE_INFO_ICON_SVG } from './hitZoneOverlay.js'
 import {
   bulkApplyIniFromIbBeW6ForTrackedParticipants,
@@ -481,11 +483,11 @@ function mirrorListHostNavIniDataset(navIni) {
 }
 
 /**
- * Aktuelle Nav-INI aus Kampfstand setzen (ohne renderList).
+ * Nav-INI + Sichtbarkeitskontext aus Kampfstand setzen (ohne renderList).
  *
  * @param {import('@owlbear-rodeo/sdk').Item[]} items
  */
-function refreshCurrentNavIniForList(items) {
+function refreshNavContextForList(items) {
   const combat = getCombat()
   const listItems = Array.isArray(items) ? items : []
   const tokenRows = collectSortedParticipants(
@@ -494,6 +496,11 @@ function refreshCurrentNavIniForList(items) {
     getManualIniTieOverridePairs()
   )
   const combatRound = combat.started ? combat.round : null
+  const rowActiveId =
+    combat.started && combat.currentItemId ? combat.currentItemId : null
+  const rowActivePhaseLinkId = combat.started
+    ? combat.currentPhaseLinkId
+    : null
   currentNavIniForRender = resolveCurrentNavIniForCombat(
     tokenRows,
     listItems,
@@ -501,7 +508,43 @@ function refreshCurrentNavIniForList(items) {
     combatRound,
     combat
   )
+  const stepsForNav = buildCombatTurnSteps(
+    tokenRows,
+    listItems,
+    getIniTieOrder(),
+    combatRound,
+    null
+  )
+  let combatStepIndex =
+    combat.started && !combat.roundIntroPending
+      ? findCombatStepIndex(stepsForNav, combat)
+      : null
+  if (
+    combatStepIndex != null &&
+    combatStepIndex < 0 &&
+    combat.started &&
+    !combat.roundIntroPending
+  ) {
+    combatStepIndex = findCombatStepIndexLoose(stepsForNav, combat)
+  }
+  visibilityCtxForRender = buildConvertListVisibilityCtx({
+    combatStarted: combat.started,
+    roundIntroPending: combat.roundIntroPending,
+    rowActiveId,
+    rowActivePhaseLinkId,
+    currentNavIni: currentNavIniForRender,
+    roundStartStepId: ROUND_START_STEP_ID,
+    roundEndStepId: ROUND_END_STEP_ID,
+    turnSteps: stepsForNav,
+    combatStepIndex:
+      combatStepIndex != null && combatStepIndex >= 0 ? combatStepIndex : null,
+  })
   mirrorListHostNavIniDataset(currentNavIniForRender)
+}
+
+/** @param {import('@owlbear-rodeo/sdk').Item[]} items */
+function refreshCurrentNavIniForList(items) {
+  refreshNavContextForList(items)
 }
 
 /**
@@ -616,6 +659,81 @@ function patchLhNavVisualsInRow(li, trackerMeta, combatRound) {
 }
 
 /**
+ * L.H.-Counter in bestehender Zeile: bei Bedarf Running-Widget mounten, sonst patchen.
+ *
+ * @param {HTMLElement} li
+ * @param {string} ownerItemId
+ * @param {unknown} trackerMeta
+ * @param {import('@owlbear-rodeo/sdk').Item | undefined} item
+ * @param {number | null | undefined} combatRound
+ */
+function remountOrPatchLhCounterInRow(
+  li,
+  ownerItemId,
+  trackerMeta,
+  item,
+  combatRound
+) {
+  const st = readLhState(trackerMeta)
+  if (!(st.max > 0) || !isLhActive(trackerMeta)) {
+    if (st.max > 0) patchLhNavVisualsInRow(li, trackerMeta, combatRound)
+    return
+  }
+
+  const lhCol = li.querySelector('.init-col-lh')
+  if (!lhCol) {
+    patchLhNavVisualsInRow(li, trackerMeta, combatRound)
+    return
+  }
+
+  const counterInput = li.querySelector('.init-lh-counter__value')
+  const hasReadOnlyCounter =
+    counterInput instanceof HTMLInputElement && counterInput.readOnly
+  const needsRemount = shouldRemountLhRunningCounter(
+    trackerMeta,
+    hasReadOnlyCounter
+  )
+
+  const combat = getCombat()
+  const phaseLinkId = li.getAttribute('data-phase-link-id')
+  const isPhaseRow = li.classList.contains('init-row--phase')
+  let zaoSlotOverride = null
+  let hideAbw = false
+  if (isPhaseRow && phaseLinkId) {
+    const slot = readZaoSlot(trackerMeta, phaseLinkId)
+    if (slot?.kind === 'lh' && slot.marks >= 1) {
+      zaoSlotOverride = { ...slot, linkId: phaseLinkId }
+    }
+    hideAbw = true
+  }
+
+  const navPhaseId = isPhaseRow && phaseLinkId ? phaseLinkId : null
+  const rowActiveId = combat.started ? combat.currentItemId : null
+  const rowActivePhaseLinkId = combat.started ? combat.currentPhaseLinkId : null
+  const primaryLadungAllowed =
+    navigationMatchesRow(
+      ownerItemId,
+      navPhaseId,
+      rowActiveId,
+      rowActivePhaseLinkId
+    ) && combat.currentTurnSubStep !== 'reaction'
+  const canEdit = item ? canEditSceneItem(item) : false
+
+  if (needsRemount) {
+    syncLhAbwContainer(lhCol, ownerItemId, trackerMeta, {
+      zaoSlotOverride,
+      hideAbw,
+      canEdit,
+      primaryLadungAllowed,
+      combatRound,
+      visibilityCtx: visibilityCtxForRender,
+    })
+  } else {
+    patchLhNavVisualsInRow(li, trackerMeta, combatRound)
+  }
+}
+
+/**
  * Alle sichtbaren L.H.-Brüche/Pies an aktuelle Nav-INI anpassen.
  *
  * @param {HTMLElement | null | undefined} listRoot
@@ -633,7 +751,7 @@ function syncLhNavFractionsInList(listRoot, items) {
     const item = itemById.get(itemId)
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
     if (!meta) continue
-    patchLhNavVisualsInRow(li, meta, combatRound)
+    remountOrPatchLhCounterInRow(li, itemId, meta, item, combatRound)
   }
 
   for (const li of listRoot.querySelectorAll('li.init-row--phase[data-phase-owner-id]')) {
@@ -642,7 +760,7 @@ function syncLhNavFractionsInList(listRoot, items) {
     const item = itemById.get(ownerId)
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
     if (!meta) continue
-    patchLhNavVisualsInRow(li, meta, combatRound)
+    remountOrPatchLhCounterInRow(li, ownerId, meta, item, combatRound)
   }
 }
 
@@ -8663,8 +8781,13 @@ function bindStampContextRemove(el, stamp, items) {
   })
 
   registerLhCommitRenderFlush(() => {
-    void OBR.scene.items.getItems().then((fresh) => {
-      enqueueRenderList(mergeDeferredRenderItems(fresh, lastItems))
+    return new Promise((resolve) => {
+      void OBR.scene.items.getItems().then((fresh) => {
+        enqueueRenderList(mergeDeferredRenderItems(fresh, lastItems))
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
     })
   })
 
@@ -8680,11 +8803,16 @@ function bindStampContextRemove(el, stamp, items) {
   OBR.scene.items.getItems().then(safeRenderList)
   OBR.scene.items.onChange(safeRenderList)
   onCombatChange(() => {
-    syncListNavFromCombat(element, lastItems)
-    if (lastItems?.length) {
-      safeRenderList(lastItems, { force: true })
-    }
     void (async () => {
+      let freshForSync = await OBR.scene.items.getItems()
+      if (!freshForSync?.length && lastItems?.length) {
+        freshForSync = lastItems
+      }
+      syncListNavFromCombat(element, freshForSync)
+      if (freshForSync?.length) {
+        safeRenderList(freshForSync, { force: true })
+      }
+
       let quickFresh = await OBR.scene.items.getItems()
       if (!quickFresh?.length && lastItems?.length) {
         quickFresh = lastItems

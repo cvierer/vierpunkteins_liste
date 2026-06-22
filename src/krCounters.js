@@ -2260,11 +2260,11 @@ export async function patchKrCloseZaoSlotToAbw(itemId, linkId) {
 export async function patchZaoSlotStampPrimary(itemId, linkId) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
+  if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta) return
+  if (!meta) return false
   const slot = readZaoSlots(meta)[linkId]
-  if (!slot || slot.marks !== 1) return
+  if (!slot || slot.marks !== 1) return false
   const field =
     slot.kind === 'sra'
       ? KR_SRA
@@ -2280,7 +2280,7 @@ export async function patchZaoSlotStampPrimary(itemId, linkId) {
     field === KR_LH_ACTION ||
     (isLhLockingActions(meta, lhLockRoundFromCombat()) && field !== KR_LH_ACTION)
   ) {
-    return
+    return false
   }
   // Symmetrischer Slot-Konflikt (Phase D): liegt am gleichen Anker (n.A.-
   // Slot via `linkId`) bereits ein L.H.-Abschluss-Stempel, blockt das den
@@ -2296,7 +2296,7 @@ export async function patchZaoSlotStampPrimary(itemId, linkId) {
         !e.paradeExtra &&
         e.field === KR_LH_ACTION
     )
-    if (conflict) return
+    if (conflict) return false
   }
   const ownerName =
     getTokenListDisplayName(item) || String(item?.name ?? '')
@@ -2352,6 +2352,7 @@ export async function patchZaoSlotStampPrimary(itemId, linkId) {
         : itemId)
     return { anchorId, entries }
   }, { skipGmCheck: skipGmStampZao })
+  return true
 }
 
 /**
@@ -2543,9 +2544,10 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
   const inc = delta > 0
   const paradeExtraSlotIdx = paradeExtraIndexForField(field)
   const isParadeExtraField = paradeExtraSlotIdx !== null
-  if (field === KR_FREE_ACTION && !getCombat().started) return
+  if (field === KR_FREE_ACTION && !getCombat().started) return false
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
+  if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (meta) migrateHeroExtraCountFields(meta)
   // Laengerfristige Handlung laeuft und endet NICHT in dieser KR:
@@ -2558,7 +2560,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
       field === KR_ABW ||
       isParadeExtraField)
   ) {
-    return
+    return false
   }
   let maxDigit = KR_COUNTER_MAX
   if (field === KR_FREE_ACTION) {
@@ -2572,7 +2574,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
   const mod = maxDigit + 1
   const cur = normalizeKrDigit(meta?.[field], maxDigit)
   if (field === KR_FREE_ACTION && !inc && cur === 0) {
-    return
+    return false
   }
   const next = inc ? (cur + 1) % mod : (cur + mod - 1) % mod
   const lhSecondBefore =
@@ -2583,7 +2585,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
     !options.skipLhSecondCheck &&
     lhSecondBefore === 0
   ) {
-    return
+    return false
   }
   const ownerName =
     getTokenListDisplayName(item) || String(item?.name ?? '')
@@ -2641,7 +2643,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
       // der Code unten erlaubt sowieso nur addCount > 0.)
       return e.field !== field
     })
-    if (conflict) return
+    if (conflict) return false
   }
 
   await OBR.scene.items.updateItems([itemId], (drafts) => {
@@ -2682,7 +2684,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
     if (cur === 0 && next > 0) addCount = next
     else if (next < cur) removeCount = cur - next
   }
-  if (addCount <= 0 && removeCount <= 0) return
+  if (addCount <= 0 && removeCount <= 0) return false
 
   const skipGmStamp = canEditSceneItem(item) && !isGmSync()
   await patchActionStamps((stamps) => {
@@ -2812,6 +2814,7 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
       await ensureExtraAttackPhaseRoot(itemId, iniStr)
     }
   }
+  return true
 }
 
 /**

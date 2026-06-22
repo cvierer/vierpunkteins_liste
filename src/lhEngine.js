@@ -53,16 +53,28 @@ let lhLifecyclePromise = null
 
 /** @type {(() => void) | null} */
 let onLhCommitRenderFlush = null
+/** @type {Promise<void> | null} */
+let lhRenderFlushPromise = null
 
 /**
- * @param {() => void} fn
+ * @param {() => void | Promise<void>} fn
  */
 export function registerLhCommitRenderFlush(fn) {
   onLhCommitRenderFlush = fn
 }
 
 function notifyLhCommitRenderFlush() {
-  onLhCommitRenderFlush?.()
+  if (!onLhCommitRenderFlush) return
+  try {
+    const result = onLhCommitRenderFlush()
+    if (result && typeof result.then === 'function') {
+      lhRenderFlushPromise = result.finally(() => {
+        if (lhRenderFlushPromise === result) lhRenderFlushPromise = null
+      })
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -70,6 +82,12 @@ function notifyLhCommitRenderFlush() {
  */
 export async function awaitLhLifecycleIdle() {
   if (lhLifecyclePromise) await lhLifecyclePromise
+  if (lhRenderFlushPromise) {
+    await Promise.race([
+      lhRenderFlushPromise,
+      new Promise((r) => setTimeout(r, 400)),
+    ])
+  }
 }
 
 function trackLhLifecyclePromise(promise) {

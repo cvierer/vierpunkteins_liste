@@ -38,6 +38,7 @@ import { applyLhKrStartObjects } from './longHandlung.js'
 import { getManualIniTieOverridePairs } from './manualIniTieOverrides.js'
 import { clearCombatLog } from './combatLog.js'
 import { autoStampForCombatStep } from './combatAutoStamp.js'
+import { advanceTokenMotherToReactionSubstep } from './combatReactionSubstep.js'
 import {
   isCombatAtRoundEndMarker,
 } from './combatRoundNav.js'
@@ -97,24 +98,6 @@ function stampMatchesCurrentCombatStep(e, c) {
 
 function hasStampsAtCurrentStep(c) {
   return getActionStamps().entries.some((e) => stampMatchesCurrentCombatStep(e, c))
-}
-
-/**
- * Helden-Mutterzeile: Reaktion als Substep auf demselben Turn-Index.
- * @returns {Promise<boolean>} true wenn nur Substep gewechselt wurde
- */
-async function advanceTokenMotherToReactionSubstep(cur, c) {
-  if (cur?.kind !== 'token' || c.currentTurnSubStep === 'reaction') return false
-  if (isStampableCombatStep(cur) && !hasPrimaryActionStampAtCombatStep(c)) {
-    await autoStampForCombatStep(cur)
-  }
-  await patchCombat({
-    currentItemId: cur.id,
-    currentPhaseLinkId: null,
-    currentTurnSubStep: 'reaction',
-    round: c.round,
-  })
-  return true
 }
 
 /** @returns {Promise<boolean>} true wenn von Reaktion zurück auf Aktion */
@@ -402,6 +385,12 @@ export async function setupCombatControls(root) {
         await beginRoundIntroFromCombat(c)
         return
       }
+      let resolvedIdx = findCombatStepIndexLoose(steps, c)
+      if (resolvedIdx >= 0) {
+        if (await advanceCombatFromResolvedStep(steps, c, resolvedIdx)) {
+          return
+        }
+      }
       await new Promise((r) => setTimeout(r, 0))
       const stepsRetry = await combatTurnSteps()
       const cRetry = getCombat()
@@ -468,6 +457,24 @@ export async function setupCombatControls(root) {
     }
     const idx = findCombatStepIndex(steps, c)
     if (idx < 0) {
+      let resolvedIdx = findCombatStepIndexLoose(steps, c)
+      if (resolvedIdx >= 0) {
+        if (await undoStampsAtCurrentCombatStep(c)) return
+        if (isAtFirstRoundStart(c)) return
+        const curResolved = steps[resolvedIdx]
+        if (await retreatTokenMotherToActionSubstep(curResolved, c)) return
+        const prevIdxResolved =
+          (resolvedIdx - 1 + steps.length) % steps.length
+        let roundResolved = c.round
+        if (resolvedIdx === 0 && prevIdxResolved === steps.length - 1) {
+          roundResolved = Math.max(1, c.round - 1)
+        }
+        await patchCombat({
+          ...combatPatchForStep(steps[prevIdxResolved]),
+          round: roundResolved,
+        })
+        return
+      }
       // Wie applyCombatNext: einen Tick warten, neu ziehen.
       await new Promise((r) => setTimeout(r, 0))
       const stepsRetry = await combatTurnSteps()

@@ -49,8 +49,8 @@ vi.mock('./krCounters.js', () => ({
   primaryFieldForKind: vi.fn(() => 'krAng'),
   readZaoSlot: vi.fn(() => ({ kind: 'ang', marks: 1 })),
   motherHasTransferablePrimaryCharge: vi.fn(() => true),
-  patchKrCounterByDelta: vi.fn(async () => {}),
-  patchZaoSlotStampPrimary: vi.fn(async () => {}),
+  patchKrCounterByDelta: vi.fn(async () => true),
+  patchZaoSlotStampPrimary: vi.fn(async () => true),
   stampLhCompletion: vi.fn(async () => {}),
   KR_ANG: 'krAng',
   KR_SRA: 'krSra',
@@ -448,5 +448,59 @@ describe('autoStampForCombatStep', () => {
     expect(ok).toBe(true)
     expect(stampLhCompletion).toHaveBeenCalledWith('hero-a', 'lh-end-1')
     expect(patchZaoSlotStampPrimary).not.toHaveBeenCalled()
+  })
+
+  it('gibt false wenn patchKrCounterByDelta no-op (L.H.-Lock)', async () => {
+    vi.mocked(patchKrCounterByDelta).mockResolvedValue(false)
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
+      {
+        id: 'hero-a',
+        metadata: {
+          'vierpunkteins_kampf.tracker/metadata': { krFirstSlotKind: 'ang' },
+        },
+      },
+    ])
+    const ok = await autoStampForCombatStep({
+      kind: 'token',
+      id: 'hero-a',
+      sub: 'action',
+    })
+    expect(ok).toBe(false)
+  })
+
+  it('Held B stempelt ang während Held A L.H.-Lock hat', async () => {
+    vi.mocked(patchKrCounterByDelta).mockResolvedValue(true)
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
+      {
+        id: 'hero-a',
+        metadata: {
+          'vierpunkteins_kampf.tracker/metadata': {
+            krFirstSlotKind: 'lh',
+            lhActive: true,
+            lhMax: 3,
+          },
+        },
+      },
+      {
+        id: 'hero-b',
+        metadata: {
+          'vierpunkteins_kampf.tracker/metadata': { krFirstSlotKind: 'ang' },
+        },
+      },
+    ])
+    const ok = await autoStampForCombatStep({
+      kind: 'token',
+      id: 'hero-b',
+      sub: 'action',
+    })
+    expect(ok).toBe(true)
+    expect(patchKrCounterByDelta).toHaveBeenCalledWith(
+      'hero-b',
+      'krAng',
+      1,
+      expect.objectContaining({
+        stampAnchor: { rowId: 'hero-b', phaseLinkId: null },
+      })
+    )
   })
 })

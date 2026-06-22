@@ -126,10 +126,9 @@ export async function autoStampForCombatStep(step) {
       return true
     }
     const field = primaryFieldForKind(meta)
-    await patchKrCounterByDelta(step.id, field, 1, {
+    return patchKrCounterByDelta(step.id, field, 1, {
       stampAnchor: { rowId: step.id, phaseLinkId: null },
     })
-    return true
   }
 
   if (step.kind === 'phase' && step.ownerId && step.linkId) {
@@ -147,8 +146,7 @@ export async function autoStampForCombatStep(step) {
       await stampLhCompletion(step.ownerId, step.linkId)
       return true
     }
-    await patchZaoSlotStampPrimary(step.ownerId, step.linkId)
-    return true
+    return patchZaoSlotStampPrimary(step.ownerId, step.linkId)
   }
 
   return false
