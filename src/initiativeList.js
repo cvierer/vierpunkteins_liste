@@ -175,8 +175,6 @@ import {
   patchEnsureZaoSlotForLink,
   patchKrLhChargeBackToAbw,
   ensureParadeExtraShield,
-  patchKrStampAbwFromCharge,
-  patchKrStampParadeExtraFromCharge,
   patchRestoreHeroExtraZao,
   defaultZaoSlotForPhaseNum,
   readEffectiveZaoSlotKind,
@@ -205,9 +203,13 @@ import {
 } from './krCounters.js'
 import {
   liveAbwCombatAllowsStamp,
-  liveAbwStampAnchor,
   liveFaLadungAllowed,
 } from './krAbwStampGates.js'
+import {
+  handleReactionStampClick,
+  handleReactionStampContextMenu,
+  paradeLoadedSlotIndices,
+} from './reactionStampClick.js'
 import {
   isKrSlotPatchSuppressingRenderList,
   mergeDeferredRenderItems,
@@ -549,15 +551,6 @@ function syncKrPrimaryStampGatesInList(listRoot, items) {
   }
 }
 
-/** @param {unknown} trackerMeta */
-function paradeLoadedSlotIndices(trackerMeta) {
-  if (trackerMeta?.krExtraChoiceUsed === 'ang') return []
-  return readKrParadeExtraSlots(trackerMeta)
-    .map((slot, idx) => ({ slot, idx }))
-    .filter((e) => e.slot === 0)
-    .map((e) => e.idx)
-}
-
 /**
  * Abwehr-Shell Gates nach Nav-Sync (ohne renderList).
  *
@@ -601,7 +594,13 @@ function syncKrAbwShellStampGates(
   const exec = shell.querySelector('.init-kr-abw-split-shell__exec')
   if (!(exec instanceof HTMLButtonElement)) return
   exec.classList.toggle('init-kr-abw-split-shell__exec--lh-locked', abwLhLocked)
-  exec.disabled = !canEdit || abwLhLocked
+  exec.disabled = !canEdit
+  exec.setAttribute(
+    'aria-disabled',
+    abwLhLocked || (!abwLadungAllowed && (shieldCount >= 1 || paradeLoaded))
+      ? 'true'
+      : 'false'
+  )
   exec.setAttribute('aria-label', abwLadungAria(v, abwLadungAllowed))
   if (abwLhLocked) {
     exec.title =
@@ -673,10 +672,6 @@ function syncKrFaStampGatesInList(listRoot, items) {
     const canStampFaNow = Boolean(canEdit && faLadungAllowed && avail > 0)
 
     wrap.classList.toggle('init-fa-cell--stampable-now', canStampFaNow)
-    const tap = wrap.querySelector('.init-fa-cell__tap')
-    if (tap instanceof HTMLButtonElement) {
-      tap.disabled = !canEdit
-    }
   }
 }
 
@@ -2494,17 +2489,6 @@ function createLhCounterRunningDisplay(trackerMeta, max, rem, combatRound) {
   return wrap
 }
 
-/** @param {string} ownerItemId */
-function findLatestParadeExtraStampId(ownerItemId) {
-  const entries = getActionStamps()?.entries
-  if (!Array.isArray(entries)) return null
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const e = entries[i]
-    if (e.itemId === ownerItemId && e.paradeExtra) return e.id
-  }
-  return null
-}
-
 function setLinkedShieldHover(ownerItemId, on) {
   if (!ownerItemId) return
   const nodes = document.querySelectorAll(
@@ -2790,60 +2774,13 @@ function appendKrAbwSplitCell(
     exec.title =
       'Längerfristige Handlung läuft – Schild/Parade gesperrt; nur freie Aktionen erlaubt.'
   }
-  exec.disabled = !canEdit || abwLhLocked
-  if (canEdit) {
-    exec.addEventListener('click', (e) => {
-      e.preventDefault()
-      const combatNow = getCombat()
-      const roundNow = combatNow.started ? combatNow.round : null
-      if (isLhLockingActions(trackerMeta, roundNow)) return
-      const stampAllowed = liveAbwCombatAllowsStamp(combatNow)
-      if (!stampAllowed) return
-      const stampAnchor = liveAbwStampAnchor(ownerItemId, combatNow)
-      const t = e.target
-      const el = t instanceof Element ? t : null
-      const paradeEl = el?.closest('.init-kr-abw-shield--parade-extra')
-      if (paradeEl) {
-        const slotIdx = Math.max(
-          0,
-          Math.floor(Number(paradeEl.dataset.paradeExtraSlot)) || 0
-        )
-        const paradeSlotsLive = paradeLoadedSlotIndices(trackerMeta)
-        if (!paradeSlotsLive.includes(slotIdx)) return
-        void patchKrStampParadeExtraFromCharge(ownerItemId, {
-          paradeExtraSlot: slotIdx,
-          stampAnchor,
-        })
-        return
-      }
-      const vLive = normalizeKrDigit(readKrAbw(trackerMeta))
-      if (abwShieldCount(vLive) < 1) return
-      void patchKrStampAbwFromCharge(ownerItemId, { stampAnchor })
-    })
-    shell.addEventListener('contextmenu', (e) => {
-      e.preventDefault()
-      const combatNow = getCombat()
-      const roundNow = combatNow.started ? combatNow.round : null
-      if (isLhLockingActions(trackerMeta, roundNow)) return
-      if (!liveAbwCombatAllowsStamp(combatNow)) return
-      const vLive = normalizeKrDigit(readKrAbw(trackerMeta))
-      const t = e.target instanceof Element ? e.target : null
-      const paradeShield = t?.closest('.init-kr-abw-shield--parade-extra')
-      const onExec = t?.closest('.init-kr-abw-split-shell__exec')
-      const paradeUndoId = findLatestParadeExtraStampId(ownerItemId)
-      if (paradeUndoId && paradeShield) {
-        void undoKrActionStamp(paradeUndoId)
-        return
-      }
-      if (vLive === 1) {
-        void patchKrCounterByDelta(ownerItemId, KR_ABW, -1)
-        return
-      }
-      if (paradeUndoId && onExec) {
-        void undoKrActionStamp(paradeUndoId)
-      }
-    })
-  }
+  exec.disabled = !canEdit
+  exec.setAttribute(
+    'aria-disabled',
+    abwLhLocked || (!abwLadungAllowed && (shieldCount >= 1 || paradeLoaded))
+      ? 'true'
+      : 'false'
+  )
 
   chargeRow.appendChild(exec)
   shell.append(chargeRow)
@@ -3099,19 +3036,6 @@ function appendFaCounter(
 
   if (canEdit) {
     wireFaStampableHover(wrap, b, true)
-  }
-
-  if (canEdit) {
-    b.addEventListener('click', (e) => {
-      e.preventDefault()
-      if (!liveFaLadungAllowed()) return
-      void patchKrCounterByDelta(ownerItemId, KR_FREE_ACTION, 1)
-    })
-    b.addEventListener('contextmenu', (e) => {
-      e.preventDefault()
-      if (!liveFaLadungAllowed()) return
-      void patchKrCounterByDelta(ownerItemId, KR_FREE_ACTION, -1)
-    })
   }
 
   container.appendChild(wrap)
@@ -3974,6 +3898,15 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let lastItems = []
 
   void hideDistanceRings()
+
+  const onReactionStampClick = (e) => {
+    void handleReactionStampClick(e)
+  }
+  const onReactionStampContextMenu = (e) => {
+    void handleReactionStampContextMenu(e)
+  }
+  element.addEventListener('click', onReactionStampClick, true)
+  element.addEventListener('contextmenu', onReactionStampContextMenu, true)
 
   const roundIntroBoard = document.querySelector('[data-kampf-round-intro]')
   const roundIntroLabel = document.querySelector('[data-kampf-round-intro-label]')
@@ -9187,6 +9120,8 @@ function bindStampContextRemove(el, stamp, items) {
   })
 
   return () => {
+    element.removeEventListener('click', onReactionStampClick, true)
+    element.removeEventListener('contextmenu', onReactionStampContextMenu, true)
     document.removeEventListener('keydown', onHeroSettingsDocKey)
     hitZoneOverlay.destroy()
     heroSettingsBackdrop.remove()
