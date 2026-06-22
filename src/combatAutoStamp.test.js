@@ -419,4 +419,34 @@ describe('autoStampForCombatStep', () => {
     expect(stampLhCompletion).toHaveBeenCalledWith('hero-a', 'zao-lh')
     expect(patchZaoSlotStampPrimary).not.toHaveBeenCalled()
   })
+
+  it('stempelt lhEnd-Phasenschritt (sub action) über stampLhCompletion', async () => {
+    vi.mocked(isLhActive).mockReturnValue(true)
+    vi.mocked(lhCompletionStampReady).mockReturnValue(true)
+    vi.mocked(readZaoSlot).mockReturnValue({ kind: 'lh', marks: 1 })
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
+      {
+        id: 'hero-a',
+        metadata: {
+          'vierpunkteins_kampf.tracker/metadata': {
+            phases: {
+              links: [
+                { id: 'lh-end-1', parentId: null, offset: 8, lhEnd: true },
+              ],
+            },
+            krZaoSlots: { 'lh-end-1': { kind: 'lh', marks: 1 } },
+          },
+        },
+      },
+    ])
+    const ok = await autoStampForCombatStep({
+      kind: 'phase',
+      ownerId: 'hero-a',
+      linkId: 'lh-end-1',
+      sub: 'action',
+    })
+    expect(ok).toBe(true)
+    expect(stampLhCompletion).toHaveBeenCalledWith('hero-a', 'lh-end-1')
+    expect(patchZaoSlotStampPrimary).not.toHaveBeenCalled()
+  })
 })

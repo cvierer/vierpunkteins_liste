@@ -209,7 +209,7 @@ describe('resolveNavIniFromCombatPosition', () => {
       currentPhaseLinkId: 'zao-lhend',
       currentTurnSubStep: 'action',
     }
-    expect(findCombatStepIndex(steps, combat)).toBeLessThan(0)
+    expect(findCombatStepIndex(steps, combat)).toBe(1)
     const idxLoose = findCombatStepIndexLoose(steps, combat)
     expect(idxLoose).toBe(1)
     expect(steps[idxLoose]?.kind).toBe('phase')
@@ -227,5 +227,88 @@ describe('resolveNavIniFromCombatPosition', () => {
     expect(
       resolveCurrentNavIniForCombat(tokenRows, items, [], 1, combat)
     ).toBe(Number.NEGATIVE_INFINITY)
+  })
+})
+
+describe('lhEnd Kampf-Schritte', () => {
+  const tokenRows = [{ id: 'hero-a', initiative: '17', name: 'A' }]
+  const lhEndLinkId = 'lh-end-1'
+  const items = [
+    item('hero-a', {
+      initiative: '17',
+      krFirstSlotKind: 'lh',
+      lhMax: 3,
+      lhRem: 3,
+      phases: {
+        rowPanelOpen: true,
+        links: [{ id: lhEndLinkId, parentId: null, offset: 8, lhEnd: true }],
+      },
+      krZaoSlots: { [lhEndLinkId]: { kind: 'lh', marks: 1 } },
+    }),
+  ]
+
+  it('emittiert lhEnd mit sub action und ohne reaction-Schritt', () => {
+    const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
+    const lhEndSteps = steps.filter(
+      (s) =>
+        s.kind === 'phase' &&
+        s.ownerId === 'hero-a' &&
+        s.linkId === lhEndLinkId
+    )
+    expect(lhEndSteps).toEqual([
+      {
+        kind: 'phase',
+        ownerId: 'hero-a',
+        linkId: lhEndLinkId,
+        sub: 'action',
+      },
+    ])
+  })
+
+  it('findCombatStepIndex matcht lhEnd bei currentTurnSubStep null und action', () => {
+    const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
+    const combatBase = {
+      currentItemId: 'hero-a',
+      currentPhaseLinkId: lhEndLinkId,
+    }
+    const idxNull = findCombatStepIndex(steps, {
+      ...combatBase,
+      currentTurnSubStep: null,
+    })
+    const idxAction = findCombatStepIndex(steps, {
+      ...combatBase,
+      currentTurnSubStep: 'action',
+    })
+    expect(idxNull).toBeGreaterThanOrEqual(0)
+    expect(idxAction).toBe(idxNull)
+    expect(steps[idxNull]).toMatchObject({
+      kind: 'phase',
+      linkId: lhEndLinkId,
+      sub: 'action',
+    })
+  })
+
+  it('isStampableCombatStep true für lhEnd action', () => {
+    expect(
+      isStampableCombatStep({
+        kind: 'phase',
+        ownerId: 'hero-a',
+        linkId: lhEndLinkId,
+        sub: 'action',
+      })
+    ).toBe(true)
+  })
+
+  it('resolveCurrentNavIniForCombat liefert Hook-INI der lhEnd-Zeile', () => {
+    const combat = {
+      started: true,
+      round: 1,
+      roundIntroPending: false,
+      currentItemId: 'hero-a',
+      currentPhaseLinkId: lhEndLinkId,
+      currentTurnSubStep: null,
+    }
+    const navIni = resolveCurrentNavIniForCombat(tokenRows, items, [], 1, combat)
+    expect(navIni).toBe(9)
   })
 })

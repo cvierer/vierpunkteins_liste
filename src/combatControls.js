@@ -41,6 +41,7 @@ import { autoStampForCombatStep } from './combatAutoStamp.js'
 import {
   isCombatAtRoundEndMarker,
 } from './combatRoundNav.js'
+import { getRoomSettings } from './roomSettings.js'
 
 async function combatTurnSteps() {
   let items = await OBR.scene.items.getItems()
@@ -471,10 +472,13 @@ export async function setupCombatControls(root) {
       await new Promise((r) => setTimeout(r, 0))
       const stepsRetry = await combatTurnSteps()
       const cRetry = getCombat()
-      const idxRetry = findCombatStepIndex(stepsRetry, cRetry)
+      let idxRetry = findCombatStepIndex(stepsRetry, cRetry)
       if (stepsRetry.length === 0) return
       if (idxRetry < 0) {
-        return
+        idxRetry = findCombatStepIndexLoose(stepsRetry, cRetry)
+        if (idxRetry < 0) {
+          return
+        }
       }
       if (await undoStampsAtCurrentCombatStep(cRetry)) return
       if (isAtFirstRoundStart(cRetry)) return

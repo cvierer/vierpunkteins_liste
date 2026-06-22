@@ -445,6 +445,24 @@ export function shouldShowPhaseLinkInList(
   return true
 }
 
+/**
+ * Sichtbarer lhEnd-Wurzel-Link für L.H.-Counter auf der Phasenzeile.
+ *
+ * @param {unknown} meta
+ * @param {ReturnType<typeof buildConvertListVisibilityCtx> | null} [visibilityCtx]
+ * @param {string} [ownerId]
+ * @returns {{ id: string } | null}
+ */
+export function visibleLhEndLinkForOwner(meta, visibilityCtx = null, ownerId = null) {
+  const phases = normalizePhases(meta?.phases)
+  for (const link of phases.links) {
+    if (!link || link.parentId !== null || link.lhEnd !== true) continue
+    if (!shouldShowPhaseLinkInList(meta, link, visibilityCtx, ownerId)) continue
+    return link
+  }
+  return null
+}
+
 export function normalizePhases(raw) {
   const d = defaultPhases()
   if (!raw || typeof raw !== 'object') return d
@@ -1468,7 +1486,14 @@ function mergedEntryToCombatSteps(e) {
   }
   if (e.kind === 'phase') {
     if (e.link.lhEnd === true) {
-      return [{ kind: 'phase', ownerId: e.ownerId, linkId: e.link.id }]
+      return [
+        {
+          kind: 'phase',
+          ownerId: e.ownerId,
+          linkId: e.link.id,
+          sub: 'action',
+        },
+      ]
     }
     return [
       { kind: 'phase', ownerId: e.ownerId, linkId: e.link.id, sub: 'action' },
@@ -1481,7 +1506,14 @@ function mergedEntryToCombatSteps(e) {
     ]
   }
   if (e.kind === 'lhDone') {
-    return [{ kind: 'phase', ownerId: e.ownerId, linkId: LH_DONE_STEP_ID }]
+    return [
+      {
+        kind: 'phase',
+        ownerId: e.ownerId,
+        linkId: LH_DONE_STEP_ID,
+        sub: 'action',
+      },
+    ]
   }
   return []
 }
@@ -1603,7 +1635,10 @@ export function resolveCurrentNavIniForCombat(
     combatRound,
     null
   )
-  const idx = findCombatStepIndex(steps, combat)
+  let idx = findCombatStepIndex(steps, combat)
+  if (idx < 0) {
+    idx = findCombatStepIndexLoose(steps, combat)
+  }
   if (idx < 0) {
     return resolveNavIniFromCombatPosition(tokenRows, items, combat)
   }
@@ -1651,7 +1686,7 @@ export function findCombatStepIndex(steps, combat) {
       return true
     }
     if (s.kind === 'phase') {
-      if (!s.sub) return wantSub === null
+      if (!s.sub) return wantSub === null || wantSub === 'action'
       return s.sub === wantSub
     }
     return true

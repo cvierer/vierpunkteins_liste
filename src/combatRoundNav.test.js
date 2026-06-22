@@ -50,3 +50,12 @@ describe('buildRoundIntroPendingPatch', () => {
     expect(patch.currentItemId).toBe(ROUND_START_STEP_ID)
   })
 })
+
+describe('getRoomSettings in KR-Intro-Pfad', () => {
+  it('getRoomSettings ist importierbar und liefert roundIntroFocusLowestIni', async () => {
+    const { getRoomSettings } = await import('./roomSettings.js')
+    const settings = getRoomSettings()
+    expect(settings).toBeTruthy()
+    expect(typeof settings.roundIntroFocusLowestIni).toBe('boolean')
+  })
+})

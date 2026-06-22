@@ -131,6 +131,7 @@ import {
   ROUND_START_STEP_ID,
   swapAdjacentMergedIniDiscriminators,
   tryCommitPhaseTargetIni,
+  visibleLhEndLinkForOwner,
   zaoRootKey,
 } from './phaseLinks.js'
 import {
@@ -1606,6 +1607,7 @@ function appendKrPrimarySplitCell(
       canEdit,
       primaryLadungAllowed,
       combatRound,
+      visibilityCtx: visibilityCtxForRender,
     })
   }
 
@@ -1918,7 +1920,7 @@ function createLhCounterInputWidget(
   if (isRunning) {
     const safeMax = Math.max(1, Math.floor(max) || 1)
     const safeStep = Math.max(0, Math.min(safeMax, Math.floor(step) || 0))
-    const fract = `${safeStep}/${safeMax}`
+    const fract = `${Math.max(1, safeStep)}/${safeMax}`
     input.value = fract
     input.readOnly = true
     input.title = `Längerfristige Handlung: ${fract}`
@@ -2480,6 +2482,7 @@ function appendLhAbortOverlay(counterEl, ownerItemId) {
  *   canEdit: boolean,
  *   primaryLadungAllowed: boolean,
  *   combatRound?: number | null,
+ *   visibilityCtx?: ReturnType<typeof buildConvertListVisibilityCtx> | null,
  * }} opts
  */
 function syncLhAbwContainer(
@@ -2497,6 +2500,7 @@ function syncLhAbwContainer(
     canEdit,
     primaryLadungAllowed,
     combatRound = null,
+    visibilityCtx = null,
   } = opts
 
   const motherKindIsLh =
@@ -2508,6 +2512,16 @@ function syncLhAbwContainer(
       zaoSlotOverride.kind === 'lh' && zaoSlotOverride.marks >= 1
   } else if (!hideAbw) {
     lhAtAbwActive = motherKindIsLh
+    if (lhAtAbwActive && isLhActive(trackerMeta)) {
+      const lhEndOnList = visibleLhEndLinkForOwner(
+        trackerMeta,
+        visibilityCtx,
+        ownerItemId
+      )
+      if (lhEndOnList) {
+        lhAtAbwActive = false
+      }
+    }
   }
 
   const lhEndsThisKrUi =
@@ -2782,6 +2796,7 @@ function appendKrCounterPair(
       canEdit,
       primaryLadungAllowed,
       combatRound,
+      visibilityCtx: visibilityCtxForRender,
     })
   }
 
@@ -7711,6 +7726,10 @@ function bindStampContextRemove(el, stamp, items) {
 
         const btnCol = document.createElement('div')
         btnCol.className = 'init-col-btn init-col-btn--phase init-col-btn--zao'
+
+        const lhCol = document.createElement('div')
+        lhCol.className = 'init-col-lh'
+
         appendKrCounterPair(
           btnCol,
           ownerId,
@@ -7727,6 +7746,10 @@ function bindStampContextRemove(el, stamp, items) {
             hideAbw: true,
             hideFa: true,
             hideLh: true,
+            lhContainer: lhPending ? lhCol : null,
+            zaoSlotOverride: lhPending
+              ? { kind: 'lh', marks: 1, linkId: LH_DONE_STEP_ID }
+              : null,
             combatStarted: combat.started,
             roundIntroPending: combat.roundIntroPending,
             currentTurnSubStep: combat.currentTurnSubStep,
