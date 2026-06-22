@@ -204,6 +204,11 @@ import {
   undoLastZaoSlotStamp,
 } from './krCounters.js'
 import {
+  liveAbwCombatAllowsStamp,
+  liveAbwStampAnchor,
+  liveFaLadungAllowed,
+} from './krAbwStampGates.js'
+import {
   isKrSlotPatchSuppressingRenderList,
   mergeDeferredRenderItems,
   noteDeferredRenderListItems,
@@ -541,6 +546,137 @@ function syncKrPrimaryStampGatesInList(listRoot, items) {
         isHeroExtraSlot: Boolean(zaoSlotOverride?.heroExtra),
       }
     )
+  }
+}
+
+/** @param {unknown} trackerMeta */
+function paradeLoadedSlotIndices(trackerMeta) {
+  if (trackerMeta?.krExtraChoiceUsed === 'ang') return []
+  return readKrParadeExtraSlots(trackerMeta)
+    .map((slot, idx) => ({ slot, idx }))
+    .filter((e) => e.slot === 0)
+    .map((e) => e.idx)
+}
+
+/**
+ * Abwehr-Shell Gates nach Nav-Sync (ohne renderList).
+ *
+ * @param {HTMLElement} shell
+ * @param {unknown} trackerMeta
+ * @param {boolean} canEdit
+ * @param {number | null | undefined} combatRound
+ * @param {boolean} boundaryAsActiveVisual
+ */
+function syncKrAbwShellStampGates(
+  shell,
+  trackerMeta,
+  canEdit,
+  combatRound,
+  boundaryAsActiveVisual
+) {
+  if (shell.classList.contains('init-kr-abw-split-shell--mirror-link')) return
+
+  const abwLadungAllowed = liveAbwCombatAllowsStamp()
+  const abwLhLocked = isLhLockingActions(trackerMeta, combatRound)
+  const v = normalizeKrDigit(readKrAbw(trackerMeta))
+  const shieldCount = abwShieldCount(v)
+  const paradeLoadedSlots = paradeLoadedSlotIndices(trackerMeta)
+  const paradeLoaded = paradeLoadedSlots.length > 0
+  const canStampAbwNow =
+    canEdit && !abwLhLocked && abwLadungAllowed && shieldCount >= 1
+  const canStampParadeNow =
+    canEdit && !abwLhLocked && abwLadungAllowed && paradeLoaded
+  const canStampAnyShieldNow = canStampAbwNow || canStampParadeNow
+
+  shell.classList.toggle(
+    'init-kr-abw-split-shell--stampable-now',
+    canStampAnyShieldNow
+  )
+  shell.classList.toggle(
+    'init-kr-abw-split-shell--nav-blocked',
+    Boolean(canEdit && v < 1 && !abwLadungAllowed && !boundaryAsActiveVisual)
+  )
+  shell.classList.toggle('init-kr-abw-split-shell--lh-locked', abwLhLocked)
+
+  const exec = shell.querySelector('.init-kr-abw-split-shell__exec')
+  if (!(exec instanceof HTMLButtonElement)) return
+  exec.classList.toggle('init-kr-abw-split-shell__exec--lh-locked', abwLhLocked)
+  exec.disabled = !canEdit || abwLhLocked
+  exec.setAttribute('aria-label', abwLadungAria(v, abwLadungAllowed))
+  if (abwLhLocked) {
+    exec.title =
+      'Längerfristige Handlung läuft – Schild/Parade gesperrt; nur freie Aktionen erlaubt.'
+  }
+}
+
+/**
+ * KR-Abwehr-Stempel-Gates nach Nav-Sync ohne renderList.
+ *
+ * @param {HTMLElement | null | undefined} listRoot
+ * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ */
+function syncKrAbwStampGatesInList(listRoot, items) {
+  if (!listRoot || !items?.length) return
+  const itemById = new Map(items.map((i) => [i.id, i]))
+  const combat = getCombat()
+  const combatRound = combat.started ? combat.round : null
+  const rowActiveId = combat.started ? combat.currentItemId : null
+  const rowActivePhaseLinkId = combat.started ? combat.currentPhaseLinkId : null
+  const atRoundBoundaryNav =
+    !rowActivePhaseLinkId &&
+    (rowActiveId === ROUND_START_STEP_ID ||
+      rowActiveId === ROUND_END_STEP_ID)
+
+  for (const shell of listRoot.querySelectorAll(
+    '.init-kr-abw-split-shell[data-shield-link-group]'
+  )) {
+    const ownerItemId = shell.dataset.shieldLinkGroup
+    if (!ownerItemId) continue
+    const item = itemById.get(ownerItemId)
+    const trackerMeta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!trackerMeta) continue
+    syncKrAbwShellStampGates(
+      shell,
+      trackerMeta,
+      canEditSceneItem(item),
+      combatRound,
+      atRoundBoundaryNav
+    )
+  }
+}
+
+/**
+ * FA-Stempel-Gates nach Nav-Sync ohne renderList.
+ *
+ * @param {HTMLElement | null | undefined} listRoot
+ * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ */
+function syncKrFaStampGatesInList(listRoot, items) {
+  if (!listRoot || !items?.length) return
+  const itemById = new Map(items.map((i) => [i.id, i]))
+  const settings = getRoomSettings()
+
+  for (const wrap of listRoot.querySelectorAll(
+    '.init-fa-cell[data-fa-link-group]'
+  )) {
+    const ownerItemId = wrap.dataset.faLinkGroup
+    if (!ownerItemId) continue
+    const item = itemById.get(ownerItemId)
+    const trackerMeta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!trackerMeta) continue
+    const canEdit = canEditSceneItem(item)
+    const faLadungAllowed = liveFaLadungAllowed()
+    const iniStr = trackerMeta?.initiative
+    const faMax = readHeroFaMax(trackerMeta, iniStr, settings)
+    const used = readKrFreeAction(trackerMeta, faMax)
+    const avail = availableFreeActions(used, faMax)
+    const canStampFaNow = Boolean(canEdit && faLadungAllowed && avail > 0)
+
+    wrap.classList.toggle('init-fa-cell--stampable-now', canStampFaNow)
+    const tap = wrap.querySelector('.init-fa-cell__tap')
+    if (tap instanceof HTMLButtonElement) {
+      tap.disabled = !canEdit
+    }
   }
 }
 
@@ -924,6 +1060,8 @@ function syncListNavFromCombat(listRoot, items, opts = {}) {
   syncListNavHighlightFromCombat(listRoot, getCombat(), opts)
   syncLhNavFractionsInList(listRoot, items)
   syncKrPrimaryStampGatesInList(listRoot, items)
+  syncKrAbwStampGatesInList(listRoot, items)
+  syncKrFaStampGatesInList(listRoot, items)
 }
 
 function matchesMergedEntryActive(e, rowActiveId, rowActivePhaseLinkId) {
@@ -2484,13 +2622,7 @@ function appendKrAbwSplitCell(
   // bereits gestempelt hat, ist das Schild nicht mehr verfuegbar.
   // Defense-in-depth — nach Stempel ist `KR_PARADE_EXTRA` ohnehin geloescht;
   // der Guard schuetzt zusaetzlich gegen transient inkonsistente Zustaende.
-  const paradeLoadedSlots =
-    trackerMeta?.krExtraChoiceUsed === 'ang'
-      ? []
-      : paradeSlots
-          .map((slot, idx) => ({ slot, idx }))
-          .filter((e) => e.slot === 0)
-          .map((e) => e.idx)
+  const paradeLoadedSlots = paradeLoadedSlotIndices(trackerMeta)
   const paradeLoaded = paradeLoadedSlots.length > 0
   const totalDisplay = shieldCount + (paradeLoaded ? 1 : 0)
   const firstKindAbwUi = readKrFirstSlotKind(trackerMeta)
@@ -2658,37 +2790,43 @@ function appendKrAbwSplitCell(
     exec.title =
       'Längerfristige Handlung läuft – Schild/Parade gesperrt; nur freie Aktionen erlaubt.'
   }
-  exec.disabled =
-    !canEdit ||
-    abwLhLocked ||
-    ((shieldCount >= 1 || paradeLoaded) && !abwLadungAllowed)
+  exec.disabled = !canEdit || abwLhLocked
   if (canEdit) {
     exec.addEventListener('click', (e) => {
       e.preventDefault()
-      if (abwLhLocked) return
+      const combatNow = getCombat()
+      const roundNow = combatNow.started ? combatNow.round : null
+      if (isLhLockingActions(trackerMeta, roundNow)) return
+      const stampAllowed = liveAbwCombatAllowsStamp(combatNow)
+      if (!stampAllowed) return
+      const stampAnchor = liveAbwStampAnchor(ownerItemId, combatNow)
       const t = e.target
       const el = t instanceof Element ? t : null
       const paradeEl = el?.closest('.init-kr-abw-shield--parade-extra')
       if (paradeEl) {
-        if (!abwLadungAllowed) return
-        if (!paradeLoaded) return
         const slotIdx = Math.max(
           0,
           Math.floor(Number(paradeEl.dataset.paradeExtraSlot)) || 0
         )
+        const paradeSlotsLive = paradeLoadedSlotIndices(trackerMeta)
+        if (!paradeSlotsLive.includes(slotIdx)) return
         void patchKrStampParadeExtraFromCharge(ownerItemId, {
           paradeExtraSlot: slotIdx,
+          stampAnchor,
         })
         return
       }
-      if (shieldCount < 1) return
-      if (!abwLadungAllowed) return
-      void patchKrStampAbwFromCharge(ownerItemId)
+      const vLive = normalizeKrDigit(readKrAbw(trackerMeta))
+      if (abwShieldCount(vLive) < 1) return
+      void patchKrStampAbwFromCharge(ownerItemId, { stampAnchor })
     })
     shell.addEventListener('contextmenu', (e) => {
       e.preventDefault()
-      if (abwLhLocked) return
-      if (!abwLadungAllowed) return
+      const combatNow = getCombat()
+      const roundNow = combatNow.started ? combatNow.round : null
+      if (isLhLockingActions(trackerMeta, roundNow)) return
+      if (!liveAbwCombatAllowsStamp(combatNow)) return
+      const vLive = normalizeKrDigit(readKrAbw(trackerMeta))
       const t = e.target instanceof Element ? e.target : null
       const paradeShield = t?.closest('.init-kr-abw-shield--parade-extra')
       const onExec = t?.closest('.init-kr-abw-split-shell__exec')
@@ -2697,7 +2835,7 @@ function appendKrAbwSplitCell(
         void undoKrActionStamp(paradeUndoId)
         return
       }
-      if (v === 1) {
+      if (vLive === 1) {
         void patchKrCounterByDelta(ownerItemId, KR_ABW, -1)
         return
       }
@@ -2955,23 +3093,23 @@ function appendFaCounter(
       : `Freie Aktion: am Beginn/Ende der Kampfrunde gesperrt (Zyklus 0…${faMax})`
     : `Freie Aktion: ${avail} verfügbar · Linksklick +1, Rechtsklick −1 (Zyklus 0…${faMax})`
   b.setAttribute('aria-label', faCounterAria(used, faMax))
-  b.disabled = !canEdit || !faLadungAllowed
+  b.disabled = !canEdit
 
   wrap.append(bolts, b)
 
-  if (canStampFaNow) {
+  if (canEdit) {
     wireFaStampableHover(wrap, b, true)
   }
 
   if (canEdit) {
     b.addEventListener('click', (e) => {
       e.preventDefault()
-      if (!faLadungAllowed) return
+      if (!liveFaLadungAllowed()) return
       void patchKrCounterByDelta(ownerItemId, KR_FREE_ACTION, 1)
     })
     b.addEventListener('contextmenu', (e) => {
       e.preventDefault()
-      if (!faLadungAllowed) return
+      if (!liveFaLadungAllowed()) return
       void patchKrCounterByDelta(ownerItemId, KR_FREE_ACTION, -1)
     })
   }

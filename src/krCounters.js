@@ -2944,8 +2944,7 @@ export async function stampLhCompletion(itemId, anchorPhaseLinkId = null) {
  * @param {{ stampAnchor?: { rowId: string, phaseLinkId: string | null } }} [options]
  */
 export async function patchKrStampAbwFromCharge(itemId, options = {}) {
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
+  const item = await findSceneItemById(itemId)
   if (!item || !canEditSceneItem(item)) return
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
@@ -3056,8 +3055,7 @@ export async function patchKrStampAbwFromCharge(itemId, options = {}) {
  * @param {{ stampAnchor?: { rowId: string, phaseLinkId: string | null } }} [options]
  */
 export async function patchKrStampParadeExtraFromCharge(itemId, options = {}) {
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
+  const item = await findSceneItemById(itemId)
   if (!item || !canEditSceneItem(item)) return
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return
