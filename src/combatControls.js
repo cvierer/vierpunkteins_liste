@@ -7,6 +7,7 @@ import {
   clearEphemeralExtraIniRows,
   combatPatchForStep,
   findCombatStepIndex,
+  findCombatStepIndexLoose,
   isStampableCombatStep,
   ROUND_END_STEP_ID,
   ROUND_START_STEP_ID,
@@ -37,6 +38,9 @@ import { applyLhKrStartObjects } from './longHandlung.js'
 import { getManualIniTieOverridePairs } from './manualIniTieOverrides.js'
 import { clearCombatLog } from './combatLog.js'
 import { autoStampForCombatStep } from './combatAutoStamp.js'
+import {
+  isCombatAtRoundEndMarker,
+} from './combatRoundNav.js'
 
 async function combatTurnSteps() {
   let items = await OBR.scene.items.getItems()
@@ -159,6 +163,41 @@ function isAtFirstRoundStart(c) {
     c.currentItemId === ROUND_START_STEP_ID &&
     (typeof c.currentPhaseLinkId !== 'string' || !c.currentPhaseLinkId)
   )
+}
+
+async function beginRoundIntroFromCombat(combat) {
+  const reverseIni = getRoomSettings().roundIntroFocusLowestIni === true
+  const markerStep = reverseIni
+    ? { kind: 'roundEnd', id: ROUND_END_STEP_ID }
+    : { kind: 'roundStart', id: ROUND_START_STEP_ID }
+  await patchCombat({
+    roundIntroPending: true,
+    roundIntroPrevRound: combat.round,
+    roundIntroPrevItemId: combat.currentItemId,
+    roundIntroPrevPhaseLinkId: combat.currentPhaseLinkId,
+    ...combatPatchForStep(markerStep),
+  })
+}
+
+/**
+ * @param {Awaited<ReturnType<typeof combatTurnSteps>>} steps
+ * @param {ReturnType<typeof getCombat>} combat
+ */
+async function advanceCombatFromResolvedStep(steps, combat, stepIdx) {
+  if (stepIdx < 0 || stepIdx >= steps.length) return false
+  const nextIdx = (stepIdx + 1) % steps.length
+  const atRoundEnd = steps[stepIdx]?.kind === 'roundEnd'
+  if (atRoundEnd && nextIdx === 0) {
+    await beginRoundIntroFromCombat(combat)
+    return true
+  }
+  const cur = steps[stepIdx]
+  if (await maybeAutoStampOrAdvanceToReaction(cur, combat)) return true
+  await patchCombat({
+    ...combatPatchForStep(steps[nextIdx]),
+    round: combat.round,
+  })
+  return true
 }
 
 export async function setupCombatControls(root) {
@@ -295,16 +334,13 @@ export async function setupCombatControls(root) {
     await awaitLhLifecycleIdle()
     const c0 = getCombat()
     if (c0.started && c0.roundIntroPending) {
-      const stepsCommit = await combatTurnSteps()
+      let stepsCommit = await combatTurnSteps()
       if (stepsCommit.length === 0) {
-        await patchCombat({
-          started: false,
-          round: 1,
-          currentItemId: null,
-          currentPhaseLinkId: null,
-          ...RESET_ROUND_INTRO,
-        })
-        return
+        await new Promise((r) => setTimeout(r, 0))
+        stepsCommit = await combatTurnSteps()
+        if (stepsCommit.length === 0) {
+          return
+        }
       }
       const targetRound =
         typeof c0.roundIntroPrevRound === 'number' && c0.roundIntroPrevRound >= 1
@@ -361,55 +397,35 @@ export async function setupCombatControls(root) {
     }
     const idx = findCombatStepIndex(steps, c)
     if (idx < 0) {
+      if (isCombatAtRoundEndMarker(c)) {
+        await beginRoundIntroFromCombat(c)
+        return
+      }
       await new Promise((r) => setTimeout(r, 0))
       const stepsRetry = await combatTurnSteps()
       const cRetry = getCombat()
-      const idxRetry = findCombatStepIndex(stepsRetry, cRetry)
+      let idxRetry = findCombatStepIndex(stepsRetry, cRetry)
       if (stepsRetry.length === 0) return
       if (idxRetry < 0) {
-        // Kampfstand nicht in steps (z. B. L.H.-Objekt / transient Merge):
-        // nicht auf steps[0] zurücksetzen — das blockierte die Listen-Navigation.
+        if (isCombatAtRoundEndMarker(cRetry)) {
+          await beginRoundIntroFromCombat(cRetry)
+          return
+        }
+        idxRetry = findCombatStepIndexLoose(stepsRetry, cRetry)
+        if (idxRetry < 0) {
+          return
+        }
+      }
+      if (await advanceCombatFromResolvedStep(stepsRetry, cRetry, idxRetry)) {
         return
       }
-      const nextIdxRetry = (idxRetry + 1) % stepsRetry.length
-      const atRoundEndRetry = stepsRetry[idxRetry]?.kind === 'roundEnd'
-      if (atRoundEndRetry && nextIdxRetry === 0) {
-        const reverseIni = getRoomSettings().roundIntroFocusLowestIni === true
-        const markerStep = reverseIni
-          ? { kind: 'roundEnd', id: ROUND_END_STEP_ID }
-          : { kind: 'roundStart', id: ROUND_START_STEP_ID }
-        await patchCombat({
-          roundIntroPending: true,
-          roundIntroPrevRound: cRetry.round,
-          roundIntroPrevItemId: cRetry.currentItemId,
-          roundIntroPrevPhaseLinkId: cRetry.currentPhaseLinkId,
-          ...combatPatchForStep(markerStep),
-        })
-        return
-      }
-      const curRetry = stepsRetry[idxRetry]
-      if (await maybeAutoStampOrAdvanceToReaction(curRetry, cRetry)) return
-      await patchCombat({
-        ...combatPatchForStep(stepsRetry[nextIdxRetry]),
-        round: cRetry.round,
-      })
       return
     }
     const nextIdx = (idx + 1) % steps.length
     const atRoundEnd = steps[idx]?.kind === 'roundEnd'
 
     if (atRoundEnd && nextIdx === 0) {
-      const reverseIni = getRoomSettings().roundIntroFocusLowestIni === true
-      const markerStep = reverseIni
-        ? { kind: 'roundEnd', id: ROUND_END_STEP_ID }
-        : { kind: 'roundStart', id: ROUND_START_STEP_ID }
-      await patchCombat({
-        roundIntroPending: true,
-        roundIntroPrevRound: c.round,
-        roundIntroPrevItemId: c.currentItemId,
-        roundIntroPrevPhaseLinkId: c.currentPhaseLinkId,
-        ...combatPatchForStep(markerStep),
-      })
+      await beginRoundIntroFromCombat(c)
       return
     }
 

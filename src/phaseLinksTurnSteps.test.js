@@ -15,6 +15,7 @@ import {
   buildCombatTurnSteps,
   combatPatchForStep,
   findCombatStepIndex,
+  findCombatStepIndexLoose,
   isStampableCombatStep,
   resolveCurrentNavIniForCombat,
   resolveNavIniFromCombatPosition,
@@ -193,5 +194,38 @@ describe('resolveNavIniFromCombatPosition', () => {
     expect(
       resolveCurrentNavIniForCombat(tokenRows, items, [], 1, combat)
     ).toBe(17)
+  })
+
+  it('findCombatStepIndexLoose findet Phasen-Schritt ohne sub trotz action-Substep', () => {
+    const steps = [
+      { kind: 'roundStart', id: ROUND_START_STEP_ID },
+      { kind: 'phase', ownerId: 'hero-a', linkId: 'zao-lhend' },
+      { kind: 'roundEnd', id: ROUND_END_STEP_ID },
+    ]
+    const combat = {
+      started: true,
+      round: 1,
+      currentItemId: 'hero-a',
+      currentPhaseLinkId: 'zao-lhend',
+      currentTurnSubStep: 'action',
+    }
+    expect(findCombatStepIndex(steps, combat)).toBeLessThan(0)
+    const idxLoose = findCombatStepIndexLoose(steps, combat)
+    expect(idxLoose).toBe(1)
+    expect(steps[idxLoose]?.kind).toBe('phase')
+  })
+
+  it('resolveCurrentNavIniForCombat liefert -inf an roundEnd', () => {
+    const combat = {
+      started: true,
+      round: 1,
+      roundIntroPending: false,
+      currentItemId: ROUND_END_STEP_ID,
+      currentPhaseLinkId: null,
+      currentTurnSubStep: null,
+    }
+    expect(
+      resolveCurrentNavIniForCombat(tokenRows, items, [], 1, combat)
+    ).toBe(Number.NEGATIVE_INFINITY)
   })
 })

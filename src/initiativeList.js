@@ -460,6 +460,204 @@ function syncListNavHighlightFromCombat(listRoot, combat = getCombat(), opts = {
   }
 }
 
+/** Spiegelt Nav-INI auf `#initiative-list-host` (wie in renderList). */
+function mirrorListHostNavIniDataset(navIni) {
+  try {
+    const host = document.getElementById('initiative-list-host')
+    if (!host) return
+    if (navIni == null) {
+      delete host.dataset.currentNavIni
+    } else if (navIni === Number.POSITIVE_INFINITY) {
+      host.dataset.currentNavIni = '+inf'
+    } else if (navIni === Number.NEGATIVE_INFINITY) {
+      host.dataset.currentNavIni = '-inf'
+    } else {
+      host.dataset.currentNavIni = String(navIni)
+    }
+  } catch {
+    /* nicht kritisch */
+  }
+}
+
+/**
+ * Aktuelle Nav-INI aus Kampfstand setzen (ohne renderList).
+ *
+ * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ */
+function refreshCurrentNavIniForList(items) {
+  const combat = getCombat()
+  const listItems = Array.isArray(items) ? items : []
+  const tokenRows = collectSortedParticipants(
+    listItems,
+    getIniTieOrder(),
+    getManualIniTieOverridePairs()
+  )
+  const combatRound = combat.started ? combat.round : null
+  currentNavIniForRender = resolveCurrentNavIniForCombat(
+    tokenRows,
+    listItems,
+    getIniTieOrder(),
+    combatRound,
+    combat
+  )
+  mirrorListHostNavIniDataset(currentNavIniForRender)
+}
+
+/**
+ * @param {unknown} trackerMeta
+ * @param {number} max
+ * @param {number | null | undefined} combatRound
+ */
+function lhNavStepForMeta(trackerMeta, max, combatRound) {
+  const heroIniNum = (() => {
+    const raw = trackerMeta?.initiative
+    const n = Number(String(raw ?? '').trim().replace(',', '.'))
+    return Number.isFinite(n) ? n : null
+  })()
+  const mechanics = readLhMechanics(trackerMeta)
+  const commitRound =
+    Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
+    (combatRound ?? 1)
+  const effectiveRound = combatRound ?? commitRound
+  const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
+  const priorSpend = readLhCommitKrPriorSpendForRound(
+    trackerMeta,
+    effectiveRound
+  )
+  return lhDisplayStepFromNav(
+    heroIniNum,
+    mechanics,
+    commitRound,
+    effectiveRound,
+    currentNavIniForRender,
+    max,
+    Number.isFinite(commitIniStored) ? commitIniStored : undefined,
+    priorSpend
+  )
+}
+
+/**
+ * L.H.-Bruch/Pie in bestehender Zeile patchen (ohne Remount).
+ *
+ * @param {HTMLElement} li
+ * @param {unknown} trackerMeta
+ * @param {number | null | undefined} combatRound
+ */
+function patchLhNavVisualsInRow(li, trackerMeta, combatRound) {
+  const st = readLhState(trackerMeta)
+  if (st.max <= 0) return
+
+  const step = lhNavStepForMeta(trackerMeta, st.max, combatRound)
+  const safeMax = Math.max(1, st.max)
+  const safeStep = Math.max(0, Math.min(safeMax, Math.floor(step) || 0))
+  const fracLabel = lhFractionFromNavForMeta(trackerMeta, st.max, combatRound)
+  const counterFract =
+    fracLabel === 'GO!' ? 'GO!' : `${Math.max(1, safeStep)}/${safeMax}`
+
+  const counterInput = li.querySelector('.init-lh-counter__value')
+  if (counterInput instanceof HTMLInputElement && counterInput.readOnly) {
+    counterInput.value = counterFract
+    counterInput.title = `Längerfristige Handlung: ${counterFract}`
+    const flen = counterFract.length
+    if (flen >= 5) {
+      counterInput.dataset.lhFractLen = '5'
+    } else if (flen === 4) {
+      counterInput.dataset.lhFractLen = '4'
+    } else {
+      delete counterInput.dataset.lhFractLen
+    }
+  }
+
+  const fractionEl = li.querySelector('.init-lh-cell__fraction')
+  if (fractionEl) {
+    fractionEl.textContent = fracLabel
+  }
+  const stepBadge = li.querySelector('.init-lh-cell__step')
+  if (stepBadge) {
+    const stepLabel = lhActionStepLabelFromNavFraction(fracLabel, st.max)
+    stepBadge.textContent = stepLabel ? `Aktion ${stepLabel}` : ''
+  }
+
+  const pieIcon = li.querySelector('.init-kr-primary-main__icon--lh-pie')
+  if (pieIcon instanceof HTMLElement) {
+    const heroIniNum = (() => {
+      const raw = trackerMeta?.initiative
+      const n = Number(String(raw ?? '').trim().replace(',', '.'))
+      return Number.isFinite(n) ? n : null
+    })()
+    const mechanics = readLhMechanics(trackerMeta)
+    const commitRound =
+      Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
+      (combatRound ?? 1)
+    const effectiveRound = combatRound ?? commitRound
+    const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
+    const priorSpendPie = readLhCommitKrPriorSpendForRound(
+      trackerMeta,
+      effectiveRound
+    )
+    const lhPieFracValue = lhPieFraction(
+      effectiveRound,
+      currentNavIniForRender,
+      commitRound,
+      heroIniNum,
+      mechanics.actionsPerKr,
+      mechanics.triggerIniStep,
+      st.max,
+      Number.isFinite(commitIniStored) ? commitIniStored : undefined,
+      priorSpendPie
+    )
+    pieIcon.style.setProperty('--lh-pie-frac', String(lhPieFracValue))
+    pieIcon.classList.toggle(
+      'init-kr-primary-main__icon--lh-pie-full',
+      lhPieFracValue >= 1
+    )
+  }
+}
+
+/**
+ * Alle sichtbaren L.H.-Brüche/Pies an aktuelle Nav-INI anpassen.
+ *
+ * @param {HTMLElement | null | undefined} listRoot
+ * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ */
+function syncLhNavFractionsInList(listRoot, items) {
+  if (!listRoot || !Array.isArray(items)) return
+  const combat = getCombat()
+  const combatRound = combat.started ? combat.round : null
+  const itemById = new Map(items.map((it) => [it.id, it]))
+
+  for (const li of listRoot.querySelectorAll('li.init-row[data-item-id]')) {
+    const itemId = li.getAttribute('data-item-id')
+    if (!itemId) continue
+    const item = itemById.get(itemId)
+    const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!meta) continue
+    patchLhNavVisualsInRow(li, meta, combatRound)
+  }
+
+  for (const li of listRoot.querySelectorAll('li.init-row--phase[data-phase-owner-id]')) {
+    const ownerId = li.getAttribute('data-phase-owner-id')
+    if (!ownerId) continue
+    const item = itemById.get(ownerId)
+    const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!meta) continue
+    patchLhNavVisualsInRow(li, meta, combatRound)
+  }
+}
+
+/**
+ * Nav-Highlight + Nav-INI + L.H.-Bruch synchron bei Kampfwechsel.
+ *
+ * @param {HTMLElement | null | undefined} listRoot
+ * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ * @param {{ scroll?: boolean }} [opts]
+ */
+function syncListNavFromCombat(listRoot, items, opts = {}) {
+  refreshCurrentNavIniForList(items)
+  syncListNavHighlightFromCombat(listRoot, getCombat(), opts)
+  syncLhNavFractionsInList(listRoot, items)
+}
+
 function matchesMergedEntryActive(e, rowActiveId, rowActivePhaseLinkId) {
   if (!rowActiveId) return false
   if (e.kind === 'token') {
@@ -8459,7 +8657,7 @@ function bindStampContextRemove(el, stamp, items) {
   OBR.scene.items.getItems().then(safeRenderList)
   OBR.scene.items.onChange(safeRenderList)
   onCombatChange(() => {
-    syncListNavHighlightFromCombat(element)
+    syncListNavFromCombat(element, lastItems)
     if (lastItems?.length) {
       safeRenderList(lastItems, { force: true })
     }

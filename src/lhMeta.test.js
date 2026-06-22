@@ -137,6 +137,29 @@ describe('lhDisplayStepFromNav', () => {
     expect(stepWithPrior).toBe(1)
   })
 
+  it('steigt mit sinkender Nav-INI (Regression y/x bei Navigation)', () => {
+    const heroIni = 17
+    const lhMax = 5
+    const mechanics = { actionsPerKr: 2, triggerIniStep: -8 }
+    const stepAtHero = lhDisplayStepFromNav(
+      heroIni,
+      mechanics,
+      1,
+      1,
+      17,
+      lhMax
+    )
+    const stepBelowTrigger = lhDisplayStepFromNav(
+      heroIni,
+      mechanics,
+      1,
+      1,
+      9,
+      lhMax
+    )
+    expect(stepBelowTrigger).toBeGreaterThan(stepAtHero)
+  })
+
   it('KR2 am Mutterobjekt: nach Prior 1 in KR1 → 2/3 (Fortschritt über KR wie gewohnt)', () => {
     const heroIni = 17
     const commitIni = 17

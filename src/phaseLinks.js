@@ -1658,3 +1658,21 @@ export function findCombatStepIndex(steps, combat) {
   })
 }
 
+/**
+ * Wie findCombatStepIndex, aber Phasen-Schritt auch bei Substep-Mismatch
+ * (typisch L.H. auf 2.A.-Zeile).
+ */
+export function findCombatStepIndexLoose(steps, combat) {
+  const strict = findCombatStepIndex(steps, combat)
+  if (strict >= 0) return strict
+  const phaseId = combat.currentPhaseLinkId
+  const itemId = combat.currentItemId
+  if (typeof itemId !== 'string' || typeof phaseId !== 'string' || !phaseId) {
+    return -1
+  }
+  return steps.findIndex(
+    (s) =>
+      s.kind === 'phase' && s.ownerId === itemId && s.linkId === phaseId
+  )
+}
+
