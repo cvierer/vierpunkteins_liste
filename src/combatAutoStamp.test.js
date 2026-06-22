@@ -51,7 +51,7 @@ vi.mock('./krCounters.js', () => ({
   motherHasTransferablePrimaryCharge: vi.fn(() => true),
   patchKrCounterByDelta: vi.fn(async () => true),
   patchZaoSlotStampPrimary: vi.fn(async () => true),
-  stampLhCompletion: vi.fn(async () => {}),
+  stampLhCompletion: vi.fn(async () => true),
   KR_ANG: 'krAng',
   KR_SRA: 'krSra',
   KR_LH_ACTION: 'krLhAction',
@@ -502,5 +502,26 @@ describe('autoStampForCombatStep', () => {
         stampAnchor: { rowId: 'hero-b', phaseLinkId: null },
       })
     )
+  })
+
+  it('gibt false wenn stampLhCompletion fehlschlägt', async () => {
+    vi.mocked(readKrFirstSlotKind).mockReturnValue('lh')
+    vi.mocked(isLhActive).mockReturnValue(true)
+    vi.mocked(lhCompletionStampReady).mockReturnValue(true)
+    vi.mocked(stampLhCompletion).mockResolvedValue(false)
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
+      {
+        id: 'hero-a',
+        metadata: {
+          'vierpunkteins_kampf.tracker/metadata': { krFirstSlotKind: 'lh' },
+        },
+      },
+    ])
+    const ok = await autoStampForCombatStep({
+      kind: 'token',
+      id: 'hero-a',
+      sub: 'action',
+    })
+    expect(ok).toBe(false)
   })
 })

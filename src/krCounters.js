@@ -1726,7 +1726,12 @@ export async function patchEnsureZaoSlotForLink(itemId, linkId, phaseNum) {
  * Nur wenn die Mutter leer ist, wird die Ladung aus dem letzten geladenen
  * 2.A.-Slot geholt (und dieser entfernt). Gilt für Ang., S.R.A. und L.H.
  */
-export function motherHasTransferablePrimaryCharge(meta) {
+/**
+ * Primär-Ladung stempelbar (nutzt `readKrPrimaryLadung`, nicht nur `meta[field]`).
+ *
+ * @param {unknown} meta
+ */
+export function primaryChargeStampEligible(meta) {
   if (!meta || typeof meta !== 'object') return false
   const firstKind = readKrFirstSlotKind(meta)
   if (firstKind === 'uo') return false
@@ -1735,8 +1740,28 @@ export function motherHasTransferablePrimaryCharge(meta) {
     const lh = normalizeKrDigit(meta[KR_LH_ACTION])
     return lh === 0 && !meta[KR_LH_VOID_BY_TRANSFER]
   }
-  const field = primaryFieldForKind(meta)
-  return krTransferMarkPresent(normalizeKrDigit(meta[field]))
+  return krTransferMarkPresent(normalizeKrDigit(readKrPrimaryLadung(meta)))
+}
+
+export function motherHasTransferablePrimaryCharge(meta) {
+  return primaryChargeStampEligible(meta)
+}
+
+/** @param {unknown} meta @param {string} field @param {number} maxDigit */
+function krCounterCurForField(meta, field, maxDigit) {
+  if (!meta || typeof meta !== 'object') {
+    return normalizeKrDigit(undefined, maxDigit)
+  }
+  const pf = primaryFieldForKind(meta)
+  const isPrimaryField =
+    field === pf ||
+    field === KR_ANG ||
+    field === KR_SRA ||
+    field === KR_LH_ACTION
+  if (isPrimaryField) {
+    return normalizeKrDigit(readKrPrimaryLadung(meta))
+  }
+  return normalizeKrDigit(meta[field], maxDigit)
 }
 
 export async function patchKrTransferPrimaryToAbw(itemId) {
@@ -2545,11 +2570,12 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
   const paradeExtraSlotIdx = paradeExtraIndexForField(field)
   const isParadeExtraField = paradeExtraSlotIdx !== null
   if (field === KR_FREE_ACTION && !getCombat().started) return false
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
+  const items = await OBR.scene.items.getItems([itemId])
+  const item = items?.[0]
   if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (meta) migrateHeroExtraCountFields(meta)
+  if (!meta) return false
+  migrateHeroExtraCountFields(meta)
   // Laengerfristige Handlung laeuft und endet NICHT in dieser KR:
   // Ang/SRA/Schild/Parade gesperrt; FA und L.H.-Action selbst bleiben frei.
   // In der End-KR werden alle Felder freigegeben (Held kann weiterkaempfen).
@@ -2572,13 +2598,13 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
     maxDigit = 1
   }
   const mod = maxDigit + 1
-  const cur = normalizeKrDigit(meta?.[field], maxDigit)
+  const cur = krCounterCurForField(meta, field, maxDigit)
   if (field === KR_FREE_ACTION && !inc && cur === 0) {
     return false
   }
   const next = inc ? (cur + 1) % mod : (cur + mod - 1) % mod
   const lhSecondBefore =
-    field === KR_LH_ACTION && meta ? readKrLhSecondCharge(meta) : 1
+    field === KR_LH_ACTION ? readKrLhSecondCharge(meta) : 1
   if (
     field === KR_LH_ACTION &&
     inc &&
@@ -2587,6 +2613,18 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
   ) {
     return false
   }
+
+  let addCount = 0
+  let removeCount = 0
+  if (inc) {
+    if (next === 0 && cur > 0) removeCount = cur
+    else if (next > cur) addCount = next - cur
+  } else {
+    if (cur === 0 && next > 0) addCount = next
+    else if (next < cur) removeCount = cur - next
+  }
+  if (addCount <= 0 && removeCount <= 0) return false
+
   const ownerName =
     getTokenListDisplayName(item) || String(item?.name ?? '')
   const pfBefore = primaryFieldForKind(meta)
@@ -2674,17 +2712,6 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
       }
     }
   })
-
-  let addCount = 0
-  let removeCount = 0
-  if (inc) {
-    if (next === 0 && cur > 0) removeCount = cur
-    else if (next > cur) addCount = next - cur
-  } else {
-    if (cur === 0 && next > 0) addCount = next
-    else if (next < cur) removeCount = cur - next
-  }
-  if (addCount <= 0 && removeCount <= 0) return false
 
   const skipGmStamp = canEditSceneItem(item) && !isGmSync()
   await patchActionStamps((stamps) => {
@@ -2834,9 +2861,9 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
  * @param {string | null} anchorPhaseLinkId  null = Mutter-Slot, sonst LH-End n.A.-Link
  */
 export async function stampLhCompletion(itemId, anchorPhaseLinkId = null) {
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
+  const items = await OBR.scene.items.getItems([itemId])
+  const item = items?.[0]
+  if (!item || !canEditSceneItem(item)) return false
   const ownerName = getTokenListDisplayName(item) || String(item?.name ?? '')
   const skipGmStamp = canEditSceneItem(item) && !isGmSync()
   let stamped = false
@@ -2879,7 +2906,7 @@ export async function stampLhCompletion(itemId, anchorPhaseLinkId = null) {
     return { anchorId, entries }
   }, { skipGmCheck: skipGmStamp })
 
-  if (!stamped) return
+  if (!stamped) return false
 
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const draft of drafts) {
@@ -2888,6 +2915,7 @@ export async function stampLhCompletion(itemId, anchorPhaseLinkId = null) {
       clearLhTrackerActivity(m)
     }
   })
+  return true
 }
 
 /**

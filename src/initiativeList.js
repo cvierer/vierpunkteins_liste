@@ -396,6 +396,154 @@ function navigationMatchesRow(
   return a === r
 }
 
+/** @param {string} ownerItemId @param {string | null | undefined} navigationPhaseLinkId */
+function livePrimaryLadungAllowed(ownerItemId, navigationPhaseLinkId) {
+  const combat = getCombat()
+  if (!combat?.started) return false
+  const rowActiveId =
+    typeof combat.currentItemId === 'string' ? combat.currentItemId : null
+  const rowActivePhaseLinkId =
+    typeof combat.currentPhaseLinkId === 'string'
+      ? combat.currentPhaseLinkId
+      : null
+  return (
+    navigationMatchesRow(
+      ownerItemId,
+      navigationPhaseLinkId,
+      rowActiveId,
+      rowActivePhaseLinkId
+    ) && combat.currentTurnSubStep !== 'reaction'
+  )
+}
+
+/** @param {unknown} trackerMeta @param {string} kind @param {number | null | undefined} combatRound */
+function liveLhLockActive(trackerMeta, kind, combatRound) {
+  return isLhLockingActions(trackerMeta, combatRound) && kind !== 'lh'
+}
+
+/**
+ * @param {unknown} trackerMeta
+ * @param {number | null | undefined} combatRound
+ * @param {boolean} primaryLadungAllowed
+ */
+function liveLhPieStampReady(trackerMeta, combatRound, primaryLadungAllowed) {
+  if (!primaryLadungAllowed) return false
+  if (Boolean(trackerMeta?.[KR_LH_VOID_BY_TRANSFER])) return false
+  const st = readLhState(trackerMeta)
+  if (st.max <= 0) return false
+  const heroIniNum = (() => {
+    const raw = trackerMeta?.initiative
+    const n = Number(String(raw ?? '').trim().replace(',', '.'))
+    return Number.isFinite(n) ? n : null
+  })()
+  const mechanics = readLhMechanics(trackerMeta)
+  const commitRound =
+    Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
+    (combatRound ?? 1)
+  const effectiveRound = combatRound ?? commitRound
+  const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
+  const priorSpendPie = readLhCommitKrPriorSpendForRound(
+    trackerMeta,
+    effectiveRound
+  )
+  return (
+    lhPieFraction(
+      effectiveRound,
+      currentNavIniForRender,
+      commitRound,
+      heroIniNum,
+      mechanics.actionsPerKr,
+      mechanics.triggerIniStep,
+      st.max,
+      Number.isFinite(commitIniStored) ? commitIniStored : undefined,
+      priorSpendPie
+    ) >= 1
+  )
+}
+
+/**
+ * KR-Primary-Stempel-Gates (disabled/highlight) nach Nav-Sync ohne renderList.
+ *
+ * @param {HTMLElement | null | undefined} listRoot
+ * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ */
+function syncKrPrimaryStampGatesInList(listRoot, items) {
+  if (!listRoot || !items?.length) return
+  const itemById = new Map(items.map((i) => [i.id, i]))
+  const combat = getCombat()
+  const combatRound = combat.started ? combat.round : null
+  const rowActiveId = combat.started ? combat.currentItemId : null
+  const rowActivePhaseLinkId = combat.started ? combat.currentPhaseLinkId : null
+  const atRoundBoundaryNav =
+    !rowActivePhaseLinkId &&
+    (rowActiveId === ROUND_START_STEP_ID ||
+      rowActiveId === ROUND_END_STEP_ID)
+
+  for (const shell of listRoot.querySelectorAll('.init-kr-primary-shell')) {
+    const ownerItemId = shell.dataset.krOwnerId
+    if (!ownerItemId) continue
+    const item = itemById.get(ownerItemId)
+    const trackerMeta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!trackerMeta) continue
+
+    const zaoLinkId = shell.dataset.krZaoLinkId || null
+    const isZaoSlot = Boolean(zaoLinkId)
+    const primaryLadungAllowed = livePrimaryLadungAllowed(
+      ownerItemId,
+      isZaoSlot ? zaoLinkId : null
+    )
+    const boundaryAsActiveVisual = atRoundBoundaryNav
+    const phaseRowActive = primaryLadungAllowed || boundaryAsActiveVisual
+    const canEdit = canEditSceneItem(item)
+
+    const zaoSlotRaw = isZaoSlot ? readZaoSlot(trackerMeta, zaoLinkId) : null
+    const zaoSlotOverride = isZaoSlot
+      ? { ...zaoSlotRaw, linkId: zaoLinkId }
+      : null
+    const kind =
+      shell.dataset.krSlotKind ||
+      (isZaoSlot
+        ? readEffectiveZaoSlotKind(zaoSlotOverride)
+        : readKrFirstSlotKind(trackerMeta))
+
+    const main = shell.querySelector('.init-kr-primary-main')
+    const exec = shell.querySelector('.init-kr-primary-main__exec')
+    const icon = shell.querySelector('.init-kr-primary-main__icon')
+    const switchCol = shell.querySelector('.init-kr-primary-switch')
+    const prevBtn = switchCol?.querySelector(
+      '.init-kr-primary-switch__btn:first-of-type'
+    )
+    const nextBtn = switchCol?.querySelector(
+      '.init-kr-primary-switch__btn:last-of-type'
+    )
+    if (!main || !exec || !icon || !prevBtn || !nextBtn) continue
+
+    syncKrPrimaryShellKindVisual(
+      { shell, main, exec, icon, prevBtn, nextBtn, switchCol },
+      kind,
+      trackerMeta,
+      {
+        isZaoSlot,
+        zaoSlotOverride,
+        canEdit,
+        primaryLadungAllowed,
+        phaseRowActive,
+        combatRound,
+        boundaryAsActiveVisual,
+        iniLockHint: '',
+        isRegularZaoSlot:
+          isZaoSlot &&
+          !zaoSlotOverride?.heroExtra &&
+          !zaoSlotOverride?.lhEnd,
+        lhNeedsSecond: false,
+        convertAllowedByLock: true,
+        switchLocked: false,
+        isHeroExtraSlot: Boolean(zaoSlotOverride?.heroExtra),
+      }
+    )
+  }
+}
+
 /** Nav-Highlight: voller Rahmen (Aktion) oder Unterlinie (Reaktion). */
 function applyNavActiveRowClasses(li, combat) {
   li.classList.add('init-row--active')
@@ -775,6 +923,7 @@ function syncListNavFromCombat(listRoot, items, opts = {}) {
   refreshCurrentNavIniForList(items)
   syncListNavHighlightFromCombat(listRoot, getCombat(), opts)
   syncLhNavFractionsInList(listRoot, items)
+  syncKrPrimaryStampGatesInList(listRoot, items)
 }
 
 function matchesMergedEntryActive(e, rowActiveId, rowActivePhaseLinkId) {
@@ -1917,32 +2066,57 @@ function appendKrPrimarySplitCell(
   if (canEdit) {
     exec.addEventListener('click', (e) => {
       e.preventDefault()
-      if (lhLockActive) return
-      if (!primaryLadungAllowed) return
+      const combatNow = getCombat()
+      const roundNow = combatNow.started ? combatNow.round : null
+      const navAllowed = livePrimaryLadungAllowed(ownerItemId, linkIdForSwitch)
+      if (liveLhLockActive(trackerMeta, kind, roundNow)) return
+      if (!navAllowed) return
+      const anchorPid = isZaoSlot ? zaoSlotOverride.linkId : null
+      const stampAnchor = {
+        rowId: ownerItemId,
+        phaseLinkId: anchorPid,
+      }
       if (kind === 'lh') {
-        if (!lhPieStampReady) return
-        const anchorPid = isZaoSlot ? zaoSlotOverride.linkId : null
+        if (!liveLhPieStampReady(trackerMeta, roundNow, navAllowed)) return
         void stampLhCompletion(ownerItemId, anchorPid)
         return
       }
-      if (!hasPrimaryCharge) return
+      const vLive = isZaoSlot
+        ? zaoSlotOverride.marks === 1
+          ? 0
+          : 1
+        : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
+      if (displayIsUoKind || !krTransferMarkPresent(vLive)) return
       if (isZaoSlot) {
         void patchZaoSlotStampPrimary(ownerItemId, zaoSlotOverride.linkId)
       } else {
-        void patchKrCounterByDelta(ownerItemId, displayField, 1)
+        void patchKrCounterByDelta(ownerItemId, displayField, 1, {
+          stampAnchor,
+        })
       }
     })
     shell.addEventListener('contextmenu', (e) => {
       e.preventDefault()
-      if (lhLockActive) return
-      if (!primaryLadungAllowed) return
-      if (hasPrimaryCharge) return
+      const combatNow = getCombat()
+      const roundNow = combatNow.started ? combatNow.round : null
+      const navAllowed = livePrimaryLadungAllowed(ownerItemId, linkIdForSwitch)
+      if (liveLhLockActive(trackerMeta, kind, roundNow)) return
+      if (!navAllowed) return
+      const vLive = isZaoSlot
+        ? zaoSlotOverride.marks === 1
+          ? 0
+          : 1
+        : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
+      if (krTransferMarkPresent(vLive)) return
       if (isZaoSlot) {
         if (zaoSlotOverride?.kind === 'lh') return
         void undoLastZaoSlotStamp(ownerItemId, zaoSlotOverride.linkId)
       } else {
         if (kind === 'lh') return
-        void patchKrCounterByDelta(ownerItemId, displayField, -1)
+        const anchorPid = null
+        void patchKrCounterByDelta(ownerItemId, displayField, -1, {
+          stampAnchor: { rowId: ownerItemId, phaseLinkId: anchorPid },
+        })
       }
     })
   }

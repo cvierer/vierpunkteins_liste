@@ -24,7 +24,11 @@ export async function advanceTokenMotherToReactionSubstep(cur, c) {
   }
 
   if (isStampableCombatStep(cur)) {
-    const stamped = await autoStampForCombatStep(cur)
+    let stamped = await autoStampForCombatStep(cur)
+    if (!stamped) {
+      await OBR.scene.items.getItems([cur.id])
+      stamped = await autoStampForCombatStep(cur)
+    }
     if (stamped) {
       await patchCombat({
         currentItemId: cur.id,

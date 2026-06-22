@@ -84,4 +84,16 @@ describe('advanceTokenMotherToReactionSubstep', () => {
       expect.objectContaining({ currentTurnSubStep: 'reaction' })
     )
   })
+
+  it('retried Auto-Stempel nach frischem getItems', async () => {
+    vi.mocked(autoStampForCombatStep)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([{ id: 'hero-a' }])
+    const cur = { kind: 'token', id: 'hero-a', sub: 'action' }
+    const ok = await advanceTokenMotherToReactionSubstep(cur, combat)
+    expect(ok).toBe(true)
+    expect(autoStampForCombatStep).toHaveBeenCalledTimes(2)
+    expect(OBR.scene.items.getItems).toHaveBeenCalledWith(['hero-a'])
+  })
 })

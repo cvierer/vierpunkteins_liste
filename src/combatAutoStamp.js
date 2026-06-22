@@ -122,8 +122,7 @@ export async function autoStampForCombatStep(step) {
       return false
     }
     if (readKrFirstSlotKind(meta) === 'lh') {
-      await stampLhCompletion(step.id, null)
-      return true
+      return stampLhCompletion(step.id, null)
     }
     const field = primaryFieldForKind(meta)
     return patchKrCounterByDelta(step.id, field, 1, {
@@ -143,8 +142,7 @@ export async function autoStampForCombatStep(step) {
     }
     const slot = readZaoSlot(meta, step.linkId)
     if (slot?.kind === 'lh') {
-      await stampLhCompletion(step.ownerId, step.linkId)
-      return true
+      return stampLhCompletion(step.ownerId, step.linkId)
     }
     return patchZaoSlotStampPrimary(step.ownerId, step.linkId)
   }
