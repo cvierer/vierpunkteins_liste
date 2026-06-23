@@ -6620,6 +6620,10 @@ select.init-row-extra-select {
   position: relative;
   z-index: 84;
 }
+.init-row--active .init-row-main .init-col-lh {
+  position: relative;
+  z-index: 84;
+}
 .init-row--active .init-row-main .init-kr-primary-play,
 .init-row--active .init-row-main .init-row-zao-remove {
   z-index: 82;

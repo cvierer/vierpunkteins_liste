@@ -6,7 +6,7 @@ const {
   patchKrStampParadeExtraFromCharge,
 } = vi.hoisted(() => ({
   patchKrCounterByDelta: vi.fn(async () => true),
-  patchKrStampAbwFromCharge: vi.fn(async () => {}),
+  patchKrStampAbwFromCharge: vi.fn(async () => true),
   patchKrStampParadeExtraFromCharge: vi.fn(async () => {}),
 }))
 
@@ -67,7 +67,7 @@ import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem } from './editAccess.js'
 import { isLhLockingActions } from './lhMeta.js'
 import { readKrAbw, readKrFreeAction, readKrParadeExtraSlots } from './krCounters.js'
-import { liveFaLadungAllowed } from './krAbwStampGates.js'
+import { liveFaLadungAllowed, liveAbwCombatAllowsStamp } from './krAbwStampGates.js'
 import {
   executeAbwStampClick,
   executeFaStampClick,
@@ -86,9 +86,11 @@ describe('reactionStampClick', () => {
     vi.mocked(canEditSceneItem).mockReturnValue(true)
     vi.mocked(isLhLockingActions).mockReturnValue(false)
     vi.mocked(liveFaLadungAllowed).mockReturnValue(true)
+    vi.mocked(liveAbwCombatAllowsStamp).mockReturnValue(true)
     vi.mocked(readKrAbw).mockReturnValue(0)
     vi.mocked(readKrFreeAction).mockReturnValue(0)
     vi.mocked(readKrParadeExtraSlots).mockReturnValue([])
+    vi.mocked(patchKrStampAbwFromCharge).mockResolvedValue(true)
   })
 
   it('reactionStampAnchor nutzt owner row im Reaktionsspeicher', () => {
@@ -103,6 +105,15 @@ describe('reactionStampClick', () => {
   it('reactionAbwStampAllowed false bei L.H.-Lock', () => {
     vi.mocked(isLhLockingActions).mockReturnValue(true)
     expect(reactionAbwStampAllowed({})).toBe(false)
+  })
+
+  it('reactionAbwStampAllowed: Held B ohne L.H. während Held A L.H. lock', () => {
+    vi.mocked(liveAbwCombatAllowsStamp).mockReturnValue(true)
+    vi.mocked(isLhLockingActions).mockImplementation((meta) =>
+      Boolean(meta?.lhRem)
+    )
+    expect(reactionAbwStampAllowed({ lhMax: 3, lhRem: 2 })).toBe(false)
+    expect(reactionAbwStampAllowed({ lhMax: 0, lhRem: 0 })).toBe(true)
   })
 
   it('reactionFaStampAllowed true bei L.H.-Lock (F.A. nicht gesperrt)', () => {
@@ -185,11 +196,36 @@ describe('reactionStampClick', () => {
     const mirror = { classList: { contains: () => true } }
     const target = {
       closest(sel) {
+        if (sel === '.init-lh-counter__action-btn') return null
         if (sel === '.init-kr-abw-split-shell--mirror-link') return mirror
         return null
       },
     }
     expect(resolveReactionStampTarget(target)).toBe(null)
+  })
+
+  it('resolveReactionStampTarget ignoriert L.H.-Abort-Button', () => {
+    const abortBtn = { classList: { contains: () => true } }
+    const target = {
+      closest(sel) {
+        if (sel === '.init-lh-counter__action-btn') return abortBtn
+        return null
+      },
+    }
+    expect(resolveReactionStampTarget(target)).toBe(null)
+  })
+
+  it('executeAbwStampClick gibt false zurück wenn patchKrStampAbwFromCharge fehlschlägt', async () => {
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
+      {
+        id: 'hero-a',
+        metadata: { [TRACKER_KEY]: { krAbw: 0 } },
+      },
+    ])
+    vi.mocked(readKrAbw).mockReturnValue(0)
+    vi.mocked(patchKrStampAbwFromCharge).mockResolvedValue(false)
+    const ok = await executeAbwStampClick('hero-a', { inReactionStore: true })
+    expect(ok).toBe(false)
   })
 
   it('executeFaStampClick ruft patchKrCounterByDelta auf', async () => {

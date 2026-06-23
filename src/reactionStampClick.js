@@ -89,6 +89,8 @@ export function resolveReactionStampTarget(eventTarget) {
       : null
   if (!el) return null
 
+  if (el.closest('.init-lh-counter__action-btn')) return null
+
   if (el.closest('.init-kr-abw-split-shell--mirror-link')) return null
 
   const faTap = el.closest('.init-fa-cell__tap')
@@ -182,8 +184,7 @@ export async function executeAbwStampClick(ownerItemId, opts = {}) {
 
   const v = normalizeKrDigit(readKrAbw(meta))
   if (abwShieldCountFromKrValue(v) < 1) return false
-  await patchKrStampAbwFromCharge(ownerItemId, { stampAnchor })
-  return true
+  return patchKrStampAbwFromCharge(ownerItemId, { stampAnchor })
 }
 
 /**

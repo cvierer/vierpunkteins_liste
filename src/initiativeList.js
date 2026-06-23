@@ -2955,7 +2955,8 @@ function syncLhAbwContainer(
   counter.classList.add('init-lh-counter--at-abw')
   const lhOverlayEligible =
     motherKindIsLh ||
-    (zaoSlotOverride?.kind === 'lh' && lhAtAbwActive)
+    (zaoSlotOverride?.kind === 'lh' &&
+      (lhAtAbwActive || isLhActive(trackerMeta)))
   if (lhOverlayEligible && lhSt.max === 0 && canEdit && primaryLadungAllowed) {
     appendLhPlayOverlay(counter)
   } else if (lhOverlayEligible && lhSt.max > 0 && canEdit) {
@@ -3088,6 +3089,10 @@ function appendKrCounterPair(
   // Abwehr-Reaktion: jeder Spieler an der eigenen Zeile, unabhängig vom Nav-Zug.
   const abwLadungAllowed = abwCombatAllowsStamp && abwNavAllowsStamp
   const faLadungAllowed = Boolean(combatStarted) && abwNavAllowsStamp
+  const reactionAbwAllowed =
+    liveAbwCombatAllowsStamp() &&
+    !isLhLockingActions(trackerMeta, combatRound)
+  const reactionFaAllowed = liveFaLadungAllowed()
   // Optik (kein Mechanik-Effekt): an den KR-Grenzen — sowohl Beginn als auch
   // Ende der Kampfrunde — werden alle Icons in voller Stärke gezeigt; die
   // Sperren (primaryLadungAllowed/abwLadungAllowed/faLadungAllowed) bleiben
@@ -3194,7 +3199,7 @@ function appendKrCounterPair(
       ownerItemId,
       trackerMeta,
       canEdit,
-      abwLadungAllowed,
+      reactionAbwAllowed,
       phaseRowActive,
       abwRoundBoundaryShell,
       atRoundBoundaryNav,
@@ -3222,7 +3227,7 @@ function appendKrCounterPair(
       canEdit,
       ownerIniStr,
       phaseRowActive,
-      faLadungAllowed,
+      reactionFaAllowed,
       combatStarted,
       true
     )
@@ -3231,7 +3236,7 @@ function appendKrCounterPair(
       ownerItemId,
       trackerMeta,
       canEdit,
-      abwLadungAllowed,
+      reactionAbwAllowed,
       phaseRowActive,
       abwRoundBoundaryShell,
       atRoundBoundaryNav,
@@ -9037,7 +9042,10 @@ function bindStampContextRemove(el, stamp, items) {
   registerLhCommitRenderFlush(() => {
     return new Promise((resolve) => {
       void OBR.scene.items.getItems().then((fresh) => {
-        enqueueRenderList(mergeDeferredRenderItems(fresh, lastItems))
+        const merged = mergeDeferredRenderItems(fresh, lastItems)
+        enqueueRenderList(merged)
+        syncKrAbwStampGatesInList(element, merged)
+        syncKrFaStampGatesInList(element, merged)
         requestAnimationFrame(() => {
           requestAnimationFrame(() => resolve())
         })

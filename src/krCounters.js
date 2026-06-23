@@ -2945,19 +2945,26 @@ export async function stampLhCompletion(itemId, anchorPhaseLinkId = null) {
  */
 export async function patchKrStampAbwFromCharge(itemId, options = {}) {
   const item = await findSceneItemById(itemId)
-  if (!item || !canEditSceneItem(item)) return
+  if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  if (!meta) return false
+  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return false
+  const forcedAnchor = options?.stampAnchor
+  const isReactionStamp =
+    forcedAnchor != null && typeof forcedAnchor.rowId === 'string'
   {
     const c = getCombat()
-    if (!c.started || c.roundIntroPending) return
-    const cid = c.currentItemId
-    if (cid === ROUND_START_STEP_ID || cid === ROUND_END_STEP_ID) return
+    if (!c.started) return false
+    if (!isReactionStamp) {
+      if (c.roundIntroPending) return false
+      const cid = c.currentItemId
+      if (cid === ROUND_START_STEP_ID || cid === ROUND_END_STEP_ID) return false
+    }
   }
   const cur = normalizeKrDigit(meta?.[KR_ABW])
-  if (!krTransferMarkPresent(cur)) return
+  if (!krTransferMarkPresent(cur)) return false
   const next = consumeOneChargeValue(cur)
-  if (next === cur) return
+  if (next === cur) return false
 
   const ownerName = getTokenListDisplayName(item) || String(item?.name ?? '')
   const skipGmStampAbw = canEditSceneItem(item) && !isGmSync()
@@ -3048,6 +3055,7 @@ export async function patchKrStampAbwFromCharge(itemId, options = {}) {
       })
     }
   }
+  return true
 }
 
 /**
