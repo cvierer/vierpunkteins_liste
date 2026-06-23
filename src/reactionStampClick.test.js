@@ -39,6 +39,10 @@ vi.mock('./lhMeta.js', () => ({
   isLhLockingActions: vi.fn(() => false),
 }))
 
+vi.mock('./roomSettings.js', () => ({
+  getRoomSettings: vi.fn(() => ({ highIniFreeActions: false })),
+}))
+
 vi.mock('./krCounters.js', () => ({
   KR_ABW: 'krAbw',
   KR_FREE_ACTION: 'krFreeAction',
@@ -47,6 +51,8 @@ vi.mock('./krCounters.js', () => ({
   patchKrStampAbwFromCharge,
   patchKrStampParadeExtraFromCharge,
   readKrAbw: vi.fn(() => 0),
+  readKrFreeAction: vi.fn(() => 0),
+  readHeroFaMax: vi.fn(() => 2),
   readKrParadeExtraSlots: vi.fn(() => []),
   undoKrActionStamp: vi.fn(async () => {}),
 }))
@@ -60,21 +66,28 @@ vi.mock('./krAbwStampGates.js', () => ({
 import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem } from './editAccess.js'
 import { isLhLockingActions } from './lhMeta.js'
-import { readKrAbw, readKrParadeExtraSlots } from './krCounters.js'
+import { readKrAbw, readKrFreeAction, readKrParadeExtraSlots } from './krCounters.js'
+import { liveFaLadungAllowed } from './krAbwStampGates.js'
 import {
   executeAbwStampClick,
   executeFaStampClick,
+  handleReactionStampClick,
   reactionAbwStampAllowed,
+  reactionFaStampAllowed,
   reactionStampAnchor,
   resolveReactionStampTarget,
 } from './reactionStampClick.js'
+
+const TRACKER_KEY = 'vierpunkteins_kampf.tracker/metadata'
 
 describe('reactionStampClick', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(canEditSceneItem).mockReturnValue(true)
     vi.mocked(isLhLockingActions).mockReturnValue(false)
+    vi.mocked(liveFaLadungAllowed).mockReturnValue(true)
     vi.mocked(readKrAbw).mockReturnValue(0)
+    vi.mocked(readKrFreeAction).mockReturnValue(0)
     vi.mocked(readKrParadeExtraSlots).mockReturnValue([])
   })
 
@@ -90,6 +103,11 @@ describe('reactionStampClick', () => {
   it('reactionAbwStampAllowed false bei L.H.-Lock', () => {
     vi.mocked(isLhLockingActions).mockReturnValue(true)
     expect(reactionAbwStampAllowed({})).toBe(false)
+  })
+
+  it('reactionFaStampAllowed true bei L.H.-Lock (F.A. nicht gesperrt)', () => {
+    vi.mocked(isLhLockingActions).mockReturnValue(true)
+    expect(reactionFaStampAllowed(null, { heroFaMax: 2 }, 1)).toBe(true)
   })
 
   it('resolveReactionStampTarget findet F.A.-Tap', () => {
@@ -111,6 +129,30 @@ describe('reactionStampClick', () => {
       kind: 'fa',
       ownerItemId: 'hero-a',
       inReactionStore: false,
+    })
+  })
+
+  it('resolveReactionStampTarget findet F.A. im Reaktionsspeicher', () => {
+    const reactionStore = {}
+    const tap = {
+      closest(sel) {
+        if (sel === '.init-kr-abw-split-shell--mirror-link') return null
+        if (sel === '.init-fa-cell__tap') return tap
+        if (sel === '.init-fa-cell[data-fa-link-group]') {
+          return {
+            getAttribute: (n) =>
+              n === 'data-fa-link-group' ? 'hero-b' : null,
+            closest: (s) =>
+              s === '.init-kr-reaction-store' ? reactionStore : null,
+          }
+        }
+        return null
+      },
+    }
+    expect(resolveReactionStampTarget(tap)).toEqual({
+      kind: 'fa',
+      ownerItemId: 'hero-b',
+      inReactionStore: true,
     })
   })
 
@@ -154,7 +196,7 @@ describe('reactionStampClick', () => {
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
       {
         id: 'hero-a',
-        metadata: { 'vierpunkteins_kampf.tracker/metadata': {} },
+        metadata: { [TRACKER_KEY]: { heroFaMax: 2 } },
       },
     ])
     const ok = await executeFaStampClick('hero-a', 1)
@@ -162,7 +204,25 @@ describe('reactionStampClick', () => {
     expect(patchKrCounterByDelta).toHaveBeenCalledWith(
       'hero-a',
       'krFreeAction',
-      1
+      1,
+      {}
+    )
+  })
+
+  it('executeFaStampClick nutzt owner-Anker im Reaktionsspeicher', async () => {
+    vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
+      {
+        id: 'hero-b',
+        metadata: { [TRACKER_KEY]: { heroFaMax: 2 } },
+      },
+    ])
+    const ok = await executeFaStampClick('hero-b', 1, { inReactionStore: true })
+    expect(ok).toBe(true)
+    expect(patchKrCounterByDelta).toHaveBeenCalledWith(
+      'hero-b',
+      'krFreeAction',
+      1,
+      { stampAnchor: { rowId: 'hero-b', phaseLinkId: null } }
     )
   })
 
@@ -170,7 +230,7 @@ describe('reactionStampClick', () => {
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
       {
         id: 'hero-b',
-        metadata: { 'vierpunkteins_kampf.tracker/metadata': { krAbw: 0 } },
+        metadata: { [TRACKER_KEY]: { krAbw: 0 } },
       },
     ])
     vi.mocked(readKrAbw).mockReturnValue(0)
@@ -178,5 +238,34 @@ describe('reactionStampClick', () => {
     expect(patchKrStampAbwFromCharge).toHaveBeenCalledWith('hero-b', {
       stampAnchor: { rowId: 'hero-b', phaseLinkId: null },
     })
+  })
+
+  it('handleReactionStampClick ruft preventDefault nicht bei Gate-Fail', async () => {
+    vi.mocked(liveFaLadungAllowed).mockReturnValue(false)
+    const preventDefault = vi.fn()
+    const stopPropagation = vi.fn()
+    const tap = {
+      closest(sel) {
+        if (sel === '.init-kr-abw-split-shell--mirror-link') return null
+        if (sel === '.init-fa-cell__tap') return tap
+        if (sel === '.init-fa-cell[data-fa-link-group]') {
+          return {
+            getAttribute: (n) =>
+              n === 'data-fa-link-group' ? 'hero-a' : null,
+            closest: () => null,
+          }
+        }
+        return null
+      },
+    }
+    const handled = await handleReactionStampClick({
+      target: tap,
+      preventDefault,
+      stopPropagation,
+    })
+    expect(handled).toBe(false)
+    expect(preventDefault).not.toHaveBeenCalled()
+    expect(stopPropagation).not.toHaveBeenCalled()
+    expect(patchKrCounterByDelta).not.toHaveBeenCalled()
   })
 })

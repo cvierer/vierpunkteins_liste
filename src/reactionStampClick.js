@@ -11,9 +11,12 @@ import {
   patchKrStampAbwFromCharge,
   patchKrStampParadeExtraFromCharge,
   readKrAbw,
+  readKrFreeAction,
   readKrParadeExtraSlots,
+  readHeroFaMax,
   undoKrActionStamp,
 } from './krCounters.js'
+import { getRoomSettings } from './roomSettings.js'
 import {
   liveAbwCombatAllowsStamp,
   liveAbwStampAnchor,
@@ -43,10 +46,21 @@ export function reactionAbwStampAllowed(meta, combat = null) {
 }
 
 /**
+ * F.A. stempelbar: Kampf-Gates nur — L.H.-Sperre gilt nicht für F.A.
+ *
  * @param {import('./combatRoom.js').ReturnType<typeof getCombat> | null | undefined} [combat]
+ * @param {unknown} [meta]
+ * @param {number} [delta]
  */
-export function reactionFaStampAllowed(combat = null) {
-  return liveFaLadungAllowed(combat)
+export function reactionFaStampAllowed(combat = null, meta = null, delta = 1) {
+  if (!liveFaLadungAllowed(combat)) return false
+  if (delta <= 0 || !meta) return true
+  const iniStr = /** @type {{ initiative?: string }} */ (meta)?.initiative
+  const settings = getRoomSettings()
+  const faMax = readHeroFaMax(meta, iniStr, settings)
+  const used = readKrFreeAction(meta, faMax)
+  const avail = Math.max(0, faMax - Math.max(0, Math.floor(Number(used)) || 0))
+  return avail > 0
 }
 
 /**
@@ -175,13 +189,24 @@ export async function executeAbwStampClick(ownerItemId, opts = {}) {
 /**
  * @param {string} ownerItemId
  * @param {number} delta
+ * @param {{ inReactionStore?: boolean }} [opts]
  * @returns {Promise<boolean>}
  */
-export async function executeFaStampClick(ownerItemId, delta) {
-  if (!reactionFaStampAllowed(getCombat())) return false
+export async function executeFaStampClick(ownerItemId, delta, opts = {}) {
+  const combat = getCombat()
   const item = await findSceneItemById(ownerItemId)
   if (!item || !canEditSceneItem(item)) return false
-  return patchKrCounterByDelta(ownerItemId, KR_FREE_ACTION, delta)
+  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+  if (!meta) return false
+  if (!reactionFaStampAllowed(combat, meta, delta)) return false
+
+  const inReactionStore = Boolean(opts.inReactionStore)
+  const patchOpts = inReactionStore
+    ? {
+        stampAnchor: reactionStampAnchor(ownerItemId, combat, true),
+      }
+    : {}
+  return patchKrCounterByDelta(ownerItemId, KR_FREE_ACTION, delta, patchOpts)
 }
 
 /**
@@ -192,12 +217,27 @@ export async function handleReactionStampClick(event) {
   const resolved = resolveReactionStampTarget(event.target)
   if (!resolved) return false
 
-  event.preventDefault()
-  event.stopPropagation()
+  const combat = getCombat()
 
   if (resolved.kind === 'fa') {
-    return executeFaStampClick(resolved.ownerItemId, 1)
+    const item = await findSceneItemById(resolved.ownerItemId)
+    if (!item || !canEditSceneItem(item)) return false
+    const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!meta || !reactionFaStampAllowed(combat, meta, 1)) return false
+    event.preventDefault()
+    event.stopPropagation()
+    return executeFaStampClick(resolved.ownerItemId, 1, {
+      inReactionStore: resolved.inReactionStore,
+    })
   }
+
+  const item = await findSceneItemById(resolved.ownerItemId)
+  if (!item || !canEditSceneItem(item)) return false
+  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+  if (!meta || !reactionAbwStampAllowed(meta, combat)) return false
+
+  event.preventDefault()
+  event.stopPropagation()
 
   return executeAbwStampClick(resolved.ownerItemId, {
     kind: resolved.kind === 'parade' ? 'parade' : 'abw',
@@ -216,10 +256,15 @@ export async function handleReactionStampContextMenu(event) {
 
   const combat = getCombat()
   if (resolved.kind === 'fa') {
-    if (!reactionFaStampAllowed(combat)) return false
+    const item = await findSceneItemById(resolved.ownerItemId)
+    if (!item || !canEditSceneItem(item)) return false
+    const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!meta || !reactionFaStampAllowed(combat, meta, -1)) return false
     event.preventDefault()
     event.stopPropagation()
-    return executeFaStampClick(resolved.ownerItemId, -1)
+    return executeFaStampClick(resolved.ownerItemId, -1, {
+      inReactionStore: resolved.inReactionStore,
+    })
   }
 
   const item = await findSceneItemById(resolved.ownerItemId)
