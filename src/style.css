@@ -4997,23 +4997,28 @@ select.init-row-extra-select {
   justify-content: center;
 }
 
-.init-kr-primary-lh-pie {
+/* Sanduhr-Layer (Frame + 2x Sand + Rieselstrahl), deckungsgleich uebereinander.
+   .init-kr-primary-lh-hg traegt explizit die GLEICHE Groesse wie das statische
+   Icon (siehe .init-kr-primary-main__icon .init-kr-primary-kind__svg), damit der
+   laufende Zustand nicht kleiner wirkt; die Layer liegen absolut darueber.
+   Sand-Fuellstand via --lh-pie-frac flaechenbasiert (Dreieckskammern): Sandmenge
+   oben = (1 - frac), unten = frac. Da Flaeche ~ Hoehe^2 ist, ergibt sqrt die
+   sichtbare Fuellhoehe -> bei frac = 2/3 ist oben 1/3, unten 2/3 Sand.
+   Geometrie (viewBox 0..34): Neck y17.5, obere Kammer y8.5..17.5, untere y17.5..26.5.
+   In "to top"-Prozent: Neck = 48.53%, Boden untere Kammer = 22.06%, Kammerhoehe = 26.47%. */
+.init-kr-primary-lh-hg {
   position: relative;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-
-/* Sanduhr-Layer (Frame + 2x Sand + Rieselstrahl), deckungsgleich uebereinander.
-   Sand-Fuellstand via --lh-pie-frac: oben (1 - frac), unten frac -> Sand rieselt
-   von oben nach unten; bei frac = 0.5 sind beide Kammern gleich gefuellt.
-   Kammer-Grenzen (viewBox 0..34): oben y7.5..16.5, unten y16.5..25.5.
-   In "to top"-Prozent: Neck = 51.47%, Boden untere Kammer = 25%, Kammerhoehe = 26.47%. */
-.init-kr-primary-lh-pie .init-kr-primary-lh-hg {
-  position: absolute;
-  inset: 0;
+  height: min(
+    calc(33.85px * var(--init-combat-icon-scale)),
+    calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
+  );
+  width: calc(
+    min(
+        calc(33.85px * var(--init-combat-icon-scale)),
+        calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
+      ) * 24 / 34
+  );
   pointer-events: none;
 }
 
@@ -5041,9 +5046,7 @@ select.init-row-extra-select {
   opacity: 0.7;
 }
 
-.init-kr-primary-lh-hg__frame .init-kr-primary-lh-hg__svg,
-.init-kr-primary-lh-hg__sand .init-kr-primary-kind__svg,
-.init-kr-primary-lh-hg__stream .init-kr-primary-kind__svg {
+.init-kr-primary-lh-hg__frame .init-kr-primary-lh-hg__svg {
   width: 100%;
   height: 100%;
 }
@@ -5051,16 +5054,16 @@ select.init-row-extra-select {
 .init-kr-primary-lh-hg__sand--top {
   -webkit-mask-image: linear-gradient(
     to top,
-    transparent 51.47%,
-    #000 51.47%,
-    #000 calc(51.47% + (1 - var(--lh-pie-frac, 0)) * 26.47%),
+    transparent 48.53%,
+    #000 48.53%,
+    #000 calc(48.53% + sqrt(1 - var(--lh-pie-frac, 0)) * 26.47%),
     transparent 0
   );
   mask-image: linear-gradient(
     to top,
-    transparent 51.47%,
-    #000 51.47%,
-    #000 calc(51.47% + (1 - var(--lh-pie-frac, 0)) * 26.47%),
+    transparent 48.53%,
+    #000 48.53%,
+    #000 calc(48.53% + sqrt(1 - var(--lh-pie-frac, 0)) * 26.47%),
     transparent 0
   );
 }
@@ -5068,16 +5071,16 @@ select.init-row-extra-select {
 .init-kr-primary-lh-hg__sand--bottom {
   -webkit-mask-image: linear-gradient(
     to top,
-    transparent 25%,
-    #000 25%,
-    #000 calc(25% + var(--lh-pie-frac, 0) * 26.47%),
+    transparent 22.06%,
+    #000 22.06%,
+    #000 calc(22.06% + (1 - sqrt(1 - var(--lh-pie-frac, 0))) * 26.47%),
     transparent 0
   );
   mask-image: linear-gradient(
     to top,
-    transparent 25%,
-    #000 25%,
-    #000 calc(25% + var(--lh-pie-frac, 0) * 26.47%),
+    transparent 22.06%,
+    #000 22.06%,
+    #000 calc(22.06% + (1 - sqrt(1 - var(--lh-pie-frac, 0))) * 26.47%),
     transparent 0
   );
 }
