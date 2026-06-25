@@ -104,6 +104,15 @@ import {
   initiativeRank,
 } from './initiativeSort.js'
 import {
+  clampIniContinuous,
+  composeProposedIniFromDragIntPart,
+  formatHookDisplay,
+  iniBaseIntFromLerp,
+  intPartFromIniStr,
+  parseIniNumber,
+  pickNearestValidSlot,
+} from './initiativeListIniDrag.js'
+import {
   addPhaseChildLink,
   buildCombatTurnSteps,
   buildMergedDisplayRows,
@@ -3475,16 +3484,6 @@ function isTokenDragTransfer(dataTransfer) {
   )
 }
 
-function formatHookDisplay(hook) {
-  if (hook === null) return ''
-  return Number.isInteger(hook) ? String(hook) : String(hook)
-}
-
-function parseIniNumber(s) {
-  const n = Number(String(s ?? '').trim().replace(',', '.'))
-  return Number.isFinite(n) ? n : null
-}
-
 /** INI-Stützpunkte für vertikales Lerp: Token + Phasen-Zeilen (Ziel-INI). */
 function buildDragKnots(listElement, items, tieOrderIds, dragId) {
   const rows = collectSortedParticipants(
@@ -3630,50 +3629,6 @@ function lerpIniFromClientY(clientY, knots, listUl, anchor) {
   return anchorInt + tDown * (bottomIni - anchorInt)
 }
 
-function clampIniContinuous(continuous) {
-  if (continuous == null || !Number.isFinite(continuous)) return null
-  return continuous
-}
-
-/** Konsistentes Runden (ohne JS „half-to-even“ bei .5). */
-function roundHalfUp(n) {
-  if (!Number.isFinite(n)) return null
-  return Math.floor(n + 0.5)
-}
-
-function iniBaseIntFromLerp(continuous) {
-  return roundHalfUp(continuous)
-}
-
-function formatIniStorage(n) {
-  if (!Number.isFinite(n)) return '0'
-  const x = n
-  let s = x.toFixed(4).replace(/\.?0+$/, '')
-  if (s === '' || s === '-') s = '0'
-  return s
-}
-
-function intPartFromIniStr(iniStr) {
-  const r = initiativeRank(iniStr)
-  if (r && Number.isFinite(r.intPart)) return r.intPart
-  const n = parseIniNumber(iniStr)
-  return Number.isFinite(n) ? roundHalfUp(n) : 0
-}
-
-/**
- * Ganzzahliger „Kampfwert“-Anteil aus vertikalem Lerp; Nachkomma wie bisher am Token.
- * newNum = Ersatz-Ganzzahlanteil + (aktueller Wert − trunc-Anteil aus initiativeRank).
- */
-function composeProposedIniFromDragIntPart(replacementIntPart, currentIniStr) {
-  const cur = parseIniNumber(currentIniStr)
-  const r = initiativeRank(currentIniStr)
-  if (cur === null || r === null) {
-    return formatIniStorage(replacementIntPart)
-  }
-  const newNum = replacementIntPart + (cur - r.intPart)
-  return formatIniStorage(newNum)
-}
-
 function dragProposesIniChange(proposedStr, curStr, dragRow, dragId, phaseRef) {
   if (phaseRef) {
     if (!dragRow) return false
@@ -3789,20 +3744,6 @@ function clientYToInsertSlot(clientY, tokenEls) {
     if (clientY >= mid) slot = i + 1
   }
   return slot
-}
-
-function pickNearestValidSlot(rawSlot, validSlots) {
-  if (validSlots.length === 0) return null
-  let best = validSlots[0]
-  let bestD = Math.abs(rawSlot - best)
-  for (const s of validSlots) {
-    const d = Math.abs(rawSlot - s)
-    if (d < bestD || (d === bestD && s < best)) {
-      best = s
-      bestD = d
-    }
-  }
-  return best
 }
 
 function findListLiForSwapDisc(ul, disc) {
