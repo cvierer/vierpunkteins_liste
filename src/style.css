@@ -5006,62 +5006,79 @@ select.init-row-extra-select {
   height: 100%;
 }
 
-/* S.R.A.-Farben, gleicher Winkel wie Stern-Pie (--lh-pie-frac), ab 12 Uhr */
-.init-kr-primary-lh-pie__disc {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 0;
-  width: 80%;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  pointer-events: none;
-  box-sizing: border-box;
-  box-shadow: inset 0 0 0 1px rgba(184, 134, 11, 0.35);
-  background: conic-gradient(
-    from 0deg at 50% 50%,
-    #ffca28 0deg,
-    #ef6c00 calc(var(--lh-pie-frac, 0) * 360deg),
-    transparent calc(var(--lh-pie-frac, 0) * 360deg)
-  );
-}
-
-.init-kr-primary-lh-pie__base,
-.init-kr-primary-lh-pie__fill {
+/* Sanduhr-Layer (Frame + 2x Sand + Rieselstrahl), deckungsgleich uebereinander.
+   Sand-Fuellstand via --lh-pie-frac: oben (1 - frac), unten frac -> Sand rieselt
+   von oben nach unten; bei frac = 0.5 sind beide Kammern gleich gefuellt.
+   Kammer-Grenzen (viewBox 0..34): oben y7.5..16.5, unten y16.5..25.5.
+   In "to top"-Prozent: Neck = 51.47%, Boden untere Kammer = 25%, Kammerhoehe = 26.47%. */
+.init-kr-primary-lh-pie .init-kr-primary-lh-hg {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  pointer-events: none;
+}
+
+.init-kr-primary-lh-hg__frame,
+.init-kr-primary-lh-hg__sand,
+.init-kr-primary-lh-hg__stream {
+  position: absolute;
+  inset: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
 }
 
-.init-kr-primary-lh-pie__fill {
-  z-index: 2;
+.init-kr-primary-lh-hg__frame {
+  z-index: 0;
 }
 
-.init-kr-primary-lh-pie__base .init-kr-primary-kind__svg,
-.init-kr-primary-lh-pie__fill .init-kr-primary-kind__svg {
+.init-kr-primary-lh-hg__sand {
+  z-index: 1;
+}
+
+.init-kr-primary-lh-hg__stream {
+  z-index: 2;
+  opacity: 0.7;
+}
+
+.init-kr-primary-lh-hg__frame .init-kr-primary-lh-hg__svg,
+.init-kr-primary-lh-hg__sand .init-kr-primary-kind__svg,
+.init-kr-primary-lh-hg__stream .init-kr-primary-kind__svg {
   width: 100%;
   height: 100%;
 }
 
-.init-kr-primary-lh-pie__base {
-  opacity: 0;
+.init-kr-primary-lh-hg__sand--top {
+  -webkit-mask-image: linear-gradient(
+    to top,
+    transparent 51.47%,
+    #000 51.47%,
+    #000 calc(51.47% + (1 - var(--lh-pie-frac, 0)) * 26.47%),
+    transparent 0
+  );
+  mask-image: linear-gradient(
+    to top,
+    transparent 51.47%,
+    #000 51.47%,
+    #000 calc(51.47% + (1 - var(--lh-pie-frac, 0)) * 26.47%),
+    transparent 0
+  );
 }
 
-.init-kr-primary-lh-pie__fill {
-  -webkit-mask-image: conic-gradient(
-    from 0deg,
-    #000 0deg calc(var(--lh-pie-frac, 0) * 360deg),
-    transparent calc(var(--lh-pie-frac, 0) * 360deg)
+.init-kr-primary-lh-hg__sand--bottom {
+  -webkit-mask-image: linear-gradient(
+    to top,
+    transparent 25%,
+    #000 25%,
+    #000 calc(25% + var(--lh-pie-frac, 0) * 26.47%),
+    transparent 0
   );
-  mask-image: conic-gradient(
-    from 0deg,
-    #000 0deg calc(var(--lh-pie-frac, 0) * 360deg),
-    transparent calc(var(--lh-pie-frac, 0) * 360deg)
+  mask-image: linear-gradient(
+    to top,
+    transparent 25%,
+    #000 25%,
+    #000 calc(25% + var(--lh-pie-frac, 0) * 26.47%),
+    transparent 0
   );
 }
 

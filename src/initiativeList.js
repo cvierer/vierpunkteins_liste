@@ -89,6 +89,10 @@ import {
   SVG_PRIMARY_ACTION,
   SVG_PRIMARY_ATTACK,
   SVG_PRIMARY_LH_STAR,
+  SVG_LH_FRAME,
+  SVG_LH_SAND_TOP,
+  SVG_LH_SAND_BOTTOM,
+  SVG_LH_STREAM,
   SVG_UO_CONVERT_SHIELD,
 } from './krPrimaryKindIcons.js'
 import {
@@ -1506,6 +1510,19 @@ function applyHeroPrimaryIconColor(root, trackerMeta, canEdit) {
   }
 }
 
+// Laufende L.H.: Sanduhr aus Frame + zwei Sand-Layern + Rieselstrahl. Der
+// Fuellstand wird in CSS ueber --lh-pie-frac maskiert (Sand von oben nach unten).
+function lhHourglassPieMarkup() {
+  return (
+    '<span class="init-kr-primary-lh-hg" aria-hidden="true">' +
+    `<span class="init-kr-primary-lh-hg__frame">${SVG_LH_FRAME}</span>` +
+    `<span class="init-kr-primary-lh-hg__sand init-kr-primary-lh-hg__sand--top">${SVG_LH_SAND_TOP}</span>` +
+    `<span class="init-kr-primary-lh-hg__sand init-kr-primary-lh-hg__sand--bottom">${SVG_LH_SAND_BOTTOM}</span>` +
+    `<span class="init-kr-primary-lh-hg__stream">${SVG_LH_STREAM}</span>` +
+    '</span>'
+  )
+}
+
 function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   const { shell, main, exec, icon, prevBtn, nextBtn, switchCol } = els
   const {
@@ -1609,12 +1626,7 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
       )
       icon.classList.add('init-kr-primary-main__icon--lh-pie')
       icon.style.setProperty('--lh-pie-frac', String(lhPieFracValue))
-      icon.innerHTML =
-        `<span class="init-kr-primary-lh-pie" aria-hidden="true">` +
-        `<span class="init-kr-primary-lh-pie__disc" aria-hidden="true"></span>` +
-        `<span class="init-kr-primary-lh-pie__base">${SVG_PRIMARY_LH_STAR}</span>` +
-        `<span class="init-kr-primary-lh-pie__fill">${SVG_PRIMARY_LH_STAR}</span>` +
-        `</span>`
+      icon.innerHTML = lhHourglassPieMarkup()
       if (lhPieFracValue >= 1) {
         icon.classList.add('init-kr-primary-main__icon--lh-pie-full')
       }
@@ -1992,12 +2004,7 @@ function appendKrPrimarySplitCell(
     } else if (lhPieFracValue !== null) {
       icon.classList.add('init-kr-primary-main__icon--lh-pie')
       icon.style.setProperty('--lh-pie-frac', String(lhPieFracValue))
-      icon.innerHTML =
-        `<span class="init-kr-primary-lh-pie" aria-hidden="true">` +
-        `<span class="init-kr-primary-lh-pie__disc" aria-hidden="true"></span>` +
-        `<span class="init-kr-primary-lh-pie__base">${SVG_PRIMARY_LH_STAR}</span>` +
-        `<span class="init-kr-primary-lh-pie__fill">${SVG_PRIMARY_LH_STAR}</span>` +
-        `</span>`
+      icon.innerHTML = lhHourglassPieMarkup()
       if (lhPieFullyFilled) {
         icon.classList.add('init-kr-primary-main__icon--lh-pie-full')
       }
