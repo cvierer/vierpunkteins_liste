@@ -95,34 +95,72 @@ import {
   removeHeroExMod,
   removeHeroExModsByBundleId,
 } from './heroExMods.js'
-
-/** Tooltip WS-Feld (Mouseover). */
-export const WS_RULES_TOOLTIP =
-  'Ohne Modifikationen liegt die WS bei KO/2. Wenn die erlittenen SP höher als die WS ist, bekommt man: eine Wunde, wenn SP > KO: zwei Wunden, wenn SP > 1,5 x KO: drei Wunden.'
-
-/** Tooltip LE-Schwellen-Anzeige (Mouseover auf „S“). */
-export const LE_THRESHOLD_TOOLTIP =
-  'LE-Schwellenwerte. Weniger als 1/2 LE: alle Eigenschaftsproben, AT, PA und FK je um 1 erschwert, alle Zauber- und Talentproben 3 Punkte. Bei weniger 1/3: +2/+6. Weniger als 1/4: +3/+9. Bei LE 0 bis 5 kampfunfähig. LE 0 oder weniger: Tod in KO KR x 1W6.'
-
-/** Regeltexte für die drei Wundmarken pro Trefferzone (Mouseover). */
-const WUNDEN_DOTS_TOOLTIP_BY_ZONE = {
-  kopf:
-    'Kopf (W20 19 bis 20): 1. und 2. Wunde: je KL, IN, MU, INI-Basis –2, INI –2W6; die 3. Wunde: +2W6 SP, bewusstlos, Blutverlust',
-  brust:
-    'Brust (W20: 15 bis 18): 1. und 2. Wunde: je AT, PA, KK, KO, AW –1, +1W6 SP; 3. Wunde bewusstlos, Blutverlust',
-  ruecken:
-    'Rücken (W20: 15 bis 18): 1. und 2. Wunde: je AT, PA, KK, KO, AW –1, +1W6 SP; 3. Wunde bewusstlos, Blutverlust',
-  schildarm:
-    'Arme (W20: 9, 11, 13 = Schildarm; 10, 12, 14 = Schwertarm): 1. und 2. Wunde: je AT, PA, FF, KK –2 mit getroffenem Arm; 3. Wunde: Arm handlungsunfähig',
-  schwertarm:
-    'Arme (W20: 9, 11, 13 = Schildarm; 10, 12, 14 = Schwertarm): 1. und 2. Wunde: je AT, PA, FF, KK –2 mit getroffenem Arm; 3. Wunde: Arm handlungsunfähig',
-  bauch:
-    'Bauch (W20: 7 bis 8): 1. und 2. Wunde: je AT, PA, GS, KK, KO, INI-Basis, AW –1, +1W6 SP; 3. Wunde: bewusstlos, Blutverlust',
-  lbein:
-    'Beine (W20: 1, 3, 5 = Bein links; 2, 4, 6 = Bein rechts): 1. und 2. Wunde: je AT, PA, AW, GE, INI-Basis –2, GS –1; 3. Wunde: Sturz, kampfunfähig',
-  rbein:
-    'Beine (W20: 1, 3, 5 = Bein links; 2, 4, 6 = Bein rechts): 1. und 2. Wunde: je AT, PA, AW, GE, INI-Basis –2, GS –1; 3. Wunde: Sturz, kampfunfähig',
-}
+export * from './heroExMetaKeys.js'
+export * from './heroExpandTooltips.js'
+import {
+  LE_THRESHOLD_TOOLTIP,
+  WS_RULES_TOOLTIP,
+  WUNDEN_DOTS_TOOLTIP_BY_ZONE,
+} from './heroExpandTooltips.js'
+import {
+  HERO_EX_LE,
+  HERO_EX_LE_MAX,
+  HERO_EX_AU_MAX,
+  HERO_EX_AE_MAX,
+  HERO_EX_KE_MAX,
+  HERO_EX_AE,
+  HERO_EX_AT,
+  HERO_EX_PA,
+  HERO_EX_KO,
+  HERO_EX_TP,
+  HERO_EX_A,
+  HERO_EX_B,
+  HERO_EX_C,
+  HERO_EX_SP,
+  HERO_EX_TZ,
+  HERO_EX_FRONTAL,
+  HERO_EX_FK,
+  HERO_EX_GS,
+  HERO_EX_G,
+  HERO_EX_MR,
+  HERO_EX_IB,
+  HERO_EX_W6,
+  HERO_EX_WS,
+  HERO_EX_WAPPEN_RS,
+  HERO_EX_WAPPEN_WUNDEN,
+  HERO_EX_MU,
+  HERO_EX_KL,
+  HERO_EX_IN,
+  HERO_EX_CH,
+  HERO_EX_FF,
+  HERO_EX_GE,
+  HERO_EX_KK,
+  HERO_EX_BE,
+  HERO_EX_AMOD,
+  HERO_EX_BMOD,
+  HERO_EX_CMOD,
+  HERO_EX_AU,
+  HERO_EX_KE,
+  HERO_EX_ENERGY_MODE,
+  HERO_EX_EXTRA_FIELD,
+  HERO_EX_GW,
+  HERO_EX_LO,
+  HERO_EX_SHOW_FK,
+  HERO_EX_SHOW_AU,
+  HERO_EX_LE_THRESHOLD,
+  HERO_EX_UNFAEHIG_THRESHOLD,
+  HERO_EX_UNFAEHIG_MARK_FIELDS,
+  HERO_EX_UNFAEHIG_FIXED_FIELDS,
+  HERO_DEATH_MODE,
+  HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO,
+  HERO_EX_AEKE_LEGACY,
+  HERO_EX_WUNDEN_ANZ,
+  HERO_EX_WUNDEN_ORT,
+  HERO_EX_WUNDEN_LEGACY,
+  HERO_EX_ZUSATZ,
+  HERO_EXPAND_BODY_FLUSH,
+  HERO_EXPAND_HAS_PENDING_INPUT,
+} from './heroExMetaKeys.js'
 
 /** @param {string} raw */
 function parseIntAllowSignedLocal(raw) {
@@ -180,97 +218,6 @@ function computeKrFieldMarks(before, after, round) {
   }
   return marks
 }
-
-export const HERO_EX_LE = 'heroExLe'
-export const HERO_EX_LE_MAX = 'heroExLeMax'
-export const HERO_EX_AU_MAX = 'heroExAuMax'
-export const HERO_EX_AE_MAX = 'heroExAeMax'
-export const HERO_EX_KE_MAX = 'heroExKeMax'
-export const HERO_EX_AE = 'heroExAe'
-export const HERO_EX_AT = 'heroExAt'
-export const HERO_EX_PA = 'heroExPa'
-/** Konstitution (Eigenschaft), nur in der Eigenschaftenzeile */
-export const HERO_EX_KO = 'heroExKo'
-export const HERO_EX_TP = 'heroExTp'
-/** Ausweichen (AW), Kampfzeile */
-export const HERO_EX_A = 'heroExA'
-/** @deprecated Nicht mehr in der UI; wird beim Speichern entfernt */
-export const HERO_EX_B = 'heroExB'
-/** @deprecated Nicht mehr in der UI; wird beim Speichern entfernt */
-export const HERO_EX_C = 'heroExC'
-export const HERO_EX_SP = 'heroExSp'
-export const HERO_EX_TZ = 'heroExTz'
-export const HERO_EX_FRONTAL = 'heroExFrontal'
-export const HERO_EX_FK = 'heroExFk'
-/** Geschwindigkeit (GS) */
-export const HERO_EX_GS = 'heroExGs'
-/** Geschosse (Legacy-Metaschlüssel; nicht mehr in der UI) */
-export const HERO_EX_G = 'heroExG'
-/** Magieresistenz (MR) */
-export const HERO_EX_MR = 'heroExMr'
-/** Ini-Basis + Modifikation (IB) */
-export const HERO_EX_IB = 'heroExIb'
-/** W6-Wurf / Kurznotiz zum Wurf */
-export const HERO_EX_W6 = 'heroExW6'
-/** Wundschwelle + Modifikation (WS) */
-export const HERO_EX_WS = 'heroExWs'
-/** @deprecated Ersetzt durch Trefferzonen hz*; wird beim Speichern entfernt */
-export const HERO_EX_WAPPEN_RS = 'heroExWappenRs'
-/** @deprecated Ersetzt durch Trefferzonen hz*; wird beim Speichern entfernt */
-export const HERO_EX_WAPPEN_WUNDEN = 'heroExWappenW'
-export const HERO_EX_MU = 'heroExMu'
-export const HERO_EX_KL = 'heroExKl'
-export const HERO_EX_IN = 'heroExIn'
-export const HERO_EX_CH = 'heroExCh'
-export const HERO_EX_FF = 'heroExFf'
-export const HERO_EX_GE = 'heroExGe'
-export const HERO_EX_KK = 'heroExKk'
-/** Behinderung (BE) */
-export const HERO_EX_BE = 'heroExBe'
-/** @deprecated Nur Lesen/Migration, nicht mehr in der UI */
-export const HERO_EX_AMOD = 'heroExAMod'
-/** @deprecated Nur Lesen/Migration */
-export const HERO_EX_BMOD = 'heroExBMod'
-/** @deprecated Nur Lesen/Migration */
-export const HERO_EX_CMOD = 'heroExCMod'
-/** Ausdauer (AU), Heldenblock Trefferzonen-Zeile */
-export const HERO_EX_AU = 'heroExAu'
-/** @deprecated Nur Lesen/Migration — ersetzt durch heroExExtraField */
-export const HERO_EX_KE = 'heroExKe'
-/** @deprecated Nur Lesen/Migration — ersetzt durch heroExExtraField */
-export const HERO_EX_ENERGY_MODE = 'heroExEnergyMode'
-/** Zusatzfeld zwischen AE und MR: none | ke | gw | lo */
-export const HERO_EX_EXTRA_FIELD = 'heroExExtraField'
-/** Gefahrenwert (GW) */
-export const HERO_EX_GW = 'heroExGw'
-/** Loyalität (LO) */
-export const HERO_EX_LO = 'heroExLo'
-export const HERO_EX_SHOW_FK = 'heroExShowFk'
-/** AU-Feld im Heldenblock (Standard aus) */
-export const HERO_EX_SHOW_AU = 'heroExShowAu'
-export const HERO_EX_LE_THRESHOLD = 'heroExLeThreshold'
-export const HERO_EX_UNFAEHIG_THRESHOLD = 'heroExUnfaehigThreshold'
-export const HERO_EX_UNFAEHIG_MARK_FIELDS = 'heroExUnfaehigMarkFields'
-export const HERO_EX_UNFAEHIG_FIXED_FIELDS = 'heroExUnfaehigFixedFields'
-const HERO_DEATH_MODE = 'heroDeathMode'
-const HERO_DEATH_AT_MINUS_ONE_POINT_FIVE_KO = 'heroDeathAtMinusOnePointFiveKo'
-/** @deprecated Nur Lesen/Migration */
-export const HERO_EX_AEKE_LEGACY = 'heroExAeKe'
-/** @deprecated Nur Lesen/Migration */
-export const HERO_EX_WUNDEN_ANZ = 'heroExWnAnz'
-/** @deprecated Nur Lesen/Migration */
-export const HERO_EX_WUNDEN_ORT = 'heroExWnOrt'
-/** @deprecated Nur Lesen/Migration */
-export const HERO_EX_WUNDEN_LEGACY = 'heroExWunden'
-/** @deprecated Zusatzfeld derzeit nicht in der ausklappbaren Zeile */
-export const HERO_EX_ZUSATZ = 'heroExZusatz'
-
-/** Auf dem Container von `mountHeroExpandBlock`: vor Listen-Remount flushen. */
-export const HERO_EXPAND_BODY_FLUSH = Symbol('vierpunkteinsHeroExpandFlush')
-/** Gesetzt solange uncommittete Heldenblock-Eingaben (persistTimer) pending sind. */
-export const HERO_EXPAND_HAS_PENDING_INPUT = Symbol(
-  'vierpunkteinsHeroExpandPendingInput'
-)
 
 function strOrEmpty(v) {
   if (v === undefined || v === null) return ''
