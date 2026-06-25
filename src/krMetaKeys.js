@@ -87,6 +87,12 @@ export const MAX_HERO_ACTION_POOL_SUM = 20
 /** Obergrenze für KR-Zähler-Markierungen. */
 export const KR_COUNTER_MAX = 10
 
+/** Obergrenze für Helden-Extra-Aktionen/-Paraden und abgeleitete Caps (z.AT, F.A.). */
+export const HERO_EXTRA_MAX = 10
+
+/** @deprecated Altes Aktionsfeld; wird nur noch beim Lesen für Migration genutzt. */
+export const LEGACY_KR_ACTION = 'krAction'
+
 /**
  * Standard-Zähler für neue Kampf-Teilnehmer: je eine volle Ladung
  * im ersten Aktionsfeld und bei Abwehr (UI: Zähler 0 = Ladung geladen).

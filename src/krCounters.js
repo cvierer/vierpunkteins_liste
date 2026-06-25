@@ -10,7 +10,6 @@ import {
 } from './participants.js'
 import {
   ACTION_STAMPS_KEY,
-  getActionStamps,
   getCombat,
   normalizeActionStamps,
   patchActionStamps,
@@ -42,6 +41,20 @@ import {
 import { faMaxForInitiative, getRoomSettings } from './roomSettings.js'
 export * from './krMetaKeys.js'
 export { normalizeKrDigit } from './krDigit.js'
+export * from './krStampPredicates.js'
+import { motherPrimarySelfStamped } from './krStampPredicates.js'
+export * from './krCounterRead.js'
+import {
+  migrateHeroExtraCountFields,
+  paradeExtraFieldForIndex,
+  paradeExtraIndexForField,
+  readHeroExtraAngCount,
+  readHeroExtraParCount,
+  readHeroFaMax,
+  readHeroIniNegActionsLost,
+  readHeroIniNegAngMode,
+  readKrLhSecondCharge,
+} from './krCounterRead.js'
 import {
   normalizeKrDigit,
   marksFromChargeValue,
@@ -65,8 +78,8 @@ import {
   KR_PRIMARY_VOID_BY_ABW_TRANSFER,
   KR_INI_LOCK_MINUS_A,
   KR_INI_LOCK_MINUS_B,
-  HERO_INI_NEG_ACTIONS_LOST,
-  HERO_INI_NEG_ANG_MODE,
+  HERO_EXTRA_MAX,
+  LEGACY_KR_ACTION,
   KR_ZAO_SLOTS,
   HERO_ACTION_POOL_ANG,
   HERO_ACTION_POOL_ABW,
@@ -91,33 +104,6 @@ function lhLockRoundFromCombat() {
   const c = getCombat()
   if (!c.started) return null
   return Number.isFinite(c.round) ? c.round : null
-}
-
-const HERO_EXTRA_MAX = 10
-
-/**
- * Wie viele Ladungen bei INI < 0 gesperrt werden (0–10, Standard 1).
- * @param {unknown} meta
- * @returns {number}
- */
-export function readHeroIniNegActionsLost(meta) {
-  if (!meta || typeof meta !== 'object') return 1
-  const n = Math.floor(Number(meta[HERO_INI_NEG_ACTIONS_LOST]))
-  return Number.isFinite(n) && n >= 0 ? Math.min(10, n) : 1
-}
-
-/**
- * Schwert-Freigabe im negativen INI-Bereich.
- * 'no'      — kein Schwert (Standard/bisheriges Verhalten)
- * 'yes'     — Schwert als Mutter-Aktion erlaubt
- * 'zatOnly' — Mutter bleibt SRA, aber z.AT-Objekte dürfen in den negativen Bereich
- * @param {unknown} meta
- * @returns {'no' | 'yes' | 'zatOnly'}
- */
-export function readHeroIniNegAngMode(meta) {
-  if (!meta || typeof meta !== 'object') return 'no'
-  const v = meta[HERO_INI_NEG_ANG_MODE]
-  return v === 'yes' || v === 'zatOnly' ? v : 'no'
 }
 
 const DEFAULT_HERO_ACTION_POOL_ANG = 1
@@ -448,81 +434,6 @@ function tickActionPoolAngToAbw(m) {
   return true
 }
 
-function clampHeroExtraCount(raw) {
-  const n = Math.floor(Number(raw))
-  if (!Number.isFinite(n)) return 0
-  return Math.max(0, Math.min(HERO_EXTRA_MAX, n))
-}
-
-/**
- * @param {unknown} meta
- * @returns {number}
- */
-export function readHeroExtraAngCount(meta) {
-  if (meta && typeof meta === 'object') {
-    if (Object.prototype.hasOwnProperty.call(meta, 'heroExtraAngCount')) {
-      return clampHeroExtraCount(meta.heroExtraAngCount)
-    }
-    return meta.heroExtraAng ? 1 : 0
-  }
-  return 0
-}
-
-/**
- * @param {unknown} meta
- * @returns {number}
- */
-export function readHeroExtraParCount(meta) {
-  if (meta && typeof meta === 'object') {
-    if (Object.prototype.hasOwnProperty.call(meta, 'heroExtraParCount')) {
-      return clampHeroExtraCount(meta.heroExtraParCount)
-    }
-    return meta.heroExtraPar ? 1 : 0
-  }
-  return 0
-}
-
-function migrateHeroExtraCountFields(m) {
-  if (!m || typeof m !== 'object') return
-  if (m.heroExtraAngCount === undefined && m.heroExtraAng !== undefined) {
-    m.heroExtraAngCount = m.heroExtraAng ? 1 : 0
-  }
-  if (m.heroExtraParCount === undefined && m.heroExtraPar !== undefined) {
-    m.heroExtraParCount = m.heroExtraPar ? 1 : 0
-  }
-  delete m.heroExtraAng
-  delete m.heroExtraPar
-}
-
-/**
- * @param {unknown} meta
- * @param {string | number | undefined} iniStr
- * @param {{ highIniFreeActions?: boolean } | undefined} settings
- * @returns {number}
- */
-export function readHeroFaMax(meta, iniStr, settings) {
-  if (meta && typeof meta === 'object') {
-    if (Object.prototype.hasOwnProperty.call(meta, 'heroFaMax')) {
-      const n = Math.floor(Number(meta.heroFaMax))
-      if (Number.isFinite(n) && n >= 0) return Math.max(0, Math.min(HERO_EXTRA_MAX, n))
-    }
-  }
-  return faMaxForInitiative(iniStr, Boolean(settings?.highIniFreeActions))
-}
-
-function paradeExtraFieldForIndex(index) {
-  return index <= 0 ? KR_PARADE_EXTRA : `${KR_PARADE_EXTRA}_${index + 1}`
-}
-
-function paradeExtraIndexForField(field) {
-  if (field === KR_PARADE_EXTRA) return 0
-  if (typeof field !== 'string') return null
-  if (!field.startsWith(`${KR_PARADE_EXTRA}_`)) return null
-  const n = Math.floor(Number(field.slice(KR_PARADE_EXTRA.length + 1)))
-  if (!Number.isFinite(n) || n < 2 || n > HERO_EXTRA_MAX) return null
-  return n - 1
-}
-
 /**
  * @param {unknown} meta
  * @returns {Record<string, { kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }>}
@@ -731,78 +642,6 @@ export function abwToPrimaryBlockedByEndKrPendingZao(meta, combatRound, opts = {
 }
 
 /** Primär-Stempel am Mutteranker (kein Phasen-Link) — für Umwandlungs-Sperre. */
-const MOTHER_PRIMARY_STAMP_FIELDS = new Set([KR_ANG, KR_SRA, KR_LH_ACTION])
-
-/**
- * Mutter-Primärstempel, angelegt während die Navigation auf der **eigenen**
- * Token-Zeile stand (`anchorRowId === itemId`). Fremde `anchorRowId` (andere
- * Zeile) sperren die Umwandlung am Mutterobjekt nicht.
- *
- * @param {unknown[]} entries
- * @param {string} itemId
- * @returns {boolean}
- */
-export function motherPrimarySelfStamped(entries, itemId) {
-  if (!Array.isArray(entries) || typeof itemId !== 'string') return false
-  return entries.some((e) => {
-    if (!e || typeof e !== 'object') return false
-    if (e.itemId !== itemId) return false
-    if (e.paradeExtra) return false
-    if (e.anchorPhaseLinkId != null) return false
-    if (e.anchorRowId != null && e.anchorRowId !== itemId) return false
-    if (!MOTHER_PRIMARY_STAMP_FIELDS.has(e.field)) return false
-    return true
-  })
-}
-
-/** @param {unknown} field */
-export function isPrimaryActionStampField(field) {
-  return typeof field === 'string' && MOTHER_PRIMARY_STAMP_FIELDS.has(field)
-}
-
-/**
- * @param {unknown} entry
- * @param {import('./combatRoom.js').ReturnType<typeof getCombat>} combat
- */
-export function stampEntryMatchesCombatStep(entry, combat) {
-  if (!entry || typeof entry !== 'object') return false
-  const e = /** @type {{ itemId?: string, anchorRowId?: string, anchorPhaseLinkId?: string | null }} */ (
-    entry
-  )
-  if (!combat?.started || combat.roundIntroPending) return false
-  const rid = combat.currentItemId
-  if (typeof rid !== 'string') return false
-  if (rid === ROUND_START_STEP_ID || rid === ROUND_END_STEP_ID) return false
-  const rowAnchor =
-    typeof e.anchorRowId === 'string' ? e.anchorRowId : e.itemId
-  const phaseCombat =
-    typeof combat.currentPhaseLinkId === 'string'
-      ? combat.currentPhaseLinkId
-      : null
-  const phaseStamp =
-    typeof e.anchorPhaseLinkId === 'string' ? e.anchorPhaseLinkId : null
-  return rowAnchor === rid && phaseStamp === phaseCombat
-}
-
-/**
- * Primäraktions-Stempel (Schwert/Stern/L.H.) am aktuellen Nav-Punkt — ohne Abwehr/FA.
- *
- * @param {import('./combatRoom.js').ReturnType<typeof getCombat>} combat
- * @param {unknown[] | null | undefined} [entries]
- */
-export function hasPrimaryActionStampAtCombatStep(combat, entries = null) {
-  const list = entries ?? getActionStamps().entries
-  if (!Array.isArray(list)) return false
-  return list.some(
-    (e) =>
-      stampEntryMatchesCombatStep(e, combat) &&
-      !(/** @type {{ paradeExtra?: boolean }} */ (e)).paradeExtra &&
-      isPrimaryActionStampField(
-        /** @type {{ field?: unknown }} */ (e).field
-      )
-  )
-}
-
 /**
  * KR, in der eine L.H. endet: Tracker noch aktiv, aber keine „mittendrin“-Sperre.
  *
@@ -2238,69 +2077,6 @@ function syncKrPrimaryLadungFromPrimaryField(m) {
   if (!m) return
   const pf = primaryFieldForKind(m)
   m[KR_PRIMARY_LADUNG] = normalizeKrDigit(m[pf])
-}
-
-/** @deprecated Altes Feld; wird nur noch beim Lesen für Migration genutzt. */
-const LEGACY_KR_ACTION = 'krAction'
-
-export function readKrFreeAction(meta, faMax) {
-  const cap = Math.max(1, Math.min(HERO_EXTRA_MAX, Math.floor(Number(faMax)) || 2))
-  return normalizeKrDigit(meta?.[KR_FREE_ACTION], cap)
-}
-
-export function readKrAng(meta) {
-  if (meta && meta[KR_ANG] != null) return normalizeKrDigit(meta[KR_ANG])
-  if (meta && meta[LEGACY_KR_ACTION] != null)
-    return normalizeKrDigit(meta[LEGACY_KR_ACTION])
-  return 0
-}
-
-export function readKrAbw(meta) {
-  return normalizeKrDigit(meta?.[KR_ABW])
-}
-
-/**
- * @param {unknown} meta
- * @returns {undefined | 0 | 1} `0` = Parade-Schild geladen, `1` = verbraucht, `undefined` = kein Eintrag
- */
-export function readKrParadeExtra(meta) {
-  if (!meta || typeof meta !== 'object') return undefined
-  if (meta[KR_PARADE_EXTRA] === undefined) return undefined
-  return normalizeKrDigit(meta[KR_PARADE_EXTRA], 1)
-}
-
-/**
- * @param {unknown} meta
- * @returns {(undefined | 0 | 1)[]}
- */
-export function readKrParadeExtraSlots(meta) {
-  if (!meta || typeof meta !== 'object') return []
-  const out = []
-  const count = readHeroExtraParCount(meta)
-  for (let i = 0; i < count; i++) {
-    const key = paradeExtraFieldForIndex(i)
-    if (meta[key] === undefined) out.push(undefined)
-    else out.push(normalizeKrDigit(meta[key], 1))
-  }
-  return out
-}
-
-export function readKrSra(meta) {
-  return normalizeKrDigit(meta?.[KR_SRA])
-}
-
-export function readKrLhAction(meta) {
-  return normalizeKrDigit(meta?.[KR_LH_ACTION])
-}
-
-/**
- * Zweite L.H.-Ladung (nach Schild-Umwandlung). `undefined`/`null` = 1 (wie früher: ein Feld ohne Zweiteilung).
- * @param {unknown} meta
- * @returns {0 | 1}
- */
-export function readKrLhSecondCharge(meta) {
-  if (meta?.[KR_LH_SECOND] == null) return 1
-  return normalizeKrDigit(meta[KR_LH_SECOND], 1) >= 1 ? 1 : 0
 }
 
 /** @param {string} itemId */
