@@ -38,11 +38,16 @@ const obr = vi.hoisted(() => {
 vi.mock('@owlbear-rodeo/sdk', () => ({ default: obr.default }))
 
 const { mountHeroExpandBlock } = await import('./iniModMeta.js')
+const { HERO_EX_MODS } = await import('./heroExMods.js')
 
 let rafSpy
 
 beforeEach(() => {
-  // rAF synchron: der Gauge-Refresh (scheduleGaugeRefresh) läuft deterministisch.
+  if (typeof globalThis.requestAnimationFrame !== 'function') {
+    // @ts-ignore – happy-dom rAF kann nach Fake-Timer-Nutzung fehlen.
+    globalThis.requestAnimationFrame = () => 0
+  }
+  // rAF synchron: Gauge-Refresh und Mount-Layout/Strip laufen deterministisch.
   rafSpy = vi
     .spyOn(globalThis, 'requestAnimationFrame')
     .mockImplementation((cb) => {
@@ -52,8 +57,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  rafSpy?.mockRestore()
+  // Erst Real-Timer zurueck, dann rAF-Spy loesen (Reihenfolge vermeidet,
+  // dass Fake-Timer den rAF-Spy ueberschreiben/entfernen).
   vi.useRealTimers()
+  rafSpy?.mockRestore()
   document.body.innerHTML = ''
   vi.clearAllMocks()
 })
@@ -112,7 +119,8 @@ describe('mountHeroExpandBlock – interaktives Verhalten', () => {
 
     // Ab hier deterministische Zeit: großer Systemzeit-Offset, damit der
     // Blur-Commit-Guard (Date.now() - lastPointerDownInsideAt < 180) nicht greift.
-    vi.useFakeTimers()
+    // Nur setTimeout/Date faken – requestAnimationFrame bleibt der synchrone Spy.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
 
     atInp.value = '9'
@@ -130,5 +138,97 @@ describe('mountHeroExpandBlock – interaktives Verhalten', () => {
       [itemId],
       expect.any(Function)
     )
+  })
+
+  it('rendert einen Mod-Chip mit Summe fuer einen aktiven Mod (Strip + Layout-Sync ohne Throw)', () => {
+    const itemId = 'mods-1'
+    const meta = makeMeta({
+      [HERO_EX_MODS]: [
+        {
+          id: 'm1',
+          field: 'at',
+          delta: 2,
+          duration: 1,
+          permanent: true,
+          addedRound: 1,
+        },
+      ],
+    })
+
+    // Mount triggert verschachtelte rAFs (syncHeroRowLayout + renderModBadgesAndStrip);
+    // mit synchronem rAF-Spy laufen sie waehrend des Mounts ab.
+    let container
+    expect(() => {
+      container = mountEdit(itemId, meta)
+    }).not.toThrow()
+
+    const chips = container.querySelectorAll('.init-hero-ex__mod-chip-card')
+    expect(chips.length).toBeGreaterThanOrEqual(1)
+    const text = Array.from(chips)
+      .map((c) => c.textContent ?? '')
+      .join(' ')
+    expect(text).toMatch(/AT/)
+    expect(text).toMatch(/2/)
+  })
+
+  it('oeffnet das Mod-Edit-Popover beim Klick auf einen editierbaren Chip', () => {
+    const itemId = 'modclick-1'
+    const meta = makeMeta({
+      [HERO_EX_MODS]: [
+        {
+          id: 'm1',
+          field: 'at',
+          delta: 2,
+          duration: 1,
+          permanent: true,
+          addedRound: 1,
+        },
+      ],
+    })
+    const container = mountEdit(itemId, meta)
+
+    const pop = container.querySelector('.init-hero-ex__mod-pop')
+    expect(pop).toBeInstanceOf(HTMLElement)
+    // Ausgangslage: Popover ist ausgeblendet.
+    expect(pop.style.display).toBe('none')
+
+    const chip = container.querySelector('.init-hero-ex__mod-chip-card')
+    expect(chip).toBeInstanceOf(HTMLElement)
+
+    chip.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    // Edit-Klick -> openModPopoverForEdit -> positionModPopover macht es sichtbar.
+    expect(pop.style.display).not.toBe('none')
+    expect(
+      pop.querySelectorAll('.init-hero-ex__mod-pop__rows > *').length
+    ).toBeGreaterThan(0)
+  })
+
+  it('aktiviert den SP/TZ-Undo-Button nach einer TP-Aenderung + Commit (Blur)', () => {
+    const itemId = 'undo-1'
+    const container = mountEdit(itemId)
+
+    const spInp = container.querySelector(`#hero-ex-${itemId}-sp`)
+    expect(spInp).toBeInstanceOf(HTMLInputElement)
+
+    const undoBtn = Array.from(
+      container.querySelectorAll('.init-hero-ex__sp-tz-label-btn')
+    ).find((b) => b.textContent === '<')
+    expect(undoBtn).toBeInstanceOf(HTMLButtonElement)
+    // Ausgangslage: kein Verlauf -> Undo deaktiviert.
+    expect(undoBtn.disabled).toBe(true)
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+
+    spInp.value = '7'
+    spInp.dispatchEvent(new Event('input', { bubbles: true }))
+    spInp.dispatchEvent(new Event('blur', { bubbles: true }))
+
+    // Blur: setTimeout(45) -> commit() pusht den SP/TZ-Checkpoint und
+    // ruft syncSpTzHistoryButtons() synchron auf.
+    vi.advanceTimersByTime(60)
+
+    expect(undoBtn.disabled).toBe(false)
   })
 })
