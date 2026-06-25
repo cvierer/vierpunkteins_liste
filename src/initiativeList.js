@@ -2686,6 +2686,10 @@ function appendKrAbwSplitCell(
   const shields = document.createElement('span')
   shields.className = 'init-kr-abw-shields'
   shields.setAttribute('aria-hidden', 'true')
+  const heroShieldColor = readHeroBgColor(trackerMeta)
+  const showHeroShieldColor =
+    heroShieldColor && (canEdit || !getHideForeignHeroColorsForViewer())
+  if (showHeroShieldColor) shields.style.color = heroShieldColor
   if (stackedBlueReaction) {
     const icon = document.createElement('span')
     icon.className =

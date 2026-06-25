@@ -55,6 +55,8 @@ import {
 } from './heroAutoMods.js'
 import { applyHitZoneStrikeFromSpTz } from './hitZoneStrike.js'
 import { computeIniFromIbBeW6 } from './iniCompute.js'
+import { readHeroBgColor } from './heroColors.js'
+import { getHideForeignHeroColorsForViewer } from './localUiPrefs.js'
 import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
 import {
   applyIniLockCharges,
@@ -332,7 +334,7 @@ const TP_TZ_BRIDGE_SVG =
 
 /** TP/TZ-Beschriftungszeile: RS ignorieren — Miniatur wie blaues Abwehr-Schild (KR-Zeile). */
 const RS_BYPASS_TOGGLE_SVG =
-  '<svg class="init-hero-ex__rs-bypass-btn-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 34" aria-hidden="true" focusable="false"><path fill="#5d4037" d="M12 2l8 3v8.4c0 6.9-3.2 13-8 15.8-4.8-2.8-8-8.9-8-15.8V5l8-3z"/><path fill="#1a237e" d="M12 4.25 6 6.45v7.1c0 5.4 2.45 10.3 6 12.7 3.55-2.4 6-7.3 6-12.7v-7.1L12 4.25z"/><path fill="#3949ab" d="M12 5.55 7.15 7.25v6.45c0 4.2 1.85 8.1 4.85 10.2 3-2.1 4.85-6 4.85-10.2V7.25L12 5.55z"/><path fill="#b8860b" d="M12 2.75 19.05 4.85 18.85 5.45 12 3.75 5.15 5.45 4.95 4.85 12 2.75z"/><path fill="#90caf9" opacity="0.4" d="M8.65 9.1c1.05 2.5 1.55 5.15 1.55 7.95 0 3.45-.75 6.75-2.1 9.75 1.85-1.7 3.05-4.55 3.05-7.75 0-3.25-.85-6.3-2.5-8.95z"/><path fill="none" stroke="#3e2723" stroke-width="0.45" d="M12 4.25 6 6.45v7.1c0 5.4 2.45 10.3 6 12.7 3.55-2.4 6-7.3 6-12.7v-7.1L12 4.25z"/></svg>'
+  '<svg class="init-hero-ex__rs-bypass-btn-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 34" aria-hidden="true" focusable="false"><path fill="#5d4037" d="M12 2l8 3v8.4c0 6.9-3.2 13-8 15.8-4.8-2.8-8-8.9-8-15.8V5l8-3z"/><path fill="currentColor" d="M12 4.25 6 6.45v7.1c0 5.4 2.45 10.3 6 12.7 3.55-2.4 6-7.3 6-12.7v-7.1L12 4.25z"/><path fill="#ffffff" opacity="0.18" d="M12 5.55 7.15 7.25v6.45c0 4.2 1.85 8.1 4.85 10.2 3-2.1 4.85-6 4.85-10.2V7.25L12 5.55z"/><path fill="#b8860b" d="M12 2.75 19.05 4.85 18.85 5.45 12 3.75 5.15 5.45 4.95 4.85 12 2.75z"/><path fill="#ffffff" opacity="0.4" d="M8.65 9.1c1.05 2.5 1.55 5.15 1.55 7.95 0 3.45-.75 6.75-2.1 9.75 1.85-1.7 3.05-4.55 3.05-7.75 0-3.25-.85-6.3-2.5-8.95z"/><path fill="none" stroke="#3e2723" stroke-width="0.45" d="M12 4.25 6 6.45v7.1c0 5.4 2.45 10.3 6 12.7 3.55-2.4 6-7.3 6-12.7v-7.1L12 4.25z"/></svg>'
 
 /**
  * @param {string} itemId
@@ -1272,6 +1274,12 @@ export function mountHeroExpandBlock(
     'Rüstungsschutz bei Trefferauswertung ignorieren'
   )
   rsBypassBtn.setAttribute('aria-pressed', 'false')
+  {
+    const heroBg = readHeroBgColor(meta)
+    if (heroBg && (canEdit || !getHideForeignHeroColorsForViewer())) {
+      rsBypassBtn.style.color = heroBg
+    }
+  }
 
   const spTzLabelTools = document.createElement('div')
   spTzLabelTools.className = 'init-hero-ex__sp-tz-pair__label-tools'
