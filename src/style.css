@@ -1191,6 +1191,10 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
 /* Zusatzabstand nur um das RS-Schild — < > bleiben in Größe/Position unverändert */
 .init-hero-ex__rs-bypass-btn {
   margin-inline: calc(0.02rem * var(--init-ui-scale));
+  /* Schild-Grundfarbe (currentColor). Heldenfarbe ueberschreibt per Inline-Style
+     am Button (iniModMeta.js). Muss am Button stehen (nicht am SVG), sonst
+     blockiert die SVG-eigene Farbe die Vererbung (V1253-Lehre). */
+  color: #141a63;
 }
 
 .init-hero-ex__rs-bypass-btn-svg {
@@ -1200,7 +1204,6 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   aspect-ratio: 24 / 34;
   flex-shrink: 0;
   pointer-events: none;
-  color: #1a237e;
 }
 
 .init-hero-ex__rs-bypass-btn--active .init-hero-ex__rs-bypass-btn-svg {
@@ -5568,13 +5571,13 @@ select.init-row-extra-select {
 }
 
 .init-kr-reaction-store .init-kr-abw-shield.is-item-hover .init-kr-abw-shield__svg {
-  filter: saturate(1.24) brightness(1.16);
+  filter: saturate(1.32) brightness(1.22);
   text-shadow: 0 0 calc(8px * var(--init-combat-icon-scale))
     rgba(100, 190, 255, 0.68);
 }
 
 .init-kr-reaction-store .init-fa-cell--stampable-now .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
-  filter: saturate(1.62) brightness(1.42)
+  filter: saturate(1.72) brightness(1.5)
     drop-shadow(0 0 calc(8px * var(--init-combat-icon-scale)) rgba(186, 104, 255, 0.92))
     drop-shadow(0 0 calc(3px * var(--init-combat-icon-scale)) rgba(255, 255, 255, 0.45));
 }
@@ -7207,7 +7210,7 @@ select.init-row-extra-select {
 
 /* Stempelbar + Hover: nur der einzelne Blitz unter dem Cursor */
 .init-fa-cell--stampable-now .init-fa-cell__bolt.is-item-hover .init-fa-cell__bolt-svg {
-  filter: saturate(1.62) brightness(1.42)
+  filter: saturate(1.72) brightness(1.5)
     drop-shadow(0 0 calc(7px * var(--init-combat-icon-scale)) rgba(186, 104, 255, 0.88))
     drop-shadow(0 0 calc(3px * var(--init-combat-icon-scale)) rgba(255, 255, 255, 0.45));
 }

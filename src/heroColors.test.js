@@ -3,6 +3,7 @@ import {
   HERO_BG_COLOR,
   HERO_PALETTE_ROWS,
   deepenHeroColor,
+  mutedHeroColor,
   pickRandomHeroColor,
   readHeroBgColor,
 } from './heroColors.js'
@@ -70,5 +71,28 @@ describe('deepenHeroColor', () => {
     expect(deepenHeroColor(undefined)).toBeUndefined()
     expect(deepenHeroColor('not-a-hex')).toBe('not-a-hex')
     expect(deepenHeroColor('#fff')).toBe('#fff')
+  })
+})
+
+describe('mutedHeroColor', () => {
+  it('liefert ein gültiges #rrggbb', () => {
+    for (const c of HERO_PALETTE_ROWS[0]) {
+      expect(mutedHeroColor(c)).toMatch(/^#[0-9a-f]{6}$/)
+    }
+  })
+
+  it('ist dunkler als die Eingabe und als deepenHeroColor', () => {
+    for (const c of HERO_PALETTE_ROWS[0]) {
+      const muted = mutedHeroColor(c)
+      expect(luma(muted)).toBeLessThan(luma(c))
+      expect(luma(muted)).toBeLessThan(luma(deepenHeroColor(c)))
+    }
+  })
+
+  it('lässt ungültige/leere Eingaben unverändert', () => {
+    expect(mutedHeroColor(null)).toBeNull()
+    expect(mutedHeroColor(undefined)).toBeUndefined()
+    expect(mutedHeroColor('not-a-hex')).toBe('not-a-hex')
+    expect(mutedHeroColor('#fff')).toBe('#fff')
   })
 })

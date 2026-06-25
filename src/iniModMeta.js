@@ -53,7 +53,7 @@ import {
 } from './heroAutoMods.js'
 import { applyHitZoneStrikeFromSpTz } from './hitZoneStrike.js'
 import { computeIniFromIbBeW6 } from './iniCompute.js'
-import { readHeroBgColor } from './heroColors.js'
+import { mutedHeroColor, readHeroBgColor } from './heroColors.js'
 import { getHideForeignHeroColorsForViewer } from './localUiPrefs.js'
 import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
 import {
@@ -949,7 +949,7 @@ export function mountHeroExpandBlock(
   {
     const heroBg = readHeroBgColor(meta)
     if (heroBg && (canEdit || !getHideForeignHeroColorsForViewer())) {
-      rsBypassBtn.style.color = heroBg
+      rsBypassBtn.style.color = mutedHeroColor(heroBg)
     }
   }
 

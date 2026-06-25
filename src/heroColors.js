@@ -44,13 +44,14 @@ export function readHeroBgColor(meta) {
 }
 
 /**
- * Liefert eine kraeftigere (gesaettigtere) und dunklere Variante einer Hex-Farbe
- * fuer Icons (Schwert, Schild, Freie Aktion). Der Heldenname bleibt bei der
- * Rohfarbe. Ungueltige/leere Eingaben werden unveraendert zurueckgegeben.
+ * Interne HSL-Anpassung: skaliert Saettigung und Helligkeit einer Hex-Farbe
+ * und gibt `#rrggbb` zurueck. Ungueltige/leere Eingaben bleiben unveraendert.
  * @param {string | null | undefined} hex `#rrggbb`
+ * @param {number} satMul Saettigungs-Faktor (clamp 0..1)
+ * @param {number} lightMul Helligkeits-Faktor (clamp 0..1)
  * @returns {string | null | undefined}
  */
-export function deepenHeroColor(hex) {
+function adjustHeroHsl(hex, satMul, lightMul) {
   if (typeof hex !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(hex)) return hex
   const r = parseInt(hex.slice(1, 3), 16) / 255
   const g = parseInt(hex.slice(3, 5), 16) / 255
@@ -69,8 +70,8 @@ export function deepenHeroColor(hex) {
     h *= 60
     if (h < 0) h += 360
   }
-  const s2 = Math.max(0, Math.min(1, s * 1.18))
-  const l2 = Math.max(0, Math.min(1, l * 0.8))
+  const s2 = Math.max(0, Math.min(1, s * satMul))
+  const l2 = Math.max(0, Math.min(1, l * lightMul))
   const c = (1 - Math.abs(2 * l2 - 1)) * s2
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
   const m = l2 - c / 2
@@ -88,6 +89,29 @@ export function deepenHeroColor(hex) {
       .toString(16)
       .padStart(2, '0')
   return `#${toHex(rr)}${toHex(gg)}${toHex(bb)}`
+}
+
+/**
+ * Liefert eine kraeftigere (gesaettigtere) und dunklere Variante einer Hex-Farbe
+ * fuer den Hover-/Aktiv-Zustand der Icons. Der Heldenname bleibt bei der
+ * Rohfarbe. Ungueltige/leere Eingaben werden unveraendert zurueckgegeben.
+ * @param {string | null | undefined} hex `#rrggbb`
+ * @returns {string | null | undefined}
+ */
+export function deepenHeroColor(hex) {
+  return adjustHeroHsl(hex, 1.18, 0.8)
+}
+
+/**
+ * Liefert eine etwas gedecktere (minimal weniger gesaettigte) und etwas
+ * dunklere Variante einer Hex-Farbe fuer den Ruhezustand der Icons (Schwert,
+ * Schild, Stern, Freie Aktion). Im Hover hellt das CSS-`filter` wieder auf.
+ * Ungueltige/leere Eingaben werden unveraendert zurueckgegeben.
+ * @param {string | null | undefined} hex `#rrggbb`
+ * @returns {string | null | undefined}
+ */
+export function mutedHeroColor(hex) {
+  return adjustHeroHsl(hex, 1.05, 0.72)
 }
 
 /**

@@ -300,9 +300,9 @@ import {
 import { purgeKrMarksBeforeRound } from './krCombatMarks.js'
 import { KAMPF_GEAR_ICON_SVG } from './settingsPanel.js'
 import {
-  deepenHeroColor,
   ensureRandomHeroBgColor,
   HERO_PALETTE_ROWS,
+  mutedHeroColor,
   patchHeroBgColor,
   readHeroBgColor,
 } from './heroColors.js'
@@ -1493,15 +1493,16 @@ function syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitch) {
  * @param {unknown} trackerMeta
  * @param {boolean} canEdit
  */
-function applyHeroSwordColor(root, trackerMeta, canEdit) {
+function applyHeroPrimaryIconColor(root, trackerMeta, canEdit) {
   if (!(root instanceof Element)) return
-  const svg = root.classList.contains('init-kr-primary-kind__svg--ang')
-    ? root
-    : root.querySelector('.init-kr-primary-kind__svg--ang')
-  if (!(svg instanceof SVGElement)) return
   const heroColor = readHeroBgColor(trackerMeta)
-  if (heroColor && (canEdit || !getHideForeignHeroColorsForViewer())) {
-    svg.style.color = deepenHeroColor(heroColor)
+  if (!heroColor || !(canEdit || !getHideForeignHeroColorsForViewer())) return
+  const tint = mutedHeroColor(heroColor)
+  const svgs = root.matches?.('.init-kr-primary-kind__svg')
+    ? [root]
+    : root.querySelectorAll('.init-kr-primary-kind__svg')
+  for (const svg of svgs) {
+    if (svg instanceof SVGElement) svg.style.color = tint
   }
 }
 
@@ -1622,8 +1623,8 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     }
   } else {
     icon.innerHTML = SVG_PRIMARY_ATTACK
-    applyHeroSwordColor(icon, trackerMeta, canEdit)
   }
+  applyHeroPrimaryIconColor(icon, trackerMeta, canEdit)
 
   if (
     !isUoKind &&
@@ -2005,8 +2006,8 @@ function appendKrPrimarySplitCell(
     }
   } else {
     icon.innerHTML = SVG_PRIMARY_ATTACK
-    applyHeroSwordColor(icon, trackerMeta, canEdit)
   }
+  applyHeroPrimaryIconColor(icon, trackerMeta, canEdit)
   if (
     !isUoKind &&
     !isZaoSlot &&
@@ -2297,7 +2298,7 @@ function appendKrPrimarySplitCell(
     restoreBtn.type = 'button'
     restoreBtn.className = 'init-kr-primary-zao-restore'
     restoreBtn.innerHTML = `<span class="init-kr-primary-zao-restore__glyph" aria-hidden="true">${SVG_PRIMARY_ATTACK}</span>`
-    applyHeroSwordColor(restoreBtn, trackerMeta, canEdit)
+    applyHeroPrimaryIconColor(restoreBtn, trackerMeta, canEdit)
     restoreBtn.title = canEdit
       ? 'Zusätzliches Angriffsaktions-Objekt (ZAO) wiederherstellen — die Ladung aus den Helden-Einstellungen steht dir noch zu.'
       : 'Zusätzliches Angriffsaktions-Objekt (ZAO) noch verfügbar; nur der Held oder die Spielleitung kann es wiederherstellen.'
@@ -2717,7 +2718,7 @@ function appendKrAbwSplitCell(
   const heroShieldColor = readHeroBgColor(trackerMeta)
   const showHeroShieldColor =
     heroShieldColor && (canEdit || !getHideForeignHeroColorsForViewer())
-  if (showHeroShieldColor) shields.style.color = deepenHeroColor(heroShieldColor)
+  if (showHeroShieldColor) shields.style.color = mutedHeroColor(heroShieldColor)
   if (stackedBlueReaction) {
     const icon = document.createElement('span')
     icon.className =
@@ -3038,7 +3039,7 @@ function appendFaCounter(
   bolts.setAttribute('aria-hidden', 'true')
   const faHeroColor = readHeroBgColor(trackerMeta)
   if (faHeroColor && (canEdit || !getHideForeignHeroColorsForViewer())) {
-    bolts.style.color = deepenHeroColor(faHeroColor)
+    bolts.style.color = mutedHeroColor(faHeroColor)
   }
   const compactCount = avail >= 5
   const boltCount = compactCount ? 1 : avail
