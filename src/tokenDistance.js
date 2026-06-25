@@ -22,12 +22,6 @@ export const DIST_CLASS_RING_RADIUS = {
 
 export const DIST_CLASS_RING_CODES = ['H', 'N', 'S', 'P']
 
-/** @deprecated Nur Abwärtskompatibilität in Tests — nutze DIST_CLASS_BANDS. */
-export const DIST_CLASS_THRESHOLDS = DIST_CLASS_BANDS.map((b) => ({
-  max: b.maxExclusive ?? b.maxInclusive ?? b.min,
-  code: b.code,
-}))
-
 /**
  * @param {string} code
  * @returns {string}

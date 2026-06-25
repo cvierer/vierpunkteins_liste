@@ -22,7 +22,6 @@ import {
   finalizePhasesWithOrderedRoots,
   nextChainedZaoParentForTransfer,
   normalizePhases,
-  removeLastZaoRoot,
   sortedLinksForLayout,
 } from './phaseLinks.js'
 import {
@@ -801,9 +800,6 @@ export function motherPrimarySelfStamped(entries, itemId) {
     return true
   })
 }
-
-/** @deprecated Nutze `motherPrimarySelfStamped` — Alias für Kompatibilität. */
-export const motherPrimaryActionStamped = motherPrimarySelfStamped
 
 /** @param {unknown} field */
 export function isPrimaryActionStampField(field) {
@@ -2137,142 +2133,6 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
   return true
 }
 
-export async function patchKrTransferAngToAbw(itemId) {
-  await patchKrTransferPrimaryToAbw(itemId)
-}
-
-export async function patchKrTransferAbwToAng(itemId) {
-  await patchKrTransferAbwToPrimary(itemId)
-}
-
-/** Legacy-Alias: L.H. verhält sich jetzt wie Ang/SRA. */
-export async function patchKrTransferAbwToLhSecond(itemId) {
-  await patchKrTransferAbwToPrimary(itemId)
-}
-
-/** Legacy-Alias: L.H. verhält sich jetzt wie Ang/SRA. */
-export async function patchKrLhChargeBackToAbw(itemId) {
-  await patchKrTransferPrimaryToAbw(itemId)
-}
-
-/**
- * Genau diesen 2.A.-Slot ins Abwehr-Schild zurückführen (Close-X).
- * Entfernt Slot-Zustand + den Phasen-Link (inkl. Kind-Links).
- *
- * Ladungs-Bilanz — „Stempel-zuerst-Trick":
- * Ein Close mit aktivem Stempel (`slot.marks === 0`) wird intern als zwei
- * atomare Schritte behandelt, die auch in dieser Reihenfolge von Hand zum
- * identischen Ergebnis führen:
- *   1. Stempel entfernen → Slot wieder `marks = 1` (Aktion zurückgegeben).
- *   2. Slot/Link schließen → Ladung wandert ins Abwehr-Schild (oder ist bei
- *      `heroExtra` fest im ZAO und verloren, wie ohne Stempel).
- *
- * Damit hat die Reihenfolge „erst × dann X" und „einfach X" das exakt
- * gleiche Ergebnis; es entstehen keine verwaisten Stempel, die später × noch
- * Ladungen erstatten müssten, und die Gesamtzahl verfügbarer Aktionen bleibt
- * wie beim manuellen Vorgehen.
- *
- * Cases im Detail:
- * - `slot.marks === 1` (kein Stempel), kein `heroExtra`: Ladung → Abw (+1),
- *   Slot + Link weg.
- * - `slot.marks === 1`, `heroExtra` (ZAO): Ladung fest im Objekt, Slot + Link
- *   weg, Abw unverändert.
- * - `slot.marks === 0` (Stempel aktiv), kein `heroExtra`: Stempel(n) für
- *   diesen `zaoLinkId` entfernen, Ladung → Abw (+1), Slot + Link weg.
- * - `slot.marks === 0`, `heroExtra`: Stempel(n) entfernen, Slot + Link weg,
- *   Abw unverändert.
- * - Ladung bereits im gemeinsamen Schild pendelnd (`lodgedAbw`): kein weiteres
- *   Abw+; Zeile wird entfernt, Schildzahl unverändert.
- *
- * @param {string} itemId
- * @param {string} linkId
- */
-export async function patchKrCloseZaoSlotToAbw(itemId, linkId) {
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
-  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta) return
-  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
-  const roomMetaEarly = await OBR.room.getMetadata()
-  const stampsEarly = normalizeActionStamps(roomMetaEarly[ACTION_STAMPS_KEY])
-  const hasZaoStampEarly = stampsEarly.entries.some(
-    (e) => e.itemId === itemId && e.zaoLinkId === linkId
-  )
-
-  const phasesMeta = normalizePhases(meta.phases)
-  const linkRef = phasesMeta.links.find((l) => l.id === linkId)
-  const isHeroExtraZao = Boolean(
-    linkRef && linkRef.parentId === null && linkRef.heroExtra
-  )
-  const slot = readZaoSlots(meta)[linkId]
-  const lodgedInAbw = Boolean(slot?.lodgedAbw)
-  // Nur echte Stempel rechtfertigen marks=0 → Abw-Buchung; `lodgedAbw` bereits
-  // in KR_ABW verbucht.
-  const hadStampedCharge = Boolean(slot) && slot.marks === 0 && hasZaoStampEarly
-  const needsAbwOnCloseNonExtra =
-    !isHeroExtraZao &&
-    Boolean(slot) &&
-    !lodgedInAbw &&
-    (slot.marks === 1 || hadStampedCharge)
-
-  const abw = normalizeKrDigit(meta[KR_ABW])
-  let nextAbw = abw
-  if (needsAbwOnCloseNonExtra) {
-    nextAbw = addOneAbwTransferChargeValue(abw)
-    // Nur blockieren, wenn keine Stempel-Rückerstattung nötig (Schild evtl. voll).
-    if (nextAbw === abw && !hadStampedCharge) return
-  }
-
-  // Mutex z.AT vs schwarzes Schild: war der geschlossene Slot ein gestempelter
-  // heroExtra-'ang'-Slot, geben wir die Mutex-Wahl wieder frei und stellen das
-  // schwarze Schild bei aktivem `heroExtraPar` geladen wieder her — analog zum
-  // Undo-Pfad. Ohne Stempel (X auf geladenes z.AT) bleibt die Wahl unberuehrt.
-  const releaseMutexAng =
-    isHeroExtraZao && hadStampedCharge && linkRef?.heroExtra === 'ang'
-  await OBR.scene.items.updateItems([itemId], (drafts) => {
-    for (const d of drafts) {
-      const m = d.metadata[TRACKER_ITEM_META_KEY]
-      if (!m) continue
-      if (nextAbw !== abw) m[KR_ABW] = nextAbw
-      const s = readZaoSlots(m)
-      if (s[linkId] !== undefined) {
-        delete s[linkId]
-        m[KR_ZAO_SLOTS] = s
-      }
-      const p = normalizePhases(m.phases)
-      const keep = new Set(p.links.map((l) => l.id))
-      keep.delete(linkId)
-      for (const l of p.links) {
-        if (l.parentId != null && !keep.has(l.parentId)) keep.delete(l.id)
-      }
-      m.phases = finalizePhasesWithOrderedRoots(m, {
-        ...p,
-        links: p.links.filter((l) => keep.has(l.id)),
-      })
-      if (releaseMutexAng) {
-        delete m.krExtraChoiceUsed
-        if (readHeroExtraParCount(m) > 0) m[KR_PARADE_EXTRA] = 0
-      }
-    }
-  })
-  // Alle Stempel, die per `zaoLinkId` an diesem Slot hingen, jetzt entfernen.
-  // Das entspricht dem konzeptuellen Schritt 1 („erst die Marker, dann die
-  // Objekte") — die Ladung wurde oben schon ins Schild gebucht bzw. bei
-  // `heroExtra` (ZAO) korrekt als Verlust verbucht. Ohne Stempel gibt es
-  // später kein × mehr, das weitere Ladungen „erfinden" könnte.
-  await patchActionStamps(
-    (stamps) => {
-      const entries = stamps.entries.filter(
-        (e) => !(e.itemId === itemId && e.zaoLinkId === linkId)
-      )
-      const anchorId = entries.length > 0 ? stamps.anchorId : null
-      return { anchorId, entries }
-    },
-    { skipGmCheck: true }
-  )
-}
-
 /**
  * Klick auf das Primärfeld eines 2.A.-Slots: Ladung verbrauchen + Stempel
  * an dieser Zeile (mit `zaoLinkId`) anlegen. Slot bleibt sichtbar (marks=0),
@@ -2422,22 +2282,6 @@ function addOneAbwTransferChargeValue(v) {
   const marks = marksFromChargeValue(v)
   if (marks >= krAbwTransferMaxMarks()) return normalizeKrDigit(v)
   return chargeValueFromMarks(marks + 1)
-}
-
-/** Noch Platz für eine per Umwandlung (Ang.→Abw) hinzugefügte Markierung? */
-export function krAbwCanAcceptTransferMark(abwRaw) {
-  const abw = normalizeKrDigit(abwRaw)
-  return addOneAbwTransferChargeValue(abw) !== abw
-}
-
-/** Abw.→Primär: Primärzähler kann noch eine Markierung aufnehmen (inkl. von 1 auf 2). */
-export function krPrimaryCanAcceptTransferMark(primaryRaw) {
-  const primary = normalizeKrDigit(primaryRaw)
-  return addOneChargeValue(primary) !== primary
-}
-
-export function krAngCanAcceptTransferMark(primaryRaw) {
-  return krPrimaryCanAcceptTransferMark(primaryRaw)
 }
 
 /**

@@ -609,42 +609,6 @@ export function canCreateSecondActionRoot(ownerIniStr, storedPhaseOffset) {
 }
 
 /**
- * Reguläre Phasen-Links (ohne z.AT / L.H.-End-Marker): tiefste Ziel-INI
- * (kleinster Wert = am spätesten in der Runde). Bei gleicher INI gewinnt
- * die größere Ketten-Tiefe, sonst die kleinere Link-ID.
- */
-export function deepestRegularZaoPhaseLinkId(ownerIniStr, phasesNormalized) {
-  const links = phasesNormalized?.links
-  if (!Array.isArray(links) || links.length === 0) return null
-  const map = buildLinkMap(links)
-  let bestId = null
-  let bestHook = Infinity
-  let bestDepth = -1
-  for (const l of links) {
-    if (l.heroExtra || l.lhEnd === true) continue
-    const h = hookIniForLink(l.id, ownerIniStr, links)
-    if (h === null || !Number.isFinite(h)) continue
-    const d = linkDepth(l.id, map)
-    if (bestId === null) {
-      bestId = l.id
-      bestHook = h
-      bestDepth = d
-      continue
-    }
-    if (
-      h < bestHook ||
-      (h === bestHook && d > bestDepth) ||
-      (h === bestHook && d === bestDepth && l.id < bestId)
-    ) {
-      bestId = l.id
-      bestHook = h
-      bestDepth = d
-    }
-  }
-  return bestId
-}
-
-/**
  * Nächste 2.A.-Wurzel als **flache Wurzel** (`parentId: null`) mit einem
  * kumulativen Offset aus der Helden-INI. Jede weitere Wurzel liegt genau
  * `off` tiefer als die vorherige, sodass die Ziel-INI-Reihe identisch zur
@@ -812,49 +776,6 @@ export function ensureExtraAttackPhaseRoot(itemId, ownerIniStr) {
   })
 }
 
-export function onNamePhasePlusClick(itemId, _evt, ownerIniStr) {
-  return patchItemPhases(itemId, (p, meta) => {
-    const norm = normalizePhases(p)
-    const off = phaseOffsetFromHeroSecondAoMeta(meta)
-    const next = nextChainedZaoParentForTransfer(ownerIniStr, norm, off)
-    if (!next) {
-      return p
-    }
-    if (p.links.length === 0) {
-      return {
-        ...p,
-        rowPanelOpen: true,
-        links: [
-          {
-            id: uuid(),
-            parentId: next.parentId,
-            offset: next.offset,
-          },
-        ],
-      }
-    }
-    return {
-      ...p,
-      rowPanelOpen: true,
-      links: [
-        ...p.links,
-        {
-          id: uuid(),
-          parentId: next.parentId,
-          offset: next.offset,
-        },
-      ],
-    }
-  })
-}
-
-/**
- * Wie erster Klick auf „+“ (2.A.): L.H.-gebundene Wurzel wie bei Eingabe „1“.
- */
-export function openSecondActionPhaseForLhSingle(itemId, ownerIniStr) {
-  return upsertLhLinkedZaoRoot(itemId, 1, ownerIniStr)
-}
-
 export function addPhaseChildLink(itemId, parentLinkId, ownerIniStr) {
   return patchItemPhases(itemId, (p) => {
     const parentHook = hookIniForLink(parentLinkId, ownerIniStr, p.links)
@@ -877,32 +798,6 @@ export function addPhaseChildLink(itemId, parentLinkId, ownerIniStr) {
 export function removePhaseLink(itemId, linkId) {
   return patchItemPhases(itemId, (p) => {
     const cut = collectSubtreeIds(p.links, linkId)
-    const nextLinks = p.links.filter((l) => !cut.has(l.id))
-    return {
-      ...p,
-      links: nextLinks,
-      rowPanelOpen: nextLinks.length > 0,
-    }
-  })
-}
-
-/**
- * Entfernt die zuletzt angelegte 2.-A.-Wurzel (letzte Wurzel in der Link-Liste)
- * inkl. angehängter Phasen – entspricht Umkehrung von wiederholtem „+“.
- */
-export function removeLastZaoRoot(itemId) {
-  return patchItemPhases(itemId, (p) => {
-    let lastRootId = null
-    let bestIdx = -1
-    for (let i = 0; i < p.links.length; i++) {
-      const l = p.links[i]
-      if (l.parentId === null && i > bestIdx) {
-        bestIdx = i
-        lastRootId = l.id
-      }
-    }
-    if (!lastRootId) return p
-    const cut = collectSubtreeIds(p.links, lastRootId)
     const nextLinks = p.links.filter((l) => !cut.has(l.id))
     return {
       ...p,
@@ -1022,49 +917,6 @@ export async function clearAllRootPhaseLinksInScene() {
       }
     }
   )
-}
-
-/** Entfernt die zuletzt angelegte Wurzel-Verknüpfung (inkl. Kinder). */
-export function removeLastRootPhase(itemId) {
-  return patchItemPhases(itemId, (p) => {
-    const roots = p.links.filter((l) => l.parentId === null)
-    if (roots.length === 0) return p
-    const victim = roots[roots.length - 1]
-    const cut = collectSubtreeIds(p.links, victim.id)
-    return {
-      ...p,
-      links: p.links.filter((l) => !cut.has(l.id)),
-    }
-  })
-}
-
-function parseOffsetCommit(s) {
-  const n = Number(String(s ?? '').trim().replace(',', '.'))
-  if (!Number.isFinite(n)) return null
-  return Math.round(n)
-}
-
-/**
- * Offset setzen. hookIni muss ≥ 0 sein, sonst { ok:false }.
- */
-export function tryCommitPhaseOffset(itemId, linkId, offsetStr, ownerIniStr, links) {
-  const link = links.find((l) => l.id === linkId)
-  if (!link) return Promise.resolve({ ok: false })
-
-  const base = baseIniBeforeLink(linkId, ownerIniStr, links)
-  if (base === null) return Promise.resolve({ ok: false })
-
-  let off = parseOffsetCommit(offsetStr)
-  if (off === null) off = clampStoredOffset(link.offset)
-  off = Math.max(0, off)
-
-  const hook = base - off
-  if (hook < 0) return Promise.resolve({ ok: false, reason: 'NEG_INI' })
-  const stored = Math.min(99, off)
-  return patchItemPhases(itemId, (p) => ({
-    ...p,
-    links: p.links.map((l) => (l.id === linkId ? { ...l, offset: stored } : l)),
-  })).then(() => ({ ok: true }))
 }
 
 /**

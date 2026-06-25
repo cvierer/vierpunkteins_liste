@@ -34,7 +34,6 @@ import {
   effectiveWappenForHero,
   HERO_EX_WAPPEN_SLOT9,
   HERO_EX_WAPPEN_TEMPLATE,
-  TZ_ZONE_INPUT_TOOLTIP_FOOTER,
 } from './wappenDefs.js'
 import {
   AUTO_MOD_BUNDLE_PREFIX,
@@ -96,11 +95,6 @@ import {
   removeHeroExMod,
   removeHeroExModsByBundleId,
 } from './heroExMods.js'
-
-/** Statischer Referenztext (Mensch-Standard); UI nutzt `buildTrefferzoneInputTooltip`. */
-export const TZ_TOOLTIP =
-  'Trefferzone TZ: W20 19–20 = Kopf · 15–18 = Brust (Frontal F an) oder Rücken (F aus) · 9–14 = Arme (ungerade Schildarm, gerade Schwertarm) · 7–8 = Bauch · 1–6 = Beine (ungerade links, gerade rechts). ' +
-  TZ_ZONE_INPUT_TOOLTIP_FOOTER
 
 /** Tooltip WS-Feld (Mouseover). */
 export const WS_RULES_TOOLTIP =

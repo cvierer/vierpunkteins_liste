@@ -6,11 +6,6 @@ export const CUSTOM_DIST_MAX_BANDS = 99
 export const CUSTOM_DIST_MAX_SCHRITT = 999
 export const CUSTOM_DIST_MIN_BANDS = 1
 
-/** @deprecated Nur fuer Alt-Import; neue Helden nutzen variable Profile. */
-export const CUSTOM_DIST_PROFILE_COUNT = 3
-/** @deprecated Nur fuer Alt-Import. */
-export const CUSTOM_DIST_BAND_COUNT = 5
-
 export const DEFAULT_BAND_LABELS = Object.freeze([
   'Sehr nah',
   'Nah',
