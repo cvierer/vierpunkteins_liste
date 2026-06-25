@@ -125,6 +125,8 @@ import {
   parseNonNegIntOrNull,
   resolveDeathModeForLeUi,
 } from './heroExpandGauges.js'
+export * from './heroExpandModFormat.js'
+import { formatDeltaForTooltip } from './heroExpandModFormat.js'
 import {
   HERO_EX_LE,
   HERO_EX_LE_MAX,
@@ -3171,7 +3173,6 @@ export function mountHeroExpandBlock(
     const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
     const AUTO_BLUTEND_BUNDLE_ID = 'auto-blutend'
     const AUTO_ZONE_BUNDLE_PREFIX = 'auto-zone-'
-    const CHIP_NEG_LE_KO_RANGE = 1.6
     const THREE_WOUND_CHIP_RULE = {
       kopf: 'Kopf: +2W6 SP, bewusstlos & Blutverlust (\u22121 LeP/KR). Kampfunf\u00e4hig.',
       brust: 'Brust: Bewusstlos & Blutverlust (\u22121 LeP/KR). Kampfunf\u00e4hig.',
@@ -3181,13 +3182,6 @@ export function mountHeroExpandBlock(
       schwertarm: 'Rechter Arm: Arm unbrauchbar, Waffe/Schild f\u00e4llt. Held bleibt handlungsf\u00e4hig.',
       lbein: 'Linkes Bein: Verlust der Standfestigkeit, keine aktive Teilnahme am Kampf m\u00f6glich.',
       rbein: 'Rechtes Bein: Verlust der Standfestigkeit, keine aktive Teilnahme am Kampf m\u00f6glich.',
-    }
-
-    const parseMetaLeIntChip = (raw) => {
-      const t = String(raw ?? '').trim()
-      if (t === '') return null
-      const n = parseInt(t, 10)
-      return Number.isFinite(n) ? n : null
     }
 
     /** Mini-S-Kästchen (2:1) für LE-Automod: Anteil + Bandfarbe wie S-Feld. */
@@ -3225,9 +3219,9 @@ export function mountHeroExpandBlock(
 
     const syncModChipLeRing = (wrap, m) => {
       const snap = readHeroExpandSnapshot(m)
-      const leV = parseMetaLeIntChip(snap.le)
-      const maxV = parseMetaLeIntChip(snap.leMax)
-      const koV = parseMetaLeIntChip(snap.ko)
+      const leV = parseIntOrNull(snap.le)
+      const maxV = parseIntOrNull(snap.leMax)
+      const koV = parseIntOrNull(snap.ko)
       const slice = wrap.querySelector('.init-hero-ex__mod-chip-le-ring__slice')
       if (!(slice instanceof HTMLElement)) return
 
@@ -3242,7 +3236,7 @@ export function mountHeroExpandBlock(
 
       if (negLe) {
         const depth = /** @type {number} */ (-leV)
-        const cap = CHIP_NEG_LE_KO_RANGE * /** @type {number} */ (koV)
+        const cap = NEG_LE_KO_RANGE * /** @type {number} */ (koV)
         const hp = Math.min(1, depth / cap)
         wrap.style.setProperty('--le-neg-frac', String(hp))
         wrap.dataset.leBand = 'neg-le'
@@ -3781,13 +3775,6 @@ export function mountHeroExpandBlock(
     primaryStack.className = 'init-hero-ex__mods-stack'
 
     const seenBundle = new Set()
-    const formatDeltaForTooltip = (n) => {
-      const x = Number(n)
-      if (!Number.isFinite(x)) return '0'
-      if (x < 0) return `↓${Math.abs(x)}`
-      if (x > 0) return `↑${x}`
-      return '0'
-    }
     const hasActiveSterbendOrRip = active.some((x) => {
       const bid = String(x?.bundleId ?? '')
       if (!bid.startsWith(AUTO_MOD_BUNDLE_PREFIX)) return false
