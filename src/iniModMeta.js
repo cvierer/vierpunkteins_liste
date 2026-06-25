@@ -42,7 +42,6 @@ import {
   hasGsZeroPriorityFromSnapshot,
   armThirdWoundSidesFromSnapshot,
   computeUnfaehigSources,
-  leAtPaMalusForBand,
   leBand,
   leBandLabelDe,
   patchHeroExModsWithAutoBundles,
@@ -116,6 +115,16 @@ import {
   mountZoneMiniWappen,
   syncWappenRsFontSize,
 } from './heroExpandDom.js'
+export * from './heroExpandGauges.js'
+import {
+  NEG_LE_KO_RANGE,
+  blinkStopLeBoundaryForMode,
+  isDeathTriggeredForLeUi,
+  leThresholdMalusForValues,
+  parseIntOrNull,
+  parseNonNegIntOrNull,
+  resolveDeathModeForLeUi,
+} from './heroExpandGauges.js'
 import {
   HERO_EX_LE,
   HERO_EX_LE_MAX,
@@ -1616,29 +1625,15 @@ export function mountHeroExpandBlock(
   const le = { inp: leInp }
   const leMax = { inp: leMaxInp }
 
-  const parseSignedIntLoose = (raw) => {
-    const t = String(raw ?? '').trim()
-    if (t === '') return null
-    const n = parseInt(t, 10)
-    if (!Number.isFinite(n)) return null
-    return n
-  }
+  const parseSignedIntLoose = parseIntOrNull
+  const parseNonNegIntLoose = parseNonNegIntOrNull
 
-  const parseNonNegIntLoose = (raw) => {
-    const t = String(raw ?? '').trim()
-    if (t === '') return null
-    const n = parseInt(t, 10)
-    if (!Number.isFinite(n) || n < 0) return null
-    return n
-  }
-
-  const computeLeThresholdMalus = () => {
-    const leVal = parseSignedIntLoose(le.inp.value)
-    const leMaxVal = parseNonNegIntLoose(leMax.inp.value)
-    if (leVal === null || leMaxVal === null || leMaxVal <= 0) return 0
-    const band = leBand(leVal, leMaxVal, customLeThreshold)
-    return leAtPaMalusForBand(band)
-  }
+  const computeLeThresholdMalus = () =>
+    leThresholdMalusForValues(
+      parseSignedIntLoose(le.inp.value),
+      parseNonNegIntLoose(leMax.inp.value),
+      customLeThreshold
+    )
 
   const leThreshRailAbbr = mkChainAbbr('LE', LE_THRESHOLD_TOOLTIP)
   const leThreshRail = createLeThresholdGaugeBox(
@@ -1654,74 +1649,11 @@ export function mountHeroExpandBlock(
   /** @type {{ host: HTMLElement, box: HTMLDivElement, fill: HTMLDivElement, line50: HTMLDivElement, line33: HTMLDivElement, line25: HTMLDivElement, line5: HTMLDivElement, lineUnf: HTMLDivElement, skull: SVGSVGElement }[]} */
   const leThreshGaugeSets = [{ host: sRailRoot, ...leThreshRail }]
 
-  const parseLeIntSafe = (raw) => {
-    const t = String(raw ?? '').trim()
-    if (t === '') return null
-    const n = parseInt(t, 10)
-    return Number.isFinite(n) ? n : null
-  }
-  const parseKoIntSafe = (raw) => {
-    const t = String(raw ?? '').trim()
-    if (t === '') return null
-    const n = parseInt(t, 10)
-    return Number.isFinite(n) ? n : null
-  }
-  const parseWsIntSafe = (raw) => {
-    const t = String(raw ?? '').trim()
-    if (t === '') return null
-    const n = parseInt(t, 10)
-    return Number.isFinite(n) ? n : null
-  }
-  /**
-   * @param {ReturnType<typeof readHeroExpandSnapshot>} curSnap
-   * @returns {'lt0'|'minusKo'|'minusOnePointFiveKo'}
-   */
-  const resolveDeathModeForLeUi = (curSnap) => {
-    const v = String(curSnap?.deathMode ?? '')
-      .trim()
-      .toLowerCase()
-    if (v === 'lt0' || v === 'minusko' || v === 'minusonepointfiveko') {
-      return v === 'minusko'
-        ? 'minusKo'
-        : v === 'minusonepointfiveko'
-          ? 'minusOnePointFiveKo'
-          : 'lt0'
-    }
-    const legacy = String(curSnap?.deathAtMinusOnePointFiveKo ?? '')
-      .trim()
-      .toLowerCase()
-    if (['1', 'true', 'on', 'yes', 'ja'].includes(legacy)) {
-      return 'minusOnePointFiveKo'
-    }
-    return 'minusKo'
-  }
-  /**
-   * @param {number | null} leNum
-   * @param {number | null} koNum
-   * @param {'lt0'|'minusKo'|'minusOnePointFiveKo'} deathMode
-   * @returns {boolean}
-   */
-  const isDeathTriggeredForLeUi = (leNum, koNum, deathMode) => {
-    if (leNum === null) return false
-    if (deathMode === 'lt0') return leNum <= 0
-    if (!(koNum != null && koNum > 0)) return false
-    const depth = -leNum
-    const threshold = deathMode === 'minusOnePointFiveKo' ? 1.5 * koNum : koNum
-    return depth >= threshold
-  }
-  /**
-   * Blinkgrenze in LE (nicht in Tiefe), ab der der Negativ-Puls endet.
-   * @param {number | null} koNum
-   * @param {'lt0'|'minusKo'|'minusOnePointFiveKo'} deathMode
-   * @returns {number}
-   */
-  const blinkStopLeBoundaryForMode = (koNum, deathMode) => {
-    if (deathMode === 'lt0') return 0
-    if (!(koNum != null && koNum > 0)) return Number.NEGATIVE_INFINITY
-    return deathMode === 'minusOnePointFiveKo' ? -1.5 * koNum : -koNum
-  }
-  /** Minus-Skala 0 … −1,6·KO (ab LE≤0 mit gültigem KO). */
-  const NEG_LE_KO_RANGE = 1.6
+  const parseLeIntSafe = parseIntOrNull
+  const parseKoIntSafe = parseIntOrNull
+  const parseWsIntSafe = parseIntOrNull
+  // resolveDeathModeForLeUi, isDeathTriggeredForLeUi, blinkStopLeBoundaryForMode
+  // und NEG_LE_KO_RANGE: reine Mathematik aus ./heroExpandGauges.js importiert.
 
   /** LE-Zahl am Balken (`data-le-val` → CSS `::after`); ohne Attribut keine Beschriftung. */
   const setGaugeLineLeVal = (lineEl, n) => {
