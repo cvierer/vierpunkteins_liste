@@ -1485,6 +1485,25 @@ function syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitch) {
   }
 }
 
+/**
+ * Faerbt die Schwert-Klinge (currentColor) in der Heldenfarbe, sofern gesetzt
+ * und fuer den Betrachter sichtbar. Form/Groesse bleiben unveraendert.
+ * @param {Element | null | undefined} root Icon-Container oder das SVG selbst
+ * @param {unknown} trackerMeta
+ * @param {boolean} canEdit
+ */
+function applyHeroSwordColor(root, trackerMeta, canEdit) {
+  if (!(root instanceof Element)) return
+  const svg = root.classList.contains('init-kr-primary-kind__svg--ang')
+    ? root
+    : root.querySelector('.init-kr-primary-kind__svg--ang')
+  if (!(svg instanceof SVGElement)) return
+  const heroColor = readHeroBgColor(trackerMeta)
+  if (heroColor && (canEdit || !getHideForeignHeroColorsForViewer())) {
+    svg.style.color = heroColor
+  }
+}
+
 function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   const { shell, main, exec, icon, prevBtn, nextBtn, switchCol } = els
   const {
@@ -1602,6 +1621,7 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     }
   } else {
     icon.innerHTML = SVG_PRIMARY_ATTACK
+    applyHeroSwordColor(icon, trackerMeta, canEdit)
   }
 
   if (
@@ -1984,6 +2004,7 @@ function appendKrPrimarySplitCell(
     }
   } else {
     icon.innerHTML = SVG_PRIMARY_ATTACK
+    applyHeroSwordColor(icon, trackerMeta, canEdit)
   }
   if (
     !isUoKind &&
@@ -2275,6 +2296,7 @@ function appendKrPrimarySplitCell(
     restoreBtn.type = 'button'
     restoreBtn.className = 'init-kr-primary-zao-restore'
     restoreBtn.innerHTML = `<span class="init-kr-primary-zao-restore__glyph" aria-hidden="true">${SVG_PRIMARY_ATTACK}</span>`
+    applyHeroSwordColor(restoreBtn, trackerMeta, canEdit)
     restoreBtn.title = canEdit
       ? 'Zusätzliches Angriffsaktions-Objekt (ZAO) wiederherstellen — die Ladung aus den Helden-Einstellungen steht dir noch zu.'
       : 'Zusätzliches Angriffsaktions-Objekt (ZAO) noch verfügbar; nur der Held oder die Spielleitung kann es wiederherstellen.'
