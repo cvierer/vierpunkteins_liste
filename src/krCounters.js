@@ -44,6 +44,29 @@ export { normalizeKrDigit } from './krDigit.js'
 export * from './krStampPredicates.js'
 import { motherPrimarySelfStamped } from './krStampPredicates.js'
 export * from './krCounterRead.js'
+export * from './krPrimaryField.js'
+export * from './krIniLock.js'
+import {
+  applyIniLockCharges,
+  ensureFullFreeActionQuota,
+  isHeroIniBelowZero,
+} from './krIniLock.js'
+export * from './krActionPool.js'
+import {
+  effectiveHeroPoolSplit,
+  readHeroActionPoolMax,
+  readHeroActionPoolPair,
+  readKrActionPoolRem,
+  readKrActionPoolRemFromStoredOrCfgPair,
+} from './krActionPool.js'
+import {
+  KR_PAIR_MODE_VALID,
+  krPairModeFieldForSlot,
+  primaryFieldForKind,
+  readKrFirstSlotKind,
+  readKrPrimaryLadung,
+  syncKrPrimaryLadungFromPrimaryField,
+} from './krPrimaryField.js'
 import {
   migrateHeroExtraCountFields,
   paradeExtraFieldForIndex,
@@ -51,7 +74,6 @@ import {
   readHeroExtraAngCount,
   readHeroExtraParCount,
   readHeroFaMax,
-  readHeroIniNegActionsLost,
   readHeroIniNegAngMode,
   readKrLhSecondCharge,
 } from './krCounterRead.js'
@@ -81,13 +103,9 @@ import {
   HERO_EXTRA_MAX,
   LEGACY_KR_ACTION,
   KR_ZAO_SLOTS,
-  HERO_ACTION_POOL_ANG,
-  HERO_ACTION_POOL_ABW,
-  HERO_ACTION_POOL_MAX,
   KR_ACTION_POOL_ANG_REM,
   KR_ACTION_POOL_ABW_REM,
   KR_INI_NEG_POOL_SHIFT_APPLIED,
-  MIN_HERO_ACTION_POOL_SUM,
   MAX_HERO_ACTION_POOL_SUM,
   KR_COUNTER_MAX,
   DEFAULT_TRACKER_KR_COUNTERS,
@@ -104,105 +122,6 @@ function lhLockRoundFromCombat() {
   const c = getCombat()
   if (!c.started) return null
   return Number.isFinite(c.round) ? c.round : null
-}
-
-const DEFAULT_HERO_ACTION_POOL_ANG = 1
-const DEFAULT_HERO_ACTION_POOL_ABW = 1
-
-/**
- * Rohe ang/abw aus Meta wie vor Einführung von `heroActionPoolMax` (Migration).
- * @param {unknown} meta
- * @returns {{ ang: number, abw: number }}
- */
-function parseLegacyHeroActionPoolAngAbw(meta) {
-  let ang = Math.floor(Number(meta?.[HERO_ACTION_POOL_ANG]))
-  let abw = Math.floor(Number(meta?.[HERO_ACTION_POOL_ABW]))
-  if (!Number.isFinite(ang) || ang < 0) ang = DEFAULT_HERO_ACTION_POOL_ANG
-  if (!Number.isFinite(abw) || abw < 0) abw = DEFAULT_HERO_ACTION_POOL_ABW
-  ang = Math.max(0, Math.min(MAX_HERO_ACTION_POOL_SUM, ang))
-  abw = Math.max(0, Math.min(MAX_HERO_ACTION_POOL_SUM, abw))
-  let sum = ang + abw
-  if (sum > MAX_HERO_ACTION_POOL_SUM) {
-    const scale = MAX_HERO_ACTION_POOL_SUM / sum
-    ang = Math.max(0, Math.floor(ang * scale))
-    abw = Math.max(0, MAX_HERO_ACTION_POOL_SUM - ang)
-    sum = ang + abw
-  }
-  if (sum < 1) {
-    ang = DEFAULT_HERO_ACTION_POOL_ANG
-    abw = DEFAULT_HERO_ACTION_POOL_ABW
-  }
-  return { ang, abw }
-}
-
-/**
- * @param {unknown} meta
- * @returns {number} Summe S (1…20)
- */
-export function readHeroActionPoolMax(meta) {
-  const legacy = parseLegacyHeroActionPoolAngAbw(meta)
-  const legacySum = legacy.ang + legacy.abw
-  const rawMax = Math.floor(Number(meta?.[HERO_ACTION_POOL_MAX]))
-  if (
-    Number.isFinite(rawMax) &&
-    rawMax >= MIN_HERO_ACTION_POOL_SUM &&
-    rawMax <= MAX_HERO_ACTION_POOL_SUM
-  ) {
-    return rawMax
-  }
-  return Math.max(
-    MIN_HERO_ACTION_POOL_SUM,
-    Math.min(MAX_HERO_ACTION_POOL_SUM, legacySum)
-  )
-}
-
-/**
- * Konfiguriertes Umw.-Budget: Summe = `readHeroActionPoolMax`, Abwehr = Rest nach Angriffsanteil.
- * @param {unknown} meta
- * @returns {{ ang: number, abw: number }}
- */
-export function readHeroActionPoolPair(meta) {
-  const legacy = parseLegacyHeroActionPoolAngAbw(meta)
-  const S = readHeroActionPoolMax(meta)
-  const ang = Math.min(Math.max(0, legacy.ang), S)
-  const abw = S - ang
-  return { ang, abw }
-}
-
-/**
- * Effektive Aufteilung für Pool und KR-Ladevorgang: bei INI &lt; 0 eine
- * Aktionsladung nach Reaktionsseite verschoben (Summe S unverändert).
- *
- * @param {unknown} meta
- * @returns {{ ang: number, abw: number }}
- */
-export function effectiveHeroPoolSplit(meta) {
-  const pair = readHeroActionPoolPair(meta)
-  if (!isHeroIniBelowZero(meta)) return pair
-  const S = readHeroActionPoolMax(meta)
-  const angEff = Math.max(0, pair.ang - 1)
-  return { ang: angEff, abw: S - angEff }
-}
-
-/**
- * Rohe Pool-REM ohne INI-effektiven Fallback (nur konfigurierte Aufteilung),
- * damit Zeichenwechsel nicht doppelt verschiebt.
- *
- * @param {Record<string, unknown>} m
- * @returns {{ ang: number, abw: number }}
- */
-function readKrActionPoolRemFromStoredOrCfgPair(m) {
-  const pair = readHeroActionPoolPair(m)
-  const S = pair.ang + pair.abw
-  const ra = m?.[KR_ACTION_POOL_ANG_REM]
-  const rb = m?.[KR_ACTION_POOL_ABW_REM]
-  if (!Number.isFinite(Number(ra)) || !Number.isFinite(Number(rb))) {
-    return { ang: pair.ang, abw: pair.abw }
-  }
-  const a = Math.max(0, Math.floor(Number(ra)))
-  const b = Math.max(0, Math.floor(Number(rb)))
-  if (a + b !== S) return { ang: pair.ang, abw: pair.abw }
-  return { ang: a, abw: b }
 }
 
 /**
@@ -269,24 +188,6 @@ export function applyIniNegativePoolShiftForMetaMutation(
     resetMotherPrimarySlotAfterIniRecoveryFromNegative(m)
     rebuildKrActionPoolVisualsFromAngAbw(m, splitPos.ang, splitPos.abw)
   }
-}
-
-/**
- * @param {unknown} meta
- * @returns {{ ang: number, abw: number }}
- */
-export function readKrActionPoolRem(meta) {
-  const cfg = effectiveHeroPoolSplit(meta)
-  const sumCfg = cfg.ang + cfg.abw
-  const ra = meta?.[KR_ACTION_POOL_ANG_REM]
-  const rb = meta?.[KR_ACTION_POOL_ABW_REM]
-  if (!Number.isFinite(Number(ra)) || !Number.isFinite(Number(rb))) {
-    return { ang: cfg.ang, abw: cfg.abw }
-  }
-  const a = Math.max(0, Math.floor(Number(ra)))
-  const b = Math.max(0, Math.floor(Number(rb)))
-  if (a + b !== sumCfg) return { ang: cfg.ang, abw: cfg.abw }
-  return { ang: a, abw: b }
 }
 
 /**
@@ -919,184 +820,9 @@ export async function patchRestoreHeroExtraZao(itemId) {
  *
  * @param {Record<string, unknown>} m Token-Tracker-Meta (Mutationsziel)
  */
-export function ensureFullFreeActionQuota(m) {
-  if (!m || typeof m !== 'object') return
-  m[KR_FREE_ACTION] = 0
-}
-
-/**
- * @param {unknown} meta
- * @returns {boolean} true, wenn die gespeicherte INI eine endliche Zahl < 0 ist.
- */
-export function isHeroIniBelowZero(meta) {
-  if (!meta || typeof meta !== 'object') return false
-  const raw = String(meta.initiative ?? '').trim().replace(',', '.')
-  if (raw === '') return false
-  const n = Number(raw)
-  return Number.isFinite(n) && n < 0
-}
-
-/**
- * INI-Sperre (V362): Solange die INI < 0 ist, darf die Summe der Ladungen auf
- * Primärseite A (`KR_PRIMARY_LADUNG` bzw. das aktive Primärfeld) und Schild B
- * (`KR_ABW`) höchstens 1 betragen. Marks werden bevorzugt auf Seite A
- * abgebaut; nur wenn A leer ist und B mehr als eine Ladung hat, wird eine
- * Mark aus B entfernt. Abgebaute Marks werden in `KR_INI_LOCK_MINUS_A` /
- * `KR_INI_LOCK_MINUS_B` bilanziert.
- *
- * Wird die INI wieder ≥ 0, stellt die Funktion die gemerkten Marks wieder
- * her und räumt die Bilanzfelder auf. Die Funktion ist idempotent und wird
- * bei jeder INI-Änderung sowie zu Rundenwechsel aufgerufen.
- *
- * Mutiert `m` direkt. Tut nichts, wenn INI leer oder ungültig ist, damit
- * Tokens ohne Initiative (z. B. NSCs ohne INI) nicht angefasst werden.
- */
-export function applyIniLockCharges(m) {
-  if (!m || typeof m !== 'object') return
-  const iniRaw = String(m.initiative ?? '').trim().replace(',', '.')
-  if (iniRaw === '') return
-  const iniNum = Number(iniRaw)
-  if (!Number.isFinite(iniNum)) return
-
-  const minusA = Math.max(0, Math.floor(Number(m[KR_INI_LOCK_MINUS_A]) || 0))
-  const minusB = Math.max(0, Math.floor(Number(m[KR_INI_LOCK_MINUS_B]) || 0))
-
-  if (iniNum >= 0) {
-    // INI erholt sich: abgezogene Ladungen zurückgeben.
-    if (minusA > 0) {
-      const pf = primaryFieldForKind(m)
-      const curMarks = marksFromChargeValue(normalizeKrDigit(m[pf]))
-      const nextMarks = Math.min(KR_COUNTER_MAX, curMarks + minusA)
-      m[pf] = chargeValueFromMarks(nextMarks)
-      // L.H.-Rückgabe hebt eine vom Transfer stammende Leerung auf.
-      if (pf === KR_LH_ACTION && nextMarks > 0) {
-        delete m[KR_LH_VOID_BY_TRANSFER]
-      }
-      if ((pf === KR_ANG || pf === KR_SRA) && nextMarks > 0) {
-        delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
-      }
-      syncKrPrimaryLadungFromPrimaryField(m)
-    }
-    if (minusB > 0) {
-      const curB = marksFromChargeValue(normalizeKrDigit(m[KR_ABW]))
-      m[KR_ABW] = chargeValueFromMarks(Math.min(KR_COUNTER_MAX, curB + minusB))
-    }
-    if (Object.prototype.hasOwnProperty.call(m, KR_INI_LOCK_MINUS_A)) {
-      delete m[KR_INI_LOCK_MINUS_A]
-    }
-    if (Object.prototype.hasOwnProperty.call(m, KR_INI_LOCK_MINUS_B)) {
-      delete m[KR_INI_LOCK_MINUS_B]
-    }
-    return
-  }
-
-  // INI < 0: Schwert als Mutter-Aktion abhaengig von heroIniNegAngMode.
-  // 'no' und 'zatOnly': Mutter auf SRA migrieren (Schwert weg).
-  // 'yes': Schwert bleibt im Zyklus - keine Migration.
-  const angMode = readHeroIniNegAngMode(m)
-  if (angMode !== 'yes' && readKrFirstSlotKind(m) === 'ang') {
-    const angMarks = marksFromChargeValue(normalizeKrDigit(m[KR_ANG]))
-    const sraMarks = marksFromChargeValue(normalizeKrDigit(m[KR_SRA]))
-    const mergedMarks = Math.min(KR_COUNTER_MAX, angMarks + sraMarks)
-    m[KR_FIRST_SLOT_KIND] = 'sra'
-    const curPair = m[KR_PAIR_MODE]
-    if (
-      curPair !== 'sra_sra' &&
-      curPair !== 'sra_ang' &&
-      curPair !== 'sra_abw'
-    ) {
-      m[KR_PAIR_MODE] = 'sra_ang'
-    }
-    m[KR_ANG] = 1
-    m[KR_SRA] = chargeValueFromMarks(mergedMarks)
-    delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
-    syncKrPrimaryLadungFromPrimaryField(m)
-  }
-
-  // Gesamtladung auf <= actionsLost reduzieren (A bevorzugt).
-  const actionsLost = readHeroIniNegActionsLost(m)
-  const pf = primaryFieldForKind(m)
-  const aMarks = marksFromChargeValue(normalizeKrDigit(m[pf]))
-  const bMarks = marksFromChargeValue(normalizeKrDigit(m[KR_ABW]))
-  const total = aMarks + bMarks
-  let excess = total - actionsLost
-  if (excess <= 0) return
-
-  const removeA = Math.min(excess, aMarks)
-  excess -= removeA
-  const removeB = Math.min(excess, bMarks)
-
-  if (removeA > 0) {
-    m[pf] = chargeValueFromMarks(aMarks - removeA)
-    syncKrPrimaryLadungFromPrimaryField(m)
-    m[KR_INI_LOCK_MINUS_A] = minusA + removeA
-  }
-  if (removeB > 0) {
-    m[KR_ABW] = chargeValueFromMarks(bMarks - removeB)
-    m[KR_INI_LOCK_MINUS_B] = minusB + removeB
-  }
-}
-
-/** @typedef {'ang_abw' | 'ang_ang' | 'abw_abw' | 'sra_sra' | 'sra_ang' | 'sra_abw'} KrPairMode */
-const KR_PAIR_MODE_ORDER = /** @type {const} */ ([
-  'ang_abw',
-  'ang_ang',
-  'abw_abw',
-  'sra_sra',
-  'sra_ang',
-  'sra_abw',
-])
-const KR_PAIR_MODE_VALID = new Set(KR_PAIR_MODE_ORDER)
-
-/**
- * @param {unknown} meta
- * @returns {KrPairMode}
- */
-export function readKrPairMode(meta) {
-  const v = meta?.[KR_PAIR_MODE]
-  return typeof v === 'string' && KR_PAIR_MODE_VALID.has(v) ? v : 'ang_abw'
-}
-
-/** @param {KrPairMode} cur */
-export function nextKrPairMode(cur) {
-  const i = KR_PAIR_MODE_ORDER.indexOf(cur)
-  const idx = i < 0 ? 0 : (i + 1) % KR_PAIR_MODE_ORDER.length
-  return KR_PAIR_MODE_ORDER[idx]
-}
-
-/**
- * @param {KrPairMode} mode
- * @param {0 | 1} slot
- */
-export function krPairModeFieldForSlot(mode, slot) {
-  if (slot === 0) {
-    if (mode === 'ang_abw' || mode === 'ang_ang') return KR_ANG
-    if (mode === 'abw_abw') return KR_ABW
-    if (mode === 'sra_ang' || mode === 'sra_abw' || mode === 'sra_sra') return KR_SRA
-    return KR_SRA
-  }
-  if (mode === 'ang_abw') return KR_ABW
-  if (mode === 'ang_ang') return KR_ANG
-  if (mode === 'abw_abw') return KR_ABW
-  if (mode === 'sra_ang') return KR_ANG
-  if (mode === 'sra_abw') return KR_ABW
-  return KR_SRA
-}
-
-/**
- * @param {string} field
- * @returns {'ang' | 'abw' | 'sra' | 'lh'}
- */
-export function krFieldToCounterKind(field) {
-  if (field === KR_ABW) return 'abw'
-  if (field === KR_SRA) return 'sra'
-  if (field === KR_LH_ACTION) return 'lh'
-  return 'ang'
-}
-
 /**
  * @param {string} itemId
- * @param {KrPairMode} mode
+ * @param {import('./krPrimaryField.js').KrPairMode} mode
  */
 export async function patchKrPairMode(itemId, mode) {
   if (!KR_PAIR_MODE_VALID.has(mode)) return
@@ -1113,19 +839,6 @@ export async function patchKrPairMode(itemId, mode) {
       }
     }
   })
-}
-
-/**
- * @param {unknown} meta
- * @returns {'ang' | 'sra' | 'lh' | 'uo'}
- */
-export function readKrFirstSlotKind(meta) {
-  const v = meta?.[KR_FIRST_SLOT_KIND]
-  if (v === 'uo') return 'uo'
-  if (v === 'sra' || v === 'ang' || v === 'lh') return v
-  if (meta?.[KR_PRIMARY_VOID_BY_ABW_TRANSFER]) return 'uo'
-  const mode = readKrPairMode(meta)
-  return krPairModeFieldForSlot(mode, 0) === KR_SRA ? 'sra' : 'ang'
 }
 
 /**
@@ -2051,32 +1764,6 @@ function addOneAbwTransferChargeValue(v) {
   const marks = marksFromChargeValue(v)
   if (marks >= krAbwTransferMaxMarks()) return normalizeKrDigit(v)
   return chargeValueFromMarks(marks + 1)
-}
-
-export function primaryFieldForKind(meta) {
-  const kind = readKrFirstSlotKind(meta)
-  if (kind === 'uo') return KR_ANG
-  if (kind === 'sra') return KR_SRA
-  if (kind === 'lh') return KR_LH_ACTION
-  return KR_ANG
-}
-
-/**
- * @param {unknown} meta
- */
-export function readKrPrimaryLadung(meta) {
-  if (!meta || typeof meta !== 'object') return 0
-  if (Object.prototype.hasOwnProperty.call(meta, KR_PRIMARY_LADUNG)) {
-    return normalizeKrDigit(meta[KR_PRIMARY_LADUNG])
-  }
-  const pf = primaryFieldForKind(meta)
-  return normalizeKrDigit(meta[pf])
-}
-
-function syncKrPrimaryLadungFromPrimaryField(m) {
-  if (!m) return
-  const pf = primaryFieldForKind(m)
-  m[KR_PRIMARY_LADUNG] = normalizeKrDigit(m[pf])
 }
 
 /** @param {string} itemId */
