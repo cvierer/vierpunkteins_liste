@@ -5188,7 +5188,7 @@ select.init-row-extra-select {
 /* Klingen-Grundfarbe (currentColor-Pfade). Heldenfarbe ueberschreibt per
    Inline-Style am SVG (initiativeList.js); ohne Heldenfarbe bleibt das Schwert rot. */
 .init-kr-primary-kind__svg--ang {
-  color: #c62828;
+  color: #a01414;
 }
 
 /* Oben: Beschriftung; Standard AN neutral — Ladungsfarbe nur unten */
@@ -5734,7 +5734,7 @@ select.init-row-extra-select {
   /* Schild-Grundfarbe (currentColor); Heldenfarbe ueberschreibt per Inline-Style
      am Container (initiativeList.js). Steht hier statt am SVG, damit die
      vererbte Farbe die currentColor-Flaeche der Schilde erreicht. */
-  color: #1a237e;
+  color: #141a63;
 }
 
 .init-kr-abw-shield {
@@ -7169,6 +7169,9 @@ select.init-row-extra-select {
   pointer-events: none;
   transform: scale(var(--init-fa-bolt-visual-scale, 1));
   transform-origin: center center;
+  /* Blitz-Grundfarbe (currentColor-Pfade). Heldenfarbe ueberschreibt per
+     Inline-Style am Container (initiativeList.js); ohne Heldenfarbe lila. */
+  color: #4527a0;
 }
 
 .init-fa-cell__bolt {

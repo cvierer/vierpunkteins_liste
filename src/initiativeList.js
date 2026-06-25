@@ -300,6 +300,7 @@ import {
 import { purgeKrMarksBeforeRound } from './krCombatMarks.js'
 import { KAMPF_GEAR_ICON_SVG } from './settingsPanel.js'
 import {
+  deepenHeroColor,
   ensureRandomHeroBgColor,
   HERO_PALETTE_ROWS,
   patchHeroBgColor,
@@ -1399,10 +1400,10 @@ function abwShieldCount(vRaw) {
   return v
 }
 
-const SVG_FA_BOLT = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 28" aria-hidden="true"><ellipse cx="9" cy="14" rx="4.4" ry="11.6" fill="#7e57c2" opacity="0.28"/><path fill="#311b92" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/><path fill="#7e57c2" d="M9 3.4 Q10.6 8.7 11.6 14 Q10.6 19.3 9 24.6 Q7.4 19.3 6.4 14 Q7.4 8.7 9 3.4 Z"/><path fill="#ffd54f" opacity="0.95" d="M9 6.6 Q9.7 10.3 10.05 14 Q9.7 17.7 9 21.4 Q8.3 17.7 7.95 14 Q8.3 10.3 9 6.6 Z"/><path fill="#fffde7" opacity="0.85" d="M9 9.6 Q9.25 11.6 9.35 14 Q9.25 16.4 9 18.4 Q8.75 16.4 8.65 14 Q8.75 11.6 9 9.6 Z"/><path fill="none" stroke="#b8860b" stroke-width="0.5" stroke-linejoin="round" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/></svg>`
+const SVG_FA_BOLT = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 28" aria-hidden="true"><ellipse cx="9" cy="14" rx="4.4" ry="11.6" fill="currentColor" opacity="0.28"/><path fill="currentColor" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/><path fill="currentColor" opacity="0.7" d="M9 3.4 Q10.6 8.7 11.6 14 Q10.6 19.3 9 24.6 Q7.4 19.3 6.4 14 Q7.4 8.7 9 3.4 Z"/><path fill="#ffd54f" opacity="0.95" d="M9 6.6 Q9.7 10.3 10.05 14 Q9.7 17.7 9 21.4 Q8.3 17.7 7.95 14 Q8.3 10.3 9 6.6 Z"/><path fill="#fffde7" opacity="0.85" d="M9 9.6 Q9.25 11.6 9.35 14 Q9.25 16.4 9 18.4 Q8.75 16.4 8.65 14 Q8.75 11.6 9 9.6 Z"/><path fill="none" stroke="#b8860b" stroke-width="0.5" stroke-linejoin="round" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/></svg>`
 
 /** Leuchtendes Lila — Hover (Stand V991 / ein Prompt zuvor). */
-const SVG_FA_BOLT_HOVER = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 28" aria-hidden="true"><ellipse cx="9" cy="14" rx="5.2" ry="12.4" fill="#b388ff" opacity="0.55"/><ellipse cx="9" cy="14" rx="4.4" ry="11.6" fill="#7c4dff" opacity="0.38"/><path fill="#4527a0" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/><path fill="#651fff" d="M9 3.4 Q10.6 8.7 11.6 14 Q10.6 19.3 9 24.6 Q7.4 19.3 6.4 14 Q7.4 8.7 9 3.4 Z"/><path fill="#8e24aa" d="M9 6.6 Q9.7 10.3 10.05 14 Q9.7 17.7 9 21.4 Q8.3 17.7 7.95 14 Q8.3 10.3 9 6.6 Z"/><path fill="#ce93d8" opacity="0.72" d="M9 8.2 Q9.55 11.2 9.75 14 Q9.55 16.8 9 19.8 Q8.45 16.8 8.25 14 Q8.45 11.2 9 8.2 Z"/><path fill="#f3e5f5" opacity="0.88" d="M8.35 10.2 Q8.55 12.4 8.62 14 Q8.55 15.6 8.35 17.8 Q8.15 15.6 8.08 14 Q8.15 12.4 8.35 10.2 Z"/><path fill="none" stroke="#4a148c" stroke-width="0.45" stroke-linejoin="round" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/></svg>`
+const SVG_FA_BOLT_HOVER = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 28" aria-hidden="true"><ellipse cx="9" cy="14" rx="5.2" ry="12.4" fill="currentColor" opacity="0.55"/><ellipse cx="9" cy="14" rx="4.4" ry="11.6" fill="currentColor" opacity="0.38"/><path fill="currentColor" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/><path fill="currentColor" opacity="0.78" d="M9 3.4 Q10.6 8.7 11.6 14 Q10.6 19.3 9 24.6 Q7.4 19.3 6.4 14 Q7.4 8.7 9 3.4 Z"/><path fill="currentColor" opacity="0.6" d="M9 6.6 Q9.7 10.3 10.05 14 Q9.7 17.7 9 21.4 Q8.3 17.7 7.95 14 Q8.3 10.3 9 6.6 Z"/><path fill="#ce93d8" opacity="0.72" d="M9 8.2 Q9.55 11.2 9.75 14 Q9.55 16.8 9 19.8 Q8.45 16.8 8.25 14 Q8.45 11.2 9 8.2 Z"/><path fill="#f3e5f5" opacity="0.88" d="M8.35 10.2 Q8.55 12.4 8.62 14 Q8.55 15.6 8.35 17.8 Q8.15 15.6 8.08 14 Q8.15 12.4 8.35 10.2 Z"/><path fill="none" stroke="#4a148c" stroke-width="0.45" stroke-linejoin="round" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/></svg>`
 /** @param {'ang' | 'sra' | 'lh' | 'uo'} kind */
 function krPrimaryKindLabelLong(kind) {
   if (kind === 'uo') {
@@ -1500,7 +1501,7 @@ function applyHeroSwordColor(root, trackerMeta, canEdit) {
   if (!(svg instanceof SVGElement)) return
   const heroColor = readHeroBgColor(trackerMeta)
   if (heroColor && (canEdit || !getHideForeignHeroColorsForViewer())) {
-    svg.style.color = heroColor
+    svg.style.color = deepenHeroColor(heroColor)
   }
 }
 
@@ -2716,7 +2717,7 @@ function appendKrAbwSplitCell(
   const heroShieldColor = readHeroBgColor(trackerMeta)
   const showHeroShieldColor =
     heroShieldColor && (canEdit || !getHideForeignHeroColorsForViewer())
-  if (showHeroShieldColor) shields.style.color = heroShieldColor
+  if (showHeroShieldColor) shields.style.color = deepenHeroColor(heroShieldColor)
   if (stackedBlueReaction) {
     const icon = document.createElement('span')
     icon.className =
@@ -3035,6 +3036,10 @@ function appendFaCounter(
   const bolts = document.createElement('span')
   bolts.className = 'init-fa-cell__bolts'
   bolts.setAttribute('aria-hidden', 'true')
+  const faHeroColor = readHeroBgColor(trackerMeta)
+  if (faHeroColor && (canEdit || !getHideForeignHeroColorsForViewer())) {
+    bolts.style.color = deepenHeroColor(faHeroColor)
+  }
   const compactCount = avail >= 5
   const boltCount = compactCount ? 1 : avail
   wrap.classList.toggle('init-fa-cell--compact-count', compactCount)
@@ -6009,11 +6014,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         sw.dataset.color = color
         sw.title = `Farbe ${color} setzen`
         sw.setAttribute('aria-label', `Heldenfarbe ${color}`)
-        sw.addEventListener('click', (e) => {
+        sw.addEventListener('click', async (e) => {
           e.preventDefault()
           e.stopPropagation()
           if (!heroSettingsItemId) return
-          void patchHeroBgColor(heroSettingsItemId, color)
+          await patchHeroBgColor(heroSettingsItemId, color)
+          safeRenderList(lastItems, { force: true })
         })
         swatchHost.appendChild(sw)
       }
@@ -6026,11 +6032,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     clearBtn.title = 'Heldenfarbe entfernen'
     clearBtn.setAttribute('aria-label', 'Heldenfarbe entfernen')
     clearBtn.textContent = '×'
-    clearBtn.addEventListener('click', (e) => {
+    clearBtn.addEventListener('click', async (e) => {
       e.preventDefault()
       e.stopPropagation()
       if (!heroSettingsItemId) return
-      void patchHeroBgColor(heroSettingsItemId, null)
+      await patchHeroBgColor(heroSettingsItemId, null)
+      safeRenderList(lastItems, { force: true })
     })
     clearWrap.appendChild(clearBtn)
     heroColorGrid.appendChild(clearWrap)
