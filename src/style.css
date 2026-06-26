@@ -360,10 +360,8 @@ body {
   --init-col-ini: calc(var(--init-obj-cell) * 1.46);
   /* Nutzbreite der INI-Elemente (= schmaler Buttons „Kampfrunde“); Eingaben zentrieren wir im Kästchen */
   --init-col-ini-field: calc(var(--init-col-ini) - 0.06rem * var(--init-ui-scale));
-  /* Eigene Stempel-Spalte rechts neben INI: breit genug fuer 3 enge Mini-Icons */
-  --init-col-stamp: calc(var(--init-obj-cell) * 1.35);
-  /* Stempel-Panel fuellt die Stempel-Spalte (kein INI-Overlay mehr) */
-  --init-stamp-panel-w: var(--init-col-stamp);
+  /* Stempel: breit genug um Gap + Swap-Bereich zu füllen, überlagert INI-Rand rechts */
+  --init-stamp-panel-w: calc(var(--init-col-swap) + var(--init-grid-gap) + var(--init-obj-cell) * 0.38);
   /* Tauschpfeile-Spalte halb so breit */
   --init-col-swap: calc(0.3rem * var(--init-ui-scale));
   --init-grid-gap: var(--init-strip-h-gap);
@@ -401,7 +399,7 @@ body {
   display: grid;
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
-    var(--init-col-ini) var(--init-col-swap) var(--init-col-stamp);
+    var(--init-col-ini) var(--init-col-swap);
   gap: var(--init-grid-gap);
   align-items: flex-end;
   padding:
@@ -740,7 +738,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   display: grid;
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
-    var(--init-col-ini) var(--init-col-swap) var(--init-col-stamp);
+    var(--init-col-ini) var(--init-col-swap);
   gap: var(--init-grid-gap);
   align-items: center;
   width: 100%;
@@ -6523,7 +6521,7 @@ select.init-row-extra-select {
   position: relative;
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
-    max-content var(--init-col-swap) var(--init-col-stamp);
+    max-content var(--init-col-swap);
 }
 
 .init-phase-zao-meta {
@@ -6612,7 +6610,7 @@ select.init-row-extra-select {
   position: absolute;
   z-index: 0;
   left: 0;
-  right: calc(var(--init-col-swap) + var(--init-col-stamp));
+  right: var(--init-col-swap);
   top: 0;
   bottom: 0;
   border-radius: calc(var(--radius) - 1px);
@@ -6628,7 +6626,7 @@ select.init-row-extra-select {
   position: absolute;
   z-index: 0;
   left: 0;
-  right: calc(var(--init-col-swap) + var(--init-col-stamp));
+  right: var(--init-col-swap);
   bottom: 0;
   height: 2px;
   background: var(--init-nav-active-border);
@@ -6707,7 +6705,7 @@ select.init-row-extra-select {
 .init-row-round-gm-wrap > .init-row-round-ini-up-btn {
   position: absolute;
   top: 50%;
-  right: calc(var(--init-col-swap) + var(--init-grid-gap) + var(--init-col-stamp));
+  right: calc(var(--init-col-swap) + var(--init-grid-gap));
   transform: translateY(-50%);
   left: auto;
   width: var(--init-col-ini-field);
@@ -6937,11 +6935,11 @@ select.init-row-extra-select {
   bottom: 0;
   width: var(--init-stamp-panel-w);
   z-index: 40;
-  display: flex;
-  /* Bis zu 3 Mini-Icons eng nebeneinander; ab dem 4. Element neue Zeile */
-  flex-flow: row wrap;
-  align-content: center;
-  justify-content: center;
+  /* Feste Flaeche, beliebig viele Icons: Grid fuellt die Box; --stamp-cols (JS)
+     waehlt die Spaltenzahl, die das groesste achsentreue Icon erlaubt. */
+  display: grid;
+  grid-template-columns: repeat(var(--stamp-cols, 1), 1fr);
+  grid-auto-rows: 1fr;
   gap: 1px;
   border-radius: 4px;
   overflow: hidden;
@@ -6953,9 +6951,9 @@ select.init-row-extra-select {
 /* Mini-Aktionsicon statt Farbflaeche; eingefaerbt in Heldenfarbe (inline am SVG)
    bzw. als Fallback in der Kind-Signaturfarbe (color unten). */
 .init-stamp-panel__seg {
-  /* 3 pro Reihe (sehr enge Abstaende); 4. Element bricht in neue Zeile um */
-  flex: 0 0 calc((100% - 2px) / 3);
-  height: calc(var(--init-obj-cell) * 0.62);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
   display: flex;
   align-items: center;
@@ -6966,6 +6964,7 @@ select.init-row-extra-select {
   pointer-events: auto;
 }
 
+/* svg fuellt die Zelle, behaelt per preserveAspectRatio sein 24:34-Verhaeltnis */
 .init-stamp-panel__seg svg {
   display: block;
   width: 100%;

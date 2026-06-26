@@ -7332,6 +7332,49 @@ function buildStampSeg(stamp, items) {
   return seg
 }
 
+/**
+ * Optimale Spaltenzahl, um n Icons (Seitenverhaeltnis r = Breite/Hoehe) in einer
+ * Box w x h moeglichst gross unterzubringen (gap zwischen den Zellen). Testet
+ * 1..n Spalten und nimmt die mit dem groessten achsentreuen Icon.
+ */
+function bestStampCols(n, w, h, gap = 1, r = 24 / 34) {
+  let best = 1
+  let bestSize = 0
+  for (let c = 1; c <= n; c++) {
+    const rows = Math.ceil(n / c)
+    const cellW = (w - (c - 1) * gap) / c
+    const cellH = (h - (rows - 1) * gap) / rows
+    if (cellW <= 0 || cellH <= 0) continue
+    const iconW = Math.min(cellW, cellH * r)
+    if (iconW > bestSize) {
+      bestSize = iconW
+      best = c
+    }
+  }
+  return best
+}
+
+/**
+ * Setzt --stamp-cols je Stempel-Panel anhand der gemessenen Boxgroesse, damit
+ * beliebig viele Icons ohne Vergroesserung der Flaeche optimal gepackt werden.
+ * Erst alle Boxen messen (reads), dann schreiben (kein Layout-Thrash).
+ */
+function layoutStampPanels(listRoot) {
+  if (!listRoot) return
+  const panels = listRoot.querySelectorAll('.init-stamp-panel')
+  const measured = []
+  panels.forEach((p) => {
+    const n = p.childElementCount
+    const rect = p.getBoundingClientRect()
+    if (n > 0 && rect.width > 0 && rect.height > 0) {
+      measured.push([p, n, rect.width, rect.height])
+    }
+  })
+  for (const [p, n, w, h] of measured) {
+    p.style.setProperty('--stamp-cols', String(bestStampCols(n, w, h)))
+  }
+}
+
   /** (i) + Zahnrad links im aufgeklappten Heldenblock. */
   const buildHeroExpandLeadButtons = (
     rowId,
@@ -8818,6 +8861,7 @@ function buildStampSeg(stamp, items) {
     }
 
     element.replaceChildren(frag)
+    layoutStampPanels(element)
     syncListNavHighlightFromCombat(element, combat, { scroll: false })
 
     void reconcileCombat(tokenRows, items)
