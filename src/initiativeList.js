@@ -1477,28 +1477,17 @@ function syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitch) {
   shell.classList.toggle('init-kr-primary-shell--no-switch', hideSwitch)
   if (!switchCol) return
 
+  // Switch-Spalte bleibt im DOM (Sichtbarkeit nur ueber die --no-switch-Klasse,
+  // CSS-versteckt). So kann ein spaeterer Sync (z. B. nach L.H.-Abbruch) die
+  // Pfeile wieder einblenden, ohne die Zeile komplett neu zu mounten.
   const mainInShell = main.parentElement === shell
   const switchInShell = switchCol.parentElement === shell
 
-  if (hideSwitch) {
-    if (switchInShell) shell.removeChild(switchCol)
-    if (!mainInShell) shell.append(main)
-    return
-  }
-
   if (!mainInShell) {
-    if (switchInShell) {
-      shell.append(main)
-    } else {
-      shell.append(switchCol, main)
-    }
+    shell.append(switchCol, main)
     return
   }
-  if (!switchInShell) {
-    shell.insertBefore(switchCol, main)
-    return
-  }
-  if (shell.firstChild !== switchCol) {
+  if (!switchInShell || shell.firstChild !== switchCol) {
     shell.insertBefore(switchCol, main)
   }
 }
@@ -2350,11 +2339,19 @@ function appendKrPrimarySplitCell(
     hideMotherSwitchForLhMount ||
     isHeroExtraSlot ||
     hideConvertSwitchForLockMount
-  if (hideSwitchColAtMount) {
+  // Bei reiner L.H.-Sperre die Switch-Spalte im DOM behalten (CSS-versteckt),
+  // damit sie nach L.H.-Abbruch ohne Full-Remount wieder eingeblendet werden
+  // kann. Convert-Lock-/HeroExtra-Faelle bleiben abgehaengt (Verhalten unveraendert).
+  const keepSwitchColMounted = !hideConvertSwitchForLockMount && !isHeroExtraSlot
+  if (hideSwitchColAtMount && !keepSwitchColMounted) {
     shell.append(main)
     shell.classList.add('init-kr-primary-shell--no-switch')
   } else {
     shell.append(switchCol, main)
+    shell.classList.toggle(
+      'init-kr-primary-shell--no-switch',
+      hideSwitchColAtMount
+    )
   }
   container.appendChild(shell)
   try {
@@ -9121,6 +9118,7 @@ function layoutStampPanels(listRoot) {
         const merged = mergeDeferredRenderItems(fresh, lastItems)
         enqueueRenderList(merged)
         syncLhNavFractionsInList(element, merged)
+        syncKrPrimaryStampGatesInList(element, merged)
         syncKrAbwStampGatesInList(element, merged)
         syncKrFaStampGatesInList(element, merged)
         requestAnimationFrame(() => {

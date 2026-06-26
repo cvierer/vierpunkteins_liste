@@ -4322,6 +4322,11 @@ select.init-row-extra-select {
 .init-kr-primary-shell--no-switch .init-kr-primary-main {
   grid-column: 2 / 3;
 }
+/* Die Switch-Spalte bleibt fuer den L.H.-Fall im DOM (damit sie nach Abbruch
+   ohne Full-Remount wieder eingeblendet werden kann), wird hier aber versteckt. */
+.init-kr-primary-shell--no-switch .init-kr-primary-switch {
+  display: none;
+}
 
 .init-kr-primary-shell--spent .init-kr-primary-top {
   background: rgba(0, 0, 0, 0.07);
