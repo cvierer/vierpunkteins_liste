@@ -107,10 +107,14 @@ const KIND_MAP_SYMBOL = Object.freeze({
 })
 
 /** @type {Record<string, number>} */
-const KIND_MAP_FONT_WEIGHT = Object.freeze({})
+const KIND_MAP_FONT_WEIGHT = Object.freeze({
+  ang: 500,
+})
 
 /** @type {Record<string, number>} */
-const KIND_MAP_FONT_SIZE = Object.freeze({})
+const KIND_MAP_FONT_SIZE = Object.freeze({
+  ang: 22,
+})
 
 const DEFAULT_MAP_FONT_WEIGHT = 700
 const DEFAULT_MAP_FONT_SIZE = 26

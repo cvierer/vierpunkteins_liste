@@ -87,12 +87,10 @@ describe('primaryKindMapSymbol', () => {
     expect(primaryKindMapSymbol('ang')).toBe('\u{1F5E1}')
   })
 
-  it('ang: weisse Fuellung, gleiche Schriftgroesse wie Stern/Sanduhr', () => {
-    // Schwert nutzt jetzt denselben Default wie sra/lh, damit Hintergrund-
-    // flaeche und Position auf der Map uebereinstimmen (V1276).
+  it('ang: weisse Fuellung, feinere Schrift, kein Rotations-Overlay', () => {
     expect(primaryKindMapStyle('ang').fillColor).toBe('#ffffff')
-    expect(primaryKindMapFontWeight('ang')).toBe(700)
-    expect(primaryKindMapFontSize('ang')).toBe(26)
+    expect(primaryKindMapFontWeight('ang')).toBe(500)
+    expect(primaryKindMapFontSize('ang')).toBe(22)
   })
 
   it('andere Kinds: Standard-Schriftgroesse', () => {

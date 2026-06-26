@@ -97,16 +97,6 @@ async function resolveLabelPosition(tokenId) {
  * @param {{ x: number, y: number }} position
  * @param {string | null} [heroColor]
  */
-/**
- * Glyph-spezifische Rotation in Grad fuer das Kampfschritt-Label.
- * Das Dagger-Symbol (U+1F5E1) zeigt in OBR mit der Klinge nach unten.
- * 180° dreht das gesamte Label (Sprechblase + Symbol), sodass die Klinge nach oben zeigt.
- */
-function turnActionLabelRotation(kind) {
-  if (kind === 'ang') return 180
-  return 0
-}
-
 function buildTurnActionLabelItem(kind, tokenItem, position, heroColor) {
   const style = primaryKindMapStyle(kind, heroColor)
   const ariaName = KIND_LABEL[kind] ?? 'Aktion'
@@ -124,7 +114,7 @@ function buildTurnActionLabelItem(kind, tokenItem, position, heroColor) {
     .cornerRadius(6)
     .padding(4)
     .layer('TEXT')
-    .rotation(turnActionLabelRotation(kind))
+    .rotation(0)
     .locked(true)
     .disableHit(true)
     .visible(tokenItem.visible !== false)
@@ -232,7 +222,7 @@ async function refreshTurnActionLabel(itemsIn) {
           d.visible = labelItem.visible
           d.name = labelItem.name
           d.metadata = labelItem.metadata
-          d.rotation = turnActionLabelRotation(kind)
+          d.rotation = 0
           if (d.text) {
             d.text.plainText = symbol
             d.text.fillColor = style.fillColor
