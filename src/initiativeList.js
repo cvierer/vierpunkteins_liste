@@ -901,6 +901,13 @@ function patchLhNavVisualsInRow(li, trackerMeta, combatRound) {
     }
   }
 
+  const hg = li.querySelector('.init-lh-counter__hourglass')
+  if (hg instanceof HTMLElement) {
+    const ownerId =
+      li.getAttribute('data-item-id') || li.getAttribute('data-phase-owner-id')
+    if (ownerId) applyLhHourglassStep(hg, ownerId, safeStep)
+  }
+
   const fractionEl = li.querySelector('.init-lh-cell__fraction')
   if (fractionEl) {
     fractionEl.textContent = fracLabel
@@ -2472,25 +2479,36 @@ function createLhCounterInputWidget(
 
 const lhHourglassStepCache = new Map()
 
+/**
+ * Sanduhr-Element auf den aktuellen Schritt drehen (180 Grad pro Schritt) und
+ * bei Aenderung von prev->step animieren. Cache pro Token, damit Remount- und
+ * Patch-Pfad denselben Vergleich nutzen.
+ *
+ * @param {HTMLElement} hg
+ * @param {string} ownerItemId
+ * @param {number} step
+ */
+function applyLhHourglassStep(hg, ownerItemId, step) {
+  const prev = lhHourglassStepCache.get(ownerItemId)
+  lhHourglassStepCache.set(ownerItemId, step)
+  hg.style.transform = `rotate(${step * 180}deg)`
+  if (prev !== undefined && prev !== step && typeof hg.animate === 'function') {
+    window.requestAnimationFrame(() => {
+      hg.animate(
+        [
+          { transform: `rotate(${prev * 180}deg)` },
+          { transform: `rotate(${step * 180}deg)` },
+        ],
+        { duration: 400, easing: 'ease-in-out' }
+      )
+    })
+  }
+}
+
 function createLhHourglass(ownerItemId, step) {
   const hg = document.createElement('div')
   hg.className = 'init-lh-counter__hourglass'
-  hg.style.transform = `rotate(${step * 180}deg)`
-  const prev = lhHourglassStepCache.get(ownerItemId)
-  lhHourglassStepCache.set(ownerItemId, step)
-  if (prev !== undefined && prev !== step) {
-    if (typeof hg.animate === 'function') {
-      window.requestAnimationFrame(() => {
-        hg.animate(
-          [
-            { transform: `rotate(${prev * 180}deg)` },
-            { transform: `rotate(${step * 180}deg)` },
-          ],
-          { duration: 400, easing: 'ease-in-out' }
-        )
-      })
-    }
-  }
+  applyLhHourglassStep(hg, ownerItemId, step)
   return hg
 }
 
