@@ -44,7 +44,7 @@ describe('buildCombatTurnSteps action step per row', () => {
     item('hero-b', { initiative: '5', krFirstSlotKind: 'sra' }),
   ]
 
-  it('emittiert einen Token-Schritt und action+reaction pro 2.AO-Wurzel', () => {
+  it('emittiert einen Token-Schritt und nur einen Aktions-Schritt pro 2.AO-Wurzel', () => {
     const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
     expect(steps[0]).toEqual({ kind: 'roundStart', id: ROUND_START_STEP_ID })
     expect(steps[steps.length - 1]).toEqual({
@@ -57,18 +57,14 @@ describe('buildCombatTurnSteps action step per row', () => {
       (s) =>
         s.kind === 'phase' && s.ownerId === 'hero-a' && s.linkId === 'zao1'
     )
+    // Kein separater Reaktions-Substep mehr: Navigation springt direkt zum
+    // naechsten Objekt.
     expect(heroAZao).toEqual([
       {
         kind: 'phase',
         ownerId: 'hero-a',
         linkId: 'zao1',
         sub: 'action',
-      },
-      {
-        kind: 'phase',
-        ownerId: 'hero-a',
-        linkId: 'zao1',
-        sub: 'reaction',
       },
     ])
     expect(steps.filter((s) => s.kind === 'roundStart' || s.kind === 'roundEnd')).toHaveLength(2)
@@ -101,7 +97,7 @@ describe('buildCombatTurnSteps action step per row', () => {
     })
   })
 
-  it('findCombatStepIndex: 2.AO action und reaction sind getrennte Schritte', () => {
+  it('findCombatStepIndex: 2.AO hat nur einen Aktions-Schritt (kein Reaktions-Schritt)', () => {
     const steps = buildCombatTurnSteps(tokenRows, items, [], 1)
     const actionIdx = findCombatStepIndex(steps, {
       currentItemId: 'hero-a',
@@ -114,7 +110,16 @@ describe('buildCombatTurnSteps action step per row', () => {
       currentTurnSubStep: 'reaction',
     })
     expect(actionIdx).toBeGreaterThanOrEqual(0)
-    expect(reactionIdx).toBe(actionIdx + 1)
+    // Reaktions-Substep existiert nicht mehr als eigener Schritt.
+    expect(reactionIdx).toBe(-1)
+    expect(
+      steps.filter(
+        (s) =>
+          s.kind === 'phase' &&
+          s.ownerId === 'hero-a' &&
+          s.linkId === 'zao1'
+      )
+    ).toHaveLength(1)
   })
 
   it('combatPatchForStep setzt currentTurnSubStep action auf Token-Schritt', () => {

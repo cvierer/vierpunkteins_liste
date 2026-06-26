@@ -7371,6 +7371,27 @@ function buildStampSeg(stamp, items) {
 }
 
 /**
+ * Reservierte Reaktions-Stempel-Zelle rechts der INI-Spalte. Eigene Grid-Spalte
+ * (kein absolutes Overlay), damit gestempelte Schilde die INI-Zahl nicht
+ * überdecken. Liegt 4 Schilde pro Reihe dicht nebeneinander (Wrap ab dem 5.).
+ * Wird immer erzeugt (auch leer), damit die Grid-Spalten ausgerichtet bleiben.
+ */
+function buildAbwStampsCell(stamps, items) {
+  const cell = document.createElement('div')
+  cell.className = 'init-col-abw-stamps'
+  if (stamps.length > 0) {
+    cell.setAttribute(
+      'aria-label',
+      'Gestempelte Reaktionen: Rechtsklick auf ein Schild zum Entfernen des Stempels'
+    )
+    for (const st of stamps) {
+      cell.appendChild(buildStampSeg(st, items))
+    }
+  }
+  return cell
+}
+
+/**
  * Optimale Spaltenzahl, um n Icons (Seitenverhaeltnis r = Breite/Hoehe) in einer
  * Box w x h moeglichst gross unterzubringen (gap zwischen den Zellen). Testet
  * 1..n Spalten und nimmt die mit dem groessten achsentreuen Icon.
@@ -8048,22 +8069,11 @@ function layoutStampPanels(listRoot) {
 
         const swapCol = document.createElement('div')
         swapCol.className = 'init-col-swap'
-        main.append(expandCol, btnCol, nameCol, lhCol, input, swapCol)
+        // Reaktions-Stempel in eigener Grid-Spalte rechts der INI (4 Schilde/Reihe)
+        const abwStampsCol = buildAbwStampsCell(__anchorStamps, items)
+        if (__anchorStamps.length > 0) li.classList.add('init-row--has-stamps')
+        main.append(expandCol, btnCol, nameCol, lhCol, input, abwStampsCol, swapCol)
 
-        // Stempel-Panel (absolut rechts, kein INI-Shift)
-        if (__anchorStamps.length > 0) {
-          li.classList.add('init-row--has-stamps')
-          const __panel = document.createElement('div')
-          __panel.className = 'init-stamp-panel'
-          __panel.setAttribute(
-            'aria-label',
-            'Gestempelte Aktionen: Rechtsklick auf eine Farbe zum Entfernen des Stempels'
-          )
-          for (const __st of __anchorStamps) {
-            __panel.appendChild(buildStampSeg(__st, items))
-          }
-          main.appendChild(__panel)
-        }
         const extraPanel = document.createElement('div')
         extraPanel.className = 'init-row-extra-panel'
         const extrasOpen = canEdit && expandedPlayerExtrasIds.has(row.id)
@@ -8401,28 +8411,17 @@ function layoutStampPanels(listRoot) {
           })
         }
 
+        const abwStampsColLhDone = buildAbwStampsCell(__anchorStamps, items)
+        if (__anchorStamps.length > 0) li.classList.add('init-row--has-stamps')
         main.append(
           createInitExpandSpacerCell(),
           btnCol,
           phaseNameCol,
           lhCol,
           iniTailCol,
+          abwStampsColLhDone,
           zaoSwapCol
         )
-        // Stempel-Panel (absolut rechts, kein INI-Shift)
-        if (__anchorStamps.length > 0) {
-          li.classList.add('init-row--has-stamps')
-          const __panel = document.createElement('div')
-          __panel.className = 'init-stamp-panel'
-          __panel.setAttribute(
-            'aria-label',
-            'Gestempelte Aktionen: Rechtsklick auf eine Farbe zum Entfernen des Stempels'
-          )
-          for (const __st of __anchorStamps) {
-            __panel.appendChild(buildStampSeg(__st, items))
-          }
-          main.appendChild(__panel)
-        }
         li.appendChild(main)
         frag.appendChild(li)
       } else {
@@ -8778,6 +8777,8 @@ function layoutStampPanels(listRoot) {
             title: zaoBadgeUi.title || `${zaoPhaseNum}. Aktionsphase`,
           })
         }
+        const abwStampsColPhase = buildAbwStampsCell(__anchorStamps, items)
+        if (__anchorStamps.length > 0) li.classList.add('init-row--has-stamps')
         if (isZaoRoot) {
           main.append(
             phaseExpandCell,
@@ -8785,6 +8786,7 @@ function layoutStampPanels(listRoot) {
             phaseNameCol,
             lhCol,
             iniTailCol,
+            abwStampsColPhase,
             zaoSwapCol
           )
         } else {
@@ -8794,6 +8796,7 @@ function layoutStampPanels(listRoot) {
             phaseNameCol,
             lhCol,
             iniTailCol,
+            abwStampsColPhase,
             swapSpacer
           )
         }
@@ -8860,20 +8863,6 @@ function layoutStampPanels(listRoot) {
           }
         }
 
-        // Stempel-Panel (absolut rechts, kein INI-Shift)
-        if (__anchorStamps.length > 0) {
-          li.classList.add('init-row--has-stamps')
-          const __panel = document.createElement('div')
-          __panel.className = 'init-stamp-panel'
-          __panel.setAttribute(
-            'aria-label',
-            'Gestempelte Aktionen: Rechtsklick auf eine Farbe zum Entfernen des Stempels'
-          )
-          for (const __st of __anchorStamps) {
-            __panel.appendChild(buildStampSeg(__st, items))
-          }
-          main.appendChild(__panel)
-        }
         frag.appendChild(li)
       }
     }

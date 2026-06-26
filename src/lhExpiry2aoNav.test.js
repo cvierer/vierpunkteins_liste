@@ -130,6 +130,22 @@ describe('L.H. abgelaufen -> normales 2.AO wieder navigierbar', () => {
     expect(normalizePhases(meta.phases).links.filter((l) => l.parentId === null)).toHaveLength(1)
   })
 
+  it('korrigiert eingelagerten uo/lodgedAbw-Slot der bestehenden 2.AO-Wurzel auf ang/marks1', () => {
+    // L.H. endet am Mutterobjekt: rebuildKrActionPoolVisualsFromAngAbw hat die
+    // regulaere 2.AO-Wurzel bereits mit einem eingelagerten uo-Slot angelegt.
+    // Der bietet im Umwandel-Ring nur ang/lh und ist nicht stempelbar — die
+    // Wurzel muss auf ein nutzbares Schwert korrigiert werden.
+    const meta = {
+      initiative: '12',
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: { zao1: { kind: 'uo', marks: 0, lodgedAbw: true } },
+    }
+    const created = restoreRegularSecondActionRootAfterLh(meta)
+    expect(created).toBe(true)
+    expect(normalizePhases(meta.phases).links.filter((l) => l.parentId === null)).toHaveLength(1)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+  })
+
   it('lhEnd-Wurzel zaehlt nicht als regulaere 2.AO -> Wurzel wird zusaetzlich angelegt', () => {
     const meta = {
       initiative: '12',

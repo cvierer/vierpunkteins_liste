@@ -1337,24 +1337,12 @@ function mergedEntryToCombatSteps(e) {
     return [{ kind: 'token', id: e.row.id, sub: 'action' }]
   }
   if (e.kind === 'phase') {
-    if (e.link.lhEnd === true) {
-      return [
-        {
-          kind: 'phase',
-          ownerId: e.ownerId,
-          linkId: e.link.id,
-          sub: 'action',
-        },
-      ]
-    }
+    // Phasen-Zeilen (2.AO / n.A.-Objekt) sind genau EIN Navigationsschritt
+    // (nur Aktion). Frueher gab es zusaetzlich einen Reaktions-Substep, der
+    // sich als schmale Zwischenzeile zeigte; die Navigation springt jetzt
+    // direkt von Objekt zu Objekt. Reaktionen werden manuell gestempelt.
     return [
       { kind: 'phase', ownerId: e.ownerId, linkId: e.link.id, sub: 'action' },
-      {
-        kind: 'phase',
-        ownerId: e.ownerId,
-        linkId: e.link.id,
-        sub: 'reaction',
-      },
     ]
   }
   if (e.kind === 'lhDone') {

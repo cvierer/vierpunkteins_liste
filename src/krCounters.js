@@ -371,7 +371,22 @@ export function restoreRegularSecondActionRootAfterLh(m) {
   )
   for (const r of regularRoots) {
     const hook = hookIniForLink(r.id, ownerIniStr, links)
-    if (Number.isFinite(hook) && hook >= 0) return false
+    if (Number.isFinite(hook) && hook >= 0) {
+      // Es existiert bereits eine navigierbare regulaere 2.AO-Wurzel. Beim
+      // L.H.-Ende am Mutterobjekt hat `rebuildKrActionPoolVisualsFromAngAbw`
+      // sie ggf. mit einem eingelagerten `uo`/`lodgedAbw`-Slot angelegt — der
+      // bietet im Umwandel-Ring nur ang/lh und ist nicht stempelbar. Auf ein
+      // direkt nutzbares Schwert (kind 'ang', marks 1) korrigieren, damit der
+      // volle Zyklus (ang->sra->lh->uo) erreichbar und die 2.AO stempelbar ist.
+      const slots = readZaoSlots(m)
+      const existing = slots[r.id]
+      if (existing && (existing.kind === 'uo' || existing.lodgedAbw === true)) {
+        slots[r.id] = { kind: 'ang', marks: 1 }
+        m[KR_ZAO_SLOTS] = slots
+        return true
+      }
+      return false
+    }
   }
 
   const newId = crypto.randomUUID()

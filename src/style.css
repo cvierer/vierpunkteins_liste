@@ -362,6 +362,11 @@ body {
   --init-col-ini-field: calc(var(--init-col-ini) - 0.06rem * var(--init-ui-scale));
   /* Stempel: breit genug um Gap + Swap-Bereich zu füllen, überlagert INI-Rand rechts */
   --init-stamp-panel-w: calc(var(--init-col-swap) + var(--init-grid-gap) + var(--init-obj-cell) * 0.38);
+  /* Reaktions-Stempel-Spalte rechts der INI-Spalte: reservierter Bereich, in
+     den 4 gestempelte Schilde dicht nebeneinander passen (5. -> 2. Reihe,
+     9. -> 3. Reihe). Eigene Grid-Spalte, damit die Schilde die INI-Zahl nicht
+     überdecken. */
+  --init-col-abw-stamps: calc(var(--init-obj-cell) * 1.55);
   /* Tauschpfeile-Spalte halb so breit */
   --init-col-swap: calc(0.3rem * var(--init-ui-scale));
   --init-grid-gap: var(--init-strip-h-gap);
@@ -399,7 +404,7 @@ body {
   display: grid;
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
-    var(--init-col-ini) var(--init-col-swap);
+    var(--init-col-ini) var(--init-col-abw-stamps) var(--init-col-swap);
   gap: var(--init-grid-gap);
   align-items: flex-end;
   padding:
@@ -738,7 +743,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   display: grid;
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
-    var(--init-col-ini) var(--init-col-swap);
+    var(--init-col-ini) var(--init-col-abw-stamps) var(--init-col-swap);
   gap: var(--init-grid-gap);
   align-items: center;
   width: 100%;
@@ -4536,7 +4541,8 @@ select.init-row-extra-select {
 }
 .init-kr-primary-shell--no-charge:not(:has(.init-kr-primary-zao-restore))
   .init-kr-primary-main__icon {
-  filter: grayscale(1);
+  filter: grayscale(0.65);
+  opacity: 0.45;
 }
 
 .init-kr-primary-shell--inactive-empty .init-kr-primary-switch,
@@ -4588,7 +4594,8 @@ select.init-row-extra-select {
 }
 
 .init-kr-primary-shell--spent .init-kr-primary-main__icon {
-  filter: grayscale(1);
+  filter: grayscale(0.6);
+  opacity: 0.5;
 }
 
 .init-kr-primary-main__icon {
@@ -5123,7 +5130,8 @@ select.init-row-extra-select {
 .init-kr-primary-shell--inactive-empty .init-kr-primary-switch,
 .init-kr-primary-shell--spent .init-kr-primary-zao-badge,
 .init-kr-primary-shell--inactive-empty .init-kr-primary-zao-badge {
-  filter: grayscale(1);
+  filter: grayscale(0.55);
+  opacity: 0.55;
 }
 
 .init-kr-primary-shell--spent .init-kr-primary-main,
@@ -6530,7 +6538,7 @@ select.init-row-extra-select {
   position: relative;
   grid-template-columns:
     var(--init-col-expand) var(--init-col-btn) var(--init-col-name) auto
-    max-content var(--init-col-swap);
+    max-content var(--init-col-abw-stamps) var(--init-col-swap);
 }
 
 .init-phase-zao-meta {
@@ -6989,6 +6997,28 @@ select.init-row-extra-select {
 .init-stamp-panel__seg--sra { color: #f57f17; }
 .init-stamp-panel__seg--fa  { color: #7e57c2; }
 .init-stamp-panel__seg--lh  { color: #00695c; }
+
+/* Reaktions-Stempel-Spalte: feste 4 Schilde pro Reihe, danach Umbruch. */
+.init-col-abw-stamps {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  min-width: 0;
+  align-self: stretch;
+  overflow: hidden;
+}
+
+.init-col-abw-stamps .init-stamp-panel__seg {
+  flex: 0 0 calc(25% - 1px);
+  width: calc(25% - 1px);
+  height: auto;
+  aspect-ratio: 24 / 34;
+  min-width: 0;
+  min-height: 0;
+}
 
 .init-row-round-end-bar {
   display: flex;

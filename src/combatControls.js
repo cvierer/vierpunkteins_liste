@@ -76,22 +76,17 @@ async function maybeAutoStampOrAdvanceToReaction(cur, c) {
       stamped = await autoStampForCombatStep(cur)
     }
     if (stamped) {
-      if (c.currentTurnSubStep === 'action') {
-        if (cur?.kind === 'token') {
-          await patchCombat({
-            currentItemId: cur.id,
-            currentPhaseLinkId: null,
-            currentTurnSubStep: 'reaction',
-            round: c.round,
-          })
-        } else if (cur?.kind === 'phase' && cur.ownerId && cur.linkId) {
-          await patchCombat({
-            currentItemId: cur.ownerId,
-            currentPhaseLinkId: cur.linkId,
-            currentTurnSubStep: 'reaction',
-            round: c.round,
-          })
-        }
+      // Nur Token-Mutterzeilen wechseln nach dem Aktions-Stempel auf den
+      // Reaktions-Substep. Phasen-Zeilen (2.AO / n.A.-Objekt) bleiben auf der
+      // Aktion und werden beim naechsten Schritt direkt zum naechsten Objekt
+      // weitergeschaltet (kein schmaler Reaktions-Zwischenschritt mehr).
+      if (c.currentTurnSubStep === 'action' && cur?.kind === 'token') {
+        await patchCombat({
+          currentItemId: cur.id,
+          currentPhaseLinkId: null,
+          currentTurnSubStep: 'reaction',
+          round: c.round,
+        })
       }
       return true
     }
