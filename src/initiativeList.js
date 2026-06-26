@@ -1239,14 +1239,17 @@ function mergeActionStampsIntoMerged(merged, stampEntries) {
 
 /**
  * INI-Tausch: direkt aufeinanderfolgende Listeneinträge (wie angezeigt) mit gleicher INI;
- * Action-Stempel dazwischen = kein Paar. Beliebige Typen (Token, 2.A., L.H., Phasen-Kind).
+ * Beliebige Typen (Token, 2.A., L.H., Phasen-Kind). Gestempelte Reaktionen
+ * (`actionStamp`) liegen in `mergedWithStamps` zwischen den Anker-Zeilen — sie
+ * werden hier ignoriert (herausgefiltert), damit ein Tausch-Paar auch dann
+ * erkannt wird, wenn am oberen Objekt eine Reaktion gestempelt ist.
  */
 function collectAdjacentSameIniSwapPairs(mergedWithStamps) {
+  const rows = mergedWithStamps.filter((e) => e.kind !== 'actionStamp')
   const discPairs = []
-  for (let i = 0; i < mergedWithStamps.length - 1; i++) {
-    const u = mergedWithStamps[i]
-    const l = mergedWithStamps[i + 1]
-    if (u.kind === 'actionStamp' || l.kind === 'actionStamp') continue
+  for (let i = 0; i < rows.length - 1; i++) {
+    const u = rows[i]
+    const l = rows[i + 1]
     if (
       u.kind === 'roundEnd' ||
       l.kind === 'roundEnd' ||
@@ -7373,8 +7376,10 @@ function buildStampSeg(stamp, items) {
 /**
  * Reservierte Reaktions-Stempel-Zelle rechts der INI-Spalte. Eigene Grid-Spalte
  * (kein absolutes Overlay), damit gestempelte Schilde die INI-Zahl nicht
- * überdecken. Liegt 4 Schilde pro Reihe dicht nebeneinander (Wrap ab dem 5.).
- * Wird immer erzeugt (auch leer), damit die Grid-Spalten ausgerichtet bleiben.
+ * überdecken. Maximal 4 Schilde pro Reihe (Wrap ab dem 5.); bei weniger als 4
+ * Schilden werden sie über `--abw-cols` dynamisch größer (1 → volle Breite,
+ * 2 → halb, 3 → Drittel). Wird immer erzeugt (auch leer), damit die Grid-
+ * Spalten ausgerichtet bleiben.
  */
 function buildAbwStampsCell(stamps, items) {
   const cell = document.createElement('div')
@@ -7384,6 +7389,13 @@ function buildAbwStampsCell(stamps, items) {
       'aria-label',
       'Gestempelte Reaktionen: Rechtsklick auf ein Schild zum Entfernen des Stempels'
     )
+    // Dynamische Skalierung: max. 4 Schilde pro Reihe; je weniger Schilde,
+    // desto größer. cols/rows begrenzen Breite UND Höhe der Zellen, sodass die
+    // Schilde nie über die Zeilenhöhe hinauslaufen (sonst Beschnitt bei 1–2).
+    const cols = Math.min(Math.max(stamps.length, 1), 4)
+    const rows = Math.max(1, Math.ceil(stamps.length / 4))
+    cell.style.setProperty('--abw-cols', String(cols))
+    cell.style.setProperty('--abw-rows', String(rows))
     for (const st of stamps) {
       cell.appendChild(buildStampSeg(st, items))
     }
