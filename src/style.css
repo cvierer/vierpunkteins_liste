@@ -7016,16 +7016,29 @@ select.init-row-extra-select {
   overflow: hidden;
 }
 
-/* Zellgröße aus cols/rows (JS): wenige Schilde -> größere Zellen. Höhe je Reihe
-   begrenzt, damit nichts über die Zeilenhöhe hinausläuft; das SVG behält per
-   preserveAspectRatio innerhalb der Box sein Schild-Verhältnis. */
+/* Zellgröße aus cols/rows (JS): wenige Schilde -> mehr Platz pro Zelle. Höhe je
+   Reihe begrenzt, damit nichts über die Zeilenhöhe hinausläuft; das SVG behält
+   per preserveAspectRatio innerhalb der Box sein Verhältnis. */
 .init-col-abw-stamps .init-stamp-panel__seg {
   flex: 0 0 calc(100% / var(--abw-cols, 4) - 1px);
   width: calc(100% / var(--abw-cols, 4) - 1px);
   height: calc(100% / var(--abw-rows, 1) - 1px);
-  max-height: 100%;
   min-width: 0;
   min-height: 0;
+}
+
+/* Gestempelte Reaktion/Frei nie größer als ihr Live-Pendant rendern: ein
+   einzelnes Schild würde sonst über die volle Spaltenbreite zur vollen Höhe
+   skalieren. Deckel = Größe in der Reaktions- bzw. Frei-Spalte. */
+.init-col-abw-stamps .init-stamp-panel__seg--abw {
+  max-height: min(
+    calc(33.85px * var(--init-combat-icon-scale)),
+    calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
+  );
+}
+
+.init-col-abw-stamps .init-stamp-panel__seg--fa {
+  max-height: calc(var(--init-obj-cell) * 0.66);
 }
 
 .init-row-round-end-bar {
