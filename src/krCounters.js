@@ -384,7 +384,11 @@ export function restoreRegularSecondActionRootAfterLh(m) {
     ],
   })
   const slots = readZaoSlots(m)
-  slots[newId] = defaultZaoSlotForPhaseNum(2)
+  // Direkt nutzbares Schwert statt eingelagertem `uo`-Slot: so ist die 2.AO
+  // sofort stempelbar (kind 'ang', marks 1) und der Umwandel-Ring erreicht den
+  // Stern (ang->sra). Ein `uo`-Slot ohne Schild-Transferladung wuerde dagegen
+  // nur ang/lh anbieten und nicht stempeln.
+  slots[newId] = { kind: 'ang', marks: 1 }
   m[KR_ZAO_SLOTS] = slots
   return true
 }

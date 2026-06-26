@@ -259,7 +259,27 @@ export async function applyLhKrStartObjects(currentRound) {
     }
     if (!endsInThisRound) continue
     if (endIni == null || !Number.isFinite(endIni)) continue
-    if (endIni === ownerIni) continue
+    if (endIni === ownerIni) {
+      // L.H. endet am Mutterobjekt (erste Aktion): es wird kein lhEnd-Objekt
+      // erzeugt. Die regulaere 2.AO-Wurzel wurde beim KR-Start als ephemere
+      // Wurzel entfernt und wegen skipActionInit (laufende L.H.) nicht neu
+      // aufgebaut. Hier — als letzter KR-Start-Hook, vor jeder Navigation in
+      // dieser KR — wiederherstellen, sonst ueberspringt „Weiter" das 2.AO.
+      // Idempotent: No-op, wenn bereits eine navigierbare regulaere Wurzel da
+      // ist bzw. Budget/INI es nicht hergeben.
+      try {
+        await OBR.scene.items.updateItems([item.id], (drafts) => {
+          for (const d of drafts) {
+            const m2 = d.metadata?.[TRACKER_ITEM_META_KEY]
+            if (!m2) continue
+            restoreRegularSecondActionRootAfterLh(m2)
+          }
+        })
+      } catch {
+        /* nicht kritisch */
+      }
+      continue
+    }
     const offset = ownerIni - endIni
     if (!(offset > 0)) continue
     try {

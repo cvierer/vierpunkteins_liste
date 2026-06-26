@@ -1,4 +1,36 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { itemMetaRef, getItems, updateItems } = vi.hoisted(() => {
+  /** @type {{ current: Record<string, unknown> }} */
+  const itemMetaRef = { current: {} }
+  const metaKey = 'vierpunkteins_kampf.tracker/metadata'
+  const makeItem = () => ({
+    id: 'hero-a',
+    name: 'A',
+    metadata: { [metaKey]: itemMetaRef.current },
+  })
+  const getItems = vi.fn(async (predicate) => {
+    const items = [makeItem()]
+    return typeof predicate === 'function' ? items.filter(predicate) : items
+  })
+  const updateItems = vi.fn(async (_ids, fn) => {
+    const drafts = [
+      { metadata: { [metaKey]: structuredClone(itemMetaRef.current) } },
+    ]
+    fn(drafts)
+    itemMetaRef.current = /** @type {Record<string, unknown>} */ (
+      drafts[0].metadata[metaKey]
+    )
+  })
+  return { itemMetaRef, getItems, updateItems }
+})
+
+vi.mock('@owlbear-rodeo/sdk', () => ({
+  default: {
+    scene: { items: { getItems, updateItems } },
+    room: { getMetadata: vi.fn(async () => ({})) },
+  },
+}))
 
 vi.mock('./editAccess.js', () => ({
   isGmSync: vi.fn(() => true),
@@ -12,12 +44,25 @@ vi.mock('./roomSettings.js', () => ({
 
 import { TRACKER_ITEM_META_KEY } from './participants.js'
 import { buildCombatTurnSteps, hookIniForLink, normalizePhases } from './phaseLinks.js'
-import { restoreRegularSecondActionRootAfterLh } from './krCounters.js'
+import {
+  cycleKrPrimarySlotKind,
+  restoreRegularSecondActionRootAfterLh,
+} from './krCounters.js'
 import {
   HERO_ACTION_POOL_ABW,
   HERO_ACTION_POOL_ANG,
   HERO_ACTION_POOL_MAX,
+  KR_ZAO_SLOTS,
 } from './krMetaKeys.js'
+import {
+  LH_ACTIONS_PER_KR,
+  LH_COMMIT_INI,
+  LH_COMMIT_ROUND,
+  LH_MAX,
+  LH_REM,
+  LH_TRIGGER_INI_STEP,
+} from './lhMeta.js'
+import { applyLhKrStartObjects } from './longHandlung.js'
 
 function item(id, meta = {}) {
   return { id, name: id, metadata: { [TRACKER_ITEM_META_KEY]: meta } }
@@ -31,7 +76,8 @@ function regularPhaseSteps(steps, ownerId) {
 // (kein lhEnd-Objekt). Die regulaere 2.AO-Wurzel (offset 8 -> INI 4) wurde
 // waehrend der L.H. ueber `clearEphemeralExtraIniRows` entfernt und NICHT neu
 // aufgebaut. Beim Vorbei-Navigieren wird die L.H. zurueckgesetzt — danach soll
-// das normale 2.AO des Helden wieder navigierbar sein.
+// das normale 2.AO des Helden wieder navigierbar, umwandelbar UND stempelbar
+// sein.
 describe('L.H. abgelaufen -> normales 2.AO wieder navigierbar', () => {
   const tokenRows = [{ id: 'hero-a', initiative: '12', name: 'A' }]
 
@@ -54,6 +100,21 @@ describe('L.H. abgelaufen -> normales 2.AO wieder navigierbar', () => {
     const steps = buildCombatTurnSteps(tokenRows, [item('hero-a', meta)], [], 2)
     const phaseSteps = regularPhaseSteps(steps, 'hero-a')
     expect(phaseSteps.some((s) => s.sub === 'action')).toBe(true)
+  })
+
+  it('restaurierte 2.AO ist ein stempelbares Schwert (ang/marks1), nicht uo', () => {
+    const meta = { initiative: '12', phases: { links: [] }, krZaoSlots: {} }
+    restoreRegularSecondActionRootAfterLh(meta)
+    const rootId = normalizePhases(meta.phases).links.find(
+      (l) => l.parentId === null
+    )?.id
+    expect(rootId).toBeTruthy()
+    expect(meta[KR_ZAO_SLOTS][rootId]).toEqual({ kind: 'ang', marks: 1 })
+  })
+
+  it('Umwandel-Ring vom restaurierten Schwert erreicht den Stern (sra)', () => {
+    // Anker 'ang' -> ein Pfeil-Schritt 'next' liefert 'sra' (Stern).
+    expect(cycleKrPrimarySlotKind('ang', 'next')).toBe('sra')
   })
 
   it('no-op wenn bereits eine navigierbare regulaere 2.AO-Wurzel existiert', () => {
@@ -100,5 +161,52 @@ describe('L.H. abgelaufen -> normales 2.AO wieder navigierbar', () => {
   it('INI-Guard: 2.AO-Ziel-INI negativ -> keine Wurzel', () => {
     const meta = { initiative: '5', phases: { links: [] }, krZaoSlots: {} }
     expect(restoreRegularSecondActionRootAfterLh(meta)).toBe(false)
+  })
+})
+
+// Integrationstest: am End-KR-Start (L.H. endet am Mutterobjekt, endIni===ownerIni)
+// stellt applyLhKrStartObjects die regulaere 2.AO-Wurzel wieder her, damit die
+// Navigation sie nicht ueberspringt (Fix B: rechtzeitig, nicht erst im Reset).
+describe('applyLhKrStartObjects: End-KR Mutter-Ende stellt 2.AO wieder her', () => {
+  const tokenRows = [{ id: 'hero-a', initiative: '12', name: 'A' }]
+
+  beforeEach(() => {
+    // ownerIni 12, ap 2, step -8, L.H. auf der Mutter (commitIni 12), max 3:
+    // endet in KR 2 am Mutterobjekt (endIni === 12). Regulaere 2.AO-Wurzel fehlt.
+    itemMetaRef.current = {
+      initiative: '12',
+      krFirstSlotKind: 'lh',
+      [LH_MAX]: 3,
+      [LH_REM]: 1,
+      [LH_ACTIONS_PER_KR]: 2,
+      [LH_TRIGGER_INI_STEP]: -8,
+      [LH_COMMIT_ROUND]: 1,
+      [LH_COMMIT_INI]: 12,
+      phases: { links: [] },
+      krZaoSlots: {},
+    }
+    getItems.mockClear()
+    updateItems.mockClear()
+  })
+
+  it('nach dem Hook existiert die 2.AO-Wurzel und buildCombatTurnSteps enthaelt sie', async () => {
+    await applyLhKrStartObjects(2)
+
+    const meta = itemMetaRef.current
+    const links = normalizePhases(meta.phases).links
+    const regularRoots = links.filter(
+      (l) => l.parentId === null && !l.heroExtra && l.lhEnd !== true
+    )
+    expect(regularRoots).toHaveLength(1)
+    expect(hookIniForLink(regularRoots[0].id, '12', links)).toBe(4)
+    expect(meta[KR_ZAO_SLOTS][regularRoots[0].id]).toEqual({
+      kind: 'ang',
+      marks: 1,
+    })
+
+    const steps = buildCombatTurnSteps(tokenRows, [item('hero-a', meta)], [], 2)
+    expect(
+      regularPhaseSteps(steps, 'hero-a').some((s) => s.sub === 'action')
+    ).toBe(true)
   })
 })
