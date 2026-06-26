@@ -9,6 +9,7 @@ import {
 import {
   shouldKrPrimaryLhEmptyVisual,
   shouldKrPrimaryShellNoCharge,
+  isLhEndSlotConvertible,
 } from './krPrimaryShellVisual.js'
 import {
   collectSortedParticipants,
@@ -183,6 +184,7 @@ import {
   resolveKrPrimarySlotKind,
   isKrPrimarySlotIniLocked,
   patchEnsureZaoSlotForLink,
+  patchZaoSlot,
   ensureParadeExtraShield,
   patchRestoreHeroExtraZao,
   defaultZaoSlotForPhaseNum,
@@ -1566,8 +1568,17 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   const counterKind = krFieldToCounterKind(field)
   exec.className = `init-kr-primary-main__exec init-kr-primary-main__exec--${counterKind}`
 
+  // Ladungszustand fuer ZAO-Slots frisch aus dem uebergebenen Meta lesen, nicht
+  // aus dem beim Render eingefrorenen Override. Sonst zeigen --no-charge/--spent
+  // (Graustufe) und Icon-Farbe nach einem Pfeil-Wechsel den alten Ladungsstand,
+  // bis ein voller Re-Render (Navigation) korrigiert.
+  const freshZaoSlot =
+    isZaoSlot && zaoSlotOverride?.linkId
+      ? readZaoSlot(trackerMeta, zaoSlotOverride.linkId)
+      : null
+  const effZaoMarks = freshZaoSlot ? freshZaoSlot.marks : zaoSlotOverride?.marks
   const v = isZaoSlot
-    ? zaoSlotOverride?.marks === 1
+    ? effZaoMarks === 1
       ? 0
       : 1
     : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
@@ -1888,11 +1899,17 @@ function appendKrPrimarySplitCell(
   // Sonst gilt für Spieler das Umwandelschloss, ob Umtauschpfeile sichtbar sind.
   const isHeroExtraSlot = isZaoSlot && Boolean(zaoSlotOverride.heroExtra)
   const isLhEndSlot = isZaoSlot && Boolean(zaoSlotOverride.lhEnd)
-  // n.A.-Slot (lhEnd) ist konzeptuell der L.H.-Stempel-Anker; der Kind-
-  // Switch (Ang/SRA/L.H.) bleibt hier gesperrt, damit nur der LH-Pie-
-  // Stempel-Pfad greift.
-  const switchLocked = isHeroExtraSlot || isLhEndSlot
-  const isRegularZaoSlot = isZaoSlot && !isHeroExtraSlot && !isLhEndSlot
+  // n.A.-Slot (lhEnd): solange die L.H. Aktionen sperrt, ist er der reine
+  // L.H.-Pie-Stempel-Anker — Kind-Switch (Ang/SRA/L.H.) bleibt gesperrt. In
+  // der End-KR (L.H. laeuft, sperrt aber keine Aktionen mehr) wird er wieder
+  // ein regulaeres 2.AO: Umwandelpfeile frei, voller Zyklus, sofort farbig.
+  const lhEndSlotConvertNow = isLhEndSlotConvertible(
+    isLhEndSlot,
+    isLhLockingActions(trackerMeta, combatRound)
+  )
+  const switchLocked = isHeroExtraSlot || (isLhEndSlot && !lhEndSlotConvertNow)
+  const isRegularZaoSlot =
+    isZaoSlot && !isHeroExtraSlot && (!isLhEndSlot || lhEndSlotConvertNow)
   prevBtn.disabled = !canEdit || switchLocked
   if (switchLocked) {
     prevBtn.title = 'ZAO: Aktion ist fest und kann nicht umgeschaltet werden.'
@@ -8484,6 +8501,18 @@ function layoutStampPanels(listRoot) {
           !readZaoSlot(ownerTrackerMeta || {}, link.id)
         ) {
           void patchEnsureZaoSlotForLink(ownerId, link.id, zaoPhaseNum)
+        }
+        // End-KR: das n.A.-Objekt (lhEnd) wird wieder ein regulaeres, voll
+        // umwandelbares 2.AO. Persistenten krZaoSlots-Eintrag (kind 'lh',
+        // marks 1) anlegen, damit Anzeige-Kind und Patch-Kind uebereinstimmen
+        // und die Umwandelpfeile alle vier Zustaende durchschalten koennen.
+        if (
+          canEdit &&
+          isLhEndLink &&
+          !isLhLockingActions(ownerTrackerMeta, combatRoundForLhUi) &&
+          !readZaoSlot(ownerTrackerMeta || {}, link.id)
+        ) {
+          void patchZaoSlot(ownerId, link.id, { kind: 'lh', marks: 1 })
         }
 
         let zaoBadgeUi = null

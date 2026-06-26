@@ -26,3 +26,16 @@ export function shouldKrPrimaryShellNoCharge(kind, opts = {}) {
 export function shouldKrPrimaryLhEmptyVisual(kind, lhVoided = false) {
   return kind === 'lh' && lhVoided
 }
+
+/**
+ * Das n.A.-Objekt (lhEnd) ist in der End-KR (L.H. laeuft, sperrt aber keine
+ * Aktionen mehr) wieder ein regulaeres, voll umwandelbares 2.AO. Solange die
+ * L.H. Aktionen sperrt, bleibt es der gesperrte L.H.-Pie-Stempel-Anker.
+ *
+ * @param {boolean} isLhEndSlot
+ * @param {boolean} lhLockingActions
+ * @returns {boolean} true = Umwandelpfeile frei, als regulaeres 2.AO behandeln
+ */
+export function isLhEndSlotConvertible(isLhEndSlot, lhLockingActions) {
+  return Boolean(isLhEndSlot) && !lhLockingActions
+}

@@ -48,6 +48,8 @@ import {
   cycleKrPrimarySlotKind,
   restoreRegularSecondActionRootAfterLh,
 } from './krCounters.js'
+import { isLhLockingActions } from './lhMeta.js'
+import { isLhEndSlotConvertible } from './krPrimaryShellVisual.js'
 import {
   HERO_ACTION_POOL_ABW,
   HERO_ACTION_POOL_ANG,
@@ -208,5 +210,35 @@ describe('applyLhKrStartObjects: End-KR Mutter-Ende stellt 2.AO wieder her', () 
     expect(
       regularPhaseSteps(steps, 'hero-a').some((s) => s.sub === 'action')
     ).toBe(true)
+  })
+})
+
+// In der End-KR (L.H. laeuft, sperrt aber keine Aktionen mehr) ist das
+// n.A.-Objekt (lhEnd) wieder ein regulaeres 2.AO: die Umwandelpfeile duerfen
+// nicht mehr gesperrt sein (switchLocked in der UI haengt an dieser Logik).
+describe('lhEnd-2.AO in der End-KR ist umwandelbar (nicht switchLocked)', () => {
+  // ownerIni 8, ap 2, step -8, L.H. (commitIni 8, max 3): endet in KR 2.
+  const endKrMeta = {
+    initiative: '8',
+    [LH_MAX]: 3,
+    [LH_REM]: 1,
+    [LH_ACTIONS_PER_KR]: 2,
+    [LH_TRIGGER_INI_STEP]: -8,
+    [LH_COMMIT_ROUND]: 1,
+    [LH_COMMIT_INI]: 8,
+  }
+
+  it('isLhLockingActions ist in der End-KR false -> lhEnd-Slot konvertierbar', () => {
+    expect(isLhLockingActions(endKrMeta, 2)).toBe(false)
+    expect(
+      isLhEndSlotConvertible(true, isLhLockingActions(endKrMeta, 2))
+    ).toBe(true)
+  })
+
+  it('vor der End-KR sperrt die L.H. -> lhEnd-Slot bleibt fest', () => {
+    expect(isLhLockingActions(endKrMeta, 1)).toBe(true)
+    expect(
+      isLhEndSlotConvertible(true, isLhLockingActions(endKrMeta, 1))
+    ).toBe(false)
   })
 })
