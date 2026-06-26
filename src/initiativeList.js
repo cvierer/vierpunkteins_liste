@@ -971,24 +971,30 @@ function remountOrPatchLhCounterInRow(
   combatRound
 ) {
   const st = readLhState(trackerMeta)
-  if (!(st.max > 0) || !isLhActive(trackerMeta)) {
+  const lhActiveNow = st.max > 0 && isLhActive(trackerMeta)
+
+  const lhCol = li.querySelector('.init-col-lh')
+  const counterInput = li.querySelector('.init-lh-counter__value')
+  const hasReadOnlyCounter =
+    counterInput instanceof HTMLInputElement && counterInput.readOnly
+
+  // L.H. nicht (mehr) aktiv (z. B. nach Abbruch via rotem X): ein veraltetes
+  // Running-Widget (rotes X / n-max) muss neu aufgebaut werden, sonst bleibt es
+  // sichtbar stehen. Sonst nur Pie/Bruch patchen bzw. nichts tun.
+  const staleRunningCounter = !lhActiveNow && Boolean(lhCol) && hasReadOnlyCounter
+  if (!lhActiveNow && !staleRunningCounter) {
     if (st.max > 0) patchLhNavVisualsInRow(li, trackerMeta, combatRound)
     return
   }
 
-  const lhCol = li.querySelector('.init-col-lh')
   if (!lhCol) {
     patchLhNavVisualsInRow(li, trackerMeta, combatRound)
     return
   }
 
-  const counterInput = li.querySelector('.init-lh-counter__value')
-  const hasReadOnlyCounter =
-    counterInput instanceof HTMLInputElement && counterInput.readOnly
-  const needsRemount = shouldRemountLhRunningCounter(
-    trackerMeta,
-    hasReadOnlyCounter
-  )
+  const needsRemount = staleRunningCounter
+    ? true
+    : shouldRemountLhRunningCounter(trackerMeta, hasReadOnlyCounter)
 
   const combat = getCombat()
   const phaseLinkId = li.getAttribute('data-phase-link-id')
@@ -9114,6 +9120,7 @@ function layoutStampPanels(listRoot) {
       void OBR.scene.items.getItems().then((fresh) => {
         const merged = mergeDeferredRenderItems(fresh, lastItems)
         enqueueRenderList(merged)
+        syncLhNavFractionsInList(element, merged)
         syncKrAbwStampGatesInList(element, merged)
         syncKrFaStampGatesInList(element, merged)
         requestAnimationFrame(() => {
