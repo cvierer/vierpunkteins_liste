@@ -7667,11 +7667,15 @@ function buildStampSeg(stamp, items) {
       const entry = mergedWithStamps[__idx]
       if (entry.kind === 'actionStamp') continue
 
-      // Stempel einsammeln die direkt nach diesem Anker folgen
+      // Stempel einsammeln die direkt nach diesem Anker folgen.
+      // Nur Reaktions-Stempel (Abwehr/Freie Aktion) erscheinen neben INI;
+      // Primaeraktionen (Schwert/Stern/Sanduhr = ang/sra/lh) werden stattdessen
+      // an Ort und Stelle in Graustufen dargestellt, nicht hier gestempelt.
       const __anchorStamps = []
       let __j = __idx + 1
       while (__j < mergedWithStamps.length && mergedWithStamps[__j].kind === 'actionStamp') {
-        __anchorStamps.push(mergedWithStamps[__j].stamp)
+        const __k = fieldToStampKind(mergedWithStamps[__j].stamp.field)
+        if (__k === 'abw' || __k === 'fa') __anchorStamps.push(mergedWithStamps[__j].stamp)
         __j++
       }
 
