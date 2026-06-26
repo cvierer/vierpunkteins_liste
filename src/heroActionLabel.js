@@ -97,6 +97,17 @@ async function resolveLabelPosition(tokenId) {
  * @param {{ x: number, y: number }} position
  * @param {string | null} [heroColor]
  */
+/**
+ * Glyph-spezifische Rotation in Grad fuer das Kampfschritt-Label. Das Dagger-
+ * Symbol (U+1F5E1) zeigt in Standard-Emoji-Fonts (Segoe UI Emoji, Apple Color
+ * Emoji) mit der Klinge diagonal nach oben rechts (≈ 45° im Uhrzeigersinn von
+ * der Vertikalen). Rotation -45° dreht die Klinge senkrecht nach oben.
+ */
+function turnActionLabelRotation(kind) {
+  if (kind === 'ang') return -45
+  return 0
+}
+
 function buildTurnActionLabelItem(kind, tokenItem, position, heroColor) {
   const style = primaryKindMapStyle(kind, heroColor)
   const ariaName = KIND_LABEL[kind] ?? 'Aktion'
@@ -114,7 +125,7 @@ function buildTurnActionLabelItem(kind, tokenItem, position, heroColor) {
     .cornerRadius(6)
     .padding(4)
     .layer('TEXT')
-    .rotation(0)
+    .rotation(turnActionLabelRotation(kind))
     .locked(true)
     .disableHit(true)
     .visible(tokenItem.visible !== false)

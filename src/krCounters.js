@@ -38,6 +38,7 @@ import {
   phaseOffsetFromHeroExtraAngMeta,
   phaseOffsetFromHeroSecondAoMeta,
   phaseOffsetFromLhMeta,
+  readLhState,
 } from './lhMeta.js'
 import { faMaxForInitiative, getRoomSettings } from './roomSettings.js'
 export * from './krMetaKeys.js'
@@ -2775,15 +2776,17 @@ export async function applyLhOneClickStamp(itemId, stampPhaseLinkId) {
 /**
  * Alle Kampfteilnehmer: Ang./Abw./S.R.A./F.A. auf 0 (neue Kampfrunde / Kampfstart).
  *
- * Wichtig: Wenn eine Längerfristige Handlung (LH_MAX > 0) noch läuft, darf
- * weder `KR_FIRST_SLOT_KIND` noch die L.H.-Ladung (`KR_LH_ACTION`) auf den
- * Angriffs-Default zurückgesetzt werden — sonst verschwindet der Stern und in
- * der nächsten KR steht wieder ein Schwert trotz laufender L.H.
+ * Wichtig: Wenn eine Längerfristige Handlung (LH_MAX > 0) noch läuft UND in
+ * dieser Runde NICHT endet, darf weder `KR_FIRST_SLOT_KIND` noch die
+ * L.H.-Ladung (`KR_LH_ACTION`) zurückgesetzt werden. Endet die L.H. jedoch in
+ * `targetRound`, wird `skipActionInit: false` verwendet — der Pool-Rebuild
+ * stellt das vollständige Aktionsbudget wieder her, sodass das 2.AO als
+ * reguläres Objekt (volles ang/abw, Slot `ang/marks:1`) starten kann.
  *
- * @param {{ resetStamps?: boolean }} [opts]
+ * @param {{ resetStamps?: boolean, targetRound?: number }} [opts]
  */
 export async function resetAllKrCountersInScene(opts = {}) {
-  const { resetStamps = true } = opts
+  const { resetStamps = true, targetRound } = opts
   const items = await OBR.scene.items.getItems((item) =>
     Boolean(item.metadata?.[TRACKER_ITEM_META_KEY])
   )
@@ -2800,8 +2803,15 @@ export async function resetAllKrCountersInScene(opts = {}) {
         const m = draft.metadata[TRACKER_ITEM_META_KEY]
         if (!m) continue
         migrateHeroExtraCountFields(m)
-        const lhMaxActive =
-          Math.max(0, Math.floor(Number(m[LH_MAX])) || 0) > 0
+        const lhSt = readLhState(m)
+        const lhMaxActive = lhSt.max > 0
+        // skipActionInit nur wenn die L.H. in dieser Runde NOCH NICHT endet.
+        // Endet sie in targetRound (oder targetRound unbekannt und L.H. aktiv),
+        // wird der Pool voll neu aufgebaut — damit ist das 2.AO ein vollwertiges
+        // Objekt mit komplettem ang/abw-Budget statt eines leer verbrauchten.
+        const lhStillRunning =
+          lhMaxActive &&
+          (targetRound == null || isLhLockingActions(m, targetRound))
         const phasesSnap = normalizePhases(m.phases)
         const keepPhasePanelOpen =
           lhMaxActive && phasesSnap.links.length > 0
@@ -2881,7 +2891,7 @@ export async function resetAllKrCountersInScene(opts = {}) {
           }
         }
         ensureFullFreeActionQuota(m)
-        initKrActionPoolsFromHeroDefaults(m, { skipActionInit: lhMaxActive })
+        initKrActionPoolsFromHeroDefaults(m, { skipActionInit: lhStillRunning })
         applyIniLockCharges(m)
         // 2.A.-Panel offen lassen: Liste zeigt Phasen-Zeilen nur bei
         // rowPanelOpen; nach KR-Reset sonst nur Mutterzeile trotz laufender L.H.

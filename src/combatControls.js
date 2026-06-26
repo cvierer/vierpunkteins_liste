@@ -359,7 +359,7 @@ export async function setupCombatControls(root) {
         ...combatPatchForStep(nextStep),
         round: targetRound,
       })
-      await resetAllKrCountersInScene()
+      await resetAllKrCountersInScene({ targetRound })
       // KR-Beginn-Hook: temporaere n.A.-Objekte fuer Tokens anlegen, deren
       // L.H. in dieser KR endet (siehe applyLhKrStartObjects). Stille
       // Fehler akzeptieren, damit ein Hick im Tracker nicht die Navigation

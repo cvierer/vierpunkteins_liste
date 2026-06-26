@@ -28,7 +28,7 @@ const { itemMetaRef, getItems, updateItems } = vi.hoisted(() => {
 vi.mock('@owlbear-rodeo/sdk', () => ({
   default: {
     scene: { items: { getItems, updateItems } },
-    room: { getMetadata: vi.fn(async () => ({})) },
+    room: { getMetadata: vi.fn(async () => ({})), setMetadata: vi.fn(async () => {}) },
   },
 }))
 
@@ -65,6 +65,8 @@ import {
   LH_TRIGGER_INI_STEP,
 } from './lhMeta.js'
 import { applyLhKrStartObjects } from './longHandlung.js'
+import { resetAllKrCountersInScene } from './krCounters.js'
+import { KR_ACTION_POOL_ANG_REM } from './krMetaKeys.js'
 
 function item(id, meta = {}) {
   return { id, name: id, metadata: { [TRACKER_ITEM_META_KEY]: meta } }
@@ -273,5 +275,50 @@ describe('lhEnd-2.AO in der End-KR ist umwandelbar (nicht switchLocked)', () => 
     expect(
       isLhEndSlotConvertible(true, isLhLockingActions(endKrMeta, 1))
     ).toBe(false)
+  })
+})
+
+// REM-Pool-Reset: beim KR-Intro der End-KR (L.H. endet in targetRound) muss
+// `resetAllKrCountersInScene` den Aktionspool voll regenerieren, damit das 2.AO
+// ein volles ang-Budget hat und nicht leer (KR_ACTION_POOL_ANG_REM = 0) startet.
+describe('resetAllKrCountersInScene: REM-Pool bei L.H.-Ende in targetRound voll regeneriert', () => {
+  beforeEach(() => {
+    // ownerIni 12, ap 2, step -8, L.H. auf Mutter (commitIni 12), max 3:
+    // endet in KR 2. KR_ACTION_POOL_ANG_REM = 0 simuliert aufgebrauchten Pool.
+    itemMetaRef.current = {
+      initiative: '12',
+      krFirstSlotKind: 'lh',
+      [HERO_ACTION_POOL_ANG]: 1,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 2,
+      [KR_ACTION_POOL_ANG_REM]: 0,
+      [LH_MAX]: 3,
+      [LH_REM]: 1,
+      [LH_ACTIONS_PER_KR]: 2,
+      [LH_TRIGGER_INI_STEP]: -8,
+      [LH_COMMIT_ROUND]: 1,
+      [LH_COMMIT_INI]: 12,
+      phases: { links: [] },
+      krZaoSlots: {},
+    }
+    getItems.mockClear()
+    updateItems.mockClear()
+  })
+
+  it('End-KR: Pool wird regeneriert (kein skip) -> ang-Budget > 0', async () => {
+    await resetAllKrCountersInScene({ targetRound: 2, resetStamps: false })
+    const meta = itemMetaRef.current
+    // Nach dem Reset muss KR_ACTION_POOL_ANG_REM wieder dem Hero-Wert entsprechen
+    // oder ungesetzt sein (fallback auf config). Jedenfalls kein Null-Budget mehr.
+    const rem = meta[KR_ACTION_POOL_ANG_REM]
+    expect(rem === undefined || Number(rem) >= 1).toBe(true)
+  })
+
+  it('laufende L.H. (nicht End-KR): skipActionInit -> KR_FIRST_SLOT_KIND bleibt lh', async () => {
+    // In KR 1 laeuft die L.H. noch -> skipActionInit: true -> kein Rebuild ->
+    // KR_FIRST_SLOT_KIND bleibt 'lh', nicht auf 'ang' zurueckgesetzt.
+    await resetAllKrCountersInScene({ targetRound: 1, resetStamps: false })
+    const meta = itemMetaRef.current
+    expect(meta['krFirstSlotKind']).toBe('lh')
   })
 })

@@ -7001,6 +7001,16 @@ select.init-row-extra-select {
 .init-stamp-panel__seg--abw { color: #0d47a1; }
 .init-stamp-panel__seg--sra { color: #f57f17; }
 .init-stamp-panel__seg--fa  { color: #7e57c2; }
+
+/* Frei-Bolt-Stempel: maximal so groß wie der Live-Bolt in der Frei-Spalte.
+   Hoehe = abgeleitet aus dem Live-Bolt-Schema: Frei-Zelle 1.5× breit, 4 Bolts
+   pro Zeile, Aspect 9:14, visuell skaliert mit --init-fa-bolt-visual-scale.
+   SVG skaliert via preserveAspectRatio proportional in die Zelle hinein. */
+.init-col-abw-stamps .init-stamp-panel__seg--fa {
+  max-height: calc(
+    var(--init-obj-cell) * var(--init-fa-bolt-visual-scale, 1.14) * 1.5 * 14 / 9 / 4
+  );
+}
 .init-stamp-panel__seg--lh  { color: #00695c; }
 
 /* Reaktions-Stempel-Spalte: max. 4 Schilde pro Reihe; wenige Schilde fuellen
