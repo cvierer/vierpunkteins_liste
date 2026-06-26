@@ -7389,13 +7389,11 @@ function buildAbwStampsCell(stamps, items) {
       'aria-label',
       'Gestempelte Reaktionen: Rechtsklick auf ein Schild zum Entfernen des Stempels'
     )
-    // Dynamische Skalierung: max. 4 Schilde pro Reihe; je weniger Schilde,
-    // desto größer. cols/rows begrenzen Breite UND Höhe der Zellen, sodass die
-    // Schilde nie über die Zeilenhöhe hinauslaufen (sonst Beschnitt bei 1–2).
+    // Max. 4 Schilde pro Reihe; je weniger Stempel, desto breiter werden sie.
+    // Die Zellhoehe ist via CSS auf --init-obj-cell fixiert (verhindert
+    // Zeilen-Wachstum), die Breite skaliert ueber --abw-cols.
     const cols = Math.min(Math.max(stamps.length, 1), 4)
-    const rows = Math.max(1, Math.ceil(stamps.length / 4))
     cell.style.setProperty('--abw-cols', String(cols))
-    cell.style.setProperty('--abw-rows', String(rows))
     for (const st of stamps) {
       cell.appendChild(buildStampSeg(st, items))
     }

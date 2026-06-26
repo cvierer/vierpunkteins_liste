@@ -38,7 +38,6 @@ import { applyLhKrStartObjects } from './longHandlung.js'
 import { getManualIniTieOverridePairs } from './manualIniTieOverrides.js'
 import { clearCombatLog } from './combatLog.js'
 import { autoStampForCombatStep } from './combatAutoStamp.js'
-import { advanceTokenMotherToReactionSubstep } from './combatReactionSubstep.js'
 import {
   isCombatAtRoundEndMarker,
 } from './combatRoundNav.js'
@@ -61,39 +60,21 @@ async function combatTurnSteps() {
   return buildCombatTurnSteps(rows, items, tieOrder, combatRound)
 }
 
-/** Primär-Stempel nur auf Aktion-Substep — nicht auf Reaktions-Substep derselben Zeile. */
-async function maybeAutoStampOrAdvanceToReaction(cur, c) {
-  if (cur?.kind === 'token' && c.currentTurnSubStep === 'reaction') {
-    return false
+/**
+ * Auto-Stempel der Primaer-Aktion am aktuellen Schritt. KEIN Wechsel auf einen
+ * Reaktions-Substep mehr: Navigation springt im selben Klick direkt zum
+ * naechsten Objekt (siehe applyCombatNext). Reaktionen werden manuell auf der
+ * Mutterzeile gestempelt; ein dedizierter Reaktions-Zwischenschritt entfaellt.
+ */
+async function maybeAutoStampAtCurrentStep(cur, c) {
+  if (!isStampableCombatStep(cur)) return false
+  if (hasPrimaryActionStampAtCombatStep(c)) return false
+  let stamped = await autoStampForCombatStep(cur)
+  if (!stamped && cur?.id) {
+    await OBR.scene.items.getItems([cur.id])
+    stamped = await autoStampForCombatStep(cur)
   }
-
-  const stampable =
-    isStampableCombatStep(cur) && !hasPrimaryActionStampAtCombatStep(c)
-  if (stampable) {
-    let stamped = await autoStampForCombatStep(cur)
-    if (!stamped && cur?.id) {
-      await OBR.scene.items.getItems([cur.id])
-      stamped = await autoStampForCombatStep(cur)
-    }
-    if (stamped) {
-      // Nur Token-Mutterzeilen wechseln nach dem Aktions-Stempel auf den
-      // Reaktions-Substep. Phasen-Zeilen (2.AO / n.A.-Objekt) bleiben auf der
-      // Aktion und werden beim naechsten Schritt direkt zum naechsten Objekt
-      // weitergeschaltet (kein schmaler Reaktions-Zwischenschritt mehr).
-      if (c.currentTurnSubStep === 'action' && cur?.kind === 'token') {
-        await patchCombat({
-          currentItemId: cur.id,
-          currentPhaseLinkId: null,
-          currentTurnSubStep: 'reaction',
-          round: c.round,
-        })
-      }
-      return true
-    }
-  }
-
-  if (await advanceTokenMotherToReactionSubstep(cur, c)) return true
-  return false
+  return Boolean(stamped)
 }
 
 function isTypingTarget(el) {
@@ -122,16 +103,16 @@ function hasStampsAtCurrentStep(c) {
   return getActionStamps().entries.some((e) => stampMatchesCurrentCombatStep(e, c))
 }
 
-/** @returns {Promise<boolean>} true wenn von Reaktion zurück auf Aktion */
-async function retreatTokenMotherToActionSubstep(cur, c) {
-  if (cur?.kind !== 'token' || c.currentTurnSubStep !== 'reaction') return false
-  await patchCombat({
-    currentItemId: cur.id,
-    currentPhaseLinkId: null,
-    currentTurnSubStep: 'action',
-    round: c.round,
-  })
-  return true
+/**
+ * Undo wie {@link undoStampsAtCurrentCombatStep}, aber bezogen auf einen
+ * bestimmten Schritt (z. B. das Ziel eines „Zurueck"-Klicks). Konstruiert ein
+ * „as-if"-Combat-Snapshot mit den Feldern dieses Schritts und delegiert dann
+ * an die normale Undo-Routine, sodass die Stempel-Matching-Logik unveraendert
+ * bleibt.
+ */
+async function undoStampsAtSpecificStep(c, step) {
+  const stepCombat = { ...c, ...combatPatchForStep(step) }
+  return undoStampsAtCurrentCombatStep(stepCombat)
 }
 
 async function undoStampsAtCurrentCombatStep(c) {
@@ -198,7 +179,8 @@ async function advanceCombatFromResolvedStep(steps, combat, stepIdx) {
     return true
   }
   const cur = steps[stepIdx]
-  if (await maybeAutoStampOrAdvanceToReaction(cur, combat)) return true
+  // Stempel + Weiterschalten in EINEM Klick (kein Reaktions-Zwischenschritt).
+  await maybeAutoStampAtCurrentStep(cur, combat)
   await patchCombat({
     ...combatPatchForStep(steps[nextIdx]),
     round: combat.round,
@@ -442,7 +424,8 @@ export async function setupCombatControls(root) {
     }
 
     const cur = steps[idx]
-    if (await maybeAutoStampOrAdvanceToReaction(cur, c)) return
+    // Stempel + Weiterschalten in EINEM Klick (kein Reaktions-Zwischenschritt).
+    await maybeAutoStampAtCurrentStep(cur, c)
     await patchCombat({
       ...combatPatchForStep(steps[nextIdx]),
       round: c.round,
@@ -477,24 +460,34 @@ export async function setupCombatControls(root) {
       // siehe applyCombatNext: kein automatischer started:false-Fallback.
       return
     }
+    // Rueckwaerts: Stempel des Ziel-Schritts ggf. zuruecknehmen UND in einem
+    // Klick zum vorherigen Objekt zurueckspringen (kein Reaktions-Substep mehr).
+    // Stempel an einem Schritt werden beim Hinein-Navigieren rueckgaengig
+    // gemacht, damit der Wechsel wieder dieselbe Stempelmoeglichkeit eroeffnet.
+    const goPrev = async (curSteps, curCombat, fromIdx) => {
+      // Sonderfall „Beginn der Kampfrunde 1": Cursor bleibt; vorhandene
+      // Stempel an dieser Position lassen sich dennoch zuruecknehmen.
+      if (isAtFirstRoundStart(curCombat)) {
+        await undoStampsAtCurrentCombatStep(curCombat)
+        return
+      }
+      const prevIdx = (fromIdx - 1 + curSteps.length) % curSteps.length
+      let round = curCombat.round
+      if (fromIdx === 0 && prevIdx === curSteps.length - 1) {
+        round = Math.max(1, curCombat.round - 1)
+      }
+      await undoStampsAtSpecificStep(curCombat, curSteps[prevIdx])
+      await patchCombat({
+        ...combatPatchForStep(curSteps[prevIdx]),
+        round,
+      })
+    }
+
     const idx = findCombatStepIndex(steps, c)
     if (idx < 0) {
       let resolvedIdx = findCombatStepIndexLoose(steps, c)
       if (resolvedIdx >= 0) {
-        if (await undoStampsAtCurrentCombatStep(c)) return
-        if (isAtFirstRoundStart(c)) return
-        const curResolved = steps[resolvedIdx]
-        if (await retreatTokenMotherToActionSubstep(curResolved, c)) return
-        const prevIdxResolved =
-          (resolvedIdx - 1 + steps.length) % steps.length
-        let roundResolved = c.round
-        if (resolvedIdx === 0 && prevIdxResolved === steps.length - 1) {
-          roundResolved = Math.max(1, c.round - 1)
-        }
-        await patchCombat({
-          ...combatPatchForStep(steps[prevIdxResolved]),
-          round: roundResolved,
-        })
+        await goPrev(steps, c, resolvedIdx)
         return
       }
       // Wie applyCombatNext: einen Tick warten, neu ziehen.
@@ -509,32 +502,10 @@ export async function setupCombatControls(root) {
           return
         }
       }
-      if (await undoStampsAtCurrentCombatStep(cRetry)) return
-      if (isAtFirstRoundStart(cRetry)) return
-      const curRetry = stepsRetry[idxRetry]
-      if (await retreatTokenMotherToActionSubstep(curRetry, cRetry)) return
-      const prevIdxRetry =
-        (idxRetry - 1 + stepsRetry.length) % stepsRetry.length
-      let roundRetry = cRetry.round
-      if (idxRetry === 0 && prevIdxRetry === stepsRetry.length - 1) {
-        roundRetry = Math.max(1, cRetry.round - 1)
-      }
-      await patchCombat({
-        ...combatPatchForStep(stepsRetry[prevIdxRetry]),
-        round: roundRetry,
-      })
+      await goPrev(stepsRetry, cRetry, idxRetry)
       return
     }
-    if (await undoStampsAtCurrentCombatStep(c)) return
-    if (isAtFirstRoundStart(c)) return
-    const cur = steps[idx]
-    if (await retreatTokenMotherToActionSubstep(cur, c)) return
-    const prevIdx = (idx - 1 + steps.length) % steps.length
-    let round = c.round
-    if (idx === 0 && prevIdx === steps.length - 1) {
-      round = Math.max(1, c.round - 1)
-    }
-    await patchCombat({ ...combatPatchForStep(steps[prevIdx]), round })
+    await goPrev(steps, c, idx)
     } finally {
       scheduleTurnActionMapRefresh()
     }

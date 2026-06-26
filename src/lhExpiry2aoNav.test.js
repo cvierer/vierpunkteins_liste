@@ -146,6 +146,23 @@ describe('L.H. abgelaufen -> normales 2.AO wieder navigierbar', () => {
     expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
   })
 
+  it('korrigiert auch fehlenden Slot der bestehenden 2.AO-Wurzel auf ang/marks1', () => {
+    // Wenn `skipActionInit:true` (L.H. aktiv) den Rebuild unterdrueckt hat,
+    // existiert die Wurzel ohne Slot. Beim L.H.-Ende am Mutterobjekt muss die
+    // restore-Funktion auch in diesem Fall ein nutzbares Schwert setzen,
+    // sonst legt `patchEnsureZaoSlotForLink` zur Render-Zeit den Phase-2-Default
+    // (`uo`/`lodgedAbw`) an und der Umwandel-Ring ist wieder beschnitten.
+    const meta = {
+      initiative: '12',
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: {},
+    }
+    const created = restoreRegularSecondActionRootAfterLh(meta)
+    expect(created).toBe(true)
+    expect(normalizePhases(meta.phases).links.filter((l) => l.parentId === null)).toHaveLength(1)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+  })
+
   it('lhEnd-Wurzel zaehlt nicht als regulaere 2.AO -> Wurzel wird zusaetzlich angelegt', () => {
     const meta = {
       initiative: '12',

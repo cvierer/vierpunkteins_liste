@@ -373,14 +373,19 @@ export function restoreRegularSecondActionRootAfterLh(m) {
     const hook = hookIniForLink(r.id, ownerIniStr, links)
     if (Number.isFinite(hook) && hook >= 0) {
       // Es existiert bereits eine navigierbare regulaere 2.AO-Wurzel. Beim
-      // L.H.-Ende am Mutterobjekt hat `rebuildKrActionPoolVisualsFromAngAbw`
-      // sie ggf. mit einem eingelagerten `uo`/`lodgedAbw`-Slot angelegt — der
-      // bietet im Umwandel-Ring nur ang/lh und ist nicht stempelbar. Auf ein
-      // direkt nutzbares Schwert (kind 'ang', marks 1) korrigieren, damit der
+      // L.H.-Ende am Mutterobjekt kann der Slot in mehreren Zustaenden sein:
+      //   * `uo`/`lodgedAbw` — von `rebuildKrActionPoolVisualsFromAngAbw`
+      //     angelegt; Umwandel-Ring bietet nur ang/lh, nicht stempelbar.
+      //   * fehlend — `skipActionInit:true` waehrend L.H. unterdrueckt den
+      //     Rebuild, danach laeuft `patchEnsureZaoSlotForLink` zur Render-Zeit
+      //     mit dem Phase-2-Default (`uo`/`lodgedAbw`).
+      // In beiden Faellen auf direkt nutzbares Schwert korrigieren, damit der
       // volle Zyklus (ang->sra->lh->uo) erreichbar und die 2.AO stempelbar ist.
       const slots = readZaoSlots(m)
       const existing = slots[r.id]
-      if (existing && (existing.kind === 'uo' || existing.lodgedAbw === true)) {
+      const slotNeedsFix =
+        !existing || existing.kind === 'uo' || existing.lodgedAbw === true
+      if (slotNeedsFix) {
         slots[r.id] = { kind: 'ang', marks: 1 }
         m[KR_ZAO_SLOTS] = slots
         return true

@@ -7003,7 +7003,10 @@ select.init-row-extra-select {
 .init-stamp-panel__seg--fa  { color: #7e57c2; }
 .init-stamp-panel__seg--lh  { color: #00695c; }
 
-/* Reaktions-Stempel-Spalte: feste 4 Schilde pro Reihe, danach Umbruch. */
+/* Reaktions-Stempel-Spalte: max. 4 Schilde pro Reihe; wenige Schilde fuellen
+   die Spaltenbreite (--abw-cols). Explizite Hoehe = --init-obj-cell verhindert,
+   dass die Zelle die Grid-Spurhoehe nach oben treibt, wenn der erste Stempel
+   gesetzt wird. SVG passt sich per preserveAspectRatio in die Zelle ein. */
 .init-col-abw-stamps {
   display: flex;
   flex-wrap: wrap;
@@ -7012,33 +7015,17 @@ select.init-row-extra-select {
   justify-content: flex-start;
   gap: 1px;
   min-width: 0;
-  align-self: stretch;
+  height: var(--init-obj-cell);
+  align-self: center;
   overflow: hidden;
 }
 
-/* Zellgröße aus cols/rows (JS): wenige Schilde -> mehr Platz pro Zelle. Höhe je
-   Reihe begrenzt, damit nichts über die Zeilenhöhe hinausläuft; das SVG behält
-   per preserveAspectRatio innerhalb der Box sein Verhältnis. */
 .init-col-abw-stamps .init-stamp-panel__seg {
   flex: 0 0 calc(100% / var(--abw-cols, 4) - 1px);
   width: calc(100% / var(--abw-cols, 4) - 1px);
-  height: calc(100% / var(--abw-rows, 1) - 1px);
+  height: 100%;
   min-width: 0;
   min-height: 0;
-}
-
-/* Gestempelte Reaktion/Frei nie größer als ihr Live-Pendant rendern: ein
-   einzelnes Schild würde sonst über die volle Spaltenbreite zur vollen Höhe
-   skalieren. Deckel = Größe in der Reaktions- bzw. Frei-Spalte. */
-.init-col-abw-stamps .init-stamp-panel__seg--abw {
-  max-height: min(
-    calc(33.85px * var(--init-combat-icon-scale)),
-    calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
-  );
-}
-
-.init-col-abw-stamps .init-stamp-panel__seg--fa {
-  max-height: calc(var(--init-obj-cell) * 0.66);
 }
 
 .init-row-round-end-bar {
