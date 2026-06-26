@@ -1,5 +1,6 @@
 import { readKrFirstSlotKind, readZaoSlot } from './krCounters.js'
 import { normalizePhases } from './phaseLinks.js'
+import { deepenHeroColor } from './heroColors.js'
 
 // L.H.-Icon: Sanduhr (kein Stern). Sand nutzt currentColor -> Heldenfarbe via
 // applyHeroPrimaryIconColor; Glas/Kappen bleiben neutral. Konstantenname aus
@@ -96,11 +97,11 @@ export function primaryKindSvgDataUrl(kind) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
-/** Angriff: Dolch-Emoji (U+1F5E1); in OBR testen. */
+/** Angriff: Dolch-Emoji (U+1F5E1); L.H.: Sanduhr (U+231B) statt Stern. */
 const KIND_MAP_SYMBOL = Object.freeze({
   ang: '\u{1F5E1}',
   sra: '\u2605',
-  lh: '\u2605',
+  lh: '\u231B',
   uo: '\u21c4',
   par: '\u26e8',
 })
@@ -136,11 +137,20 @@ export function primaryKindMapSymbol(kind) {
 }
 
 /**
+ * Map-Badge-Style. Mit gueltiger Heldenfarbe wird der Hintergrund in der
+ * vertieften Heldenfarbe gezeichnet (helles Symbol bleibt lesbar), passend zur
+ * Liste; ohne Heldenfarbe gilt die Aktionstyp-Fallbackfarbe.
  * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string} kind
+ * @param {string | null} [heroColor]
  * @returns {{ fillColor: string, backgroundColor: string, backgroundOpacity: number }}
  */
-export function primaryKindMapStyle(kind) {
-  return KIND_MAP_STYLE[kind] ?? KIND_MAP_STYLE.ang
+export function primaryKindMapStyle(kind, heroColor) {
+  const base = KIND_MAP_STYLE[kind] ?? KIND_MAP_STYLE.ang
+  if (heroColor) {
+    const bg = deepenHeroColor(heroColor)
+    if (bg) return { ...base, backgroundColor: bg }
+  }
+  return base
 }
 
 /**

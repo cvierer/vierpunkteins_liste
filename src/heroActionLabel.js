@@ -17,6 +17,7 @@ import {
   ROUND_START_STEP_ID,
 } from './phaseLinks.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
+import { readHeroBgColor } from './heroColors.js'
 
 export const TURN_ACTION_LABEL_ID = 'vierpunkteins/turn-action-label'
 /** Legacy split-overlay; beim Refresh mit entfernen. */
@@ -94,9 +95,10 @@ async function resolveLabelPosition(tokenId) {
  * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par'} kind
  * @param {import('@owlbear-rodeo/sdk').Item} tokenItem
  * @param {{ x: number, y: number }} position
+ * @param {string | null} [heroColor]
  */
-function buildTurnActionLabelItem(kind, tokenItem, position) {
-  const style = primaryKindMapStyle(kind)
+function buildTurnActionLabelItem(kind, tokenItem, position, heroColor) {
+  const style = primaryKindMapStyle(kind, heroColor)
   const ariaName = KIND_LABEL[kind] ?? 'Aktion'
   return buildLabel()
     .id(TURN_ACTION_LABEL_ID)
@@ -191,11 +193,12 @@ async function refreshTurnActionLabel(itemsIn) {
     await deleteTurnActionLabelIfPresent(items)
     return
   }
+  const heroColor = readHeroBgColor(meta)
   const position =
     (await resolveLabelPosition(target.ownerId)) ??
     tokenItem.position ??
     { x: 0, y: 0 }
-  const labelItem = buildTurnActionLabelItem(kind, tokenItem, position)
+  const labelItem = buildTurnActionLabelItem(kind, tokenItem, position, heroColor)
   const existingBadge = items.find((i) => i.id === TURN_ACTION_LABEL_ID)
   const existingGlyph = items.find((i) => i.id === TURN_ACTION_GLYPH_ID)
   const ownerChanged =
@@ -209,7 +212,7 @@ async function refreshTurnActionLabel(itemsIn) {
       await OBR.scene.items.deleteItems(TURN_ACTION_OVERLAY_IDS)
       await OBR.scene.items.addItems([labelItem])
     } else {
-      const style = primaryKindMapStyle(kind)
+      const style = primaryKindMapStyle(kind, heroColor)
       const fontSize = primaryKindMapFontSize(kind)
       const fontWeight = primaryKindMapFontWeight(kind)
       const symbol = primaryKindMapSymbol(kind)

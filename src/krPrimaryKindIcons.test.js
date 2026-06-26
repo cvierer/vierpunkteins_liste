@@ -100,9 +100,9 @@ describe('primaryKindMapSymbol', () => {
     }
   })
 
-  it('lh teilt Stern mit sra', () => {
-    expect(primaryKindMapSymbol('lh')).toBe(primaryKindMapSymbol('sra'))
-    expect(primaryKindMapSymbol('lh')).toBe('\u2605')
+  it('lh ist Sanduhr (nicht mehr Stern wie sra)', () => {
+    expect(primaryKindMapSymbol('lh')).toBe('\u231B')
+    expect(primaryKindMapSymbol('lh')).not.toBe(primaryKindMapSymbol('sra'))
   })
 })
 
@@ -124,6 +124,14 @@ describe('primaryKindMapStyle', () => {
     expect(s.fillColor).toMatch(/^#/)
     expect(s.backgroundColor).toMatch(/^#/)
     expect(s.backgroundOpacity).toBeGreaterThan(0)
+  })
+
+  it('Heldenfarbe ueberschreibt den Hintergrund (helles Symbol bleibt)', () => {
+    const base = primaryKindMapStyle('ang')
+    const tinted = primaryKindMapStyle('ang', '#3366cc')
+    expect(tinted.backgroundColor).toMatch(/^#[0-9a-fA-F]{6}$/)
+    expect(tinted.backgroundColor).not.toBe(base.backgroundColor)
+    expect(tinted.fillColor).toBe(base.fillColor)
   })
 })
 
