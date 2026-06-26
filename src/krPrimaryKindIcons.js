@@ -6,7 +6,9 @@ import { normalizePhases } from './phaseLinks.js'
 // Kompatibilitaetsgruenden unveraendert (wird in initiativeList.js mehrfach genutzt).
 // Geometrie tiefer platziert. Neck/Engstelle bei (12, 17.5); obere Kammer
 // y8.5..17.5, untere Kammer y17.5..26.5 (Kammerhoehe je 9, Box 34).
-export const SVG_PRIMARY_LH_STAR = `<svg class="init-kr-primary-kind__svg init-kr-primary-kind__svg--lh" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 34" aria-hidden="true"><path fill="#fffdf5" opacity="0.22" d="M6 8.5 H18 L12 17.5 Z M6 26.5 H18 L12 17.5 Z"/><path fill="currentColor" d="M7 9.7 H17 L12.8 15.5 H11.2 Z"/><path fill="currentColor" d="M11.7 15.5 H12.3 V25.9 H11.7 Z"/><path fill="currentColor" d="M7 26.3 H17 L12 20.3 Z"/><path fill="none" stroke="#5d4037" stroke-width="0.8" stroke-linejoin="round" d="M6 8.5 H18 L12 17.5 L18 26.5 H6 L12 17.5 Z"/><path fill="#b8860b" d="M4.8 7.1 H19.2 V8.5 H4.8 Z M4.8 26.5 H19.2 V27.9 H4.8 Z"/><path fill="none" stroke="#3e2723" stroke-width="0.45" stroke-linejoin="round" d="M4.8 7.1 H19.2 V8.5 H4.8 Z M4.8 26.5 H19.2 V27.9 H4.8 Z"/></svg>`
+// Ruhezustand (nicht laufende L.H.): NUR die obere Kammer enthaelt Sand
+// (currentColor -> Heldenfarbe); untere Kammer leer, kein Rinnsal.
+export const SVG_PRIMARY_LH_STAR = `<svg class="init-kr-primary-kind__svg init-kr-primary-kind__svg--lh" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 34" aria-hidden="true"><path fill="#fffdf5" opacity="0.22" d="M6 8.5 H18 L12 17.5 Z M6 26.5 H18 L12 17.5 Z"/><path fill="currentColor" d="M6 8.5 H18 L12 17.5 Z"/><path fill="none" stroke="#5d4037" stroke-width="0.8" stroke-linejoin="round" d="M6 8.5 H18 L12 17.5 L18 26.5 H6 L12 17.5 Z"/><path fill="#b8860b" d="M4.8 7.1 H19.2 V8.5 H4.8 Z M4.8 26.5 H19.2 V27.9 H4.8 Z"/><path fill="none" stroke="#3e2723" stroke-width="0.45" stroke-linejoin="round" d="M4.8 7.1 H19.2 V8.5 H4.8 Z M4.8 26.5 H19.2 V27.9 H4.8 Z"/></svg>`
 
 // Laufende L.H. (Pie-Zustand): Sanduhr aus drei deckungsgleichen Layern, damit
 // der Sand per CSS-Maske (--lh-pie-frac) von oben nach unten rieseln kann.

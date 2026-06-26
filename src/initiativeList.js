@@ -7291,6 +7291,47 @@ function bindStampContextRemove(el, stamp, items) {
   })
 }
 
+/** Signaturfarbe je Aktionstyp (Fallback, falls keine Heldenfarbe gesetzt ist). */
+const STAMP_KIND_DEFAULT_COLOR = Object.freeze({
+  ang: '#7a1528',
+  abw: '#0d47a1',
+  sra: '#f57f17',
+  fa: '#7e57c2',
+  lh: '#00695c',
+})
+
+function stampKindIconMarkup(kind) {
+  if (kind === 'ang') return SVG_PRIMARY_ATTACK
+  if (kind === 'abw') return SVG_ABW_SHIELD
+  if (kind === 'sra') return SVG_PRIMARY_ACTION
+  if (kind === 'lh') return SVG_PRIMARY_LH_STAR
+  return SVG_FA_BOLT
+}
+
+/**
+ * Ein Stempel-Segment: Mini-Aktionsicon in der Farbe des stempelnden Helden
+ * (stamp.itemId), sonst in der Signaturfarbe des Aktionstyps.
+ */
+function buildStampSeg(stamp, items) {
+  const seg = document.createElement('div')
+  const kind = fieldToStampKind(stamp.field)
+  seg.className = `init-stamp-panel__seg init-stamp-panel__seg--${kind}`
+  seg.innerHTML = stampKindIconMarkup(kind)
+  const stampItem = items.find((i) => i.id === stamp?.itemId)
+  const heroColor = readHeroBgColor(stampItem?.metadata?.[TRACKER_ITEM_META_KEY])
+  const allowTint =
+    heroColor &&
+    (canEditSceneItem(stampItem) || !getHideForeignHeroColorsForViewer())
+  const tint = allowTint
+    ? mutedHeroColor(heroColor)
+    : STAMP_KIND_DEFAULT_COLOR[kind]
+  const svg = seg.querySelector('svg')
+  if (svg instanceof SVGElement && tint) svg.style.color = tint
+  seg.title = stampTooltipFull(stamp, items)
+  bindStampContextRemove(seg, stamp, items)
+  return seg
+}
+
   /** (i) + Zahnrad links im aufgeklappten Heldenblock. */
   const buildHeroExpandLeadButtons = (
     rowId,
@@ -7934,12 +7975,7 @@ function bindStampContextRemove(el, stamp, items) {
             'Gestempelte Aktionen: Rechtsklick auf eine Farbe zum Entfernen des Stempels'
           )
           for (const __st of __anchorStamps) {
-            const __seg = document.createElement('div')
-            const __kind = fieldToStampKind(__st.field)
-            __seg.className = `init-stamp-panel__seg init-stamp-panel__seg--${__kind}`
-            __seg.title = stampTooltipFull(__st, items)
-            bindStampContextRemove(__seg, __st, items)
-            __panel.appendChild(__seg)
+            __panel.appendChild(buildStampSeg(__st, items))
           }
           main.appendChild(__panel)
         }
@@ -8298,12 +8334,7 @@ function bindStampContextRemove(el, stamp, items) {
             'Gestempelte Aktionen: Rechtsklick auf eine Farbe zum Entfernen des Stempels'
           )
           for (const __st of __anchorStamps) {
-            const __seg = document.createElement('div')
-            const __kind = fieldToStampKind(__st.field)
-            __seg.className = `init-stamp-panel__seg init-stamp-panel__seg--${__kind}`
-            __seg.title = stampTooltipFull(__st, items)
-            bindStampContextRemove(__seg, __st, items)
-            __panel.appendChild(__seg)
+            __panel.appendChild(buildStampSeg(__st, items))
           }
           main.appendChild(__panel)
         }
@@ -8742,12 +8773,7 @@ function bindStampContextRemove(el, stamp, items) {
             'Gestempelte Aktionen: Rechtsklick auf eine Farbe zum Entfernen des Stempels'
           )
           for (const __st of __anchorStamps) {
-            const __seg = document.createElement('div')
-            const __kind = fieldToStampKind(__st.field)
-            __seg.className = `init-stamp-panel__seg init-stamp-panel__seg--${__kind}`
-            __seg.title = stampTooltipFull(__st, items)
-            bindStampContextRemove(__seg, __st, items)
-            __panel.appendChild(__seg)
+            __panel.appendChild(buildStampSeg(__st, items))
           }
           main.appendChild(__panel)
         }

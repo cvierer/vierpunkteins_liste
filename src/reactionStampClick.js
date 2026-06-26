@@ -69,9 +69,10 @@ export function reactionFaStampAllowed(combat = null, meta = null, delta = 1) {
  * @param {boolean} inReactionStore
  */
 export function reactionStampAnchor(ownerItemId, combat, inReactionStore) {
-  if (inReactionStore) {
-    return { rowId: ownerItemId, phaseLinkId: null }
-  }
+  // Abwehr/Parade/F.A. immer an der aktuellen Navigationsposition ankern -
+  // auch aus dem Reaktionsspeicher. Ohne laufenden Kampf faellt
+  // liveAbwStampAnchor auf die Owner-Zeile zurueck.
+  void inReactionStore
   return liveAbwStampAnchor(ownerItemId, combat)
 }
 

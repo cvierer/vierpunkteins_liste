@@ -93,11 +93,11 @@ describe('reactionStampClick', () => {
     vi.mocked(patchKrStampAbwFromCharge).mockResolvedValue(true)
   })
 
-  it('reactionStampAnchor nutzt owner row im Reaktionsspeicher', () => {
+  it('reactionStampAnchor nutzt Nav-Position auch im Reaktionsspeicher', () => {
     expect(
       reactionStampAnchor('hero-b', { currentItemId: 'hero-a' }, true)
     ).toEqual({
-      rowId: 'hero-b',
+      rowId: 'hero-a',
       phaseLinkId: null,
     })
   })
@@ -245,7 +245,7 @@ describe('reactionStampClick', () => {
     )
   })
 
-  it('executeFaStampClick nutzt owner-Anker im Reaktionsspeicher', async () => {
+  it('executeFaStampClick nutzt Nav-Anker im Reaktionsspeicher', async () => {
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
       {
         id: 'hero-b',
@@ -258,11 +258,11 @@ describe('reactionStampClick', () => {
       'hero-b',
       'krFreeAction',
       1,
-      { stampAnchor: { rowId: 'hero-b', phaseLinkId: null } }
+      { stampAnchor: { rowId: 'hero-a', phaseLinkId: null } }
     )
   })
 
-  it('executeAbwStampClick nutzt owner-Anker im Reaktionsspeicher', async () => {
+  it('executeAbwStampClick nutzt Nav-Anker im Reaktionsspeicher', async () => {
     vi.mocked(OBR.scene.items.getItems).mockResolvedValue([
       {
         id: 'hero-b',
@@ -272,7 +272,7 @@ describe('reactionStampClick', () => {
     vi.mocked(readKrAbw).mockReturnValue(0)
     await executeAbwStampClick('hero-b', { inReactionStore: true })
     expect(patchKrStampAbwFromCharge).toHaveBeenCalledWith('hero-b', {
-      stampAnchor: { rowId: 'hero-b', phaseLinkId: null },
+      stampAnchor: { rowId: 'hero-a', phaseLinkId: null },
     })
   })
 

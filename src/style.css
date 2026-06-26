@@ -5191,7 +5191,7 @@ select.init-row-extra-select {
   );
 }
 
-/* Großes Schwert (AN) etwas nach links — nur Primär-Icon, nicht z.AT-Restore */
+/* Großes Schwert (AN): horizontal mittig wie der Stern (kein Versatz). */
 .init-kr-primary-main__icon .init-kr-primary-kind__svg--ang {
   height: calc(
     min(
@@ -5205,7 +5205,6 @@ select.init-row-extra-select {
         calc(var(--init-obj-cell) * 1.2179 * var(--init-combat-icon-scale))
       ) * 24 / 34 * var(--init-sword-icon-scale)
   );
-  transform: translateX(calc(-0.07rem * var(--init-ui-scale)));
 }
 
 /* Klingen-Grundfarbe (currentColor-Pfade). Heldenfarbe ueberschreibt per
@@ -6942,22 +6941,35 @@ select.init-row-extra-select {
   pointer-events: none;
 }
 
+/* Mini-Aktionsicon statt Farbflaeche; eingefaerbt in Heldenfarbe (inline am SVG)
+   bzw. als Fallback in der Kind-Signaturfarbe (color unten). */
 .init-stamp-panel__seg {
   flex: 1;
   min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  box-sizing: border-box;
   transition: filter 0.12s ease;
   pointer-events: auto;
 }
 
-.init-stamp-panel__seg:hover {
-  filter: brightness(1.18);
+.init-stamp-panel__seg svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-.init-stamp-panel__seg--ang { background: rgba(122, 21, 40, 0.9); }
-.init-stamp-panel__seg--abw { background: rgba(13, 71, 161, 0.78); }
-.init-stamp-panel__seg--sra { background: rgba(245, 127, 23, 0.78); }
-.init-stamp-panel__seg--fa  { background: rgba(200, 182, 235, 0.88); }
-.init-stamp-panel__seg--lh  { background: rgba(0, 105, 92, 0.78); }
+.init-stamp-panel__seg:hover {
+  filter: brightness(1.12);
+}
+
+.init-stamp-panel__seg--ang { color: #7a1528; }
+.init-stamp-panel__seg--abw { color: #0d47a1; }
+.init-stamp-panel__seg--sra { color: #f57f17; }
+.init-stamp-panel__seg--fa  { color: #7e57c2; }
+.init-stamp-panel__seg--lh  { color: #00695c; }
 
 .init-row-round-end-bar {
   display: flex;
