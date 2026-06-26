@@ -46,9 +46,11 @@ import { TRACKER_ITEM_META_KEY } from './participants.js'
 import { buildCombatTurnSteps, hookIniForLink, normalizePhases } from './phaseLinks.js'
 import {
   cycleKrPrimarySlotKind,
+  cycleKrPrimarySlotKindRespectingLocks,
+  patchKrCyclePrimarySlotKind,
   restoreRegularSecondActionRootAfterLh,
 } from './krCounters.js'
-import { isLhLockingActions } from './lhMeta.js'
+import { isHeroAtLhMotherEndInRound, isLhLockingActions } from './lhMeta.js'
 import { isLhEndSlotConvertible } from './krPrimaryShellVisual.js'
 import {
   HERO_ACTION_POOL_ABW,
@@ -320,5 +322,118 @@ describe('resetAllKrCountersInScene: REM-Pool bei L.H.-Ende in targetRound voll 
     await resetAllKrCountersInScene({ targetRound: 1, resetStamps: false })
     const meta = itemMetaRef.current
     expect(meta['krFirstSlotKind']).toBe('lh')
+  })
+})
+
+// Unit-Tests fuer isHeroAtLhMotherEndInRound
+describe('isHeroAtLhMotherEndInRound', () => {
+  const motherEndBase = {
+    initiative: '12',
+    [LH_MAX]: 3,
+    [LH_REM]: 1,
+    [LH_ACTIONS_PER_KR]: 2,
+    [LH_TRIGGER_INI_STEP]: -8,
+    [LH_COMMIT_ROUND]: 1,
+    [LH_COMMIT_INI]: 12,
+  }
+
+  it('Mutter-Ende in End-KR -> true', () => {
+    expect(isHeroAtLhMotherEndInRound(motherEndBase, 2)).toBe(true)
+  })
+
+  it('Nicht-End-KR -> false', () => {
+    expect(isHeroAtLhMotherEndInRound(motherEndBase, 1)).toBe(false)
+  })
+
+  it('n.A.-Objekt-Ende (endIni != ownerIni) -> false', () => {
+    const naEnd = {
+      ...motherEndBase,
+      [LH_COMMIT_INI]: 4,
+    }
+    expect(isHeroAtLhMotherEndInRound(naEnd, 2)).toBe(false)
+  })
+
+  it('L.H. inaktiv -> false', () => {
+    const inactive = { ...motherEndBase, [LH_MAX]: 0 }
+    expect(isHeroAtLhMotherEndInRound(inactive, 2)).toBe(false)
+  })
+
+  it('L.H. inaktiv (kein LH_MAX) -> false', () => {
+    const bare = { initiative: '12' }
+    expect(isHeroAtLhMotherEndInRound(bare, 2)).toBe(false)
+  })
+})
+
+// Zyklus-Tests: alle 4 Kinds von 2.AO am Mutter-Ende mit motherEndBypass
+describe('patchKrCyclePrimarySlotKind mit motherEndBypass: voller 4-Kind-Zyklus', () => {
+  const ZAO_LINK = 'zao-regular-root'
+
+  // buildItems gibt einen frischen Satz items zurueck, den updateItems mutiert
+  const makeMeta = (slotKind = 'ang', marks = 1) => ({
+    initiative: '12',
+    [KR_ZAO_SLOTS]: { [ZAO_LINK]: { kind: slotKind, marks } },
+    phases: {
+      links: [{ id: ZAO_LINK, parentId: null, offset: 8 }],
+    },
+    [LH_MAX]: 3,
+    [LH_REM]: 1,
+  })
+
+  beforeEach(() => {
+    getItems.mockClear()
+    updateItems.mockClear()
+  })
+
+  it('ang -> sra mit motherEndBypass (kein Transfer noetig)', async () => {
+    itemMetaRef.current = makeMeta('ang', 1)
+    const ok = await patchKrCyclePrimarySlotKind(
+      'hero-a', 'sra',
+      { linkId: ZAO_LINK, motherEndBypass: true }
+    )
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({ kind: 'sra', marks: 1 })
+  })
+
+  it('sra -> lh mit motherEndBypass', async () => {
+    itemMetaRef.current = makeMeta('sra', 1)
+    const ok = await patchKrCyclePrimarySlotKind(
+      'hero-a', 'lh',
+      { linkId: ZAO_LINK, motherEndBypass: true }
+    )
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({ kind: 'lh', marks: 1 })
+  })
+
+  it('lh -> uo mit motherEndBypass (kein Shield-Transfer, kein lodgedAbw)', async () => {
+    itemMetaRef.current = makeMeta('lh', 1)
+    const ok = await patchKrCyclePrimarySlotKind(
+      'hero-a', 'uo',
+      { linkId: ZAO_LINK, motherEndBypass: true }
+    )
+    expect(ok).toBe(true)
+    const slot = itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]
+    expect(slot.kind).toBe('uo')
+    // kein lodgedAbw (freies Leer-Objekt, nicht eingelagerte Abwehr-Ladung)
+    expect(slot.lodgedAbw == null || slot.lodgedAbw === false).toBe(true)
+  })
+
+  it('uo -> ang mit motherEndBypass (kein Shield-Transfer-Mark noetig)', async () => {
+    itemMetaRef.current = makeMeta('uo', 0)
+    const ok = await patchKrCyclePrimarySlotKind(
+      'hero-a', 'ang',
+      { linkId: ZAO_LINK, motherEndBypass: true }
+    )
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({ kind: 'ang', marks: 1 })
+  })
+
+  it('cycleKrPrimarySlotKindRespectingLocks: voller Zyklus mit uoAllowed:true', () => {
+    const kinds = []
+    let kind = 'ang'
+    for (let i = 0; i < 4; i++) {
+      kind = cycleKrPrimarySlotKindRespectingLocks(kind, 'next', { iniLocked: false, uoAllowed: true })
+      kinds.push(kind)
+    }
+    expect(kinds).toEqual(['sra', 'lh', 'uo', 'ang'])
   })
 })

@@ -257,6 +257,7 @@ import {
   computeLhProgressDisplayHookIni,
   phaseOffsetFromHeroExtraAngMeta,
   phaseOffsetFromHeroSecondAoMeta,
+  isHeroAtLhMotherEndInRound,
   isLhActive,
   isLhLockingActions,
   LH_ACTIONS_PER_KR,
@@ -2114,15 +2115,27 @@ function appendKrPrimarySplitCell(
     }
   }
 
+  // Bei regulaerer 2.AO-Wurzel am L.H.-Mutter-Ende: Umwandel-Transfer-Logik
+  // umgehen (keine Shield-Marks). Alle 4 Kinds direkt beschreibbar.
+  const isRegularZaoForMotherEnd =
+    isZaoSlot &&
+    !Boolean(zaoSlotOverride?.heroExtra) &&
+    !Boolean(zaoSlotOverride?.lhEnd)
+  const motherEndBypassForSwitch =
+    isRegularZaoForMotherEnd &&
+    isHeroAtLhMotherEndInRound(trackerMeta, combatRound)
+
   const switchPatchHandlers = {
     patchFn: async (itemId, dir, patchOpts) => {
       const freshItems = await OBR.scene.items.getItems([ownerItemId])
       const freshMeta =
         freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? trackerMeta
-      const uoAllowed = isConvertAllowedLive(freshMeta)
+      // Bei Mutter-Ende-Bypass: uo immer erlaubt; sonst normales Convert-Lock-Gate.
+      const uoAllowed = motherEndBypassForSwitch || isConvertAllowedLive(freshMeta)
       const result = await patchKrStepPrimarySlotKind(itemId, dir, {
         ...patchOpts,
         uoAllowed,
+        motherEndBypass: motherEndBypassForSwitch,
       })
       if (result?.applied) {
         try {
@@ -2164,7 +2177,9 @@ function appendKrPrimarySplitCell(
         /* render-closure fallback */
       }
       const startKind = resolveKrPrimarySlotKind(freshMeta, linkIdForSwitch)
-      const canConvertToUo = isConvertAllowedLive(freshMeta)
+      // Bei Mutter-Ende: uo im Cycle immer erlauben, Convert-Lock uebergehen.
+      const canConvertToUo =
+        motherEndBypassForSwitch || isConvertAllowedLive(freshMeta)
       const step = enqueueKrPrimarySwitchStep(switchSessionKey, dir, {
         itemId: ownerItemId,
         linkId: linkIdForSwitch,
@@ -8494,19 +8509,49 @@ function layoutStampPanels(listRoot) {
                 return ix >= 0 ? ix + 2 : 2
               })()
             : 2
+        // L.H. endet am Mutterobjekt (End-KR, GO im L.H.-Feld): regulaere 2.AO
+        // muss als vollwertiges Objekt mit Slot 'ang'/marks:1 starten. Wird
+        // hier synchron korrigiert (verhindert graue, nicht-umwandelbare Darst.)
+        // und asynchron in die Scene-Meta persistiert (verhindert Rueckfall auf
+        // uo/lodgedAbw beim naechsten Render durch patchEnsureZaoSlotForLink).
+        const isRegularZaoRootLink =
+          isZaoRoot && !isLhEndLink && !isHeroExtraZao && link.parentId === null
+        const isLhMotherEndNow =
+          isRegularZaoRootLink &&
+          isHeroAtLhMotherEndInRound(ownerTrackerMeta, combatRoundForLhUi)
+
+        let rawZaoSlot = isZaoRoot
+          ? readZaoSlot(ownerTrackerMeta || {}, link.id)
+          : null
+
+        if (isLhMotherEndNow) {
+          const slotNeedsCorrection =
+            !rawZaoSlot ||
+            rawZaoSlot.kind === 'uo' ||
+            rawZaoSlot.lodgedAbw === true
+          if (slotNeedsCorrection) {
+            rawZaoSlot = { kind: 'ang', marks: 1 }
+            if (canEdit) {
+              void patchZaoSlot(ownerId, link.id, { kind: 'ang', marks: 1 })
+            }
+          }
+        }
+
         const zaoSlot = isZaoRoot
-          ? readZaoSlot(ownerTrackerMeta || {}, link.id) ||
+          ? rawZaoSlot ||
             (isLhEndLink
               ? { kind: 'lh', marks: 1 }
               : !isHeroExtraZao
                 ? defaultZaoSlotForPhaseNum(zaoPhaseNum)
                 : null)
           : null
+
         if (
           canEdit &&
           isZaoRoot &&
           !isLhEndLink &&
           !isHeroExtraZao &&
+          !isLhMotherEndNow &&
           !readZaoSlot(ownerTrackerMeta || {}, link.id)
         ) {
           void patchEnsureZaoSlotForLink(ownerId, link.id, zaoPhaseNum)

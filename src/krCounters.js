@@ -972,7 +972,9 @@ export async function patchKrStepPrimarySlotKind(itemId, dir, opts = {}) {
   if (dir !== 'next' && dir !== 'prev') return null
   return runWithKrSlotPatchSuppressed(async () => {
     const linkId = opts.linkId ?? null
-    const uoAllowed = opts.uoAllowed !== false
+    const motherEndBypass = Boolean(opts.motherEndBypass)
+    // Bei Mutter-Ende-Bypass: uo immer erlaubt, da kein Shield-Transfer noetig.
+    const uoAllowed = motherEndBypass || opts.uoAllowed !== false
     const patchOpts =
       typeof linkId === 'string' && linkId.length > 0 ? { linkId } : {}
 
@@ -995,6 +997,7 @@ export async function patchKrStepPrimarySlotKind(itemId, dir, opts = {}) {
     const applied = await patchKrCyclePrimarySlotKind(itemId, nextKind, {
       ...patchOpts,
       preloadedItem: item,
+      motherEndBypass,
     })
     if (!applied) {
       return { applied: false, kind: prevKind, prevKind, nextKind }
@@ -1015,7 +1018,11 @@ export async function patchKrStepPrimarySlotKind(itemId, dir, opts = {}) {
  *
  * @param {string} itemId
  * @param {'ang' | 'sra' | 'lh' | 'uo'} nextKind
- * @param {{ linkId?: string | null, preloadedItem?: import('@owlbear-rodeo/sdk').Item | null }} [opts]
+ * @param {{
+ *   linkId?: string | null,
+ *   preloadedItem?: import('@owlbear-rodeo/sdk').Item | null,
+ *   motherEndBypass?: boolean,
+ * }} [opts]
  * @returns {Promise<boolean>}
  */
 export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
@@ -1029,6 +1036,9 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
   }
   const linkId = opts.linkId ?? null
   const isZao = typeof linkId === 'string' && linkId.length > 0
+  // Bei L.H.-Mutter-Ende-2.AO: Umwandel-Transfer-Logik umgehen (keine Shield-
+  // Marks vorhanden), direkt den Slot schreiben. Alle 4 Kinds sind erreichbar.
+  const motherEndBypass = Boolean(opts.motherEndBypass) && isZao
 
   let item = opts.preloadedItem ?? null
   if (!item) {
@@ -1043,6 +1053,27 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
     const slot = readZaoSlot(meta, linkId)
     const prev = readEffectiveZaoSlotKind(slot)
     if (prev === nextKind) return false
+
+    if (motherEndBypass) {
+      // Direkt schreiben: keine Shield-Transfer-Marks noetig.
+      // patchZaoSlot wuerde fuer kind='uo' immer lodgedAbw:true erzwingen;
+      // hier schreiben wir direkt (lodgedAbw:false = freies Leer-Objekt, nicht
+      // eingelagerte Abwehr-Ladung).
+      await OBR.scene.items.updateItems([itemId], (drafts) => {
+        for (const d of drafts) {
+          const m = d.metadata[TRACKER_ITEM_META_KEY]
+          if (!m) continue
+          const slots = readZaoSlots(m)
+          if (nextKind === 'uo') {
+            slots[linkId] = { kind: 'uo', marks: 0 }
+          } else {
+            slots[linkId] = { kind: nextKind, marks: 1 }
+          }
+          m[KR_ZAO_SLOTS] = slots
+        }
+      })
+      return true
+    }
 
     if (nextKind === 'uo') {
       await patchKrTransferZaoPrimaryToAbw(itemId, linkId)

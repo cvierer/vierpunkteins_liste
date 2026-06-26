@@ -167,6 +167,45 @@ export function isLhLockingActions(meta, currentRound, ownerIniOverride) {
 }
 
 /**
+ * Gibt `true` zurück, wenn die L.H. des Helden GENAU in `currentRound` am
+ * Mutterobjekt (endIni === ownerIni) endet — also "GO" angezeigt wird und die
+ * regulaere 2.AO im selben KR-Start-Schritt als vollwertiges Objekt behandelt
+ * werden muss. Wird synchron direkt aus Meta gelesen (kein async, kein OBR).
+ */
+export function isHeroAtLhMotherEndInRound(meta, currentRound) {
+  if (!isLhActive(meta)) return false
+  const cr = Number(currentRound)
+  if (!Number.isFinite(cr)) return false
+  const { max } = readLhState(meta)
+  const ownerIni = Number(
+    String(/** @type {any} */ (meta)?.initiative ?? '')
+      .trim()
+      .replace(',', '.')
+  )
+  if (!Number.isFinite(ownerIni)) return false
+  const mech = readLhMechanics(meta)
+  const commitRound =
+    Math.max(
+      1,
+      Math.floor(Number(/** @type {any} */ (meta)?.[LH_COMMIT_ROUND])) || 0
+    ) || cr
+  const commitIniRaw = /** @type {any} */ (meta)?.[LH_COMMIT_INI]
+  const commitIniN = Number(commitIniRaw)
+  const priorSpend = readLhCommitKrPriorSpendForRound(meta, cr)
+  const { endsInThisRound, endIni } = lhEndsInRound(
+    max,
+    commitRound,
+    cr,
+    ownerIni,
+    mech.actionsPerKr,
+    mech.triggerIniStep,
+    Number.isFinite(commitIniN) ? commitIniN : null,
+    priorSpend
+  )
+  return Boolean(endsInThisRound) && endIni === ownerIni
+}
+
+/**
  * Gespeichertes Phasen-Offset (positiv) aus L.H.-Auslöser-Schritt, z. B. −8 → 8.
  */
 export function phaseOffsetFromLhTriggerStep(triggerIniStep) {
