@@ -4523,11 +4523,15 @@ select.init-row-extra-select {
   filter: saturate(0.88) brightness(0.92);
 }
 
-/* A-Spalte: Objekte ohne Ladung unsichtbar machen, Platz erhalten
+/* Verbrauchte Primaeraktion (kein Ladungs-Mark mehr): Icon bleibt an seiner
+   Stelle sichtbar, aber in Graustufen; Zelle bleibt nicht interaktiv.
    (Ausnahme: ZAO-Restore-„+“ bleibt voll sichtbar) */
 .init-kr-primary-shell--no-charge:not(:has(.init-kr-primary-zao-restore)) {
-  visibility: hidden !important;
-  pointer-events: none !important;
+  pointer-events: none;
+}
+.init-kr-primary-shell--no-charge:not(:has(.init-kr-primary-zao-restore))
+  .init-kr-primary-main__icon {
+  filter: grayscale(1);
 }
 
 .init-kr-primary-shell--inactive-empty .init-kr-primary-switch,
