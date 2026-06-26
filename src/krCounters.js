@@ -19,6 +19,7 @@ import {
   canCreateSecondActionRoot,
   ensureExtraAttackPhaseRoot,
   finalizePhasesWithOrderedRoots,
+  hookIniForLink,
   nextChainedZaoParentForTransfer,
   normalizePhases,
   sortedLinksForLayout,
@@ -334,6 +335,58 @@ export function initKrActionPoolsFromHeroDefaults(m, { skipActionInit = false } 
 
   rebuildKrActionPoolVisualsFromAngAbw(m, ang, abw)
   setIniNegPoolShiftAppliedFlagIfNegativeShift(m)
+}
+
+/**
+ * Stellt nach einem L.H.-Ende/-Reset MITTEN in der KR die regulaere 2.AO-Wurzel
+ * des Helden wieder her, falls sie fehlt.
+ *
+ * Hintergrund: Regulaere 2.AO-Wurzeln sind ephemer (`expiresNextRound`) und
+ * werden beim KR-Wechsel ueber `clearEphemeralExtraIniRows` entfernt. Waehrend
+ * einer laufenden L.H. baut `resetAllKrCountersInScene` (mit `skipActionInit`)
+ * sie NICHT neu auf. Endet/resettet die L.H. dann mitten in der KR (z. B. per
+ * Vorbei-Navigieren ueber das End-INI), fehlt die normale 2.AO-Wurzel bis zum
+ * naechsten KR-Reset — die Navigation ueberspringt das 2.AO des Helden.
+ *
+ * No-op, wenn bereits eine navigierbare regulaere Wurzel existiert, das Budget
+ * keine zweite Aktion hergibt oder die Ziel-INI negativ waere. `heroExtra`- und
+ * `lhEnd`-Wurzeln bleiben unberuehrt; die neue Wurzel ist wieder ephemer.
+ *
+ * @param {Record<string, unknown>} m
+ * @returns {boolean} true, wenn eine Wurzel angelegt wurde
+ */
+export function restoreRegularSecondActionRootAfterLh(m) {
+  if (!m || typeof m !== 'object') return false
+  const ownerIniStr = m.initiative
+  if (typeof ownerIniStr !== 'string') return false
+  const phaseOffset = phaseOffsetFromHeroSecondAoMeta(m)
+  if (!canCreateSecondActionRoot(ownerIniStr, phaseOffset)) return false
+  const { ang } = effectiveHeroPoolSplit(m)
+  if (ang < 1) return false
+
+  const p = normalizePhases(m.phases)
+  const links = p.links
+  const regularRoots = links.filter(
+    (l) => l.parentId === null && !l.heroExtra && l.lhEnd !== true
+  )
+  for (const r of regularRoots) {
+    const hook = hookIniForLink(r.id, ownerIniStr, links)
+    if (Number.isFinite(hook) && hook >= 0) return false
+  }
+
+  const newId = crypto.randomUUID()
+  m.phases = finalizePhasesWithOrderedRoots(m, {
+    ...p,
+    rowPanelOpen: true,
+    links: [
+      ...links,
+      { id: newId, parentId: null, offset: phaseOffset, expiresNextRound: true },
+    ],
+  })
+  const slots = readZaoSlots(m)
+  slots[newId] = defaultZaoSlotForPhaseNum(2)
+  m[KR_ZAO_SLOTS] = slots
+  return true
 }
 
 /**

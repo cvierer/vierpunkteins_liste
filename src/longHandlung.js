@@ -51,6 +51,7 @@ import {
   readLhState,
 } from './lhMeta.js'
 import { cancelLh, startOrCancelLh } from './lhEngine.js'
+import { restoreRegularSecondActionRootAfterLh } from './krCounters.js'
 
 export { LH_DONE_INI } from './lhMeta.js'
 
@@ -396,6 +397,11 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
           const m = d.metadata[TRACKER_ITEM_META_KEY]
           if (!m) continue
           clearLhTrackerActivity(m)
+          // Nach dem L.H.-Reset die normale 2.AO-Wurzel wiederherstellen, falls
+          // sie waehrend der laufenden L.H. (ephemer + skipActionInit) verloren
+          // ging — sonst ueberspringt die Navigation das 2.AO bis zum naechsten
+          // KR-Reset. No-op, wenn bereits navigierbar / Budget/INI es nicht hergibt.
+          restoreRegularSecondActionRootAfterLh(m)
         }
       })
     }
