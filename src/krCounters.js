@@ -2079,6 +2079,7 @@ export async function stampLhCompletion(itemId, anchorPhaseLinkId = null) {
       const m = draft.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
       clearLhTrackerActivity(m)
+      restoreRegularSecondActionRootAfterLh(m)
     }
   })
   return true

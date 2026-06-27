@@ -25,6 +25,7 @@ import {
   clearKrLhStampsForItem,
   KR_MOTHER_PRIMARY_USED_THIS_ROUND,
   patchZaoSlot,
+  restoreRegularSecondActionRootAfterLh,
 } from './krCounters.js'
 import {
   hookIniForLink,
@@ -153,6 +154,7 @@ export async function startOrCancelLh(itemId, text, opts) {
       if (!m) continue
       if (n <= 0) {
         clearLhTrackerActivity(m)
+        restoreRegularSecondActionRootAfterLh(m)
       } else {
         migrateLegacyLhFields(m)
         m[LH_MAX] = n

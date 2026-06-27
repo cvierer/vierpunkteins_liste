@@ -59,6 +59,8 @@ import {
   KR_ZAO_SLOTS,
 } from './krMetaKeys.js'
 import {
+  clearLhTrackerActivity,
+  isLhActive,
   LH_ACTIONS_PER_KR,
   LH_COMMIT_INI,
   LH_COMMIT_ROUND,
@@ -435,5 +437,79 @@ describe('patchKrCyclePrimarySlotKind mit motherEndBypass: voller 4-Kind-Zyklus'
       kinds.push(kind)
     }
     expect(kinds).toEqual(['sra', 'lh', 'uo', 'ang'])
+  })
+})
+
+describe('stampLhCompletion / startOrCancelLh: 2.AO nach L.H.-Ablauf/Abbruch sofort vollwertig', () => {
+  // Testet den kombinierten Effekt von clearLhTrackerActivity + restoreRegularSecondActionRootAfterLh,
+  // der in stampLhCompletion und startOrCancelLh (n<=0) ausgefuehrt wird.
+  // Vor dem Fix blieb der uo/lodgedAbw-Slot bestehen, weil clearLhTrackerActivity
+  // isLhActive -> false setzt und damit alle Mutter-Ende-Bypass-Mechanismen entfallen.
+
+  it('isLhActive wird nach clearLhTrackerActivity false', () => {
+    const meta = { [LH_MAX]: 2, [LH_REM]: 1, initiative: '12', phases: { links: [] }, krZaoSlots: {} }
+    expect(isLhActive(meta)).toBe(true)
+    clearLhTrackerActivity(meta)
+    expect(isLhActive(meta)).toBe(false)
+  })
+
+  it('clear + restore korrigiert uo/lodgedAbw-Slot auf ang/marks1 und deaktiviert L.H.', () => {
+    // Ausgangszustand: L.H. aktiv (rem=1, Mutter-Ende), regulaere 2.AO-Wurzel
+    // mit eingelagertem uo-Slot (Phase-2-Default).
+    const meta = {
+      [LH_MAX]: 2,
+      [LH_REM]: 1,
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: { zao1: { kind: 'uo', marks: 0, lodgedAbw: true } },
+    }
+
+    clearLhTrackerActivity(meta)
+    restoreRegularSecondActionRootAfterLh(meta)
+
+    expect(isLhActive(meta)).toBe(false)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+  })
+
+  it('clear + restore funktioniert auch wenn Slot fehlt (kein lodgedAbw-Eintrag)', () => {
+    const meta = {
+      [LH_MAX]: 1,
+      [LH_REM]: 1,
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: {},
+    }
+
+    clearLhTrackerActivity(meta)
+    restoreRegularSecondActionRootAfterLh(meta)
+
+    expect(isLhActive(meta)).toBe(false)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+  })
+
+  it('Slot bleibt unveraendert wenn bereits ang/marks1 vorhanden', () => {
+    const meta = {
+      [LH_MAX]: 1,
+      [LH_REM]: 1,
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: { zao1: { kind: 'ang', marks: 1 } },
+    }
+
+    clearLhTrackerActivity(meta)
+    const changed = restoreRegularSecondActionRootAfterLh(meta)
+
+    expect(isLhActive(meta)).toBe(false)
+    expect(changed).toBe(false)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
   })
 })
