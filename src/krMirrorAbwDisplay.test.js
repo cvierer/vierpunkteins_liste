@@ -32,4 +32,12 @@ describe('isMirrorAbwUiActive', () => {
     expect(isMirrorAbwUiActive(true, { marks: 0 })).toBe(false)
     expect(isMirrorAbwUiActive(true, null)).toBe(false)
   })
+
+  it('Kampfstart-Default uo/lodgedAbw (marks:0) -> Spiegel inaktiv -> Schilde NICHT auf 2.AO-Zeile', () => {
+    // Nach L.H.-Ablauf soll das 2.AO den Kampfstart-Default haben.
+    // marks:0 haelt den Spiegel inaktiv -> Schilde bleiben am Mutterobjekt.
+    const slot = { kind: 'uo', marks: 0, lodgedAbw: true }
+    expect(isMirrorAbwUiActive(true, slot)).toBe(false)
+    expect(resolveMirrorAbwKrValue(true, slot, 0)).toBe(1) // 1 = leer, keine Schilde
+  })
 })

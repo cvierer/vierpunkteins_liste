@@ -47,6 +47,7 @@ import { buildCombatTurnSteps, hookIniForLink, normalizePhases } from './phaseLi
 import {
   cycleKrPrimarySlotKind,
   cycleKrPrimarySlotKindRespectingLocks,
+  krTransferMarkPresent,
   patchKrCyclePrimarySlotKind,
   restoreRegularSecondActionRootAfterLh,
 } from './krCounters.js'
@@ -110,63 +111,99 @@ describe('L.H. abgelaufen -> normales 2.AO wieder navigierbar', () => {
     expect(phaseSteps.some((s) => s.sub === 'action')).toBe(true)
   })
 
-  it('restaurierte 2.AO ist ein stempelbares Schwert (ang/marks1), nicht uo', () => {
-    const meta = { initiative: '12', phases: { links: [] }, krZaoSlots: {} }
+  it('restaurierte 2.AO ist leer (uo/lodgedAbw) wie zu Kampfbeginn, kein Schwert', () => {
+    // Kampfstart-Default: {kind:'uo', marks:0, lodgedAbw:true} + Backing-Schild in KR_ABW.
+    // marks:0 haelt isMirrorAbwUiActive inaktiv -> Schilde bleiben am Mutterobjekt.
+    const meta = {
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: { links: [] },
+      krZaoSlots: {},
+    }
     restoreRegularSecondActionRootAfterLh(meta)
     const rootId = normalizePhases(meta.phases).links.find(
       (l) => l.parentId === null
     )?.id
     expect(rootId).toBeTruthy()
-    expect(meta[KR_ZAO_SLOTS][rootId]).toEqual({ kind: 'ang', marks: 1 })
+    expect(meta[KR_ZAO_SLOTS][rootId]).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+    // Backing-Schild muss gesetzt sein (KR_ABW > leer), damit Transfer uo->ang moeglich
+    expect(krTransferMarkPresent(meta['krAbw'])).toBe(true)
   })
 
-  it('Umwandel-Ring vom restaurierten Schwert erreicht den Stern (sra)', () => {
-    // Anker 'ang' -> ein Pfeil-Schritt 'next' liefert 'sra' (Stern).
-    expect(cycleKrPrimarySlotKind('ang', 'next')).toBe('sra')
+  it('Umwandel-Ring vom restaurierten leer-Slot erreicht das Schwert (ang)', () => {
+    // Anker 'uo' -> ein Pfeil-Schritt 'next' liefert 'ang' (Schwert).
+    expect(cycleKrPrimarySlotKind('uo', 'next')).toBe('ang')
   })
 
-  it('no-op wenn bereits eine navigierbare regulaere 2.AO-Wurzel existiert', () => {
+  it('no-op wenn Slot bereits uo/lodgedAbw (Soll-Zustand) - keine doppelte Schildmarke', () => {
+    // Ein gueltiger uo/lodgedAbw-Slot soll nicht erneut korrigiert werden.
     const meta = {
       initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: { zao1: { kind: 'uo', marks: 0, lodgedAbw: true } },
+      krAbw: 0, // bereits eine Schildmarke vorhanden (chargeValueFromMarks(1)=0)
+    }
+    const created = restoreRegularSecondActionRootAfterLh(meta)
+    expect(created).toBe(false)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+    expect(meta['krAbw']).toBe(0) // keine zweite Schildmarke addiert
+  })
+
+  it('no-op wenn bereits Schwert-Slot vorhanden (ang/marks1 bleibt unveraendert)', () => {
+    // Ein ang/marks1-Slot (z.B. bereits manuell umgewandelt) wird korrigiert:
+    // restore setzt auf uo/lodgedAbw + Backing-Schild.
+    const meta = {
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
       phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
       krZaoSlots: { zao1: { kind: 'ang', marks: 1 } },
     }
     const created = restoreRegularSecondActionRootAfterLh(meta)
-    expect(created).toBe(false)
-    expect(normalizePhases(meta.phases).links.filter((l) => l.parentId === null)).toHaveLength(1)
+    expect(created).toBe(true)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+    expect(krTransferMarkPresent(meta['krAbw'])).toBe(true)
   })
 
-  it('korrigiert eingelagerten uo/lodgedAbw-Slot der bestehenden 2.AO-Wurzel auf ang/marks1', () => {
-    // L.H. endet am Mutterobjekt: rebuildKrActionPoolVisualsFromAngAbw hat die
-    // regulaere 2.AO-Wurzel bereits mit einem eingelagerten uo-Slot angelegt.
-    // Der bietet im Umwandel-Ring nur ang/lh und ist nicht stempelbar — die
-    // Wurzel muss auf ein nutzbares Schwert korrigiert werden.
+  it('korrigiert eingelagerten uo/lodgedAbw-Slot: Soll-Zustand bereits korrekt -> no-op', () => {
+    // uo/lodgedAbw ist jetzt der Soll-Zustand -> no-op (kein Korrektur-Bedarf).
     const meta = {
       initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
       phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
       krZaoSlots: { zao1: { kind: 'uo', marks: 0, lodgedAbw: true } },
+      krAbw: 0,
     }
     const created = restoreRegularSecondActionRootAfterLh(meta)
-    expect(created).toBe(true)
+    expect(created).toBe(false)
     expect(normalizePhases(meta.phases).links.filter((l) => l.parentId === null)).toHaveLength(1)
-    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
   })
 
-  it('korrigiert auch fehlenden Slot der bestehenden 2.AO-Wurzel auf ang/marks1', () => {
+  it('korrigiert fehlenden Slot auf uo/lodgedAbw + Backing-Schild', () => {
     // Wenn `skipActionInit:true` (L.H. aktiv) den Rebuild unterdrueckt hat,
-    // existiert die Wurzel ohne Slot. Beim L.H.-Ende am Mutterobjekt muss die
-    // restore-Funktion auch in diesem Fall ein nutzbares Schwert setzen,
-    // sonst legt `patchEnsureZaoSlotForLink` zur Render-Zeit den Phase-2-Default
-    // (`uo`/`lodgedAbw`) an und der Umwandel-Ring ist wieder beschnitten.
+    // existiert die Wurzel ohne Slot. Kampfstart-Default setzen.
     const meta = {
       initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
       phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
       krZaoSlots: {},
     }
     const created = restoreRegularSecondActionRootAfterLh(meta)
     expect(created).toBe(true)
     expect(normalizePhases(meta.phases).links.filter((l) => l.parentId === null)).toHaveLength(1)
-    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+    expect(krTransferMarkPresent(meta['krAbw'])).toBe(true)
   })
 
   it('lhEnd-Wurzel zaehlt nicht als regulaere 2.AO -> Wurzel wird zusaetzlich angelegt', () => {
@@ -241,8 +278,9 @@ describe('applyLhKrStartObjects: End-KR Mutter-Ende stellt 2.AO wieder her', () 
     expect(regularRoots).toHaveLength(1)
     expect(hookIniForLink(regularRoots[0].id, '12', links)).toBe(4)
     expect(meta[KR_ZAO_SLOTS][regularRoots[0].id]).toEqual({
-      kind: 'ang',
-      marks: 1,
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
     })
 
     const steps = buildCombatTurnSteps(tokenRows, [item('hero-a', meta)], [], 2)
@@ -443,8 +481,8 @@ describe('patchKrCyclePrimarySlotKind mit motherEndBypass: voller 4-Kind-Zyklus'
 describe('stampLhCompletion / startOrCancelLh: 2.AO nach L.H.-Ablauf/Abbruch sofort vollwertig', () => {
   // Testet den kombinierten Effekt von clearLhTrackerActivity + restoreRegularSecondActionRootAfterLh,
   // der in stampLhCompletion und startOrCancelLh (n<=0) ausgefuehrt wird.
-  // Vor dem Fix blieb der uo/lodgedAbw-Slot bestehen, weil clearLhTrackerActivity
-  // isLhActive -> false setzt und damit alle Mutter-Ende-Bypass-Mechanismen entfallen.
+  // Ziel-Slot: {kind:'uo', marks:0, lodgedAbw:true} + Backing-Schild in KR_ABW
+  // (Kampfstart-Paritaet, kein ang-Zwang, Schilde bleiben am Mutterobjekt).
 
   it('isLhActive wird nach clearLhTrackerActivity false', () => {
     const meta = { [LH_MAX]: 2, [LH_REM]: 1, initiative: '12', phases: { links: [] }, krZaoSlots: {} }
@@ -453,9 +491,10 @@ describe('stampLhCompletion / startOrCancelLh: 2.AO nach L.H.-Ablauf/Abbruch sof
     expect(isLhActive(meta)).toBe(false)
   })
 
-  it('clear + restore korrigiert uo/lodgedAbw-Slot auf ang/marks1 und deaktiviert L.H.', () => {
+  it('clear + restore setzt uo/lodgedAbw + Backing-Schild und deaktiviert L.H.', () => {
     // Ausgangszustand: L.H. aktiv (rem=1, Mutter-Ende), regulaere 2.AO-Wurzel
-    // mit eingelagertem uo-Slot (Phase-2-Default).
+    // mit eingelagertem uo-Slot (Phase-2-Default) — Soll-Zustand bereits korrekt,
+    // aber ohne Backing-Schild (Halbzustand). restore setzt ihn idempotent.
     const meta = {
       [LH_MAX]: 2,
       [LH_REM]: 1,
@@ -468,13 +507,14 @@ describe('stampLhCompletion / startOrCancelLh: 2.AO nach L.H.-Ablauf/Abbruch sof
     }
 
     clearLhTrackerActivity(meta)
+    // Da der Slot bereits uo/lodgedAbw ist, ist die restore-Funktion ein no-op.
     restoreRegularSecondActionRootAfterLh(meta)
 
     expect(isLhActive(meta)).toBe(false)
-    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
   })
 
-  it('clear + restore funktioniert auch wenn Slot fehlt (kein lodgedAbw-Eintrag)', () => {
+  it('clear + restore setzt uo/lodgedAbw + Backing-Schild wenn Slot fehlt', () => {
     const meta = {
       [LH_MAX]: 1,
       [LH_REM]: 1,
@@ -490,10 +530,33 @@ describe('stampLhCompletion / startOrCancelLh: 2.AO nach L.H.-Ablauf/Abbruch sof
     restoreRegularSecondActionRootAfterLh(meta)
 
     expect(isLhActive(meta)).toBe(false)
-    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+    expect(krTransferMarkPresent(meta['krAbw'])).toBe(true)
   })
 
-  it('Slot bleibt unveraendert wenn bereits ang/marks1 vorhanden', () => {
+  it('Idempotenz: zweimaliges restore addiert keine zweite Schildmarke', () => {
+    const meta = {
+      [LH_MAX]: 1,
+      [LH_REM]: 1,
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: {},
+    }
+
+    clearLhTrackerActivity(meta)
+    restoreRegularSecondActionRootAfterLh(meta)
+    const krAbwAfterFirst = meta['krAbw']
+    restoreRegularSecondActionRootAfterLh(meta)
+
+    expect(meta['krAbw']).toBe(krAbwAfterFirst)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+  })
+
+  it('ang-Slot wird auf uo/lodgedAbw + Backing-Schild korrigiert', () => {
+    // Ein ang/marks1-Slot soll auf den Kampfstart-Default korrigiert werden.
     const meta = {
       [LH_MAX]: 1,
       [LH_REM]: 1,
@@ -509,7 +572,8 @@ describe('stampLhCompletion / startOrCancelLh: 2.AO nach L.H.-Ablauf/Abbruch sof
     const changed = restoreRegularSecondActionRootAfterLh(meta)
 
     expect(isLhActive(meta)).toBe(false)
-    expect(changed).toBe(false)
-    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'ang', marks: 1 })
+    expect(changed).toBe(true)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+    expect(krTransferMarkPresent(meta['krAbw'])).toBe(true)
   })
 })

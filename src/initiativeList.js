@@ -8510,10 +8510,11 @@ function layoutStampPanels(listRoot) {
               })()
             : 2
         // L.H. endet am Mutterobjekt (End-KR, GO im L.H.-Feld): regulaere 2.AO
-        // muss als vollwertiges Objekt mit Slot 'ang'/marks:1 starten. Wird
-        // hier synchron korrigiert (verhindert graue, nicht-umwandelbare Darst.)
-        // und asynchron in die Scene-Meta persistiert (verhindert Rueckfall auf
-        // uo/lodgedAbw beim naechsten Render durch patchEnsureZaoSlotForLink).
+        // Slot auf Kampfstart-Default {kind:'uo', marks:0, lodgedAbw:true}
+        // korrigieren. marks:0 haelt isMirrorAbwUiActive inaktiv, sodass die
+        // Schilde am Mutterobjekt bleiben. Umwandeln bleibt ueber motherEndBypass
+        // moeglich. Nur korrigieren, wenn Slot fehlt, kind!=='uo' oder lodgedAbw
+        // fehlt (Idempotenz — kein doppelter patchZaoSlot pro Render-Zyklus).
         const isRegularZaoRootLink =
           isZaoRoot && !isLhEndLink && !isHeroExtraZao && link.parentId === null
         const isLhMotherEndNow =
@@ -8527,12 +8528,12 @@ function layoutStampPanels(listRoot) {
         if (isLhMotherEndNow) {
           const slotNeedsCorrection =
             !rawZaoSlot ||
-            rawZaoSlot.kind === 'uo' ||
-            rawZaoSlot.lodgedAbw === true
+            rawZaoSlot.kind !== 'uo' ||
+            rawZaoSlot.lodgedAbw !== true
           if (slotNeedsCorrection) {
-            rawZaoSlot = { kind: 'ang', marks: 1 }
+            rawZaoSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
             if (canEdit) {
-              void patchZaoSlot(ownerId, link.id, { kind: 'ang', marks: 1 })
+              void patchZaoSlot(ownerId, link.id, { kind: 'uo', marks: 0, lodgedAbw: true })
             }
           }
         }

@@ -61,6 +61,7 @@ import {
 } from './krTransferMarks.js'
 export * from './krZaoSlots.js'
 import {
+  applyUoDefaultAbwChargeIfNeeded,
   defaultZaoSlotForPhaseNum,
   hasChargedRegularZaoAng,
   metaHasPendingLoadedNonHeroExtraZao,
@@ -340,21 +341,32 @@ export function initKrActionPoolsFromHeroDefaults(m, { skipActionInit = false } 
 
 /**
  * Stellt nach einem L.H.-Ende/-Reset MITTEN in der KR die regulaere 2.AO-Wurzel
- * des Helden wieder her, falls sie fehlt.
+ * des Helden wieder her, falls sie fehlt oder im falschen Zustand ist.
  *
  * Hintergrund: Regulaere 2.AO-Wurzeln sind ephemer (`expiresNextRound`) und
  * werden beim KR-Wechsel ueber `clearEphemeralExtraIniRows` entfernt. Waehrend
  * einer laufenden L.H. baut `resetAllKrCountersInScene` (mit `skipActionInit`)
  * sie NICHT neu auf. Endet/resettet die L.H. dann mitten in der KR (z. B. per
- * Vorbei-Navigieren ueber das End-INI), fehlt die normale 2.AO-Wurzel bis zum
- * naechsten KR-Reset — die Navigation ueberspringt das 2.AO des Helden.
+ * Vorbei-Navigieren ueber das End-INI oder per Abschluss-Stempel), fehlt die
+ * normale 2.AO-Wurzel bis zum naechsten KR-Reset.
  *
- * No-op, wenn bereits eine navigierbare regulaere Wurzel existiert, das Budget
- * keine zweite Aktion hergibt oder die Ziel-INI negativ waere. `heroExtra`- und
- * `lhEnd`-Wurzeln bleiben unberuehrt; die neue Wurzel ist wieder ephemer.
+ * Der Ziel-Slot ist `{kind:'uo', marks:0, lodgedAbw:true}` — exakt der
+ * Kampfstart-Default (`defaultZaoSlotForPhaseNum`). Gleichzeitig wird via
+ * `applyUoDefaultAbwChargeIfNeeded` eine Schildmarke in `KR_ABW` gebucht,
+ * damit der Transfer (uo→ang) moeglich bleibt und die zwei Schilde wie zu
+ * Kampfbeginn am Mutterobjekt erscheinen statt auf der 2.AO-Zeile.
+ *
+ * Idempotenz: Korrigiert nur wenn der Slot fehlt, `kind !== 'uo'` ist, oder
+ * `lodgedAbw` fehlt — ein bereits gueltiger `uo/lodgedAbw`-Slot wird nicht
+ * angetastet (keine doppelte Schildmarke).
+ *
+ * No-op, wenn bereits eine navigierbare regulaere Wurzel im Soll-Zustand
+ * existiert, das Budget keine zweite Aktion hergibt oder die Ziel-INI negativ
+ * waere. `heroExtra`- und `lhEnd`-Wurzeln bleiben unberuehrt; die neue Wurzel
+ * ist wieder ephemer.
  *
  * @param {Record<string, unknown>} m
- * @returns {boolean} true, wenn eine Wurzel angelegt wurde
+ * @returns {boolean} true, wenn eine Wurzel angelegt oder korrigiert wurde
  */
 export function restoreRegularSecondActionRootAfterLh(m) {
   if (!m || typeof m !== 'object') return false
@@ -373,22 +385,20 @@ export function restoreRegularSecondActionRootAfterLh(m) {
   for (const r of regularRoots) {
     const hook = hookIniForLink(r.id, ownerIniStr, links)
     if (Number.isFinite(hook) && hook >= 0) {
-      // Es existiert bereits eine navigierbare regulaere 2.AO-Wurzel. Beim
-      // L.H.-Ende am Mutterobjekt kann der Slot in mehreren Zustaenden sein:
-      //   * `uo`/`lodgedAbw` — von `rebuildKrActionPoolVisualsFromAngAbw`
-      //     angelegt; Umwandel-Ring bietet nur ang/lh, nicht stempelbar.
-      //   * fehlend — `skipActionInit:true` waehrend L.H. unterdrueckt den
-      //     Rebuild, danach laeuft `patchEnsureZaoSlotForLink` zur Render-Zeit
-      //     mit dem Phase-2-Default (`uo`/`lodgedAbw`).
-      // In beiden Faellen auf direkt nutzbares Schwert korrigieren, damit der
-      // volle Zyklus (ang->sra->lh->uo) erreichbar und die 2.AO stempelbar ist.
+      // Es existiert bereits eine navigierbare regulaere 2.AO-Wurzel.
+      // Soll-Zustand: {kind:'uo', marks:0, lodgedAbw:true} — wie zu Kampfbeginn.
+      // Nur korrigieren, wenn der Slot fehlt, kind !== 'uo', oder lodgedAbw
+      // fehlt (Halbzustand). Ein bereits gueltiger uo/lodgedAbw-Slot wird
+      // nicht angetastet (Idempotenz — keine doppelte Schildmarke).
       const slots = readZaoSlots(m)
       const existing = slots[r.id]
       const slotNeedsFix =
-        !existing || existing.kind === 'uo' || existing.lodgedAbw === true
+        !existing || existing.kind !== 'uo' || existing.lodgedAbw !== true
       if (slotNeedsFix) {
-        slots[r.id] = { kind: 'ang', marks: 1 }
+        const newSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
+        slots[r.id] = newSlot
         m[KR_ZAO_SLOTS] = slots
+        applyUoDefaultAbwChargeIfNeeded(m, newSlot)
         return true
       }
       return false
@@ -405,12 +415,14 @@ export function restoreRegularSecondActionRootAfterLh(m) {
     ],
   })
   const slots = readZaoSlots(m)
-  // Direkt nutzbares Schwert statt eingelagertem `uo`-Slot: so ist die 2.AO
-  // sofort stempelbar (kind 'ang', marks 1) und der Umwandel-Ring erreicht den
-  // Stern (ang->sra). Ein `uo`-Slot ohne Schild-Transferladung wuerde dagegen
-  // nur ang/lh anbieten und nicht stempeln.
-  slots[newId] = { kind: 'ang', marks: 1 }
+  // Kampfstart-Default: leeres 2.AO mit eingelagertem Schild. Die zugehoerige
+  // Schildmarke wird via applyUoDefaultAbwChargeIfNeeded in KR_ABW gebucht,
+  // damit Transfer (uo->ang) moeglich ist und die Schilde am Mutterobjekt
+  // erscheinen (marks:0 haelt den Spiegel isMirrorAbwUiActive inaktiv).
+  const newSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
+  slots[newId] = newSlot
   m[KR_ZAO_SLOTS] = slots
+  applyUoDefaultAbwChargeIfNeeded(m, newSlot)
   return true
 }
 
