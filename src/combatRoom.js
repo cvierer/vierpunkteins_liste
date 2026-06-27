@@ -201,10 +201,6 @@ export function getActionStamps() {
   return actionStampsCache
 }
 
-export function getCombatActionRedo() {
-  return combatActionRedoCache
-}
-
 export function onIniTieOrderChange(fn) {
   tieListeners.add(fn)
   return () => tieListeners.delete(fn)

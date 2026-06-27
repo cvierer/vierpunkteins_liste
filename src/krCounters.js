@@ -427,19 +427,6 @@ export function restoreRegularSecondActionRootAfterLh(m) {
 }
 
 /**
- * @param {Record<string, unknown>} m
- * @returns {boolean} true wenn gebucht
- */
-function tickActionPoolAngToAbw(m) {
-  if (readKrFirstSlotKind(m) !== 'ang') return false
-  const { ang, abw } = readKrActionPoolRem(m)
-  if (ang <= 0) return false
-  m[KR_ACTION_POOL_ANG_REM] = ang - 1
-  m[KR_ACTION_POOL_ABW_REM] = abw + 1
-  return true
-}
-
-/**
  * @param {unknown} meta
  * @returns {Record<string, { kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }>}
  */
@@ -2709,37 +2696,6 @@ export async function undoKrActionStamp(stampId) {
   }
 }
 
-/**
- * Letzten Stempel zu itemId+field entfernen (wie × in der Liste); sonst ein Schritt −1 am Zähler.
- */
-export async function undoLastKrFieldStamp(itemId, field) {
-  const roomMeta = await OBR.room.getMetadata()
-  const curStamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
-  for (let i = curStamps.entries.length - 1; i >= 0; i--) {
-    const e = curStamps.entries[i]
-    // Nur Mutter-Stempel (ohne `zaoLinkId`) zählen als letzter
-    // Feld-Stempel — ZAO-Stempel gehören zu ihrem Slot und werden
-    // dort über das × der Zeile behandelt.
-    if (e.itemId === itemId && e.field === field && !e.zaoLinkId) {
-      await undoKrActionStamp(e.id)
-      return
-    }
-  }
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
-  if (!canEditSceneItem(item)) return
-  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  let maxDigit = KR_COUNTER_MAX
-  if (field === KR_FREE_ACTION) {
-    const iniStr = meta?.initiative
-    const settings = getRoomSettings()
-    maxDigit = faMaxForInitiative(iniStr, settings.highIniFreeActions)
-  }
-  const cur = normalizeKrDigit(meta?.[field], maxDigit)
-  if (cur <= 0) return
-  await patchKrCounterByDelta(itemId, field, -1)
-}
-
 function lhStampMatchesAnchorRemoval(e, itemId, onlyAnchorPhaseLinkId) {
   if (e.itemId !== itemId || e.field !== KR_LH_ACTION) return false
   if (onlyAnchorPhaseLinkId === undefined) return true
@@ -3028,75 +2984,4 @@ export async function resetAllTrackerStateForCombatStart(
     }
   )
   await patchActionStamps(() => ({ anchorId: null, entries: [] }))
-}
-
-/**
- * Stempel erneut anwenden (nach „Wiederherstellen“ + Navigation).
- * Nur Spielleitung / skipGmCheck-Pfade.
- *
- * @param {object} entry normalisiertes Stempel-Objekt (inkl. anchor*, zaoLinkId, …)
- */
-export async function reapplyActionStampForCombatRedo(entry) {
-  if (!entry || typeof entry !== 'object') return
-  const itemId = entry.itemId
-  if (typeof itemId !== 'string') return
-  const ownerName =
-    typeof entry.ownerName === 'string' ? entry.ownerName : ''
-  const anchorRowId =
-    typeof entry.anchorRowId === 'string' ? entry.anchorRowId : itemId
-  const anchorPhaseLinkId =
-    typeof entry.anchorPhaseLinkId === 'string'
-      ? entry.anchorPhaseLinkId
-      : null
-  const stampAnchor = { rowId: anchorRowId, phaseLinkId: anchorPhaseLinkId }
-
-  if (typeof entry.zaoLinkId === 'string' && entry.zaoLinkId) {
-    await patchZaoSlotStampPrimary(itemId, entry.zaoLinkId)
-    return
-  }
-  if (entry.paradeExtra) {
-    await patchKrStampParadeExtraFromCharge(itemId, {
-      stampAnchor,
-      paradeExtraSlot: entry.paradeExtraSlot,
-    })
-    return
-  }
-  if (entry.field === KR_ABW && entry.abwFromSplit) {
-    await patchActionStamps(
-      (stamps) => {
-        const entries = [...stamps.entries]
-        entries.push({
-          id: `stamp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          itemId,
-          ownerName,
-          field: KR_ABW,
-          anchorRowId,
-          anchorPhaseLinkId,
-          abwFromSplit: true,
-        })
-        const curId = getCombat().currentItemId
-        const anchorId =
-          entries.length > 0
-            ? stamps.anchorId ||
-              (typeof curId === 'string' &&
-              curId !== ROUND_START_STEP_ID &&
-              curId !== ROUND_END_STEP_ID
-                ? curId
-                : itemId)
-            : null
-        return { anchorId, entries }
-      },
-      { skipGmCheck: true, fromRedo: true }
-    )
-    return
-  }
-  if (entry.field === KR_ABW) {
-    await patchKrStampAbwFromCharge(itemId, { stampAnchor })
-    return
-  }
-  if (entry.field === KR_LH_ACTION) {
-    await patchKrCounterByDelta(itemId, KR_LH_ACTION, 1, { stampAnchor })
-    return
-  }
-  await patchKrCounterByDelta(itemId, entry.field, 1, { stampAnchor })
 }

@@ -90,6 +90,7 @@ import {
   SVG_PRIMARY_ACTION,
   SVG_PRIMARY_ATTACK,
   SVG_PRIMARY_LH_STAR,
+  SVG_PRIMARY_UO_DASHED,
   SVG_LH_FRAME,
   SVG_LH_SAND_TOP,
   SVG_LH_SAND_BOTTOM,
@@ -189,7 +190,6 @@ import {
   patchRestoreHeroExtraZao,
   defaultZaoSlotForPhaseNum,
   readEffectiveZaoSlotKind,
-  patchZaoSlotStampPrimary,
   readHeroActionPoolMax,
   readHeroActionPoolPair,
   readHeroExtraAngCount,
@@ -210,7 +210,6 @@ import {
   readZaoSlots,
   stampLhCompletion,
   undoKrActionStamp,
-  undoLastZaoSlotStamp,
 } from './krCounters.js'
 import {
   liveAbwCombatAllowsStamp,
@@ -1606,7 +1605,7 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
 
   if (kind === 'uo') {
     icon.classList.add('init-kr-primary-main__icon--uo-slot')
-    icon.innerHTML = ''
+    icon.innerHTML = SVG_PRIMARY_UO_DASHED
   } else if (kind === 'sra') {
     icon.innerHTML = SVG_PRIMARY_ACTION
   } else if (kind === 'lh') {
@@ -1740,12 +1739,13 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   }
   const lhPieStampReady =
     kind === 'lh' && lhPieFullyFilled && primaryLadungAllowed
-  // Kein disabled für Nav-/L.H.-Gates: Klicks laufen mit Live-Prüfung im Handler;
-  // sonst bleibt exec.disabled nach Nav-Sync hängen (v. a. bei L.H. ohne Switch-Spalte).
+  // Aktionen (Ang./S.R.A.) werden nur noch ueber die Navigation gestempelt: deren
+  // Exec-Kaestchen ist reine Anzeige (disabled). Nur die L.H.-Abschluss-Stempelung
+  // bleibt ein klickbarer Button; Nav-/Pie-Gates laufen mit Live-Pruefung im Handler.
   const navBlocked =
     hasPrimaryCharge && !primaryLadungAllowed
   const lhStampBlocked = kind === 'lh' && hasPrimaryCharge && !lhPieStampReady
-  exec.disabled = !canEdit || isUoKind
+  exec.disabled = !canEdit || kind !== 'lh'
   exec.setAttribute(
     'aria-disabled',
     navBlocked || lhStampBlocked || lhLockActive ? 'true' : 'false'
@@ -1770,13 +1770,15 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   exec.title = canEdit
     ? isUoKind
       ? 'Umwandel-Objekt (UO): Ladung liegt im Abwehr-Schild — nicht stempelbar; Pfeile wählen andere Aktion.'
-      : hasPrimaryCharge
-        ? !primaryLadungAllowed
-          ? `${primaryTooltipLabel}: Ladung stempeln erst, wenn die Navigation auf dieser Zeile steht (aktuell anderer Zug).`
-          : `${primaryTooltipLabel}: Untere Ladung anklicken — an aktueller Listenposition stempeln und Ladung verbrauchen`
-        : lhVoided
-          ? `${ACTION_STAMP_LABEL[KR_LH_ACTION]}: Ladungen ins Abwehr-Schild gelegt — unten Schild zurück ins Feld; Rechtsklick hebt die Leerung auf (ohne Stempel).`
-          : `${primaryTooltipLabel}: Rechtsklick auf das Kästchen — Ladung zurück, letzten Stempel entfernen`
+      : kind === 'lh'
+        ? hasPrimaryCharge
+          ? !primaryLadungAllowed
+            ? `${primaryTooltipLabel}: Abschluss stempeln erst, wenn die Navigation auf dieser Zeile steht (aktuell anderer Zug).`
+            : `${primaryTooltipLabel}: Abschluss anklicken — L.H. an aktueller Listenposition abschließen`
+          : lhVoided
+            ? `${ACTION_STAMP_LABEL[KR_LH_ACTION]}: Ladungen ins Abwehr-Schild gelegt — unten Schild zurück ins Feld; Rechtsklick hebt die Leerung auf (ohne Stempel).`
+            : `${primaryTooltipLabel}`
+        : `${primaryTooltipLabel}: wird bei der Navigation automatisch gestempelt (nur Anzeige).`
     : `${primaryTooltipLabel} (nur Anzeige)`
 
   const switchTitleSuffix = iniLocked ? iniLockHint : ''
@@ -2013,7 +2015,7 @@ function appendKrPrimarySplitCell(
   }
   if (kind === 'uo') {
     icon.classList.add('init-kr-primary-main__icon--uo-slot')
-    icon.innerHTML = ''
+    icon.innerHTML = SVG_PRIMARY_UO_DASHED
   } else if (kind === 'sra') {
     icon.innerHTML = SVG_PRIMARY_ACTION
   } else if (kind === 'lh') {
@@ -2277,7 +2279,11 @@ function appendKrPrimarySplitCell(
         ? `${displayLabelDe}: Feld geleert ins Abwehr-Schild — unten Schild zurückladen; Rechtsklick macht die Leerung rückgängig.`
         : primaryLadungAria(vDisplay, displayPrimaryTooltipLabel, stampOk)
   )
-  if (canEdit) {
+  // Nur die L.H.-Abschluss-Stempelung (GO!) bleibt ein manueller Klick — sie ist
+  // eine explizite Nutzerentscheidung, die nicht zwingend mit dem Navigations-
+  // schritt zusammenfaellt. Ang./S.R.A. werden ausschliesslich ueber die
+  // Navigation automatisch gestempelt (kein manueller Stempel/Undo am Kaestchen).
+  if (canEdit && kind === 'lh') {
     exec.addEventListener('click', (e) => {
       e.preventDefault()
       const combatNow = getCombat()
@@ -2286,52 +2292,8 @@ function appendKrPrimarySplitCell(
       if (liveLhLockActive(trackerMeta, kind, roundNow)) return
       if (!navAllowed) return
       const anchorPid = isZaoSlot ? zaoSlotOverride.linkId : null
-      const stampAnchor = {
-        rowId: ownerItemId,
-        phaseLinkId: anchorPid,
-      }
-      if (kind === 'lh') {
-        if (!liveLhPieStampReady(trackerMeta, roundNow, navAllowed)) return
-        void stampLhCompletion(ownerItemId, anchorPid)
-        return
-      }
-      const vLive = isZaoSlot
-        ? zaoSlotOverride.marks === 1
-          ? 0
-          : 1
-        : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
-      if (displayIsUoKind || !krTransferMarkPresent(vLive)) return
-      if (isZaoSlot) {
-        void patchZaoSlotStampPrimary(ownerItemId, zaoSlotOverride.linkId)
-      } else {
-        void patchKrCounterByDelta(ownerItemId, displayField, 1, {
-          stampAnchor,
-        })
-      }
-    })
-    shell.addEventListener('contextmenu', (e) => {
-      e.preventDefault()
-      const combatNow = getCombat()
-      const roundNow = combatNow.started ? combatNow.round : null
-      const navAllowed = livePrimaryLadungAllowed(ownerItemId, linkIdForSwitch)
-      if (liveLhLockActive(trackerMeta, kind, roundNow)) return
-      if (!navAllowed) return
-      const vLive = isZaoSlot
-        ? zaoSlotOverride.marks === 1
-          ? 0
-          : 1
-        : normalizeKrDigit(readKrPrimaryLadung(trackerMeta))
-      if (krTransferMarkPresent(vLive)) return
-      if (isZaoSlot) {
-        if (zaoSlotOverride?.kind === 'lh') return
-        void undoLastZaoSlotStamp(ownerItemId, zaoSlotOverride.linkId)
-      } else {
-        if (kind === 'lh') return
-        const anchorPid = null
-        void patchKrCounterByDelta(ownerItemId, displayField, -1, {
-          stampAnchor: { rowId: ownerItemId, phaseLinkId: anchorPid },
-        })
-      }
+      if (!liveLhPieStampReady(trackerMeta, roundNow, navAllowed)) return
+      void stampLhCompletion(ownerItemId, anchorPid)
     })
   }
 

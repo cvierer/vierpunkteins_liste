@@ -149,18 +149,3 @@ export async function autoStampForCombatStep(step) {
 
   return false
 }
-
-/**
- * @param {object | null | undefined} cur
- * @param {object | null | undefined} next
- */
-export function shouldAutoStampActionToReaction(cur, next) {
-  if (!cur || !next) return false
-  if (cur.sub !== 'action' || next.sub !== 'reaction') return false
-  if (cur.kind !== next.kind) return false
-  if (cur.kind === 'token') return cur.id === next.id
-  if (cur.kind === 'phase') {
-    return cur.ownerId === next.ownerId && cur.linkId === next.linkId
-  }
-  return false
-}

@@ -71,28 +71,7 @@ import OBR from '@owlbear-rodeo/sdk'
 import {
   autoStampForCombatStep,
   canAutoStampForCombatStep,
-  shouldAutoStampActionToReaction,
 } from './combatAutoStamp.js'
-
-describe('shouldAutoStampActionToReaction', () => {
-  it('true für gleichen Token action→reaction', () => {
-    expect(
-      shouldAutoStampActionToReaction(
-        { kind: 'token', id: 'a', sub: 'action' },
-        { kind: 'token', id: 'a', sub: 'reaction' }
-      )
-    ).toBe(true)
-  })
-
-  it('false bei unterschiedlichen Zeilen', () => {
-    expect(
-      shouldAutoStampActionToReaction(
-        { kind: 'token', id: 'a', sub: 'action' },
-        { kind: 'token', id: 'b', sub: 'reaction' }
-      )
-    ).toBe(false)
-  })
-})
 
 describe('canAutoStampForCombatStep', () => {
   beforeEach(() => {

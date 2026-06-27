@@ -9,6 +9,7 @@ import {
   primaryKindSvgDataUrl,
   resolvePrimaryKindForNav,
   shouldShowTurnActionMapBadge,
+  SVG_PRIMARY_UO_DASHED,
 } from './krPrimaryKindIcons.js'
 
 describe('resolvePrimaryKindForNav', () => {
@@ -162,5 +163,20 @@ describe('combatOverlayKey', () => {
       currentTurnSubStep: 'reaction',
     })
     expect(a).not.toBe(b)
+  })
+})
+
+describe('SVG_PRIMARY_UO_DASHED (leere Aktion)', () => {
+  it('ist ein gestrichelter Kreis (currentColor, kein fester Fill)', () => {
+    expect(SVG_PRIMARY_UO_DASHED).toContain('<circle')
+    expect(SVG_PRIMARY_UO_DASHED).toContain('stroke-dasharray')
+    expect(SVG_PRIMARY_UO_DASHED).toContain('stroke="currentColor"')
+  })
+
+  it('traegt nicht die heldenfärbende Basis-Klasse init-kr-primary-kind__svg', () => {
+    // applyHeroPrimaryIconColor faerbt nur `.init-kr-primary-kind__svg`; das
+    // UO-Icon soll grau bleiben, daher nur die `--uo`-Variantenklasse.
+    expect(SVG_PRIMARY_UO_DASHED).toContain('init-kr-primary-kind__svg--uo')
+    expect(SVG_PRIMARY_UO_DASHED).not.toContain('class="init-kr-primary-kind__svg ')
   })
 })
