@@ -577,3 +577,70 @@ describe('stampLhCompletion / startOrCancelLh: 2.AO nach L.H.-Ablauf/Abbruch sof
     expect(krTransferMarkPresent(meta['krAbw'])).toBe(true)
   })
 })
+
+// Stellt sicher, dass das regulaere 2.AO auch bei aktiver, sperrender L.H. am
+// Mutterobjekt (isLhLockingActions === true) voll umwandelbar ist.
+// Vorher blockierte isLhLockingActions die ZAO-Transfer-Funktionen komplett.
+describe('Regulaeres 2.AO bei aktiver L.H. umwandelbar (kein Lock)', () => {
+  const ZAO_LINK = 'zao-regular'
+
+  // Meta mit aktiver, sperrender L.H. (KR 1, endet nicht in KR 1) +
+  // regulaerer 2.AO-Wurzel im Kampfstart-Default (uo/lodgedAbw + Backing-Schild).
+  const makeActiveLhMeta = () => ({
+    initiative: '12',
+    [LH_MAX]: 3,
+    [LH_REM]: 2,
+    [LH_ACTIONS_PER_KR]: 2,
+    [LH_TRIGGER_INI_STEP]: -8,
+    [LH_COMMIT_ROUND]: 1,
+    [LH_COMMIT_INI]: 12,
+    // Backing-Schild: chargeValueFromMarks(1) === 0
+    krAbw: 0,
+    [KR_ZAO_SLOTS]: { [ZAO_LINK]: { kind: 'uo', marks: 0, lodgedAbw: true } },
+    phases: { links: [{ id: ZAO_LINK, parentId: null, offset: 8 }] },
+  })
+
+  beforeEach(() => {
+    getItems.mockClear()
+    updateItems.mockClear()
+  })
+
+  it('isLhLockingActions ist true (L.H. sperrt in KR1) — Vorbedingung', () => {
+    const meta = makeActiveLhMeta()
+    // KR 1: L.H. laeuft (max=3, rem=2) und endet nicht in KR 1 -> true
+    expect(isLhLockingActions(meta, 1)).toBe(true)
+  })
+
+  it('uo -> ang via patchKrCyclePrimarySlotKind: Schild verbraucht, Slot wird ang/marks1', async () => {
+    itemMetaRef.current = makeActiveLhMeta()
+    const ok = await patchKrCyclePrimarySlotKind(
+      'hero-a', 'ang',
+      { linkId: ZAO_LINK }
+    )
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({ kind: 'ang', marks: 1 })
+    // Backing-Schild wurde verbraucht (KR_ABW: 0->1 = leer)
+    expect(krTransferMarkPresent(itemMetaRef.current['krAbw'])).toBe(false)
+  })
+
+  it('ang -> uo via patchKrCyclePrimarySlotKind: Schild zurueck, Slot wird uo/lodgedAbw', async () => {
+    itemMetaRef.current = {
+      ...makeActiveLhMeta(),
+      // Ausgangszustand: ang/marks1, kein Schild mehr
+      krAbw: 1,
+      [KR_ZAO_SLOTS]: { [ZAO_LINK]: { kind: 'ang', marks: 1 } },
+    }
+    const ok = await patchKrCyclePrimarySlotKind(
+      'hero-a', 'uo',
+      { linkId: ZAO_LINK }
+    )
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
+    // Schild wurde wieder eingelagert
+    expect(krTransferMarkPresent(itemMetaRef.current['krAbw'])).toBe(true)
+  })
+})

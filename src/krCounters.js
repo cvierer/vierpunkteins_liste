@@ -1,4 +1,4 @@
-import OBR from '@owlbear-rodeo/sdk'
+﻿import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem, isGmSync } from './editAccess.js'
 import {
   notifyKrSlotKindPatched,
@@ -1344,7 +1344,8 @@ export async function patchKrTransferZaoPrimaryToAbw(itemId, linkId) {
   if (!item || !canEditSceneItem(item)) return
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return
-  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
+  // Regulaere 2.AO-Wurzeln bleiben wie zu Kampfbeginn frei umwandelbar, auch
+  // bei aktiver L.H. am Mutterobjekt. lhEnd/heroExtra unberuehrt (s.u.).
   const phases = normalizePhases(meta.phases)
   const linkRef = phases.links.find((l) => l.id === linkId)
   if (!zaoRootEligibleForLodgedScopedTransfer(linkRef)) return
@@ -1390,8 +1391,8 @@ export async function patchKrTransferAbwToZaoPrimary(
   if (!item || !canEditSceneItem(item)) return
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return
-  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return
-
+  // Regulaere 2.AO-Wurzeln bleiben wie zu Kampfbeginn frei umwandelbar, auch
+  // bei aktiver L.H. am Mutterobjekt. lhEnd/heroExtra unberuehrt (s.u.).
   const phases = normalizePhases(meta.phases)
   const linkRef = phases.links.find((l) => l.id === linkId)
   if (!zaoRootEligibleForLodgedScopedTransfer(linkRef)) return
