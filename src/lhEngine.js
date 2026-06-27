@@ -24,8 +24,8 @@ import { getCombat } from './combatRoom.js'
 import {
   clearKrLhStampsForItem,
   KR_MOTHER_PRIMARY_USED_THIS_ROUND,
+  normalizeHeroKrStateAfterLhEnd,
   patchZaoSlot,
-  restoreRegularSecondActionRootAfterLh,
 } from './krCounters.js'
 import {
   hookIniForLink,
@@ -44,7 +44,6 @@ import {
   LH_KR_FIRED_ROUND,
   LH_MAX,
   LH_REM,
-  clearLhTrackerActivity,
   readLhMechanics,
   readLhState,
 } from './lhMeta.js'
@@ -153,8 +152,7 @@ export async function startOrCancelLh(itemId, text, opts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
       if (n <= 0) {
-        clearLhTrackerActivity(m)
-        restoreRegularSecondActionRootAfterLh(m)
+        normalizeHeroKrStateAfterLhEnd(m)
       } else {
         migrateLegacyLhFields(m)
         m[LH_MAX] = n

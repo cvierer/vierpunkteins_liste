@@ -44,7 +44,10 @@ import { faMaxForInitiative, getRoomSettings } from './roomSettings.js'
 export * from './krMetaKeys.js'
 export { normalizeKrDigit } from './krDigit.js'
 export * from './krStampPredicates.js'
-import { motherPrimarySelfStamped } from './krStampPredicates.js'
+import {
+  isPrimaryActionStampField,
+  motherPrimarySelfStamped,
+} from './krStampPredicates.js'
 export * from './krCounterRead.js'
 export * from './krPrimaryField.js'
 export * from './krIniLock.js'
@@ -427,6 +430,64 @@ export function restoreRegularSecondActionRootAfterLh(m) {
 }
 
 /**
+ * Radikaler L.H.-Ende-Reset fuer EINEN Helden: bringt den KR-Aktionszustand in
+ * den Kampfstart-Zustand zurueck, sodass sich das Objekt nach L.H.-Ende wieder
+ * normal verhaelt und voll umwandelbar ist (ang/sra/lh/uo).
+ *
+ * - L.H.-Aktivitaet leeren (`clearLhTrackerActivity`) und Void-Transfer-Flags
+ *   entfernen.
+ * - ALLE regulaeren 2.AO-Wurzeln (kein heroExtra/lhEnd) auf den Kampfstart-
+ *   Default `{kind:'uo', marks:0, lodgedAbw:true}` setzen und je eine
+ *   Schildmarke buchen (via `applyUoDefaultAbwChargeIfNeeded`) — nur, wenn der
+ *   Slot noch nicht im Soll-Zustand ist (keine doppelte Marke).
+ * - Sicherstellen, dass mindestens eine navigierbare regulaere Wurzel existiert
+ *   (`restoreRegularSecondActionRootAfterLh` legt bei Bedarf eine an).
+ *
+ * Bewusst NICHT enthalten: die Mutter-Primaeraktion wird nicht neu geladen —
+ * die L.H. war die Aktion dieser KR. Pools/Frei bleiben wie zum KR-Start
+ * (`resetAllKrCountersInScene` baut sie in der End-KR ohnehin voll auf).
+ *
+ * @param {Record<string, unknown>} m
+ * @returns {boolean} true, wenn Meta veraendert wurde
+ */
+export function normalizeHeroKrStateAfterLhEnd(m) {
+  if (!m || typeof m !== 'object') return false
+  let changed = false
+  clearLhTrackerActivity(m)
+  if (m[KR_LH_VOID_BY_TRANSFER] !== undefined) {
+    delete m[KR_LH_VOID_BY_TRANSFER]
+    changed = true
+  }
+  if (m[KR_PRIMARY_VOID_BY_ABW_TRANSFER] !== undefined) {
+    delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+    changed = true
+  }
+  const p = normalizePhases(m.phases)
+  const regularRoots = p.links.filter(
+    (l) => l.parentId === null && !l.heroExtra && l.lhEnd !== true
+  )
+  const slots = readZaoSlots(m)
+  let slotsChanged = false
+  for (const r of regularRoots) {
+    const existing = slots[r.id]
+    const needsFix =
+      !existing || existing.kind !== 'uo' || existing.lodgedAbw !== true
+    if (needsFix) {
+      const newSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
+      slots[r.id] = newSlot
+      applyUoDefaultAbwChargeIfNeeded(m, newSlot)
+      slotsChanged = true
+    }
+  }
+  if (slotsChanged) {
+    m[KR_ZAO_SLOTS] = slots
+    changed = true
+  }
+  if (restoreRegularSecondActionRootAfterLh(m)) changed = true
+  return changed
+}
+
+/**
  * @param {unknown} meta
  * @returns {Record<string, { kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }>}
  */
@@ -488,28 +549,6 @@ function isConvertAnytimeEnabled(meta) {
       /** @type {{ convertAllowEntireRound?: unknown }} */ (meta)
         .convertAllowEntireRound === true)
   )
-}
-
-/**
- * End-KR-Umwandlung: fixe L.H. am Mutterfeld vs. reguläre 2.A.-Kette — exklusive Pfeile.
- *
- * @param {unknown} meta
- * @param {number | null | undefined} combatRound
- * @returns {{ blockUpperLhMotherNoZao: boolean, blockLowerPendingZao: boolean }}
- */
-export function lhEndKrConvertArrowGates(meta, combatRound) {
-  if (isConvertAnytimeEnabled(meta)) {
-    return { blockUpperLhMotherNoZao: false, blockLowerPendingZao: false }
-  }
-  if (!lhEndKrConvertMode(meta, combatRound)) {
-    return { blockUpperLhMotherNoZao: false, blockLowerPendingZao: false }
-  }
-  const anyZao = metaHasPendingLoadedNonHeroExtraZao(meta)
-  const firstKind = readKrFirstSlotKind(meta)
-  return {
-    blockUpperLhMotherNoZao: firstKind === 'lh' && !anyZao,
-    blockLowerPendingZao: anyZao,
-  }
 }
 
 /**
@@ -1079,12 +1118,10 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
     }
 
     if (nextKind === 'uo') {
-      await patchKrTransferZaoPrimaryToAbw(itemId, linkId)
-      return true
+      return patchKrTransferZaoPrimaryToAbw(itemId, linkId)
     }
     if (prev === 'uo') {
-      await patchKrTransferAbwToZaoPrimary(itemId, linkId, nextKind)
-      return true
+      return patchKrTransferAbwToZaoPrimary(itemId, linkId, nextKind)
     }
     return patchZaoSlot(itemId, linkId, { kind: nextKind }, { skipFetch: true })
   }
@@ -1216,16 +1253,41 @@ export async function patchKrTransferPrimaryToAbw(itemId) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
   if (!item || !canEditSceneItem(item)) return false
-  const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
+  let meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return false
   if (isLhLockingActions(meta, lhLockRoundFromCombat())) return false
-  const abw = normalizeKrDigit(meta[KR_ABW])
 
+  // SL-Override (seit V1282 stempelt die Navigation die Mutter-Primaeraktion):
+  // Liegt ein Mutter-Primaer-Selbststempel vor, wird er beim expliziten
+  // Umwandeln auf leer (uo) zurueckgenommen — der Stempel verschwindet und die
+  // verbrauchte Ladung kommt zurueck, sodass sie als Schild gebucht werden
+  // kann. Ohne diese Ruecknahme blieb "leer" am Mutterobjekt nach jedem
+  // Navigieren dauerhaft gesperrt.
   {
     const roomMeta = await OBR.room.getMetadata()
     const stamps = normalizeActionStamps(roomMeta[ACTION_STAMPS_KEY])
-    if (motherPrimarySelfStamped(stamps.entries, itemId)) return false
+    const selfStamp = stamps.entries.find(
+      (e) =>
+        e &&
+        e.itemId === itemId &&
+        !e.paradeExtra &&
+        e.anchorPhaseLinkId == null &&
+        (e.anchorRowId == null || e.anchorRowId === itemId) &&
+        !e.zaoLinkId &&
+        isPrimaryActionStampField(e.field)
+    )
+    if (selfStamp) {
+      await patchKrCounterByDelta(itemId, selfStamp.field, -1, {
+        stampAnchor: { rowId: itemId, phaseLinkId: null },
+        skipLhSecondCheck: true,
+      })
+      const refreshed = await OBR.scene.items.getItems([itemId])
+      meta = refreshed?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
+      if (!meta) return false
+    }
   }
+
+  const abw = normalizeKrDigit(meta[KR_ABW])
 
   if (motherHasTransferablePrimaryCharge(meta)) {
     const firstKind = readKrFirstSlotKind(meta)
@@ -1328,25 +1390,26 @@ function zaoRootEligibleForLodgedScopedTransfer(link) {
  *
  * @param {string} itemId
  * @param {string} linkId
+ * @returns {Promise<boolean>} true nur bei tatsaechlicher Umwandlung
  */
 export async function patchKrTransferZaoPrimaryToAbw(itemId, linkId) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
+  if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta) return
+  if (!meta) return false
   // Regulaere 2.AO-Wurzeln bleiben wie zu Kampfbeginn frei umwandelbar, auch
   // bei aktiver L.H. am Mutterobjekt. lhEnd/heroExtra unberuehrt (s.u.).
   const phases = normalizePhases(meta.phases)
   const linkRef = phases.links.find((l) => l.id === linkId)
-  if (!zaoRootEligibleForLodgedScopedTransfer(linkRef)) return
+  if (!zaoRootEligibleForLodgedScopedTransfer(linkRef)) return false
 
   const slot = readZaoSlots(meta)[linkId]
-  if (!slot || slot.marks !== 1 || slot.lodgedAbw) return
+  if (!slot || slot.marks !== 1 || slot.lodgedAbw) return false
 
   const abw = normalizeKrDigit(meta[KR_ABW])
   const nextAbw = addOneAbwTransferChargeValue(abw)
-  if (nextAbw === abw) return
+  if (nextAbw === abw) return false
 
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
@@ -1364,6 +1427,7 @@ export async function patchKrTransferZaoPrimaryToAbw(itemId, linkId) {
       m[KR_ZAO_SLOTS] = s
     }
   })
+  return true
 }
 
 /**
@@ -1371,6 +1435,7 @@ export async function patchKrTransferZaoPrimaryToAbw(itemId, linkId) {
  *
  * @param {string} itemId
  * @param {string} linkId
+ * @returns {Promise<boolean>} true nur bei tatsaechlicher Umwandlung
  */
 export async function patchKrTransferAbwToZaoPrimary(
   itemId,
@@ -1379,22 +1444,22 @@ export async function patchKrTransferAbwToZaoPrimary(
 ) {
   const items = await OBR.scene.items.getItems()
   const item = items.find((i) => i.id === itemId)
-  if (!item || !canEditSceneItem(item)) return
+  if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta) return
+  if (!meta) return false
   // Regulaere 2.AO-Wurzeln bleiben wie zu Kampfbeginn frei umwandelbar, auch
   // bei aktiver L.H. am Mutterobjekt. lhEnd/heroExtra unberuehrt (s.u.).
   const phases = normalizePhases(meta.phases)
   const linkRef = phases.links.find((l) => l.id === linkId)
-  if (!zaoRootEligibleForLodgedScopedTransfer(linkRef)) return
+  if (!zaoRootEligibleForLodgedScopedTransfer(linkRef)) return false
 
   const slot = readZaoSlots(meta)[linkId]
-  if (!slot?.lodgedAbw || slot.marks !== 0) return
+  if (!slot?.lodgedAbw || slot.marks !== 0) return false
 
   const abw = normalizeKrDigit(meta[KR_ABW])
-  if (!krTransferMarkPresent(abw)) return
+  if (!krTransferMarkPresent(abw)) return false
   const nextAbw = consumeOneChargeValue(abw)
-  if (nextAbw === abw) return
+  if (nextAbw === abw) return false
 
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
@@ -1411,6 +1476,7 @@ export async function patchKrTransferAbwToZaoPrimary(
       syncReactionShieldForDualAng(m)
     }
   })
+  return true
 }
 
 /**
@@ -2082,8 +2148,7 @@ export async function stampLhCompletion(itemId, anchorPhaseLinkId = null) {
     for (const draft of drafts) {
       const m = draft.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
-      clearLhTrackerActivity(m)
-      restoreRegularSecondActionRootAfterLh(m)
+      normalizeHeroKrStateAfterLhEnd(m)
     }
   })
   return true

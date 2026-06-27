@@ -48,6 +48,7 @@ import {
   cycleKrPrimarySlotKind,
   cycleKrPrimarySlotKindRespectingLocks,
   krTransferMarkPresent,
+  normalizeHeroKrStateAfterLhEnd,
   patchKrCyclePrimarySlotKind,
   restoreRegularSecondActionRootAfterLh,
 } from './krCounters.js'
@@ -57,6 +58,8 @@ import {
   HERO_ACTION_POOL_ABW,
   HERO_ACTION_POOL_ANG,
   HERO_ACTION_POOL_MAX,
+  KR_LH_VOID_BY_TRANSFER,
+  KR_PRIMARY_VOID_BY_ABW_TRANSFER,
   KR_ZAO_SLOTS,
 } from './krMetaKeys.js'
 import {
@@ -475,6 +478,122 @@ describe('patchKrCyclePrimarySlotKind mit motherEndBypass: voller 4-Kind-Zyklus'
       kinds.push(kind)
     }
     expect(kinds).toEqual(['sra', 'lh', 'uo', 'ang'])
+  })
+})
+
+describe('normalizeHeroKrStateAfterLhEnd (radikaler L.H.-Ende-Reset)', () => {
+  it('leert L.H.-Aktivitaet und setzt regulaere 2.AO-Wurzel auf uo/lodgedAbw + Backing-Schild', () => {
+    const meta = {
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      [LH_MAX]: 3,
+      [LH_REM]: 1,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: { zao1: { kind: 'ang', marks: 1 } },
+    }
+    const changed = normalizeHeroKrStateAfterLhEnd(meta)
+    expect(changed).toBe(true)
+    expect(isLhActive(meta)).toBe(false)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+    expect(krTransferMarkPresent(meta['krAbw'])).toBe(true)
+  })
+
+  it('entfernt Void-Transfer-Flags', () => {
+    const meta = {
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: { zao1: { kind: 'uo', marks: 0, lodgedAbw: true } },
+      krAbw: 0,
+      [KR_LH_VOID_BY_TRANSFER]: true,
+      [KR_PRIMARY_VOID_BY_ABW_TRANSFER]: true,
+    }
+    normalizeHeroKrStateAfterLhEnd(meta)
+    expect(meta[KR_LH_VOID_BY_TRANSFER]).toBeUndefined()
+    expect(meta[KR_PRIMARY_VOID_BY_ABW_TRANSFER]).toBeUndefined()
+  })
+
+  it('setzt ALLE regulaeren 2.AO-Wurzeln zurueck (nicht nur die erste)', () => {
+    const meta = {
+      initiative: '20',
+      [HERO_ACTION_POOL_ANG]: 3,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 4,
+      phases: {
+        links: [
+          { id: 'zao1', parentId: null, offset: 8 },
+          { id: 'zao2', parentId: null, offset: 16 },
+        ],
+      },
+      krZaoSlots: {
+        zao1: { kind: 'ang', marks: 1 },
+        zao2: { kind: 'sra', marks: 1 },
+      },
+    }
+    normalizeHeroKrStateAfterLhEnd(meta)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+    expect(meta[KR_ZAO_SLOTS].zao2).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
+  })
+
+  it('laesst die lhEnd-Wurzel unberuehrt', () => {
+    const meta = {
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: { links: [{ id: 'lhend1', parentId: null, offset: 8, lhEnd: true }] },
+      krZaoSlots: { lhend1: { kind: 'lh', marks: 1 } },
+    }
+    normalizeHeroKrStateAfterLhEnd(meta)
+    expect(meta[KR_ZAO_SLOTS].lhend1).toEqual({ kind: 'lh', marks: 1 })
+  })
+})
+
+describe('patchKrCyclePrimarySlotKind: 2.AO-Transfer meldet echten Erfolg (kein Luegen)', () => {
+  beforeEach(() => {
+    getItems.mockClear()
+    updateItems.mockClear()
+  })
+
+  it('regulaeres uo -> ang OHNE Backing-Schild: return false, Slot bleibt uo', async () => {
+    itemMetaRef.current = {
+      initiative: '12',
+      // krAbw:1 == 0 Markierungen (leer) -> kein Transfer-Mark vorhanden.
+      krAbw: 1,
+      [KR_ZAO_SLOTS]: { 'zao-x': { kind: 'uo', marks: 0, lodgedAbw: true } },
+      phases: { links: [{ id: 'zao-x', parentId: null, offset: 8 }] },
+    }
+    const ok = await patchKrCyclePrimarySlotKind('hero-a', 'ang', {
+      linkId: 'zao-x',
+    })
+    expect(ok).toBe(false)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS]['zao-x']).toMatchObject({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
+  })
+
+  it('regulaeres uo -> ang MIT Backing-Schild: return true, Slot wird ang', async () => {
+    itemMetaRef.current = {
+      initiative: '12',
+      // krAbw:0 == 1 Markierung (geladen) -> Transfer-Mark vorhanden.
+      krAbw: 0,
+      [KR_ZAO_SLOTS]: { 'zao-x': { kind: 'uo', marks: 0, lodgedAbw: true } },
+      phases: { links: [{ id: 'zao-x', parentId: null, offset: 8 }] },
+    }
+    const ok = await patchKrCyclePrimarySlotKind('hero-a', 'ang', {
+      linkId: 'zao-x',
+    })
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS]['zao-x']).toMatchObject({
+      kind: 'ang',
+      marks: 1,
+    })
   })
 })
 

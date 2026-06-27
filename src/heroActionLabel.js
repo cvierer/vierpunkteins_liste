@@ -167,7 +167,38 @@ async function updateTurnActionLabelPositionOnly(items, target) {
   }
 }
 
+let refreshInFlight = false
+let refreshQueued = false
+
+/**
+ * Serialisiert die Map-Badge-Aktualisierung. Ohne diese Sperre wuerden
+ * gleichzeitige Ausloeser (onCombatChange + scheduleTurnActionMapRefresh +
+ * items.onChange) parallel `deleteItems`+`addItems` auf dieselbe Overlay-ID
+ * ausfuehren — das frisch hinzugefuegte Label wird vom konkurrierenden Lauf
+ * wieder geloescht, sodass „bei jedem zweiten Helden" nichts erscheint. Laeuft
+ * bereits ein Refresh, wird nur ein erneuter Lauf mit frischem Szenen-Stand
+ * vorgemerkt.
+ *
+ * @param {import('@owlbear-rodeo/sdk').Item[]} [itemsIn]
+ */
 async function refreshTurnActionLabel(itemsIn) {
+  if (refreshInFlight) {
+    refreshQueued = true
+    return
+  }
+  refreshInFlight = true
+  try {
+    await refreshTurnActionLabelInner(itemsIn)
+  } finally {
+    refreshInFlight = false
+    if (refreshQueued) {
+      refreshQueued = false
+      void refreshTurnActionLabel()
+    }
+  }
+}
+
+async function refreshTurnActionLabelInner(itemsIn) {
   if (!isGmSync()) return
   const items =
     itemsIn ?? (await OBR.scene.items.getItems().catch(() => []))
@@ -280,6 +311,7 @@ export function setupHeroActionLabel() {
       itemsChangeUnsub()
       lastOverlayKey = ''
       lastOverlayOwnerId = ''
+      refreshQueued = false
       void (async () => {
         if (!isGmSync()) return
         try {
