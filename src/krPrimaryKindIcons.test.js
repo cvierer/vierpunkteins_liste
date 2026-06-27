@@ -105,17 +105,27 @@ describe('primaryKindMapSymbol', () => {
     expect(primaryKindMapSymbol('lh')).toBe('\u231B')
     expect(primaryKindMapSymbol('lh')).not.toBe(primaryKindMapSymbol('sra'))
   })
+
+  it('uo ist ein gepunkteter Kreis (leer)', () => {
+    expect(primaryKindMapSymbol('uo')).toBe('\u25CC')
+  })
 })
 
 describe('shouldShowTurnActionMapBadge', () => {
-  it('uo blendet kein Badge ein', () => {
-    expect(shouldShowTurnActionMapBadge('uo')).toBe(false)
+  it('uo zeigt jetzt auch ein Badge (Unterobjekt leer)', () => {
+    expect(shouldShowTurnActionMapBadge('uo')).toBe(true)
   })
 
-  it('andere Kinds zeigen Badge', () => {
-    for (const k of ['ang', 'sra', 'lh', 'par']) {
+  it('Aktions-Kinds zeigen Badge', () => {
+    for (const k of ['ang', 'sra', 'lh', 'par', 'uo']) {
       expect(shouldShowTurnActionMapBadge(k)).toBe(true)
     }
+  })
+
+  it('unbekannte/leere Kinds zeigen kein Badge', () => {
+    expect(shouldShowTurnActionMapBadge(null)).toBe(false)
+    expect(shouldShowTurnActionMapBadge(undefined)).toBe(false)
+    expect(shouldShowTurnActionMapBadge('xxx')).toBe(false)
   })
 })
 

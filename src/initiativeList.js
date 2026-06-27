@@ -208,7 +208,6 @@ import {
   metaHasPendingLoadedNonHeroExtraZao,
   readZaoSlot,
   readZaoSlots,
-  stampLhCompletion,
   undoKrActionStamp,
 } from './krCounters.js'
 import {
@@ -432,51 +431,6 @@ function livePrimaryLadungAllowed(ownerItemId, navigationPhaseLinkId) {
       rowActiveId,
       rowActivePhaseLinkId
     ) && combat.currentTurnSubStep !== 'reaction'
-  )
-}
-
-/** @param {unknown} trackerMeta @param {string} kind @param {number | null | undefined} combatRound */
-function liveLhLockActive(trackerMeta, kind, combatRound) {
-  return isLhLockingActions(trackerMeta, combatRound) && kind !== 'lh'
-}
-
-/**
- * @param {unknown} trackerMeta
- * @param {number | null | undefined} combatRound
- * @param {boolean} primaryLadungAllowed
- */
-function liveLhPieStampReady(trackerMeta, combatRound, primaryLadungAllowed) {
-  if (!primaryLadungAllowed) return false
-  if (Boolean(trackerMeta?.[KR_LH_VOID_BY_TRANSFER])) return false
-  const st = readLhState(trackerMeta)
-  if (st.max <= 0) return false
-  const heroIniNum = (() => {
-    const raw = trackerMeta?.initiative
-    const n = Number(String(raw ?? '').trim().replace(',', '.'))
-    return Number.isFinite(n) ? n : null
-  })()
-  const mechanics = readLhMechanics(trackerMeta)
-  const commitRound =
-    Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
-    (combatRound ?? 1)
-  const effectiveRound = combatRound ?? commitRound
-  const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
-  const priorSpendPie = readLhCommitKrPriorSpendForRound(
-    trackerMeta,
-    effectiveRound
-  )
-  return (
-    lhPieFraction(
-      effectiveRound,
-      currentNavIniForRender,
-      commitRound,
-      heroIniNum,
-      mechanics.actionsPerKr,
-      mechanics.triggerIniStep,
-      st.max,
-      Number.isFinite(commitIniStored) ? commitIniStored : undefined,
-      priorSpendPie
-    ) >= 1
   )
 }
 
@@ -1739,13 +1693,12 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
   }
   const lhPieStampReady =
     kind === 'lh' && lhPieFullyFilled && primaryLadungAllowed
-  // Aktionen (Ang./S.R.A.) werden nur noch ueber die Navigation gestempelt: deren
-  // Exec-Kaestchen ist reine Anzeige (disabled). Nur die L.H.-Abschluss-Stempelung
-  // bleibt ein klickbarer Button; Nav-/Pie-Gates laufen mit Live-Pruefung im Handler.
+  // Alle Aktionen (Ang./S.R.A./L.H.) werden nur noch ueber die Navigation
+  // gestempelt: das Exec-Kaestchen ist reine Anzeige (disabled).
   const navBlocked =
     hasPrimaryCharge && !primaryLadungAllowed
   const lhStampBlocked = kind === 'lh' && hasPrimaryCharge && !lhPieStampReady
-  exec.disabled = !canEdit || kind !== 'lh'
+  exec.disabled = !canEdit
   exec.setAttribute(
     'aria-disabled',
     navBlocked || lhStampBlocked || lhLockActive ? 'true' : 'false'
@@ -1754,11 +1707,7 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     canEdit &&
     !lhLockActive &&
     primaryLadungAllowed &&
-    (kind === 'lh'
-      ? lhPieStampReady
-      : kind === 'ang' || kind === 'sra'
-        ? hasPrimaryCharge
-        : false)
+    (kind === 'ang' || kind === 'sra' ? hasPrimaryCharge : false)
   main.classList.toggle(
     'init-kr-primary-main--stamp-hi',
     Boolean(primaryStampHighlight)
@@ -1771,13 +1720,9 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     ? isUoKind
       ? 'Umwandel-Objekt (UO): Ladung liegt im Abwehr-Schild — nicht stempelbar; Pfeile wählen andere Aktion.'
       : kind === 'lh'
-        ? hasPrimaryCharge
-          ? !primaryLadungAllowed
-            ? `${primaryTooltipLabel}: Abschluss stempeln erst, wenn die Navigation auf dieser Zeile steht (aktuell anderer Zug).`
-            : `${primaryTooltipLabel}: Abschluss anklicken — L.H. an aktueller Listenposition abschließen`
-          : lhVoided
-            ? `${ACTION_STAMP_LABEL[KR_LH_ACTION]}: Ladungen ins Abwehr-Schild gelegt — unten Schild zurück ins Feld; Rechtsklick hebt die Leerung auf (ohne Stempel).`
-            : `${primaryTooltipLabel}`
+        ? lhVoided
+          ? `${ACTION_STAMP_LABEL[KR_LH_ACTION]}: Ladungen ins Abwehr-Schild gelegt — unten Schild zurück ins Feld; Rechtsklick hebt die Leerung auf (ohne Stempel).`
+          : `${primaryTooltipLabel}: wird bei der Navigation automatisch abgeschlossen (nur Anzeige).`
         : `${primaryTooltipLabel}: wird bei der Navigation automatisch gestempelt (nur Anzeige).`
     : `${primaryTooltipLabel} (nur Anzeige)`
 
@@ -2279,23 +2224,9 @@ function appendKrPrimarySplitCell(
         ? `${displayLabelDe}: Feld geleert ins Abwehr-Schild — unten Schild zurückladen; Rechtsklick macht die Leerung rückgängig.`
         : primaryLadungAria(vDisplay, displayPrimaryTooltipLabel, stampOk)
   )
-  // Nur die L.H.-Abschluss-Stempelung (GO!) bleibt ein manueller Klick — sie ist
-  // eine explizite Nutzerentscheidung, die nicht zwingend mit dem Navigations-
-  // schritt zusammenfaellt. Ang./S.R.A. werden ausschliesslich ueber die
-  // Navigation automatisch gestempelt (kein manueller Stempel/Undo am Kaestchen).
-  if (canEdit && kind === 'lh') {
-    exec.addEventListener('click', (e) => {
-      e.preventDefault()
-      const combatNow = getCombat()
-      const roundNow = combatNow.started ? combatNow.round : null
-      const navAllowed = livePrimaryLadungAllowed(ownerItemId, linkIdForSwitch)
-      if (liveLhLockActive(trackerMeta, kind, roundNow)) return
-      if (!navAllowed) return
-      const anchorPid = isZaoSlot ? zaoSlotOverride.linkId : null
-      if (!liveLhPieStampReady(trackerMeta, roundNow, navAllowed)) return
-      void stampLhCompletion(ownerItemId, anchorPid)
-    })
-  }
+  // Alle Primaeraktionen — inkl. der L.H.-Abschluss-Stempelung — werden
+  // ausschliesslich ueber die Navigation automatisch gestempelt. Das
+  // Exec-Kaestchen ist reine Anzeige (kein Klick-/Undo-Handler mehr).
 
   // Am Mutter-Feld (kein ZAO-Slot-Override) kleines Schwert-Icon oben rechts im
   // Primärkästchen (zuerst im `main` = vorn), wenn … ZAO … wiederherstellbar.
@@ -8487,16 +8418,14 @@ function layoutStampPanels(listRoot) {
           ? readZaoSlot(ownerTrackerMeta || {}, link.id)
           : null
 
-        if (isLhMotherEndNow) {
-          const slotNeedsCorrection =
-            !rawZaoSlot ||
-            rawZaoSlot.kind !== 'uo' ||
-            rawZaoSlot.lodgedAbw !== true
-          if (slotNeedsCorrection) {
-            rawZaoSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
-            if (canEdit) {
-              void patchZaoSlot(ownerId, link.id, { kind: 'uo', marks: 0, lodgedAbw: true })
-            }
+        // Nur Einmal-Initialisierung: fehlt der Slot am L.H.-Mutter-Ende, wird der
+        // Kampfstart-Default gesetzt. Einen bestehenden Slot (Default ODER bewusste
+        // Umwandlung auf sra/lh/ang/uo) NICHT mehr revertieren — sonst liesse sich
+        // das 2.AO waehrend des Mutter-Endes nicht umstellen.
+        if (isLhMotherEndNow && !rawZaoSlot) {
+          rawZaoSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
+          if (canEdit) {
+            void patchZaoSlot(ownerId, link.id, { kind: 'uo', marks: 0, lodgedAbw: true })
           }
         }
 

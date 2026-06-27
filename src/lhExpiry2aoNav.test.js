@@ -444,7 +444,7 @@ describe('patchKrCyclePrimarySlotKind mit motherEndBypass: voller 4-Kind-Zyklus'
     expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({ kind: 'lh', marks: 1 })
   })
 
-  it('lh -> uo mit motherEndBypass (kein Shield-Transfer, kein lodgedAbw)', async () => {
+  it('lh -> uo mit motherEndBypass (Kampfstart-Default uo/lodgedAbw + Backing-Schild)', async () => {
     itemMetaRef.current = makeMeta('lh', 1)
     const ok = await patchKrCyclePrimarySlotKind(
       'hero-a', 'uo',
@@ -452,9 +452,9 @@ describe('patchKrCyclePrimarySlotKind mit motherEndBypass: voller 4-Kind-Zyklus'
     )
     expect(ok).toBe(true)
     const slot = itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]
-    expect(slot.kind).toBe('uo')
-    // kein lodgedAbw (freies Leer-Objekt, nicht eingelagerte Abwehr-Ladung)
-    expect(slot.lodgedAbw == null || slot.lodgedAbw === false).toBe(true)
+    // Leerer 2.AO bleibt der schildtragende Kampfstart-Slot (marks:0 haelt
+    // isMirrorAbwUiActive inaktiv) und bucht ggf. eine Backing-Schildmarke.
+    expect(slot).toMatchObject({ kind: 'uo', marks: 0, lodgedAbw: true })
   })
 
   it('uo -> ang mit motherEndBypass (kein Shield-Transfer-Mark noetig)', async () => {

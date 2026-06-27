@@ -106,7 +106,7 @@ const KIND_MAP_SYMBOL = Object.freeze({
   ang: '\u{1F5E1}',
   sra: '\u2605',
   lh: '\u231B',
-  uo: '\u21c4',
+  uo: '\u25CC',
   par: '\u26e8',
 })
 
@@ -128,7 +128,7 @@ const KIND_MAP_STYLE = Object.freeze({
   ang: { fillColor: '#ffffff', backgroundColor: '#6d0718', backgroundOpacity: 0.9 },
   sra: { fillColor: '#fffde7', backgroundColor: '#ef6c00', backgroundOpacity: 0.9 },
   lh: { fillColor: '#fffde7', backgroundColor: '#1f6b4a', backgroundOpacity: 0.9 },
-  uo: { fillColor: '#ffffff', backgroundColor: '#3949ab', backgroundOpacity: 0.9 },
+  uo: { fillColor: '#ffffff', backgroundColor: '#616161', backgroundOpacity: 0.9 },
   par: { fillColor: '#e0e0e0', backgroundColor: '#263238', backgroundOpacity: 0.9 },
 })
 
@@ -175,5 +175,11 @@ export function primaryKindMapFontSize(kind) {
  * @param {'ang' | 'sra' | 'lh' | 'uo' | 'par' | string | null | undefined} kind
  */
 export function shouldShowTurnActionMapBadge(kind) {
-  return kind !== 'uo'
+  return (
+    kind === 'ang' ||
+    kind === 'sra' ||
+    kind === 'lh' ||
+    kind === 'uo' ||
+    kind === 'par'
+  )
 }

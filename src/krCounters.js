@@ -1054,21 +1054,25 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
     if (prev === nextKind) return false
 
     if (motherEndBypass) {
-      // Direkt schreiben: keine Shield-Transfer-Marks noetig.
-      // patchZaoSlot wuerde fuer kind='uo' immer lodgedAbw:true erzwingen;
-      // hier schreiben wir direkt (lodgedAbw:false = freies Leer-Objekt, nicht
-      // eingelagerte Abwehr-Ladung).
+      // Direkt schreiben: keine Shield-Transfer-Marks noetig. Fuer kind='uo'
+      // schreiben wir den Kampfstart-Default {kind:'uo', marks:0, lodgedAbw:true}
+      // und buchen ggf. die Schildmarke (applyUoDefaultAbwChargeIfNeeded), damit
+      // der leere 2.AO weiterhin als schildtragender Slot gilt und
+      // isMirrorAbwUiActive (marks:0) korrekt inaktiv bleibt.
       await OBR.scene.items.updateItems([itemId], (drafts) => {
         for (const d of drafts) {
           const m = d.metadata[TRACKER_ITEM_META_KEY]
           if (!m) continue
           const slots = readZaoSlots(m)
           if (nextKind === 'uo') {
-            slots[linkId] = { kind: 'uo', marks: 0 }
+            const newSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
+            slots[linkId] = newSlot
+            m[KR_ZAO_SLOTS] = slots
+            applyUoDefaultAbwChargeIfNeeded(m, newSlot)
           } else {
             slots[linkId] = { kind: nextKind, marks: 1 }
+            m[KR_ZAO_SLOTS] = slots
           }
-          m[KR_ZAO_SLOTS] = slots
         }
       })
       return true
