@@ -160,7 +160,8 @@ describe('reconcileShieldLedger - Erhaltungs-Deckel (budget-bewusst)', () => {
     expect(marksFromChargeValue(m[KR_ABW])).toBe(1)
   })
 
-  it('ang=3/abw=2: zao1 S.R.A. + zao2 L.H. -> 0 Schilde', () => {
+  it('ang=3/abw=2: zao1 S.R.A. + zao2 L.H. -> 1 Schild (L.H. schild-neutral)', () => {
+    // L.H. zaehlt NICHT gegen das Budget: nur die S.R.A. zieht ein Schild.
     const m = buildMeta({
       motherKind: 'ang',
       abwMarks: 2,
@@ -168,9 +169,40 @@ describe('reconcileShieldLedger - Erhaltungs-Deckel (budget-bewusst)', () => {
       poolAng: 3,
       poolAbw: 2,
     })
+    expect(shieldLedgerCap(m)).toBe(1)
     const changed = reconcileShieldLedger(m)
     expect(changed).toBe(true)
-    expect(marksFromChargeValue(m[KR_ABW])).toBe(0)
+    expect(marksFromChargeValue(m[KR_ABW])).toBe(1)
+  })
+
+  it('ang=3/abw=2: zao1 L.H. + zao2 L.H. -> 2 Schilde (L.H. schild-neutral)', () => {
+    const m = buildMeta({
+      motherKind: 'ang',
+      abwMarks: 2,
+      zaos: [{ slot: LH }, { slot: LH }],
+      poolAng: 3,
+      poolAbw: 2,
+    })
+    expect(shieldLedgerCap(m)).toBe(2)
+    const changed = reconcileShieldLedger(m)
+    expect(changed).toBe(false)
+    expect(marksFromChargeValue(m[KR_ABW])).toBe(2)
+  })
+
+  // Nutzer-Bug (V1293-Regression): knappes Budget + L.H. an einem 2.AO darf das
+  // Schild des anderen, leeren Slots NICHT mehr fressen.
+  it('ang=3/abw=1: Mutter ang + zao1 L.H. + zao2 leer -> 1 Schild bleibt (Regression)', () => {
+    const m = buildMeta({
+      motherKind: 'ang',
+      abwMarks: 1,
+      zaos: [{ slot: LH }, { slot: UO }],
+      poolAng: 3,
+      poolAbw: 1,
+    })
+    expect(shieldLedgerCap(m)).toBe(1)
+    const changed = reconcileShieldLedger(m)
+    expect(changed).toBe(false)
+    expect(marksFromChargeValue(m[KR_ABW])).toBe(1)
   })
 
   // --- heroExtra-Slots zaehlen NICHT gegen das Reaktions-Budget ---
@@ -194,13 +226,19 @@ describe('reconcileShieldLedger - Erhaltungs-Deckel (budget-bewusst)', () => {
 })
 
 describe('shouldDebitLodgedShieldOnLeave', () => {
-  it('leeres uo/lodgedAbw -> geladene Aktion (lh): Schild abbuchen', () => {
-    expect(
-      shouldDebitLodgedShieldOnLeave({ kind: 'uo', lodgedAbw: true }, 'lh', false)
-    ).toBe(true)
+  it('leeres uo/lodgedAbw -> Schwert/S.R.A.: Schild abbuchen', () => {
     expect(
       shouldDebitLodgedShieldOnLeave({ kind: 'uo', lodgedAbw: true }, 'ang', false)
     ).toBe(true)
+    expect(
+      shouldDebitLodgedShieldOnLeave({ kind: 'uo', lodgedAbw: true }, 'sra', false)
+    ).toBe(true)
+  })
+
+  it('leeres uo/lodgedAbw -> L.H.: KEIN Abzug (L.H. schild-neutral)', () => {
+    expect(
+      shouldDebitLodgedShieldOnLeave({ kind: 'uo', lodgedAbw: true }, 'lh', false)
+    ).toBe(false)
   })
 
   it('lodgedAbw ohne kind uo (Halbzustand) -> ebenfalls abbuchen', () => {

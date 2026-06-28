@@ -152,10 +152,16 @@ export function hasChargedRegularZaoAng(meta) {
 }
 
 /**
- * Anzahl regulaerer (kein heroExtra/lhEnd) 2.A.-Wurzeln, die eine geladene
- * Aktion halten (`marks===1`, nicht `lodgedAbw`) — egal ob Schwert (ang),
- * S.R.A. oder L.H. Jede solche Aktion hat genau ein Reaktions-Schild aus dem
- * Speicher gezogen; wird fuer den budget-bewussten Schild-Deckel gebraucht.
+ * Anzahl regulaerer (kein heroExtra/lhEnd) 2.A.-Wurzeln, die eine
+ * schild-verbrauchende Aktion halten (`marks===1`, nicht `lodgedAbw`): nur
+ * Schwert (ang) und S.R.A. Jede solche Aktion hat genau ein Reaktions-Schild
+ * aus dem Speicher gezogen; wird fuer den budget-bewussten Schild-Deckel
+ * gebraucht.
+ *
+ * Eine L.H. (`kind:'lh'`) ist fuer die Schilde KOMPLETT NEUTRAL — wie ein
+ * heroExtra-Objekt. Sie zaehlt hier NICHT mit, verbraucht also kein
+ * Reaktions-Schild und senkt den Deckel nicht. So bleibt "leer einstellen ->
+ * +1 Schild" auch bei eingestellter L.H. zuverlaessig moeglich.
  *
  * @param {unknown} meta
  * @returns {number}
@@ -178,7 +184,7 @@ export function chargedRegularZaoActionCount(meta) {
     if (heroExtraLinkIds.has(linkId)) continue
     if (lhEndLinkIds.has(linkId)) continue
     if (s.lodgedAbw === true) continue
-    if (s.kind === 'ang' || s.kind === 'sra' || s.kind === 'lh') count++
+    if (s.kind === 'ang' || s.kind === 'sra') count++
   }
   return count
 }

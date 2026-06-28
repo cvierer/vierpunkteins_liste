@@ -1131,7 +1131,10 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
             m[KR_ZAO_SLOTS] = slots
             applyUoDefaultAbwChargeIfNeeded(m, newSlot)
           } else {
-            if (prevWasLodged) {
+            // L.H. ist schild-neutral (wie heroExtra): Start einer L.H. aus
+            // einem eingelagerten Slot bucht KEIN Schild ab. Nur echte
+            // Aktionen (Schwert/S.R.A.) ziehen ein Reaktions-Schild.
+            if (prevWasLodged && nextKind !== 'lh') {
               const abw = normalizeKrDigit(m[KR_ABW])
               if (krTransferMarkPresent(abw)) {
                 m[KR_ABW] = consumeOneChargeValue(abw)

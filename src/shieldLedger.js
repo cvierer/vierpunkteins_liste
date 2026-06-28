@@ -63,8 +63,13 @@ export function reconcileShieldLedger(m) {
 /**
  * Symmetrische Schild-Buchung beim Verlassen eines 2.AO-Slots: ein eingelagertes
  * (leeres / lodgedAbw) Schild wird zurueckgebucht, sobald der Slot zu einer
- * geladenen Aktion wird (z. B. L.H.-Start aus einem 2.AO heraus, uo->lh). Reine
+ * schild-verbrauchenden Aktion wird (Schwert/S.R.A.). Reine
  * Entscheidungsfunktion (kein Meta-Zugriff), damit testbar.
+ *
+ * Eine L.H. (`nextKind === 'lh'`) ist schild-neutral (wie heroExtra): der
+ * Start einer L.H. aus einem leeren Slot bucht KEIN Schild ab. So bleibt das
+ * Reaktions-Schild eines anderen leeren Slots erhalten und "leer -> +1 Schild"
+ * funktioniert trotz eingestellter L.H.
  *
  * @param {{ kind?: string, lodgedAbw?: boolean } | null | undefined} prevSlot
  * @param {'ang'|'sra'|'lh'|'uo'} nextKind
@@ -73,5 +78,10 @@ export function reconcileShieldLedger(m) {
  */
 export function shouldDebitLodgedShieldOnLeave(prevSlot, nextKind, nextLodged) {
   const prevWasLodged = prevSlot?.kind === 'uo' || prevSlot?.lodgedAbw === true
-  return prevWasLodged && nextKind !== 'uo' && nextLodged !== true
+  return (
+    prevWasLodged &&
+    nextKind !== 'uo' &&
+    nextKind !== 'lh' &&
+    nextLodged !== true
+  )
 }
