@@ -2062,15 +2062,16 @@ function appendKrPrimarySplitCell(
     }
   }
 
-  // Bei regulaerer 2.AO-Wurzel am L.H.-Mutter-Ende: Umwandel-Transfer-Logik
-  // umgehen (keine Shield-Marks). Alle 4 Kinds direkt beschreibbar.
+  // Regulaere 2.AO-Wurzeln (kein heroExtra, kein lhEnd) werden GENERELL ueber
+  // den Direkt-Schreib-Pfad (motherEndBypass) umgeschaltet — mit oder ohne L.H.
+  // Die fragile Transfer-Marks-Buchhaltung (patchKrTransfer*) liess die Pfeile
+  // in mehreren Zustaenden stumm scheitern; der Direktpfad schreibt KR_ZAO_SLOTS
+  // verlaesslich und bucht das Schild symmetrisch (siehe patchKrCyclePrimarySlotKind).
   const isRegularZaoForMotherEnd =
     isZaoSlot &&
     !Boolean(zaoSlotOverride?.heroExtra) &&
     !Boolean(zaoSlotOverride?.lhEnd)
-  const motherEndBypassForSwitch =
-    isRegularZaoForMotherEnd &&
-    isHeroAtLhMotherEndInRound(trackerMeta, combatRound)
+  const motherEndBypassForSwitch = isRegularZaoForMotherEnd
 
   const switchPatchHandlers = {
     patchFn: async (itemId, dir, patchOpts) => {
@@ -9093,16 +9094,19 @@ function layoutStampPanels(listRoot) {
     })
   })
 
-  // Signatur der Reaktions-/F.A.-relevanten Meta-Felder (Abwehr-Schild,
-  // Parade-Extra, freie Aktion). Aenderungen hieran muessen sofort sichtbar
-  // werden — auch waehrend einer Primaer-Slot-Switch-Suppression.
+  // Signatur der per Klick stempelbaren/umwandelbaren Meta-Felder: Abwehr-Schild,
+  // Parade-Extra, freie Aktion SOWIE 2.AO-Slots (KR_ZAO_SLOTS) und Mutter-Slot
+  // (KR_FIRST_SLOT_KIND). Aenderungen hieran muessen sofort sichtbar werden —
+  // auch waehrend einer Primaer-Slot-Switch-Suppression (z. B. bei eingestellter L.H.).
   const reactionFaMetaSignature = (meta) => {
     if (!meta || typeof meta !== 'object') return '0'
     const abw = normalizeKrDigit(meta[KR_ABW])
     const fa = meta[KR_FREE_ACTION] ?? 0
     const parade = readKrParadeExtraSlots(meta).join(',')
     const paradeChoice = meta.krExtraChoiceUsed ?? ''
-    return `${abw}|${fa}|${parade}|${paradeChoice}`
+    const zao = JSON.stringify(meta[KR_ZAO_SLOTS] ?? {})
+    const first = meta[KR_FIRST_SLOT_KIND] ?? ''
+    return `${abw}|${fa}|${parade}|${paradeChoice}|${zao}|${first}`
   }
 
   const reactionOrFaMetaChangedVsLast = (items) => {

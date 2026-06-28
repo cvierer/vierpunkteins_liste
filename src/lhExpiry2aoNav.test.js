@@ -481,6 +481,85 @@ describe('patchKrCyclePrimarySlotKind mit motherEndBypass: voller 4-Kind-Zyklus'
   })
 })
 
+// 2.AO generell umwandelbar (mit/ohne L.H.) + symmetrische Schild-Buchung.
+describe('patchKrCyclePrimarySlotKind: 2.AO generell umwandelbar, Schild-Buchung symmetrisch', () => {
+  const ZAO_LINK = 'zao-regular-root'
+
+  const makeMeta = (slot, krAbw) => ({
+    initiative: '12',
+    krAbw,
+    [KR_ZAO_SLOTS]: { [ZAO_LINK]: slot },
+    phases: { links: [{ id: ZAO_LINK, parentId: null, offset: 8 }] },
+    // bewusst KEINE L.H.-Felder: reguläres 2.AO ohne jede Sanduhr.
+  })
+
+  beforeEach(() => {
+    getItems.mockClear()
+    updateItems.mockClear()
+  })
+
+  it('ang -> sra OHNE jede L.H. (Direktpfad, kein Transfer)', async () => {
+    itemMetaRef.current = makeMeta({ kind: 'ang', marks: 1 }, 1)
+    const ok = await patchKrCyclePrimarySlotKind('hero-a', 'sra', {
+      linkId: ZAO_LINK,
+      motherEndBypass: true,
+    })
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({
+      kind: 'sra',
+      marks: 1,
+    })
+  })
+
+  it('ang -> uo bucht +1 Schild in KR_ABW', async () => {
+    // krAbw=1 entspricht 0 Markierungen (leer).
+    itemMetaRef.current = makeMeta({ kind: 'ang', marks: 1 }, 1)
+    const ok = await patchKrCyclePrimarySlotKind('hero-a', 'uo', {
+      linkId: ZAO_LINK,
+      motherEndBypass: true,
+    })
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
+    expect(krTransferMarkPresent(itemMetaRef.current['krAbw'])).toBe(true)
+  })
+
+  it('uo/lodgedAbw -> ang MIT Backing-Schild verbraucht 1 Schild', async () => {
+    // krAbw=0 entspricht 1 Markierung (ein Schild vorhanden).
+    itemMetaRef.current = makeMeta({ kind: 'uo', marks: 0, lodgedAbw: true }, 0)
+    const ok = await patchKrCyclePrimarySlotKind('hero-a', 'ang', {
+      linkId: ZAO_LINK,
+      motherEndBypass: true,
+    })
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({
+      kind: 'ang',
+      marks: 1,
+    })
+    // Schild verbraucht -> keine Markierung mehr.
+    expect(krTransferMarkPresent(itemMetaRef.current['krAbw'])).toBe(false)
+  })
+
+  it('uo/lodgedAbw -> ang OHNE Backing-Schild wandelt trotzdem um (kein Haenger)', async () => {
+    // krAbw=1 entspricht 0 Markierungen (kein Schild zum Verbrauchen).
+    itemMetaRef.current = makeMeta({ kind: 'uo', marks: 0, lodgedAbw: true }, 1)
+    const ok = await patchKrCyclePrimarySlotKind('hero-a', 'ang', {
+      linkId: ZAO_LINK,
+      motherEndBypass: true,
+    })
+    expect(ok).toBe(true)
+    expect(itemMetaRef.current[KR_ZAO_SLOTS][ZAO_LINK]).toMatchObject({
+      kind: 'ang',
+      marks: 1,
+    })
+    // Ohne vorhandene Marke bleibt KR_ABW unveraendert (kein negativer Zaehler).
+    expect(itemMetaRef.current['krAbw']).toBe(1)
+  })
+})
+
 describe('normalizeHeroKrStateAfterLhEnd (radikaler L.H.-Ende-Reset)', () => {
   it('leert L.H.-Aktivitaet und setzt regulaere 2.AO-Wurzel auf uo/lodgedAbw + Backing-Schild', () => {
     const meta = {

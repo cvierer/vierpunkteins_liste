@@ -1093,24 +1093,36 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
     if (prev === nextKind) return false
 
     if (motherEndBypass) {
-      // Direkt schreiben: keine Shield-Transfer-Marks noetig. Fuer kind='uo'
-      // schreiben wir den Kampfstart-Default {kind:'uo', marks:0, lodgedAbw:true}
-      // und buchen ggf. die Schildmarke (applyUoDefaultAbwChargeIfNeeded), damit
-      // der leere 2.AO weiterhin als schildtragender Slot gilt und
-      // isMirrorAbwUiActive (marks:0) korrekt inaktiv bleibt.
+      // Direkt schreiben: keine fragile Transfer-Marks-Buchhaltung. Schild-
+      // Buchung bleibt symmetrisch:
+      //  - nach 'uo' (leer): {kind:'uo', marks:0, lodgedAbw:true} + ggf. +1 Schild
+      //    (applyUoDefaultAbwChargeIfNeeded). marks:0 haelt isMirrorAbwUiActive
+      //    inaktiv, sodass die Schilde am Mutterobjekt bleiben.
+      //  - von einem eingelagerten (lodgedAbw) Slot zurueck auf eine Aktion:
+      //    ein Schild lenient aus KR_ABW zurueckbuchen (wenn vorhanden), sonst
+      //    trotzdem umwandeln (kein Haenger auf "leer").
       await OBR.scene.items.updateItems([itemId], (drafts) => {
         for (const d of drafts) {
           const m = d.metadata[TRACKER_ITEM_META_KEY]
           if (!m) continue
           const slots = readZaoSlots(m)
+          const prevSlot = slots[linkId]
+          const prevWasLodged = prevSlot?.lodgedAbw === true
           if (nextKind === 'uo') {
             const newSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
             slots[linkId] = newSlot
             m[KR_ZAO_SLOTS] = slots
             applyUoDefaultAbwChargeIfNeeded(m, newSlot)
           } else {
+            if (prevWasLodged) {
+              const abw = normalizeKrDigit(m[KR_ABW])
+              if (krTransferMarkPresent(abw)) {
+                m[KR_ABW] = consumeOneChargeValue(abw)
+              }
+            }
             slots[linkId] = { kind: nextKind, marks: 1 }
             m[KR_ZAO_SLOTS] = slots
+            syncReactionShieldForDualAng(m)
           }
         }
       })
