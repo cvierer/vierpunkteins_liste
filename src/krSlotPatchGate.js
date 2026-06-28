@@ -39,7 +39,13 @@ export function noteDeferredRenderListItems(items) {
 }
 
 /**
- * Bevorzugt pro Token die lokal gepatchten Items (z. B. nach Slot-Kind-Wechsel).
+ * Bevorzugt den frisch von OBR gelesenen State (`pending`) pro Token-ID.
+ * `lastItems` dient nur als Fallback fuer Token-IDs, die in `pending` fehlen
+ * (z. B. voruebergehende Loecher beim Re-Sync). Frueher war das umgedreht — was
+ * jeden Patch nach einer Suppress-Welle (eingestellte L.H., laufende Switch-
+ * Session, L.H.-Commit) wieder auf den Vor-Patch-Stand revertierte und Stempel,
+ * Slot-Kinds, L.H.-Feld am 2.AO sowie Nav-Highlight bis zur naechsten Navigation
+ * unsichtbar/falsch machte.
  *
  * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} pending
  * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} lastItems
@@ -48,8 +54,9 @@ export function noteDeferredRenderListItems(items) {
 export function mergeDeferredRenderItems(pending, lastItems) {
   if (pending == null) return lastItems ?? undefined
   if (lastItems == null) return pending
-  const lastById = new Map(lastItems.map((item) => [item.id, item]))
-  return pending.map((item) => lastById.get(item.id) ?? item)
+  const freshIds = new Set(pending.map((item) => item.id))
+  const fallback = lastItems.filter((item) => !freshIds.has(item.id))
+  return fallback.length === 0 ? pending : pending.concat(fallback)
 }
 
 function flushDeferredRenderNow() {

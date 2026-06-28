@@ -75,6 +75,7 @@ import {
 import { applyLhKrStartObjects } from './longHandlung.js'
 import { resetAllKrCountersInScene } from './krCounters.js'
 import { KR_ACTION_POOL_ANG_REM } from './krMetaKeys.js'
+import { mergeDeferredRenderItems } from './krSlotPatchGate.js'
 
 function item(id, meta = {}) {
   return { id, name: id, metadata: { [TRACKER_ITEM_META_KEY]: meta } }
@@ -557,6 +558,48 @@ describe('patchKrCyclePrimarySlotKind: 2.AO generell umwandelbar, Schild-Buchung
     })
     // Ohne vorhandene Marke bleibt KR_ABW unveraendert (kein negativer Zaehler).
     expect(itemMetaRef.current['krAbw']).toBe(1)
+  })
+})
+
+// Regression: der deferred Render-Flush darf einen frisch gepatchten Slot-Kind
+// NICHT auf den Vor-Patch-Stand revertieren (mergeDeferredRenderItems-Bug).
+describe('deferred Render-Flush revertiert keinen frischen Patch', () => {
+  const ZAO_LINK = 'zao-regular-root'
+  const metaKey = TRACKER_ITEM_META_KEY
+
+  beforeEach(() => {
+    getItems.mockClear()
+    updateItems.mockClear()
+  })
+
+  it('nach Cycle ang->sra bleibt sra erhalten trotz alter lastItems', async () => {
+    itemMetaRef.current = {
+      initiative: '12',
+      [KR_ZAO_SLOTS]: { [ZAO_LINK]: { kind: 'ang', marks: 1 } },
+      phases: { links: [{ id: ZAO_LINK, parentId: null, offset: 8 }] },
+    }
+    // Render-Stand VOR dem Patch (wie lastItems es festhaelt).
+    const lastItems = [
+      { id: 'hero-a', metadata: { [metaKey]: structuredClone(itemMetaRef.current) } },
+    ]
+
+    const ok = await patchKrCyclePrimarySlotKind('hero-a', 'sra', {
+      linkId: ZAO_LINK,
+      motherEndBypass: true,
+    })
+    expect(ok).toBe(true)
+
+    // "fresh" wie es ein getItems() nach dem Patch liefern wuerde.
+    const fresh = [
+      { id: 'hero-a', metadata: { [metaKey]: structuredClone(itemMetaRef.current) } },
+    ]
+    const merged = mergeDeferredRenderItems(fresh, lastItems)
+    const mergedSlot =
+      merged?.find((i) => i.id === 'hero-a')?.metadata?.[metaKey]?.[KR_ZAO_SLOTS]?.[
+        ZAO_LINK
+      ]
+    // Frischer Stand (sra) gewinnt — kein Revert auf ang.
+    expect(mergedSlot).toMatchObject({ kind: 'sra', marks: 1 })
   })
 })
 

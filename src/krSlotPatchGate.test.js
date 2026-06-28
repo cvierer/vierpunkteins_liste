@@ -20,18 +20,31 @@ describe('krSlotPatchGate', () => {
     registerKrSwitchSessionActiveGuard(() => false)
   })
 
-  it('mergeDeferredRenderItems bevorzugt lastItems pro Token', () => {
-    const pending = [
-      { id: 'a', metadata: { t: { krFirst: 'ang' } } },
-      { id: 'b', metadata: { t: { krFirst: 'sra' } } },
-    ]
+  it('mergeDeferredRenderItems bevorzugt frische Items, lastItems nur als Lueckenfueller', () => {
+    // pending = frisch von OBR (NEU). lastItems = letzter Render-Stand (ALT).
+    // Frische Daten muessen siegen; lastItems liefert nur Token, die in pending
+    // fehlen (Loecher beim Re-Sync) — sonst wuerde jeder Patch revertiert.
+    const pending = [{ id: 'a', metadata: { t: { krFirst: 'sra' } } }]
     const lastItems = [
-      { id: 'a', metadata: { t: { krFirst: 'lh' } } },
-      { id: 'c', metadata: { t: { krFirst: 'uo' } } },
+      { id: 'a', metadata: { t: { krFirst: 'ang' } } },
+      { id: 'b', metadata: { t: { krFirst: 'lh' } } },
     ]
     const merged = mergeDeferredRenderItems(pending, lastItems)
-    expect(merged?.[0]?.metadata?.t?.krFirst).toBe('lh')
-    expect(merged?.[1]?.metadata?.t?.krFirst).toBe('sra')
+    expect(merged?.find((i) => i.id === 'a')?.metadata?.t?.krFirst).toBe('sra')
+    expect(merged?.find((i) => i.id === 'b')?.metadata?.t?.krFirst).toBe('lh')
+  })
+
+  it('mergeDeferredRenderItems gibt pending unveraendert zurueck wenn keine Luecken', () => {
+    const pending = [
+      { id: 'a', metadata: { t: { krFirst: 'sra' } } },
+      { id: 'b', metadata: { t: { krFirst: 'uo' } } },
+    ]
+    const lastItems = [
+      { id: 'a', metadata: { t: { krFirst: 'ang' } } },
+      { id: 'b', metadata: { t: { krFirst: 'lh' } } },
+    ]
+    const merged = mergeDeferredRenderItems(pending, lastItems)
+    expect(merged).toBe(pending)
   })
 
   it('unterdrückt renderList während Patch', async () => {

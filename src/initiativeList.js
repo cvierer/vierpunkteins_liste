@@ -2015,8 +2015,15 @@ function appendKrPrimarySplitCell(
 
   const refreshLhAbwAfterKind = (metaForLh) => {
     if (!lhSyncOpts?.lhContainer) return
+    // Override frisch aus dem aktualisierten Meta lesen — sonst zeigt der
+    // 2.AO-L.H.-Container nach dem Cycle weiter den alten Slot-Kind (die
+    // mount-time-Closure-Variable zaoSlotOverride ist da bereits veraltet).
+    const freshZaoOverride =
+      isZaoSlot && linkIdForSwitch
+        ? { ...readZaoSlot(metaForLh, linkIdForSwitch), linkId: linkIdForSwitch }
+        : null
     syncLhAbwContainer(lhSyncOpts.lhContainer, ownerItemId, metaForLh, {
-      zaoSlotOverride: lhSyncOpts.zaoSlotOverride ?? zaoSlotOverride,
+      zaoSlotOverride: freshZaoOverride ?? lhSyncOpts.zaoSlotOverride ?? null,
       hideAbw: lhSyncOpts.hideAbw ?? false,
       canEdit,
       primaryLadungAllowed,
@@ -2090,11 +2097,23 @@ function appendKrPrimarySplitCell(
           const afterItems = await OBR.scene.items.getItems([ownerItemId])
           const afterMeta =
             afterItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? freshMeta
+          // phaseRowActive live aus dem aktuellen Nav-Zustand ableiten, statt den
+          // beim Mount eingefrorenen visualCtx zu nutzen — sonst bleiben die 2.AO-
+          // Icons nach dem Cycle schwach/grau bis zur naechsten Navigation.
+          const livePla = livePrimaryLadungAllowed(
+            ownerItemId,
+            isZaoSlot ? linkIdForSwitch : null
+          )
+          const liveVisualCtx = {
+            ...visualCtx,
+            primaryLadungAllowed: livePla,
+            phaseRowActive: livePla || boundaryAsActiveVisual,
+          }
           syncKrPrimaryShellKindVisual(
             switchEls,
             result.nextKind,
             afterMeta,
-            visualCtx
+            liveVisualCtx
           )
           refreshLhAbwAfterKind(afterMeta)
         } catch {
