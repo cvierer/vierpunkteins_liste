@@ -169,6 +169,15 @@ export function isConvertListAtRoundBoundary(ctx) {
 export function shouldHideEmptySecondActionRow(meta, link, ctx, ownerItemId = null) {
   if (isGmSync()) return false
   if (!ctx || !isRegularZaoRootLink(link)) return false
+  // Aktives Navigationsziel nie verstecken — sonst fehlt die markierbare Zeile
+  // und die Nav-Markierung verschwindet (z. B. in der L.H.-End-KR).
+  if (
+    ctx.rowActiveId &&
+    ownerItemId === ctx.rowActiveId &&
+    ctx.rowActivePhaseLinkId === link.id
+  ) {
+    return false
+  }
   if (!isRegularZaoUnset(meta, link)) return false
   if (isConvertListAtRoundBoundary(ctx)) return false
 

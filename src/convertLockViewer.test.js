@@ -302,6 +302,47 @@ describe('shouldHideEmptySecondActionRow', () => {
     ).toBe(true)
   })
 
+  it('aktives Navigationsziel nie ausblenden (auto)', () => {
+    const ctx = buildConvertListVisibilityCtx({
+      combatStarted: true,
+      roundIntroPending: false,
+      rowActiveId: 'hero-1',
+      rowActivePhaseLinkId: 'zao-1',
+      currentNavIni: 8,
+    })
+    expect(
+      shouldHideEmptySecondActionRow(
+        { convertAllowFirstPhase: true, initiative: 10 },
+        regLink,
+        ctx,
+        'hero-1'
+      )
+    ).toBe(false)
+  })
+
+  it('aktives Navigationsziel nie ausblenden (geschlossen)', () => {
+    vi.mocked(getRoomSettings).mockReturnValue({ convertLockState: 'closed' })
+    const ctx = buildConvertListVisibilityCtx({
+      combatStarted: true,
+      roundIntroPending: false,
+      rowActiveId: 'hero-1',
+      rowActivePhaseLinkId: 'zao-1',
+      currentNavIni: 8,
+    })
+    expect(
+      shouldHideEmptySecondActionRow({}, regLink, ctx, 'hero-1')
+    ).toBe(false)
+    // Anderes leeres 2.AO (nicht aktives Ziel) bleibt geschlossen ausgeblendet.
+    expect(
+      shouldHideEmptySecondActionRow(
+        {},
+        { id: 'zao-2', parentId: null },
+        ctx,
+        'hero-1'
+      )
+    ).toBe(true)
+  })
+
   it('auto + erste Phase: auf Mutter-Zug unset sichtbar', () => {
     const ctx = buildConvertListVisibilityCtx({
       combatStarted: true,

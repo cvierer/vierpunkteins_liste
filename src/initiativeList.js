@@ -149,6 +149,7 @@ import {
   visibleLhEndLinkForOwner,
   zaoRootKey,
 } from './phaseLinks.js'
+import { resolveNavHighlightSelector } from './navHighlightTarget.js'
 import {
   HERO_ACTION_POOL_ABW,
   HERO_ACTION_POOL_ANG,
@@ -670,34 +671,47 @@ function clearNavActiveRowClasses(li) {
 function syncListNavHighlightFromCombat(listRoot, combat = getCombat(), opts = {}) {
   if (!listRoot) return
   const scroll = opts.scroll !== false
+  const sel = resolveNavHighlightSelector(combat)
+  if (!sel) {
+    // Kampf nicht aktiv / kein Ziel: vorhandene Markierungen entfernen.
+    for (const li of listRoot.querySelectorAll('li.init-row--active')) {
+      clearNavActiveRowClasses(li)
+    }
+    return
+  }
+
+  let target = null
+  if (sel.kind === 'roundStart') {
+    target = listRoot.querySelector('li.init-row--round-start')
+  } else if (sel.kind === 'roundEnd') {
+    target = listRoot.querySelector('li.init-row--round-end')
+  } else if (sel.kind === 'phase') {
+    // Fallback-Kette: exakte Phasenzeile -> irgendeine Phasenzeile des Owners
+    // -> Token-Zeile des Owners. So bleibt die Navigation in der L.H.-End-KR
+    // immer sichtbar, auch wenn die exakte 2.AO-Zeile gerade neu gerendert wird.
+    target =
+      listRoot.querySelector(
+        `li.init-row--phase[data-phase-owner-id="${CSS.escape(sel.activeId)}"][data-phase-link-id="${CSS.escape(sel.phaseId)}"]`
+      ) ||
+      listRoot.querySelector(
+        `li.init-row--phase[data-phase-owner-id="${CSS.escape(sel.activeId)}"]`
+      ) ||
+      listRoot.querySelector(
+        `li.init-row[data-item-id="${CSS.escape(sel.activeId)}"]`
+      )
+  } else if (sel.kind === 'token') {
+    target = listRoot.querySelector(
+      `li.init-row[data-item-id="${CSS.escape(sel.activeId)}"]`
+    )
+  }
+
+  // Erst NACH erfolgreicher Aufloesung umschalten: findet sich (transient) kein
+  // Ziel, bleibt die bisherige Markierung erhalten, bis der erzwungene
+  // Re-Render sie sauber neu setzt — kein blanker Zwischenzustand.
+  if (!target) return
   for (const li of listRoot.querySelectorAll('li.init-row--active')) {
     clearNavActiveRowClasses(li)
   }
-  if (!combat?.started) return
-
-  const activeId =
-    typeof combat.currentItemId === 'string' ? combat.currentItemId : null
-  const phaseId =
-    typeof combat.currentPhaseLinkId === 'string'
-      ? combat.currentPhaseLinkId
-      : null
-
-  let target = null
-  if (activeId === ROUND_START_STEP_ID && !phaseId) {
-    target = listRoot.querySelector('li.init-row--round-start')
-  } else if (activeId === ROUND_END_STEP_ID && !phaseId) {
-    target = listRoot.querySelector('li.init-row--round-end')
-  } else if (activeId && phaseId) {
-    target = listRoot.querySelector(
-      `li.init-row--phase[data-phase-owner-id="${CSS.escape(activeId)}"][data-phase-link-id="${CSS.escape(phaseId)}"]`
-    )
-  } else if (activeId) {
-    target = listRoot.querySelector(
-      `li.init-row[data-item-id="${CSS.escape(activeId)}"]`
-    )
-  }
-
-  if (!target) return
   applyNavActiveRowClasses(target, combat)
   if (scroll) {
     target.scrollIntoView({
