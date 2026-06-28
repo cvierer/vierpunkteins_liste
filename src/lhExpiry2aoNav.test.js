@@ -559,7 +559,7 @@ describe('patchKrCyclePrimarySlotKind: 2.AO-Transfer meldet echten Erfolg (kein 
     updateItems.mockClear()
   })
 
-  it('regulaeres uo -> ang OHNE Backing-Schild: return false, Slot bleibt uo', async () => {
+  it('regulaeres uo -> ang OHNE Backing-Schild: wandelt trotzdem um (nie auf leer haengend)', async () => {
     itemMetaRef.current = {
       initiative: '12',
       // krAbw:1 == 0 Markierungen (leer) -> kein Transfer-Mark vorhanden.
@@ -570,12 +570,13 @@ describe('patchKrCyclePrimarySlotKind: 2.AO-Transfer meldet echten Erfolg (kein 
     const ok = await patchKrCyclePrimarySlotKind('hero-a', 'ang', {
       linkId: 'zao-x',
     })
-    expect(ok).toBe(false)
+    expect(ok).toBe(true)
     expect(itemMetaRef.current[KR_ZAO_SLOTS]['zao-x']).toMatchObject({
-      kind: 'uo',
-      marks: 0,
-      lodgedAbw: true,
+      kind: 'ang',
+      marks: 1,
     })
+    // Ohne vorhandene Marke bleibt KR_ABW unveraendert (kein negativer Zaehler).
+    expect(itemMetaRef.current['krAbw']).toBe(1)
   })
 
   it('regulaeres uo -> ang MIT Backing-Schild: return true, Slot wird ang', async () => {

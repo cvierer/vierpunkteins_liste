@@ -1456,27 +1456,33 @@ export async function patchKrTransferAbwToZaoPrimary(
   const slot = readZaoSlots(meta)[linkId]
   if (!slot?.lodgedAbw || slot.marks !== 0) return false
 
+  // Eingelagertes Schild zurueck auf Primaer: liegt eine Abwehr-Marke vor, wird
+  // sie verbraucht. Fehlt die Marke (z. B. uo/lodgedAbw-Slot ohne gebuchtes
+  // Backing-Schild nach L.H.-Ende, oder Abwehr-Pool=0), wird TROTZDEM
+  // umgewandelt — sonst bliebe das 2.AO dauerhaft auf "leer" haengen. Das
+  // eingelagerte (nicht in KR_ABW gezaehlte) Schild wird dann einfach
+  // freigegeben. Garantiert: ein regulaeres leeres 2.AO ist immer umwandelbar.
   const abw = normalizeKrDigit(meta[KR_ABW])
-  if (!krTransferMarkPresent(abw)) return false
-  const nextAbw = consumeOneChargeValue(abw)
-  if (nextAbw === abw) return false
+  const nextAbw = krTransferMarkPresent(abw) ? consumeOneChargeValue(abw) : abw
 
+  let converted = false
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
-      m[KR_ABW] = nextAbw
       const s = readZaoSlots(m)
       const cur = s[linkId]
       if (!cur?.lodgedAbw || cur.marks !== 0) continue
+      m[KR_ABW] = nextAbw
       const kind =
         targetKind === 'sra' || targetKind === 'lh' ? targetKind : 'ang'
       s[linkId] = { kind, marks: 1 }
       m[KR_ZAO_SLOTS] = s
       syncReactionShieldForDualAng(m)
+      converted = true
     }
   })
-  return true
+  return converted
 }
 
 /**
