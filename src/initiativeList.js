@@ -150,7 +150,8 @@ import {
   zaoRootKey,
 } from './phaseLinks.js'
 import { resolveNavHighlightSelector } from './navHighlightTarget.js'
-import { resolveActivePhaseLinkId } from './navActivePhaseLink.js'
+import { resolveActivePhaseLinkId, setNavStepsCache } from './navActivePhaseLink.js'
+import { mergeActionStampsIntoMerged } from './actionStampMerge.js'
 import {
   HERO_ACTION_POOL_ABW,
   HERO_ACTION_POOL_ANG,
@@ -1053,32 +1054,6 @@ function syncListNavFromCombat(listRoot, items, opts = {}) {
   syncKrFaStampGatesInList(listRoot, items)
 }
 
-function matchesMergedEntryActive(e, rowActiveId, rowActivePhaseLinkId) {
-  if (!rowActiveId) return false
-  if (e.kind === 'token') {
-    return e.row.id === rowActiveId && !rowActivePhaseLinkId
-  }
-  if (e.kind === 'roundStart') {
-    return rowActiveId === ROUND_START_STEP_ID && !rowActivePhaseLinkId
-  }
-  if (e.kind === 'roundEnd') {
-    return rowActiveId === ROUND_END_STEP_ID && !rowActivePhaseLinkId
-  }
-  if (e.kind === 'lhDone') {
-    return (
-      e.ownerId === rowActiveId &&
-      rowActivePhaseLinkId === LH_DONE_STEP_ID
-    )
-  }
-  if (e.kind === 'phase') {
-    return (
-      e.ownerId === rowActiveId &&
-      e.link?.id === rowActivePhaseLinkId
-    )
-  }
-  return false
-}
-
 /** @param {'down' | 'up'} arrowDir */
 function createRoundRowBulkIniButton(arrowDir) {
   const bulkIniBtn = document.createElement('button')
@@ -1168,42 +1143,6 @@ function convertAnnounceModeFromHeroMeta(m) {
   if (m.convertAnytimeEnabled) return 'entireRound'
   if (m.convertAllowFirstPhase) return 'firstPhase'
   return 'none'
-}
-
-function mergeActionStampsIntoMerged(merged, stampEntries) {
-  const working = [...merged]
-  for (const stamp of stampEntries) {
-    const ar =
-      typeof stamp.anchorRowId === 'string' ? stamp.anchorRowId : null
-    const apl =
-      typeof stamp.anchorPhaseLinkId === 'string'
-        ? stamp.anchorPhaseLinkId
-        : null
-    let matchIdx = -1
-    if (ar != null) {
-      matchIdx = working.findIndex((e) =>
-        matchesMergedEntryActive(e, ar, apl)
-      )
-    }
-    if (matchIdx < 0) {
-      matchIdx = working.findIndex(
-        (e) => e.kind === 'token' && e.row.id === stamp.itemId
-      )
-    }
-    if (matchIdx < 0) {
-      matchIdx = working.findIndex((e) => e.kind === 'token')
-    }
-    if (matchIdx < 0) continue
-    let pos = matchIdx + 1
-    while (
-      pos < working.length &&
-      working[pos].kind === 'actionStamp'
-    ) {
-      pos++
-    }
-    working.splice(pos, 0, { kind: 'actionStamp', stamp })
-  }
-  return working
 }
 
 /**
@@ -7628,6 +7567,9 @@ function layoutStampPanels(listRoot) {
       combatRoundForMerged,
       null
     )
+    // Aktuelle Schritte cachen, damit der Stempel-Anker veraltete Phase-Link-IDs
+    // (UUID-Churn der ephemeren 2.AO-Wurzel) gegen die sichtbaren Zeilen aufloesen kann.
+    setNavStepsCache(stepsForNav)
     // Veraltete currentPhaseLinkId (UUID-Churn der ephemeren 2.AO-Wurzel) gegen
     // die aktuellen Schritte aufloesen, damit navigationMatchesRow trifft und das
     // 2.AO-L.H.-Feld beschreibbar bleibt (analog Highlight-Fallback).

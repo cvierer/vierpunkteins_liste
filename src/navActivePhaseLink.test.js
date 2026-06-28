@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { resolveActivePhaseLinkId } from './navActivePhaseLink.js'
+import {
+  getNavStepsCache,
+  resolveActivePhaseLinkId,
+  setNavStepsCache,
+} from './navActivePhaseLink.js'
 
 const phaseStep = (ownerId, linkId) => ({ kind: 'phase', ownerId, linkId, sub: 'action' })
 const tokenStep = (ownerId) => ({ kind: 'token', ownerId, sub: 'action' })
@@ -78,5 +82,22 @@ describe('resolveActivePhaseLinkId', () => {
         [phaseStep('hero-a', 'zao-1')]
       )
     ).toBe('zao-1')
+  })
+})
+
+describe('NavStepsCache', () => {
+  it('Default null, set/get funktioniert, Reset auf null', () => {
+    setNavStepsCache(null)
+    expect(getNavStepsCache()).toBeNull()
+    const steps = [phaseStep('hero-a', 'zao-1')]
+    setNavStepsCache(steps)
+    expect(getNavStepsCache()).toBe(steps)
+    setNavStepsCache(undefined)
+    expect(getNavStepsCache()).toBeNull()
+  })
+
+  it('Nicht-Array wird zu null normalisiert', () => {
+    setNavStepsCache(/** @type {any} */ ('nope'))
+    expect(getNavStepsCache()).toBeNull()
   })
 })

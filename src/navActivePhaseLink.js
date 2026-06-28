@@ -3,6 +3,26 @@
  */
 
 /**
+ * Modul-Cache der zuletzt gerenderten Navigationsschritte. Wird in `renderList`
+ * gesetzt und z. B. vom Stempel-Anker genutzt, um eine veraltete
+ * `currentPhaseLinkId` (UUID-Churn der ephemeren 2.AO-Wurzel) gegen die aktuell
+ * sichtbaren Schritte aufzuloesen.
+ *
+ * @type {CombatTurnStep[] | null}
+ */
+let cachedNavSteps = null
+
+/** @param {CombatTurnStep[] | null | undefined} steps */
+export function setNavStepsCache(steps) {
+  cachedNavSteps = Array.isArray(steps) ? steps : null
+}
+
+/** @returns {CombatTurnStep[] | null} */
+export function getNavStepsCache() {
+  return cachedNavSteps
+}
+
+/**
  * Loest eine evtl. veraltete `currentPhaseLinkId` gegen die aktuellen
  * Navigationsschritte auf. Findet sich die exakte Owner+Link-Phase unter den
  * Schritten, bleibt die ID unveraendert. Sonst (Ghost-ID nach UUID-Churn der

@@ -1,5 +1,9 @@
 import { getCombat } from './combatRoom.js'
 import { ROUND_END_STEP_ID, ROUND_START_STEP_ID } from './combatStepIds.js'
+import {
+  getNavStepsCache,
+  resolveActivePhaseLinkId,
+} from './navActivePhaseLink.js'
 
 /**
  * Abwehr/Parade stempelbar: Kampf läuft, kein Runden-Intro, nicht an KR-Grenze.
@@ -37,7 +41,9 @@ export function liveAbwStampAnchor(ownerItemId, combat = null) {
   const c = combat ?? getCombat()
   const rowActiveId =
     typeof c?.currentItemId === 'string' ? c.currentItemId : ownerItemId
-  const phaseLinkId =
-    typeof c?.currentPhaseLinkId === 'string' ? c.currentPhaseLinkId : null
+  // Veraltete Phase-Link-ID (UUID-Churn der ephemeren 2.AO-Wurzel) gegen die
+  // aktuell gerenderten Schritte aufloesen, damit der Stempel an der sichtbaren
+  // 2.AO-Zeile ankert statt auf die Mutter-Zeile zurueckzufallen.
+  const phaseLinkId = resolveActivePhaseLinkId(c, getNavStepsCache())
   return { rowId: rowActiveId, phaseLinkId }
 }
