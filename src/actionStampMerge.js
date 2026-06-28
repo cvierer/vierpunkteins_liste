@@ -1,5 +1,6 @@
 import { ROUND_END_STEP_ID, ROUND_START_STEP_ID } from './combatStepIds.js'
 import { LH_DONE_STEP_ID } from './phaseLinks.js'
+import { resolveActivePhaseLinkId } from './navActivePhaseLink.js'
 
 /**
  * Stabile Signatur der Raum-Action-Stempel (Reihenfolge-/Anker-sensitiv).
@@ -21,6 +22,41 @@ export function actionStampsSignature(stamps) {
         }`
     )
     .join('|')
+}
+
+/**
+ * Normalisiert die `anchorPhaseLinkId` jedes Stempels gegen die aktuell
+ * gerenderten Navigationsschritte. Waehrend einer L.H. wechselt die ephemere
+ * 2.AO-Wurzel pro Render ihre UUID, wodurch die beim Stempeln gespeicherte
+ * `anchorPhaseLinkId` zur Ghost-ID wird. Ohne Normalisierung loest
+ * `mergeActionStampsIntoMerged` den Anker je Frame unterschiedlich auf (mal
+ * Owner-Phasenzeile, mal Mutter-/Token-Zeile) -> Stempel flackert ("instabil").
+ *
+ * `resolveActivePhaseLinkId` snappt eine veraltete Phase-Link-ID auf die
+ * aktuell sichtbare Phasenzeile desselben Owners; eine noch gueltige ID bleibt
+ * unveraendert. Damit trifft Fallback 1 (exakte Owner+Phase) jeden Frame
+ * dieselbe sichtbare Zeile. Rein, ohne DOM.
+ *
+ * @param {any[]} stampEntries
+ * @param {import('./navActivePhaseLink.js').CombatTurnStep[] | null | undefined} stepsForNav
+ * @returns {any[]}
+ */
+export function normalizeStampEntryAnchors(stampEntries, stepsForNav) {
+  if (!Array.isArray(stampEntries)) return []
+  return stampEntries.map((stamp) => {
+    const ar = typeof stamp?.anchorRowId === 'string' ? stamp.anchorRowId : null
+    const apl =
+      typeof stamp?.anchorPhaseLinkId === 'string'
+        ? stamp.anchorPhaseLinkId
+        : null
+    if (ar == null || apl == null) return stamp
+    const resolved = resolveActivePhaseLinkId(
+      { currentItemId: ar, currentPhaseLinkId: apl },
+      stepsForNav
+    )
+    if (resolved === apl) return stamp
+    return { ...stamp, anchorPhaseLinkId: resolved }
+  })
 }
 
 /**

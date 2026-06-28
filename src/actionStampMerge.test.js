@@ -3,6 +3,7 @@ import {
   actionStampsSignature,
   matchesMergedEntryActive,
   mergeActionStampsIntoMerged,
+  normalizeStampEntryAnchors,
 } from './actionStampMerge.js'
 
 const tokenRow = (id) => ({ kind: 'token', row: { id } })
@@ -142,6 +143,59 @@ describe('mergeActionStampsIntoMerged', () => {
     const out = mergeActionStampsIntoMerged(merged, stamps)
     const bIdx = out.findIndex((e) => e.kind === 'token' && e.row.id === 'hero-b')
     expect(out[bIdx + 1].kind).toBe('actionStamp')
+  })
+})
+
+describe('normalizeStampEntryAnchors', () => {
+  const phaseStep = (ownerId, linkId) => ({ kind: 'phase', ownerId, linkId })
+  const stamp = (over = {}) => ({
+    id: 's1',
+    itemId: 'hero-a',
+    field: 'krAbw',
+    anchorRowId: 'hero-a',
+    anchorPhaseLinkId: 'zao-stale',
+    ...over,
+  })
+
+  it('veraltete anchorPhaseLinkId wird auf die aktuelle Owner-Phasenzeile gesnappt', () => {
+    const steps = [phaseStep('hero-a', 'zao-new')]
+    const out = normalizeStampEntryAnchors([stamp()], steps)
+    expect(out[0].anchorPhaseLinkId).toBe('zao-new')
+  })
+
+  it('noch gueltige anchorPhaseLinkId bleibt unveraendert (gleiche Referenz)', () => {
+    const steps = [phaseStep('hero-a', 'zao-1')]
+    const original = stamp({ anchorPhaseLinkId: 'zao-1' })
+    const out = normalizeStampEntryAnchors([original], steps)
+    expect(out[0]).toBe(original)
+  })
+
+  it('Mutter-Stempel (anchorPhaseLinkId null) bleibt unveraendert', () => {
+    const steps = [phaseStep('hero-a', 'zao-1')]
+    const original = stamp({ anchorPhaseLinkId: null })
+    const out = normalizeStampEntryAnchors([original], steps)
+    expect(out[0]).toBe(original)
+  })
+
+  it('ohne Owner-Phasenzeile bleibt die Ghost-ID erhalten (Token-Fallback im Merge)', () => {
+    const steps = [phaseStep('hero-b', 'zao-x')]
+    const out = normalizeStampEntryAnchors([stamp()], steps)
+    expect(out[0].anchorPhaseLinkId).toBe('zao-stale')
+  })
+
+  it('nach Normalisierung trifft der Merge die umbenannte Phasenzeile deterministisch (Fallback 1)', () => {
+    const steps = [phaseStep('hero-a', 'zao-new')]
+    const normalized = normalizeStampEntryAnchors([stamp()], steps)
+    const merged = [tokenRow('hero-a'), phaseRow('hero-a', 'zao-new')]
+    const out = mergeActionStampsIntoMerged(merged, normalized)
+    const stampIdx = out.findIndex((e) => e.kind === 'actionStamp')
+    const phaseIdx = out.findIndex((e) => e.kind === 'phase')
+    expect(stampIdx).toBe(phaseIdx + 1)
+  })
+
+  it('nicht-Array -> leeres Array', () => {
+    expect(normalizeStampEntryAnchors(null, [])).toEqual([])
+    expect(normalizeStampEntryAnchors(undefined, [])).toEqual([])
   })
 })
 

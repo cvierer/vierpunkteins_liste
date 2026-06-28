@@ -154,6 +154,7 @@ import { resolveActivePhaseLinkId, setNavStepsCache } from './navActivePhaseLink
 import {
   actionStampsSignature,
   mergeActionStampsIntoMerged,
+  normalizeStampEntryAnchors,
 } from './actionStampMerge.js'
 import {
   HERO_ACTION_POOL_ABW,
@@ -7613,9 +7614,17 @@ function layoutStampPanels(listRoot) {
     const stampEntries = Array.isArray(actionStamps?.entries)
       ? actionStamps.entries
       : []
+    // Stempel-Anker gegen die aktuell sichtbaren Schritte normalisieren: eine
+    // durch L.H.-bedingten UUID-Churn der ephemeren 2.AO-Wurzel veraltete
+    // anchorPhaseLinkId wird auf die aktuelle Owner-Phasenzeile gesnappt, damit
+    // der Merge jeden Frame dieselbe Zeile trifft (kein Flackern).
+    const normalizedStampEntries = normalizeStampEntryAnchors(
+      stampEntries,
+      stepsForNav
+    )
     const mergedWithStamps =
-      stampEntries.length > 0 && getShowActionStamps()
-        ? mergeActionStampsIntoMerged(merged, stampEntries)
+      normalizedStampEntries.length > 0 && getShowActionStamps()
+        ? mergeActionStampsIntoMerged(merged, normalizedStampEntries)
         : merged
 
     const iniSwapDiscPairs =
