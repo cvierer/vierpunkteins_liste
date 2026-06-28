@@ -1838,15 +1838,14 @@ export async function patchKrCounterByDelta(itemId, field, delta, options = {}) 
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return false
   migrateHeroExtraCountFields(meta)
-  // Laengerfristige Handlung laeuft und endet NICHT in dieser KR:
-  // Ang/SRA/Schild/Parade gesperrt; FA und L.H.-Action selbst bleiben frei.
-  // In der End-KR werden alle Felder freigegeben (Held kann weiterkaempfen).
+  // Laengerfristige Handlung laeuft und endet NICHT in dieser KR: nur echte
+  // AKTIONEN (Ang/S.R.A.) sind gesperrt. Abwehr-Schild, Parade und Freie
+  // Aktion sind REAKTIONEN und bleiben immer frei stempelbar — sonst blieben
+  // Schilde unsichtbar, sobald der Held eine L.H. hat. In der End-KR werden
+  // ohnehin alle Felder freigegeben (Held kann weiterkaempfen).
   if (
     isLhLockingActions(meta, lhLockRoundFromCombat()) &&
-    (field === KR_ANG ||
-      field === KR_SRA ||
-      field === KR_ABW ||
-      isParadeExtraField)
+    (field === KR_ANG || field === KR_SRA)
   ) {
     return false
   }
@@ -2202,7 +2201,8 @@ export async function patchKrStampAbwFromCharge(itemId, options = {}) {
   if (!item || !canEditSceneItem(item)) return false
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   if (!meta) return false
-  if (isLhLockingActions(meta, lhLockRoundFromCombat())) return false
+  // Abwehr-Schild ist eine REAKTION, keine Aktion: eine laufende L.H. sperrt
+  // sie NICHT (nur Ang/S.R.A. werden gesperrt). Kein isLhLockingActions-Gate.
   const forcedAnchor = options?.stampAnchor
   const isReactionStamp =
     forcedAnchor != null && typeof forcedAnchor.rowId === 'string'

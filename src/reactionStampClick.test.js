@@ -102,18 +102,19 @@ describe('reactionStampClick', () => {
     })
   })
 
-  it('reactionAbwStampAllowed false bei L.H.-Lock', () => {
+  it('reactionAbwStampAllowed: Abwehr ist Reaktion und NICHT durch L.H. gesperrt', () => {
+    // Auch bei laufender L.H. (frueher gesperrt) bleibt das Schild stempelbar —
+    // L.H. sperrt nur Aktionen (Ang/S.R.A.), nicht Reaktionen.
     vi.mocked(isLhLockingActions).mockReturnValue(true)
-    expect(reactionAbwStampAllowed({})).toBe(false)
+    expect(reactionAbwStampAllowed({ lhMax: 3, lhRem: 2 })).toBe(true)
   })
 
-  it('reactionAbwStampAllowed: Held B ohne L.H. während Held A L.H. lock', () => {
-    vi.mocked(liveAbwCombatAllowsStamp).mockReturnValue(true)
-    vi.mocked(isLhLockingActions).mockImplementation((meta) =>
-      Boolean(meta?.lhRem)
-    )
+  it('reactionAbwStampAllowed nur durch Kampf-Gate (nicht durch L.H.) beschraenkt', () => {
+    vi.mocked(isLhLockingActions).mockReturnValue(true)
+    vi.mocked(liveAbwCombatAllowsStamp).mockReturnValue(false)
     expect(reactionAbwStampAllowed({ lhMax: 3, lhRem: 2 })).toBe(false)
-    expect(reactionAbwStampAllowed({ lhMax: 0, lhRem: 0 })).toBe(true)
+    vi.mocked(liveAbwCombatAllowsStamp).mockReturnValue(true)
+    expect(reactionAbwStampAllowed({ lhMax: 3, lhRem: 2 })).toBe(true)
   })
 
   it('reactionFaStampAllowed true bei L.H.-Lock (F.A. nicht gesperrt)', () => {

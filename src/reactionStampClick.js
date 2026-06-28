@@ -1,7 +1,6 @@
 import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem } from './editAccess.js'
 import { getActionStamps, getCombat } from './combatRoom.js'
-import { isLhLockingActions } from './lhMeta.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
 import {
   KR_ABW,
@@ -38,11 +37,13 @@ export function paradeLoadedSlotIndices(trackerMeta) {
  * @param {import('./combatRoom.js').ReturnType<typeof getCombat> | null | undefined} [combat]
  */
 export function reactionAbwStampAllowed(meta, combat = null) {
+  // Abwehr/Parade sind REAKTIONEN, keine Aktionen. Eine laufende L.H. sperrt
+  // nur Aktionen (Ang/S.R.A.), niemals Reaktionen oder Freie Aktionen. Daher
+  // KEIN isLhLockingActions-Gate mehr — sonst liessen sich Schilde nicht
+  // stempeln, sobald der Held eine L.H. hat (Stempel blieben unsichtbar).
+  void meta
   const c = combat ?? getCombat()
-  if (!liveAbwCombatAllowsStamp(c)) return false
-  const round =
-    c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
-  return !isLhLockingActions(meta, round)
+  return liveAbwCombatAllowsStamp(c)
 }
 
 /**
