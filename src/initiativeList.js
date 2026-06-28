@@ -150,6 +150,7 @@ import {
   zaoRootKey,
 } from './phaseLinks.js'
 import { resolveNavHighlightSelector } from './navHighlightTarget.js'
+import { resolveActivePhaseLinkId } from './navActivePhaseLink.js'
 import {
   HERO_ACTION_POOL_ABW,
   HERO_ACTION_POOL_ANG,
@@ -7603,7 +7604,6 @@ function layoutStampPanels(listRoot) {
       : null
 
     const rowActiveId = baseActiveId
-    const rowActivePhaseLinkId = baseActivePhaseLinkId
 
     const roundLabelInList =
       combat.started &&
@@ -7628,6 +7628,12 @@ function layoutStampPanels(listRoot) {
       combatRoundForMerged,
       null
     )
+    // Veraltete currentPhaseLinkId (UUID-Churn der ephemeren 2.AO-Wurzel) gegen
+    // die aktuellen Schritte aufloesen, damit navigationMatchesRow trifft und das
+    // 2.AO-L.H.-Feld beschreibbar bleibt (analog Highlight-Fallback).
+    const rowActivePhaseLinkId = combat.started
+      ? resolveActivePhaseLinkId(combat, stepsForNav)
+      : baseActivePhaseLinkId
     const combatStepIndex =
       combat.started && !combat.roundIntroPending
         ? findCombatStepIndex(stepsForNav, combat)
