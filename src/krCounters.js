@@ -74,6 +74,10 @@ import {
   syncReactionShieldForDualAng,
 } from './krZaoSlots.js'
 import {
+  reconcileShieldLedger,
+  shouldDebitLodgedShieldOnLeave,
+} from './shieldLedger.js'
+import {
   effectiveHeroPoolSplit,
   readHeroActionPoolMax,
   readHeroActionPoolPair,
@@ -402,6 +406,7 @@ export function restoreRegularSecondActionRootAfterLh(m) {
         slots[r.id] = newSlot
         m[KR_ZAO_SLOTS] = slots
         applyUoDefaultAbwChargeIfNeeded(m, newSlot)
+        reconcileShieldLedger(m)
         return true
       }
       return false
@@ -426,6 +431,7 @@ export function restoreRegularSecondActionRootAfterLh(m) {
   slots[newId] = newSlot
   m[KR_ZAO_SLOTS] = slots
   applyUoDefaultAbwChargeIfNeeded(m, newSlot)
+  reconcileShieldLedger(m)
   return true
 }
 
@@ -484,6 +490,7 @@ export function normalizeHeroKrStateAfterLhEnd(m) {
     changed = true
   }
   if (restoreRegularSecondActionRootAfterLh(m)) changed = true
+  if (reconcileShieldLedger(m)) changed = true
   return changed
 }
 
@@ -598,11 +605,21 @@ export async function patchZaoSlot(itemId, linkId, patch, opts = {}) {
         marks: nextMarks,
       })
       if (nextLodged) next.lodgedAbw = true
+      // Symmetrische Schild-Buchung: verlaesst der Slot einen eingelagerten
+      // (lodgedAbw / leeren) Zustand hin zu einer geladenen Aktion (z. B.
+      // L.H.-Start aus einem 2.AO heraus, uo->lh), das parkende Schild aus
+      // KR_ABW zurueckbuchen (sofern vorhanden). Verhindert Stray-Schilde.
+      if (shouldDebitLodgedShieldOnLeave(prev, nextKind, nextLodged)) {
+        const abw = normalizeKrDigit(m[KR_ABW])
+        if (krTransferMarkPresent(abw)) {
+          m[KR_ABW] = consumeOneChargeValue(abw)
+        }
+      }
       slots[linkId] = /** @type {{ kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }} */ (
         next
       )
       m[KR_ZAO_SLOTS] = slots
-      syncReactionShieldForDualAng(m)
+      reconcileShieldLedger(m)
     }
   })
   return true
@@ -893,9 +910,10 @@ export async function patchKrFirstSlotKind(itemId, kind, opts = {}) {
         m[newPF] = newCounter
       }
       m[KR_PRIMARY_LADUNG] = newCounter
-      if (kind === 'ang') {
-        syncReactionShieldForDualAng(m)
-      }
+      // Kanonische Schild-Invariante nach JEDEM Mutter-Kind-Wechsel (auch ->lh,
+      // ->sra): zwei Schwerter (Mutter + 2.AO) => Reihen-Schild 0. Frueher lief
+      // das nur fuer kind==='ang' und liess bei L.H. einen Rest-Schild stehen.
+      reconcileShieldLedger(m)
     }
   })
   return true
