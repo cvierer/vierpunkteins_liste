@@ -61,7 +61,12 @@ function flushDeferredRenderNow() {
 
 export function scheduleKrSlotPatchRenderFlush() {
   if (shouldBlockDeferredRenderFlush()) return
-  if (flushTimer != null) clearTimeout(flushTimer)
+  // Laeuft bereits ein Flush-Timer, NICHT zuruecksetzen: bei schnell
+  // aufeinanderfolgenden Suppress-Zyklen (z. B. wiederholte Primaer-Slot-
+  // Patches waehrend eine L.H. eingestellt ist) wuerde ein Reset den Timer
+  // immer wieder verschieben und den verzoegerten Render aushungern — dann
+  // bleiben Reaktions-/F.A.-Stempel unsichtbar bis zum naechsten Force-Render.
+  if (flushTimer != null) return
   flushTimer = setTimeout(() => {
     flushTimer = null
     flushDeferredRenderNow()

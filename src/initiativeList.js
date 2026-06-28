@@ -9093,9 +9093,46 @@ function layoutStampPanels(listRoot) {
     })
   })
 
+  // Signatur der Reaktions-/F.A.-relevanten Meta-Felder (Abwehr-Schild,
+  // Parade-Extra, freie Aktion). Aenderungen hieran muessen sofort sichtbar
+  // werden — auch waehrend einer Primaer-Slot-Switch-Suppression.
+  const reactionFaMetaSignature = (meta) => {
+    if (!meta || typeof meta !== 'object') return '0'
+    const abw = normalizeKrDigit(meta[KR_ABW])
+    const fa = meta[KR_FREE_ACTION] ?? 0
+    const parade = readKrParadeExtraSlots(meta).join(',')
+    const paradeChoice = meta.krExtraChoiceUsed ?? ''
+    return `${abw}|${fa}|${parade}|${paradeChoice}`
+  }
+
+  const reactionOrFaMetaChangedVsLast = (items) => {
+    if (!Array.isArray(items) || items.length === 0) return false
+    if (!Array.isArray(lastItems) || lastItems.length === 0) return false
+    const lastById = new Map(lastItems.map((i) => [i.id, i]))
+    for (const it of items) {
+      const prev = lastById.get(it.id)
+      if (!prev) continue
+      const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
+      const pm = prev?.metadata?.[TRACKER_ITEM_META_KEY]
+      if (reactionFaMetaSignature(m) !== reactionFaMetaSignature(pm)) {
+        return true
+      }
+    }
+    return false
+  }
+
   const safeRenderList = (items, opts = {}) => {
     const force = opts?.force === true
     if (!force && isKrSlotPatchSuppressingRenderList()) {
+      // Reaktions-/F.A.-Stempel (Schild/Parade/freie Aktion) sollen unabhaengig
+      // von der Aktions-Navigation per Klick gestempelt werden — auch solange
+      // irgendwo eine L.H. eingestellt ist und dadurch Suppress-Zyklen laufen.
+      // Solche Aenderungen daher sofort (force) repainten statt sie nur zu
+      // deferren; die Primaer-Slot-Switch-Suppression bleibt sonst unangetastet.
+      if (reactionOrFaMetaChangedVsLast(items)) {
+        enqueueRenderList(items)
+        return
+      }
       noteDeferredRenderListItems(items)
       return
     }
