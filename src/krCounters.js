@@ -74,6 +74,7 @@ import {
 } from './krZaoSlots.js'
 import {
   reconcileShieldLedger,
+  shieldLedgerCap,
   shouldDebitLodgedShieldOnLeave,
 } from './shieldLedger.js'
 import {
@@ -337,6 +338,18 @@ export function initKrActionPoolsFromHeroDefaults(m, { skipActionInit = false } 
   m[KR_ACTION_POOL_ABW_REM] = abw
 
   if (skipActionInit) {
+    // Laufende L.H.: Aktionsobjekte / 2.AO-Slots NICHT neu aufbauen (sie werden
+    // separat verwaltet). KR_ABW wurde aber zuvor durch den Reset
+    // (DEFAULT_TRACKER_KR_COUNTERS) auf 0 gesetzt — ohne Restore blieben die
+    // eingelagerten Schilde der persistierten uo/lodgedAbw-Slots unsichtbar
+    // (Symptom: "leer -> kein Schild", sobald eine L.H. laeuft).
+    //
+    // Hier laeuft ein KR-Reset, bei dem auch alle Reaktions-Stempel geleert
+    // werden; daher ist es korrekt, KR_ABW auf den vollen Schild-Deckel
+    // (shieldLedgerCap: Abw-Budget + Mutter-Schild - geladene 2.AO) zu setzen.
+    // Das ist KEIN verbotenes "Heraufsetzen im laufenden Zug" (kein verbrauchter
+    // Reaktions-Stempel wird zurueckgegeben), sondern der frische KR-Startwert.
+    m[KR_ABW] = chargeValueFromMarks(shieldLedgerCap(m))
     setIniNegPoolShiftAppliedFlagIfNegativeShift(m)
     return
   }
@@ -604,15 +617,23 @@ export async function patchZaoSlot(itemId, linkId, patch, opts = {}) {
         marks: nextMarks,
       })
       if (nextLodged) next.lodgedAbw = true
-      // Symmetrische Schild-Buchung: verlaesst der Slot einen eingelagerten
-      // (lodgedAbw / leeren) Zustand hin zu einer geladenen Aktion (z. B.
-      // L.H.-Start aus einem 2.AO heraus, uo->lh), das parkende Schild aus
-      // KR_ABW zurueckbuchen (sofern vorhanden). Verhindert Stray-Schilde.
+      // Symmetrische Schild-Buchung. Definition "eingelagert" exakt wie in
+      // shouldDebitLodgedShieldOnLeave, damit Soll/Haben spiegeln.
+      const prevWasLodged = prev?.kind === 'uo' || prev?.lodgedAbw === true
       if (shouldDebitLodgedShieldOnLeave(prev, nextKind, nextLodged)) {
+        // Verlaesst einen eingelagerten Zustand Richtung geladener Aktion
+        // (Schwert/S.R.A.): parkendes Schild aus KR_ABW zurueckbuchen.
         const abw = normalizeKrDigit(m[KR_ABW])
         if (krTransferMarkPresent(abw)) {
           m[KR_ABW] = consumeOneChargeValue(abw)
         }
+      } else if (!prevWasLodged && nextLodged) {
+        // Gegenbuchung: Slot wird NEU eingelagert (z. B. ang/lh -> uo). Genau
+        // EIN Schild gutschreiben. NUR beim echten Uebergang — niemals beim
+        // wiederholten Schreiben eines bereits eingelagerten Slots (sonst
+        // wuerde ein render-seitiger Re-Patch ein vom Reaktions-Stempel
+        // verbrauchtes KR_ABW faelschlich wieder auffuellen).
+        applyUoDefaultAbwChargeIfNeeded(m, next)
       }
       slots[linkId] = /** @type {{ kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }} */ (
         next
@@ -1225,6 +1246,13 @@ export async function patchEnsureZaoSlotForLink(itemId, linkId, phaseNum) {
       const slot = defaultZaoSlotForPhaseNum(phaseNum)
       s[linkId] = slot
       m[KR_ZAO_SLOTS] = s
+      // Neu angelegter Default-Slot ist fuer phaseNum>=2 ein eingelagertes
+      // Leer-Objekt (uo/lodgedAbw). Echter Neu-Uebergang (Slot war zuvor nicht
+      // vorhanden, siehe continue-Guard) -> genau ein Schild gutschreiben.
+      // applyUo ist self-guarded auf uo/lodgedAbw (Mutter-Default 'ang' bleibt
+      // unberuehrt). Danach Deckel erzwingen.
+      applyUoDefaultAbwChargeIfNeeded(m, slot)
+      reconcileShieldLedger(m)
       const p = normalizePhases(m.phases)
       if (p.links.length > 0) {
         m.phases = finalizePhasesWithOrderedRoots(m, {

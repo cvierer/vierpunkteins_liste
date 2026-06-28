@@ -542,16 +542,17 @@ function syncKrAbwShellStampGates(
 ) {
   if (shell.classList.contains('init-kr-abw-split-shell--mirror-link')) return
 
+  // Abwehr-Schild/Parade sind REAKTIONEN: eine laufende L.H. sperrt nur echte
+  // Aktionen (Ang/S.R.A.), niemals Reaktionen. Daher KEIN isLhLockingActions-
+  // Gate mehr (siehe V1296 im Backend) — sonst wirken Schilde unsichtbar/
+  // gesperrt, sobald irgendwo eine L.H. laeuft.
   const abwLadungAllowed = liveAbwCombatAllowsStamp()
-  const abwLhLocked = isLhLockingActions(trackerMeta, combatRound)
   const v = normalizeKrDigit(readKrAbw(trackerMeta))
   const shieldCount = abwShieldCount(v)
   const paradeLoadedSlots = paradeLoadedSlotIndices(trackerMeta)
   const paradeLoaded = paradeLoadedSlots.length > 0
-  const canStampAbwNow =
-    canEdit && !abwLhLocked && abwLadungAllowed && shieldCount >= 1
-  const canStampParadeNow =
-    canEdit && !abwLhLocked && abwLadungAllowed && paradeLoaded
+  const canStampAbwNow = canEdit && abwLadungAllowed && shieldCount >= 1
+  const canStampParadeNow = canEdit && abwLadungAllowed && paradeLoaded
   const canStampAnyShieldNow = canStampAbwNow || canStampParadeNow
 
   shell.classList.toggle(
@@ -562,23 +563,17 @@ function syncKrAbwShellStampGates(
     'init-kr-abw-split-shell--nav-blocked',
     Boolean(canEdit && v < 1 && !abwLadungAllowed && !boundaryAsActiveVisual)
   )
-  shell.classList.toggle('init-kr-abw-split-shell--lh-locked', abwLhLocked)
+  shell.classList.remove('init-kr-abw-split-shell--lh-locked')
 
   const exec = shell.querySelector('.init-kr-abw-split-shell__exec')
   if (!(exec instanceof HTMLButtonElement)) return
-  exec.classList.toggle('init-kr-abw-split-shell__exec--lh-locked', abwLhLocked)
+  exec.classList.remove('init-kr-abw-split-shell__exec--lh-locked')
   exec.disabled = !canEdit
   exec.setAttribute(
     'aria-disabled',
-    abwLhLocked || (!abwLadungAllowed && (shieldCount >= 1 || paradeLoaded))
-      ? 'true'
-      : 'false'
+    !abwLadungAllowed && (shieldCount >= 1 || paradeLoaded) ? 'true' : 'false'
   )
   exec.setAttribute('aria-label', abwLadungAria(v, abwLadungAllowed))
-  if (abwLhLocked) {
-    exec.title =
-      'Längerfristige Handlung läuft – Schild/Parade gesperrt; nur freie Aktionen erlaubt.'
-  }
 }
 
 /**
@@ -2679,11 +2674,9 @@ function appendKrAbwSplitCell(
   applySplitLadungVisual(shell, chargeRow, exec, v, 'abw')
   const abwMaxMarks = krAbwTransferMaxMarks()
   const abwCombatAllowsStamp = Boolean(combatStarted && !roundIntroPending)
-  const abwLhLocked = isLhLockingActions(trackerMeta, combatRound)
-  const canStampAbwNow =
-    canEdit && !abwLhLocked && abwLadungAllowed && shieldCount >= 1
-  const canStampParadeNow =
-    canEdit && !abwLhLocked && abwLadungAllowed && paradeLoaded
+  // Abwehr-Schild/Parade sind REAKTIONEN — keine L.H.-Sperre (vgl. V1296).
+  const canStampAbwNow = canEdit && abwLadungAllowed && shieldCount >= 1
+  const canStampParadeNow = canEdit && abwLadungAllowed && paradeLoaded
   const canStampAnyShieldNow = canStampAbwNow || canStampParadeNow
   shell.classList.toggle(
     'init-kr-abw-split-shell--stampable-now',
@@ -2735,18 +2728,12 @@ function appendKrAbwSplitCell(
       `Zusatz-Parade (schwarzes Schild): ${paradeLoadedSlots.length} verfügbar. Klick auf das schwarze Schild stempelt eine Ladung (nicht umwandelbar). Rechtsklick aufs schwarze Schild oder die Schildfläche hebt den letzten Parade-Stempel auf.`
   }
   exec.setAttribute('aria-label', abwLadungAria(v, abwLadungAllowed))
-  if (abwLhLocked) {
-    shell.classList.add('init-kr-abw-split-shell--lh-locked')
-    exec.classList.add('init-kr-abw-split-shell__exec--lh-locked')
-    exec.title =
-      'Längerfristige Handlung läuft – Schild/Parade gesperrt; nur freie Aktionen erlaubt.'
-  }
+  shell.classList.remove('init-kr-abw-split-shell--lh-locked')
+  exec.classList.remove('init-kr-abw-split-shell__exec--lh-locked')
   exec.disabled = !canEdit
   exec.setAttribute(
     'aria-disabled',
-    abwLhLocked || (!abwLadungAllowed && (shieldCount >= 1 || paradeLoaded))
-      ? 'true'
-      : 'false'
+    !abwLadungAllowed && (shieldCount >= 1 || paradeLoaded) ? 'true' : 'false'
   )
 
   chargeRow.appendChild(exec)
@@ -3060,9 +3047,9 @@ function appendKrCounterPair(
   // Abwehr-Reaktion: jeder Spieler an der eigenen Zeile, unabhängig vom Nav-Zug.
   const abwLadungAllowed = abwCombatAllowsStamp && abwNavAllowsStamp
   const faLadungAllowed = Boolean(combatStarted) && abwNavAllowsStamp
-  const reactionAbwAllowed =
-    liveAbwCombatAllowsStamp() &&
-    !isLhLockingActions(trackerMeta, combatRound)
+  // Abwehr-Reaktion ist nie durch L.H. gesperrt (nur Aktionen Ang/S.R.A. sind
+  // es, siehe V1296). Reine Kampf-/Nav-Gates entscheiden.
+  const reactionAbwAllowed = liveAbwCombatAllowsStamp()
   const reactionFaAllowed = liveFaLadungAllowed()
   // Optik (kein Mechanik-Effekt): an den KR-Grenzen — sowohl Beginn als auch
   // Ende der Kampfrunde — werden alle Icons in voller Stärke gezeigt; die
