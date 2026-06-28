@@ -152,6 +152,38 @@ export function hasChargedRegularZaoAng(meta) {
 }
 
 /**
+ * Anzahl regulaerer (kein heroExtra/lhEnd) 2.A.-Wurzeln, die eine geladene
+ * Aktion halten (`marks===1`, nicht `lodgedAbw`) — egal ob Schwert (ang),
+ * S.R.A. oder L.H. Jede solche Aktion hat genau ein Reaktions-Schild aus dem
+ * Speicher gezogen; wird fuer den budget-bewussten Schild-Deckel gebraucht.
+ *
+ * @param {unknown} meta
+ * @returns {number}
+ */
+export function chargedRegularZaoActionCount(meta) {
+  if (!meta || typeof meta !== 'object') return 0
+  const zaoSlotsMap = readZaoSlots(meta)
+  const phaseLinks = normalizePhases(meta.phases).links
+  const heroExtraLinkIds = new Set(
+    phaseLinks
+      .filter((l) => l.parentId === null && l.heroExtra)
+      .map((l) => l.id)
+  )
+  const lhEndLinkIds = new Set(
+    phaseLinks.filter((l) => l.lhEnd === true).map((l) => l.id)
+  )
+  let count = 0
+  for (const [linkId, s] of Object.entries(zaoSlotsMap)) {
+    if (!s || s.marks !== 1) continue
+    if (heroExtraLinkIds.has(linkId)) continue
+    if (lhEndLinkIds.has(linkId)) continue
+    if (s.lodgedAbw === true) continue
+    if (s.kind === 'ang' || s.kind === 'sra' || s.kind === 'lh') count++
+  }
+  return count
+}
+
+/**
  * Dual-Schwert (Mutter + 2.AO): Speicher-Schild ausblenden (kein Abw.-Transfer-Mark).
  *
  * @param {Record<string, unknown>} m

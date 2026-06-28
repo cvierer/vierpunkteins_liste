@@ -71,7 +71,6 @@ import {
   readEffectiveZaoSlotKind,
   readZaoSlot,
   readZaoSlots,
-  syncReactionShieldForDualAng,
 } from './krZaoSlots.js'
 import {
   reconcileShieldLedger,
@@ -1140,7 +1139,7 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
             }
             slots[linkId] = { kind: nextKind, marks: 1 }
             m[KR_ZAO_SLOTS] = slots
-            syncReactionShieldForDualAng(m)
+            reconcileShieldLedger(m)
           }
         }
       })
@@ -1192,7 +1191,7 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
           }
           syncKrPrimaryLadungFromPrimaryField(m)
           if (nextKind === 'ang') {
-            syncReactionShieldForDualAng(m)
+            reconcileShieldLedger(m)
           }
         }
       })
@@ -1508,7 +1507,7 @@ export async function patchKrTransferAbwToZaoPrimary(
         targetKind === 'sra' || targetKind === 'lh' ? targetKind : 'ang'
       s[linkId] = { kind, marks: 1 }
       m[KR_ZAO_SLOTS] = s
-      syncReactionShieldForDualAng(m)
+      reconcileShieldLedger(m)
       converted = true
     }
   })
@@ -1608,7 +1607,7 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
         delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
         syncKrPrimaryLadungFromPrimaryField(m)
         if (exitTransferKind === 'ang') {
-          syncReactionShieldForDualAng(m)
+          reconcileShieldLedger(m)
         }
       }
     })
@@ -1645,7 +1644,7 @@ export async function patchKrTransferAbwToPrimary(itemId, targetKind = null) {
         }
         delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
         syncKrPrimaryLadungFromPrimaryField(m)
-        syncReactionShieldForDualAng(m)
+        reconcileShieldLedger(m)
       }
     })
     return true

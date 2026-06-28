@@ -151,7 +151,10 @@ import {
 } from './phaseLinks.js'
 import { resolveNavHighlightSelector } from './navHighlightTarget.js'
 import { resolveActivePhaseLinkId, setNavStepsCache } from './navActivePhaseLink.js'
-import { mergeActionStampsIntoMerged } from './actionStampMerge.js'
+import {
+  actionStampsSignature,
+  mergeActionStampsIntoMerged,
+} from './actionStampMerge.js'
 import {
   HERO_ACTION_POOL_ABW,
   HERO_ACTION_POOL_ANG,
@@ -3800,6 +3803,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let renderListScheduleRaf = 0
   let renderListDrainWanted = false
   let lastItems = []
+  // Signatur der zuletzt gerenderten Raum-Action-Stempel (id/field/Anker). Wird
+  // in `renderList` beim tatsaechlichen Render aktualisiert und in
+  // `safeRenderList` gegen die aktuelle Signatur geprueft, damit Stempel auch
+  // unter L.H.-Render-Suppression sofort sichtbar werden.
+  let lastRenderedStampSignature = ''
 
   void hideDistanceRings()
 
@@ -7514,6 +7522,7 @@ function layoutStampPanels(listRoot) {
       deactivateDistanceProbe()
     }
     lastItems = listItems
+    lastRenderedStampSignature = actionStampsSignature(getActionStamps())
     const tokenRows = collectSortedParticipants(
       listItems,
       getIniTieOrder(),
@@ -9106,6 +9115,13 @@ function layoutStampPanels(listRoot) {
     return false
   }
 
+  // Hat sich die Raum-Action-Stempel-Signatur seit dem letzten Render geaendert?
+  // Stempel liegen in Raum-Meta; eine reine Anker-/Stempel-Aenderung schlaegt
+  // sich nicht in Item-Meta nieder und wuerde sonst unter Suppression nicht
+  // repaintet (Stempel blieben bis zum Aktions-Wechsel unsichtbar).
+  const actionStampSignatureChangedVsLast = () =>
+    actionStampsSignature(getActionStamps()) !== lastRenderedStampSignature
+
   const safeRenderList = (items, opts = {}) => {
     const force = opts?.force === true
     if (!force && isKrSlotPatchSuppressingRenderList()) {
@@ -9114,7 +9130,11 @@ function layoutStampPanels(listRoot) {
       // irgendwo eine L.H. eingestellt ist und dadurch Suppress-Zyklen laufen.
       // Solche Aenderungen daher sofort (force) repainten statt sie nur zu
       // deferren; die Primaer-Slot-Switch-Suppression bleibt sonst unangetastet.
-      if (reactionOrFaMetaChangedVsLast(items)) {
+      // Gilt fuer Item-Meta (Schild/F.A./Slots) UND Raum-Meta-Stempel (Anker).
+      if (
+        reactionOrFaMetaChangedVsLast(items) ||
+        actionStampSignatureChangedVsLast()
+      ) {
         enqueueRenderList(items)
         return
       }

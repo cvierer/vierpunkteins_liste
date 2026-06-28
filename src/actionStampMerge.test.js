@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  actionStampsSignature,
   matchesMergedEntryActive,
   mergeActionStampsIntoMerged,
 } from './actionStampMerge.js'
@@ -103,5 +104,84 @@ describe('mergeActionStampsIntoMerged', () => {
     ]
     const out = mergeActionStampsIntoMerged(merged, stamps)
     expect(out[1].kind).toBe('actionStamp')
+  })
+
+  it('L.H. entfernt 2.AO-Phasenzeile: Stempel landet auf der Token-Zeile von anchorRowId, NICHT von stamp.itemId', () => {
+    // Reaktion: anchorRowId = platzierender Held (hero-a), stamp.itemId =
+    // Verteidiger (hero-b). hero-a hat keine Phasenzeile mehr (L.H. hat sie
+    // entfernt). Der Stempel muss am Mutter-Token von hero-a bleiben.
+    const merged = [tokenRow('hero-a'), tokenRow('hero-b')]
+    const stamps = [
+      {
+        id: 's1',
+        itemId: 'hero-b',
+        field: 'krAbw',
+        anchorRowId: 'hero-a',
+        anchorPhaseLinkId: 'zao-gone',
+      },
+    ]
+    const out = mergeActionStampsIntoMerged(merged, stamps)
+    const aIdx = out.findIndex((e) => e.kind === 'token' && e.row.id === 'hero-a')
+    const bIdx = out.findIndex((e) => e.kind === 'token' && e.row.id === 'hero-b')
+    // Stempel direkt hinter hero-a, vor hero-b.
+    expect(out[aIdx + 1].kind).toBe('actionStamp')
+    expect(bIdx).toBe(aIdx + 2)
+  })
+
+  it('ohne anchorRowId-Token faellt der Stempel weiterhin auf stamp.itemId zurueck', () => {
+    const merged = [tokenRow('hero-b')]
+    const stamps = [
+      {
+        id: 's1',
+        itemId: 'hero-b',
+        field: 'krAbw',
+        anchorRowId: 'hero-a',
+        anchorPhaseLinkId: 'zao-gone',
+      },
+    ]
+    const out = mergeActionStampsIntoMerged(merged, stamps)
+    const bIdx = out.findIndex((e) => e.kind === 'token' && e.row.id === 'hero-b')
+    expect(out[bIdx + 1].kind).toBe('actionStamp')
+  })
+})
+
+describe('actionStampsSignature', () => {
+  const stamp = (over = {}) => ({
+    id: 's1',
+    field: 'krAbw',
+    anchorRowId: 'hero-a',
+    anchorPhaseLinkId: null,
+    ...over,
+  })
+
+  it('leer/ungueltig -> leere Signatur', () => {
+    expect(actionStampsSignature(null)).toBe('')
+    expect(actionStampsSignature(undefined)).toBe('')
+    expect(actionStampsSignature({})).toBe('')
+    expect(actionStampsSignature({ entries: [] })).toBe('')
+  })
+
+  it('gleiche Stempel -> gleiche Signatur', () => {
+    const a = { entries: [stamp()] }
+    const b = { entries: [stamp()] }
+    expect(actionStampsSignature(a)).toBe(actionStampsSignature(b))
+  })
+
+  it('geaenderter Anker -> geaenderte Signatur', () => {
+    const before = { entries: [stamp({ anchorPhaseLinkId: 'zao-1' })] }
+    const after = { entries: [stamp({ anchorPhaseLinkId: 'zao-2' })] }
+    expect(actionStampsSignature(before)).not.toBe(actionStampsSignature(after))
+  })
+
+  it('zusaetzlicher Stempel -> geaenderte Signatur', () => {
+    const before = { entries: [stamp()] }
+    const after = { entries: [stamp(), stamp({ id: 's2' })] }
+    expect(actionStampsSignature(before)).not.toBe(actionStampsSignature(after))
+  })
+
+  it('geaendertes Feld -> geaenderte Signatur', () => {
+    const before = { entries: [stamp({ field: 'krAbw' })] }
+    const after = { entries: [stamp({ field: 'krFreeAction' })] }
+    expect(actionStampsSignature(before)).not.toBe(actionStampsSignature(after))
   })
 })

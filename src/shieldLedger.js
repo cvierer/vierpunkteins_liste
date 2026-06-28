@@ -1,37 +1,61 @@
 // Zentrale Schild-Buchung (Renewal): EINE autoritative Reconciliation, die nach
-// JEDER Slot-/Kind-/L.H.-Mutation laufen soll. Sie erzwingt die kanonische
-// Invariante:
+// JEDER Slot-/Kind-/L.H.-Mutation laeuft und die Erhaltungs-Invariante erzwingt.
 //
-//   Mutter UND ein regulaeres 2.AO haben beide ein geladenes Schwert (Angriff)
-//   => das Reihen-Schild (KR_ABW) wird zwingend auf 0 gesetzt.
+// Modell (reine Erhaltung): Jeder leere Aktionsslot haelt genau 1 Schild, bis
+// zur konfigurierten Reaktionszahl (heroActionPoolAbw). Jede gesetzte Aktion an
+// einem regulaeren 2.AO holt genau 1 Schild aus dem Speicher; Leeren gibt 1
+// zurueck. Die Mutter kann ihr Primaerfeld ebenfalls zu einem Schild umwandeln.
 //
-// Frueher steckte diese Regel nur in `syncReactionShieldForDualAng` und wurde
-// von fast allen L.H.-Bahnen umgangen (Schild-Drift: "zwei Schwerter + Rest-
-// schild"). `reconcileShieldLedger` ist der einzige Einstiegspunkt, der ueberall
-// aufgerufen wird.
+// Daraus folgt der Obergrenzen-Deckel fuer den Reihen-Schild-Speicher KR_ABW:
 //
-// WICHTIG: Der Schild wird NICHT aus den Slots neu berechnet. Reaktions-Stempel
-// verbrauchen `KR_ABW` direkt (consumeOneChargeValue); ein Neuberechnen wuerde
-// verbrauchte Reaktionen zurueckgeben. Daher nur die Dual-Schwert-Nullung.
+//   cap = max(0, abwBudget + (Mutter haelt Schild ? 1 : 0) - #geladene_regulaere_2AO)
+//
+// "Zwei Schwerter => kein Schild" ist nur der Spezialfall mit abwBudget=1 und
+// einem 2.AO. Bei Helden mit mehr Aktionsslots bleiben die Schilde der uebrigen
+// leeren Slots erhalten (Fix der V1292-Regression, die KR_ABW bedingungslos auf
+// 0 zwang).
+//
+// WICHTIG: Der Schild wird NICHT aus den Slots neu berechnet und nie ERHOEHT.
+// Reaktions-Stempel verbrauchen KR_ABW direkt (consumeOneChargeValue); ein
+// Heraufsetzen wuerde verbrauchte Reaktionen zurueckgeben. Es wird ausschliesslich
+// nach unten gedeckelt (Drift abfangen).
 
-import { chargeValueFromMarks } from './krDigit.js'
+import {
+  chargeValueFromMarks,
+  marksFromChargeValue,
+} from './krDigit.js'
 import { KR_ABW } from './krMetaKeys.js'
-import { hasChargedRegularZaoAng, motherHasChargedAng } from './krZaoSlots.js'
+import { chargedRegularZaoActionCount } from './krZaoSlots.js'
+import { readKrFirstSlotKind } from './krPrimaryField.js'
+import { effectiveHeroPoolSplit } from './krActionPool.js'
 
 /**
- * Erzwingt die kanonische Schild-Invariante in-place.
+ * Obergrenze der Reihen-Schilde aus Budget + Mutter-Schild - geladene 2.AO.
+ *
+ * @param {Record<string, unknown>} m
+ * @returns {number}
+ */
+export function shieldLedgerCap(m) {
+  if (!m || typeof m !== 'object') return 0
+  const abwBudget = Math.max(0, Math.floor(Number(effectiveHeroPoolSplit(m).abw)) || 0)
+  const motherShield = readKrFirstSlotKind(m) === 'uo' ? 1 : 0
+  const zaoActions = chargedRegularZaoActionCount(m)
+  return Math.max(0, abwBudget + motherShield - zaoActions)
+}
+
+/**
+ * Erzwingt die Erhaltungs-Invariante in-place: deckelt KR_ABW auf `shieldLedgerCap`.
  *
  * @param {Record<string, unknown>} m Tracker-Metadaten (wird in-place geaendert)
- * @returns {boolean} true, wenn `KR_ABW` geaendert wurde
+ * @returns {boolean} true, wenn KR_ABW reduziert wurde
  */
 export function reconcileShieldLedger(m) {
   if (!m || typeof m !== 'object') return false
-  if (motherHasChargedAng(m) && hasChargedRegularZaoAng(m)) {
-    const next = chargeValueFromMarks(0)
-    if (m[KR_ABW] !== next) {
-      m[KR_ABW] = next
-      return true
-    }
+  const cap = shieldLedgerCap(m)
+  const curMarks = marksFromChargeValue(m[KR_ABW])
+  if (curMarks > cap) {
+    m[KR_ABW] = chargeValueFromMarks(cap)
+    return true
   }
   return false
 }

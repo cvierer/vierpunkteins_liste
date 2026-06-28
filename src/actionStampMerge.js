@@ -2,6 +2,28 @@ import { ROUND_END_STEP_ID, ROUND_START_STEP_ID } from './combatStepIds.js'
 import { LH_DONE_STEP_ID } from './phaseLinks.js'
 
 /**
+ * Stabile Signatur der Raum-Action-Stempel (Reihenfolge-/Anker-sensitiv).
+ * Aendert sich, sobald ein Stempel hinzukommt/verschwindet ODER seinen Anker
+ * (Zeile/Phase) wechselt — auch wenn dabei keine Item-Meta veraendert wurde.
+ * Dient `safeRenderList`, um Stempel auch waehrend einer L.H.-Render-Suppression
+ * sofort sichtbar zu machen (Stempel leben in Raum-Meta, nicht in Item-Meta).
+ *
+ * @param {{ entries?: Array<{ id?: unknown, field?: unknown, anchorRowId?: unknown, anchorPhaseLinkId?: unknown }> } | null | undefined} stamps
+ * @returns {string}
+ */
+export function actionStampsSignature(stamps) {
+  const entries = Array.isArray(stamps?.entries) ? stamps.entries : []
+  return entries
+    .map(
+      (e) =>
+        `${e?.id ?? ''}:${e?.field ?? ''}:${e?.anchorRowId ?? ''}:${
+          e?.anchorPhaseLinkId ?? ''
+        }`
+    )
+    .join('|')
+}
+
+/**
  * Trifft ein Merged-Listeneintrag die aktive Navigationsposition
  * (Owner + Phasen-Link-ID)? Rein, ohne DOM.
  *
@@ -36,10 +58,12 @@ export function matchesMergedEntryActive(e, rowActiveId, rowActivePhaseLinkId) {
  *   1) exakte Owner+Phase-Zeile,
  *   2) (bei gesetzter, aber nicht mehr existenter Phasen-Link-ID — UUID-Churn
  *      der ephemeren 2.AO-Wurzel) irgendeine Phasenzeile des Owners,
- *   3) Token-Zeile des Owners,
- *   4) erste Token-Zeile.
- * So bleiben Schild-/F.A.-Stempel an der sichtbaren 2.AO-Zeile statt auf die
- * Mutter-Zeile zu springen. Rein, ohne DOM.
+ *   3) Token-Zeile des Owners (anchorRowId) — greift auch, wenn eine laufende
+ *      L.H. die 2.AO-/Phasenzeile komplett aus der Liste entfernt hat,
+ *   4) Token-Zeile von `stamp.itemId` (bei Reaktionen der Verteidiger),
+ *   5) erste Token-Zeile.
+ * So bleiben Schild-/F.A.-Stempel an der platzierten Zeile statt auf die
+ * Verteidiger-/Mutter-Zeile zu springen. Rein, ohne DOM.
  *
  * @param {any[]} merged
  * @param {any[]} stampEntries
@@ -64,6 +88,16 @@ export function mergeActionStampsIntoMerged(merged, stampEntries) {
       // statt auf die Mutter-Zeile zu springen.
       matchIdx = working.findIndex(
         (e) => e.kind === 'phase' && e.ownerId === ar
+      )
+    }
+    if (matchIdx < 0 && ar != null) {
+      // Owner-Phasenzeile existiert gar nicht mehr (z. B. weil eine laufende
+      // L.H. die 2.AO-/Phasenzeile aus der Liste entfernt). Auf die TOKEN-Zeile
+      // des platzierenden Helden (anchorRowId) zuruckfallen, BEVOR auf
+      // stamp.itemId (bei Reaktionen der Verteidiger) ausgewichen wird — sonst
+      // verschwindet der Stempel von der Zeile, an der navigiert/platziert wurde.
+      matchIdx = working.findIndex(
+        (e) => e.kind === 'token' && e.row.id === ar
       )
     }
     if (matchIdx < 0) {
