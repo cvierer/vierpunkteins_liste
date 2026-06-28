@@ -1055,13 +1055,14 @@ export async function removeHeroExModsByBundleId(itemId, bundleId) {
  * @param {number} ownerIni
  * @param {number | null | undefined} currentRound
  * @param {number | null | undefined} currentNavIni
+ * @returns {Promise<boolean>} true, wenn Items mutiert wurden (sonst false)
  */
 export async function pruneExpiredMods(itemId, ownerIni, currentRound, currentNavIni) {
   const items = await OBR.scene.items.getItems([itemId])
   const item = items?.[0]
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
   const mods = readHeroExMods(meta)
-  if (mods.length === 0) return
+  if (mods.length === 0) return false
   const mech = readLhMechanics(meta)
   const keep = []
   let changed = false
@@ -1070,7 +1071,7 @@ export async function pruneExpiredMods(itemId, ownerIni, currentRound, currentNa
     if (r > 0) keep.push(m)
     else changed = true
   }
-  if (!changed) return
+  if (!changed) return false
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
@@ -1079,6 +1080,7 @@ export async function pruneExpiredMods(itemId, ownerIni, currentRound, currentNa
       else m[HERO_EX_MODS] = keep
     }
   })
+  return true
 }
 
 /**
@@ -1137,16 +1139,18 @@ function computeHeroExModsNavIniForPrune(items, tieOrderIds) {
  * @param {{
  *   currentRound: number | null | undefined,
  * }} ctx
+ * @returns {Promise<boolean>} true, wenn Items mutiert wurden (Re-Render noetig)
  */
 export async function runHeroExModsAfterCombatUpdate(items, tieOrderIds, ctx) {
-  if (!Array.isArray(items) || items.length === 0) return
+  if (!Array.isArray(items) || items.length === 0) return false
   let round = Number(ctx?.currentRound)
   if (!Number.isFinite(round)) {
     const c = getCombat()
     if (c?.started && Number.isFinite(Number(c.round))) round = Number(c.round)
   }
-  if (!Number.isFinite(round) || round < 1) return
+  if (!Number.isFinite(round) || round < 1) return false
   const navIni = computeHeroExModsNavIniForPrune(items, tieOrderIds) ?? undefined
+  let mutated = false
   for (const item of items) {
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
     if (!meta) continue
@@ -1155,9 +1159,12 @@ export async function runHeroExModsAfterCombatUpdate(items, tieOrderIds, ctx) {
     const ownerIni = readOwnerIniReferenceForMods(meta)
     if (ownerIni == null || !Number.isFinite(ownerIni)) continue
     try {
-      await pruneExpiredMods(item.id, ownerIni, round, navIni)
+      if (await pruneExpiredMods(item.id, ownerIni, round, navIni)) {
+        mutated = true
+      }
     } catch {
       /* nicht kritisch */
     }
   }
+  return mutated
 }

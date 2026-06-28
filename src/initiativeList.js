@@ -7265,6 +7265,25 @@ function buildStampSeg(stamp, items) {
 }
 
 /**
+// In-flight-Dedup fuer die Render-Zeit-"ensure slot"-Patches (L.H.-Mutter-Ende
+// / n.A.-Objekt). Waehrend einer L.H. rendert die Liste mehrfach mit demselben,
+// noch nicht propagierten Item-Stand und wuerde sonst denselben idempotenten
+// Slot-Patch mehrfach abschicken — jeder Patch loest ein scene.items.onChange
+// + volles Re-Render aus (Kaskade). Wir kollabieren gleiche, noch laufende
+// Patches auf genau einen; nach Aufloesung liefert onChange frische Items,
+// sodass der naechste Render den Patch ohnehin nicht mehr ausloest.
+const inFlightZaoEnsureKeys = new Set()
+function fireZaoEnsurePatchOnce(key, run) {
+  if (inFlightZaoEnsureKeys.has(key)) return
+  inFlightZaoEnsureKeys.add(key)
+  try {
+    Promise.resolve(run()).finally(() => inFlightZaoEnsureKeys.delete(key))
+  } catch {
+    inFlightZaoEnsureKeys.delete(key)
+  }
+}
+
+/**
  * Reservierte Reaktions-Stempel-Zelle rechts der INI-Spalte. Eigene Grid-Spalte
  * (kein absolutes Overlay), damit gestempelte Schilde die INI-Zahl nicht
  * überdecken. Maximal 4 Schilde pro Reihe (Wrap ab dem 5.); bei weniger als 4
@@ -8425,7 +8444,13 @@ function layoutStampPanels(listRoot) {
         if (isLhMotherEndNow && !rawZaoSlot) {
           rawZaoSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
           if (canEdit) {
-            void patchZaoSlot(ownerId, link.id, { kind: 'uo', marks: 0, lodgedAbw: true })
+            fireZaoEnsurePatchOnce(`uo|${ownerId}|${link.id}`, () =>
+              patchZaoSlot(ownerId, link.id, {
+                kind: 'uo',
+                marks: 0,
+                lodgedAbw: true,
+              })
+            )
           }
         }
 
@@ -8446,7 +8471,9 @@ function layoutStampPanels(listRoot) {
           !isLhMotherEndNow &&
           !readZaoSlot(ownerTrackerMeta || {}, link.id)
         ) {
-          void patchEnsureZaoSlotForLink(ownerId, link.id, zaoPhaseNum)
+          fireZaoEnsurePatchOnce(`ensure|${ownerId}|${link.id}`, () =>
+            patchEnsureZaoSlotForLink(ownerId, link.id, zaoPhaseNum)
+          )
         }
         // End-KR: das n.A.-Objekt (lhEnd) wird wieder ein regulaeres, voll
         // umwandelbares 2.AO. Persistenten krZaoSlots-Eintrag (kind 'lh',
@@ -8458,7 +8485,9 @@ function layoutStampPanels(listRoot) {
           !isLhLockingActions(ownerTrackerMeta, combatRoundForLhUi) &&
           !readZaoSlot(ownerTrackerMeta || {}, link.id)
         ) {
-          void patchZaoSlot(ownerId, link.id, { kind: 'lh', marks: 1 })
+          fireZaoEnsurePatchOnce(`lh|${ownerId}|${link.id}`, () =>
+            patchZaoSlot(ownerId, link.id, { kind: 'lh', marks: 1 })
+          )
         }
 
         let zaoBadgeUi = null
@@ -9162,39 +9191,59 @@ function layoutStampPanels(listRoot) {
         freshForSync = lastItems
       }
       syncListNavFromCombat(element, freshForSync)
-      if (freshForSync?.length) {
-        safeRenderList(freshForSync, { force: true })
-      }
 
-      let quickFresh = await OBR.scene.items.getItems()
-      if (!quickFresh?.length && lastItems?.length) {
-        quickFresh = lastItems
-      }
-      safeRenderList(quickFresh, { force: true })
-
+      // Runden-Marken-Purge VOR dem Render, damit der einzelne Navigations-
+      // Render den bereinigten Stand zeigt (purge schreibt nur lokalen
+      // Mark-Cache, loest selbst KEIN scene.items.onChange aus).
       const c = getCombat()
       const r =
         c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
       if (r != null) purgeKrMarksBeforeRound(r)
+
+      // Sofort EIN Render fuer schnelle Navigations-Rueckmeldung. Die frueher
+      // hier stehende zweite (quickFresh-)Render-Runde war ein reines Duplikat
+      // ohne zwischenzeitliche Mutation und wurde zugunsten der Performance
+      // entfernt.
+      if (freshForSync?.length) {
+        safeRenderList(freshForSync, { force: true })
+      }
+
       const items = await OBR.scene.items.getItems()
-      await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())
+      // Nur dann ein zweites (volles) Re-Render ausloesen, wenn die L.H.-/Mod-
+      // Nachbearbeitung tatsaechlich Items veraendert hat. Im haeufigen Fall
+      // (normale Navigation ohne L.H.-Ende/Mod-Ablauf) bleibt es bei genau
+      // EINEM Render pro Navigationsschritt statt drei.
+      let postChanged = false
+      try {
+        if (await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())) {
+          postChanged = true
+        }
+      } catch {
+        /* nicht kritisch */
+      }
       try {
         const cAfterLh = getCombat()
         const cr =
           cAfterLh?.started && Number.isFinite(Number(cAfterLh.round))
             ? Number(cAfterLh.round)
             : null
-        await runHeroExModsAfterCombatUpdate(items, getIniTieOrder(), {
-          currentRound: cr,
-        })
+        if (
+          await runHeroExModsAfterCombatUpdate(items, getIniTieOrder(), {
+            currentRound: cr,
+          })
+        ) {
+          postChanged = true
+        }
       } catch {
         /* nicht kritisch */
       }
-      let fresh = await OBR.scene.items.getItems()
-      if (!fresh?.length && lastItems?.length) {
-        fresh = lastItems
+      if (postChanged) {
+        let fresh = await OBR.scene.items.getItems()
+        if (!fresh?.length && lastItems?.length) {
+          fresh = lastItems
+        }
+        safeRenderList(fresh, { force: true })
       }
-      safeRenderList(fresh, { force: true })
     })()
   })
   onIniTieOrderChange(() => safeRenderList(lastItems))

@@ -298,6 +298,8 @@ export async function applyLhKrStartObjects(currentRound) {
  * Navigation strikt unter die berechnete End-INI faellt (Vorbei-Navigieren
  * ohne Stempel). Das n.A.-Objekt selbst bleibt sichtbar bis zum KR-Ende
  * (`expiresNextRound: true` regelt den Lifecycle bei der nächsten KR).
+ *
+ * @returns {Promise<boolean>} true, wenn Items mutiert wurden (Re-Render noetig)
  */
 export async function runLongHandlungAfterCombatUpdate(items, tieOrderIds) {
   // Re-entrant Calls aus der Notify-Kaskade verwerfen — sonst kaskadieren
@@ -306,11 +308,12 @@ export async function runLongHandlungAfterCombatUpdate(items, tieOrderIds) {
   // GM-Navigation tot).
   if (lhRunInFlight) {
     lhRunPendingArgs = { items, tieOrderIds }
-    return
+    return false
   }
   lhRunInFlight = true
+  let mutated = false
   try {
-    await runLongHandlungAfterCombatUpdateInner(items, tieOrderIds)
+    mutated = await runLongHandlungAfterCombatUpdateInner(items, tieOrderIds)
   } finally {
     lhRunInFlight = false
     if (lhRunPendingArgs) {
@@ -319,6 +322,7 @@ export async function runLongHandlungAfterCombatUpdate(items, tieOrderIds) {
       void runLongHandlungAfterCombatUpdate(pending.items, pending.tieOrderIds)
     }
   }
+  return mutated
 }
 
 async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
@@ -329,7 +333,7 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
 
   if (!curr.started || curr.roundIntroPending) {
     lhPrevCombat = combatSnapshot(curr)
-    return
+    return false
   }
 
   const rows = collectSortedParticipants(
@@ -341,12 +345,12 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
 
   if (currCtx.idx < 0 || !isGmSync()) {
     lhPrevCombat = combatSnapshot(curr)
-    return
+    return false
   }
 
   if (!prev || !prev.started) {
     lhPrevCombat = combatSnapshot(curr)
-    return
+    return false
   }
 
   const prevCtx = getCurrentStepContext(rows, items, tieOrderIds, prev)
@@ -424,8 +428,11 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
           normalizeHeroKrStateAfterLhEnd(m)
         }
       })
+      lhPrevCombat = combatSnapshot(curr)
+      return true
     }
   }
 
   lhPrevCombat = combatSnapshot(curr)
+  return false
 }
