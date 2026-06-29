@@ -191,6 +191,7 @@ import {
   patchKrStepPrimarySlotKind,
   resolveKrPrimarySlotKind,
   isKrPrimarySlotIniLocked,
+  cycleKrPrimarySlotKindRespectingLocks,
   patchEnsureZaoSlotForLink,
   patchZaoSlot,
   ensureParadeExtraShield,
@@ -2087,6 +2088,37 @@ function appendKrPrimarySplitCell(
   /** @param {'next' | 'prev'} dir */
   let switchQueueTail = Promise.resolve()
   const enqueuePrimarySwitch = async (dir) => {
+    // Optimistisches UI: Icon/Tooltip sofort auf das voraussichtliche Ziel-Kind
+    // setzen, BEVOR der OBR-Roundtrip laeuft — Umwandeln fuehlt sich dadurch
+    // deutlich schneller an. Rein visuelle Vorschau auf Basis des bereits
+    // angezeigten Kinds; der echte Patch (patchFn) bzw. das Failure-Rollback
+    // korrigieren jede Abweichung. Schild-/Stempel-Buchung bleibt unberuehrt.
+    // syncKrPrimaryShellKindVisual schreibt shell.dataset.krSlotKind, sodass
+    // schnelle Folge-Klicks korrekt weiterschalten.
+    try {
+      const shownKind =
+        /** @type {'ang'|'sra'|'lh'|'uo'} */ (shell.dataset.krSlotKind) ||
+        resolveKrPrimarySlotKind(trackerMeta, linkIdForSwitch)
+      const optimisticKind = cycleKrPrimarySlotKindRespectingLocks(
+        shownKind,
+        dir,
+        {
+          iniLocked: isKrPrimarySlotIniLocked(trackerMeta, linkIdForSwitch),
+          uoAllowed:
+            motherEndBypassForSwitch || isConvertAllowedLive(trackerMeta),
+        }
+      )
+      if (optimisticKind && optimisticKind !== shownKind) {
+        syncKrPrimaryShellKindVisual(
+          switchEls,
+          optimisticKind,
+          trackerMeta,
+          visualCtx
+        )
+      }
+    } catch {
+      /* Vorschau optional — bei Fehler still auf den echten Patch warten */
+    }
     const run = async () => {
       let freshMeta = trackerMeta
       try {

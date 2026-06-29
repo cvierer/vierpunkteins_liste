@@ -1234,8 +1234,9 @@ export async function patchKrCyclePrimarySlotKind(itemId, nextKind, opts = {}) {
  * @param {number} phaseNum Mutter = 1, erste Wurzel = 2, …
  */
 export async function patchEnsureZaoSlotForLink(itemId, linkId, phaseNum) {
-  const items = await OBR.scene.items.getItems()
-  const item = items.find((i) => i.id === itemId)
+  // Gezielter Fetch nur des betroffenen Items statt voller Szene-Scan.
+  const items = await OBR.scene.items.getItems([itemId])
+  const item = items?.[0]
   if (!item || !canEditSceneItem(item)) return
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
