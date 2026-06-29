@@ -173,6 +173,8 @@ export async function executeAbwStampClick(ownerItemId, opts = {}) {
 
   const inReactionStore = Boolean(opts.inReactionStore)
   const stampAnchor = reactionStampAnchor(ownerItemId, combat, inReactionStore)
+  // eslint-disable-next-line no-console
+  console.log('[STAMP-DEBUG] exec abw stampAnchor=', stampAnchor)
 
   if (opts.kind === 'parade' || opts.paradeSlot != null) {
     const slotIdx = opts.paradeSlot ?? 0
@@ -185,8 +187,13 @@ export async function executeAbwStampClick(ownerItemId, opts = {}) {
   }
 
   const v = normalizeKrDigit(readKrAbw(meta))
+  // eslint-disable-next-line no-console
+  console.log('[STAMP-DEBUG] exec abw shieldCount=', abwShieldCountFromKrValue(v), 'v=', v)
   if (abwShieldCountFromKrValue(v) < 1) return false
-  return patchKrStampAbwFromCharge(ownerItemId, { stampAnchor })
+  const patched = await patchKrStampAbwFromCharge(ownerItemId, { stampAnchor })
+  // eslint-disable-next-line no-console
+  console.log('[STAMP-DEBUG] exec abw patchKrStampAbwFromCharge=', patched)
+  return patched
 }
 
 /**
@@ -217,36 +224,73 @@ export async function executeFaStampClick(ownerItemId, delta, opts = {}) {
  * @returns {Promise<boolean>} true wenn behandelt
  */
 export async function handleReactionStampClick(event) {
+  // [STAMP-DEBUG V1301] temporäre Diagnose: zeigt, ob der Klick den Handler
+  // erreicht, welches Ziel aufgelöst wird und welches Gate ggf. blockt.
+  const dbgEl =
+    event.target && typeof (/** @type {any} */ (event.target).className) === 'string'
+      ? /** @type {any} */ (event.target).className
+      : (/** @type {any} */ (event.target)?.tagName ?? '?')
   const resolved = resolveReactionStampTarget(event.target)
+  // eslint-disable-next-line no-console
+  console.log('[STAMP-DEBUG] click target=', dbgEl, 'resolved=', resolved)
   if (!resolved) return false
 
   const combat = getCombat()
+  // eslint-disable-next-line no-console
+  console.log(
+    '[STAMP-DEBUG] combat started=', combat?.started,
+    'roundIntroPending=', combat?.roundIntroPending,
+    'currentItemId=', combat?.currentItemId
+  )
 
   if (resolved.kind === 'fa') {
     const item = await findSceneItemById(resolved.ownerItemId)
-    if (!item || !canEditSceneItem(item)) return false
+    if (!item || !canEditSceneItem(item)) {
+      // eslint-disable-next-line no-console
+      console.log('[STAMP-DEBUG] FA abort: item/canEdit', { hasItem: !!item })
+      return false
+    }
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-    if (!meta || !reactionFaStampAllowed(combat, meta, 1)) return false
+    const faOk = !!meta && reactionFaStampAllowed(combat, meta, 1)
+    // eslint-disable-next-line no-console
+    console.log('[STAMP-DEBUG] FA allowed=', faOk)
+    if (!faOk) return false
     event.preventDefault()
     event.stopPropagation()
-    return executeFaStampClick(resolved.ownerItemId, 1, {
+    const r = await executeFaStampClick(resolved.ownerItemId, 1, {
       inReactionStore: resolved.inReactionStore,
     })
+    // eslint-disable-next-line no-console
+    console.log('[STAMP-DEBUG] FA executeResult=', r)
+    return r
   }
 
   const item = await findSceneItemById(resolved.ownerItemId)
-  if (!item || !canEditSceneItem(item)) return false
+  if (!item || !canEditSceneItem(item)) {
+    // eslint-disable-next-line no-console
+    console.log('[STAMP-DEBUG] ABW abort: item/canEdit', { hasItem: !!item })
+    return false
+  }
   const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-  if (!meta || !reactionAbwStampAllowed(meta, combat)) return false
+  const abwAllowed = !!meta && reactionAbwStampAllowed(meta, combat)
+  // eslint-disable-next-line no-console
+  console.log(
+    '[STAMP-DEBUG] ABW allowed=', abwAllowed,
+    'KR_ABW=', meta?.[KR_ABW]
+  )
+  if (!abwAllowed) return false
 
   event.preventDefault()
   event.stopPropagation()
 
-  return executeAbwStampClick(resolved.ownerItemId, {
+  const r = await executeAbwStampClick(resolved.ownerItemId, {
     kind: resolved.kind === 'parade' ? 'parade' : 'abw',
     paradeSlot: resolved.paradeSlot,
     inReactionStore: resolved.inReactionStore,
   })
+  // eslint-disable-next-line no-console
+  console.log('[STAMP-DEBUG] ABW executeResult=', r)
+  return r
 }
 
 /**
