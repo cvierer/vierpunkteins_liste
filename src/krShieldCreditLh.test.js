@@ -151,8 +151,8 @@ describe('patchZaoSlot - Schild-Gegenbuchung beim Uebergang in lodged', () => {
   })
 })
 
-describe('patchEnsureZaoSlotForLink - Default-Slot creditiert Schild', () => {
-  it('legt uo/lodgedAbw fuer phaseNum>=2 an und creditiert ein Schild', async () => {
+describe('patchEnsureZaoSlotForLink - render-seitige Struktur-Reparatur ist schild-neutral', () => {
+  it('legt uo/lodgedAbw fuer phaseNum>=2 an, creditiert aber KEIN Schild', async () => {
     setMeta({
       initiative: '12',
       [KR_FIRST_SLOT_KIND]: 'uo',
@@ -168,8 +168,30 @@ describe('patchEnsureZaoSlotForLink - Default-Slot creditiert Schild', () => {
       kind: 'uo',
       lodgedAbw: true,
     })
-    // Mutter leer (1 Schild) + neuer leerer 2.AO (1 Schild) = Deckel 2.
-    expect(marksFromChargeValue(itemMetaRef.current[KR_ABW])).toBe(2)
+    // Render-Reparatur darf KR_ABW nicht erhoehen (sonst Re-Credit bei
+    // ephemerem 2.AO-UUID-Churn waehrend L.H.). reconcile deckelt nur nach
+    // unten; der Wert bleibt unveraendert bei 1.
+    expect(marksFromChargeValue(itemMetaRef.current[KR_ABW])).toBe(1)
+  })
+
+  it('gibt ein vom Stempel verbrauchtes Schild NICHT zurueck (KR_ABW=0 bleibt 0)', async () => {
+    // Szenario: Held hat sein einziges Reaktions-Schild gestempelt (KR_ABW=0).
+    // Eine L.H.-bedingt churnende 2.AO-Wurzel laesst patchEnsureZaoSlotForLink
+    // pro Render einen neuen Default-Slot anlegen. Das DARF kein Schild
+    // zurueckgeben — sonst wirkt das Stempeln waehrend der L.H. nicht.
+    setMeta({
+      initiative: '12',
+      [KR_FIRST_SLOT_KIND]: 'lh',
+      [KR_ABW]: chargeValueFromMarks(0),
+      [HERO_ACTION_POOL_ANG]: 1,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 2,
+      phases: { links: [] },
+      [KR_ZAO_SLOTS]: {},
+    })
+    await patchEnsureZaoSlotForLink('hero-a', 'zao-churn-1', 2)
+    await patchEnsureZaoSlotForLink('hero-a', 'zao-churn-2', 2)
+    expect(marksFromChargeValue(itemMetaRef.current[KR_ABW])).toBe(0)
   })
 
   it('Mutter-Default (phaseNum 1, ang) creditiert KEIN Schild', async () => {
@@ -186,6 +208,35 @@ describe('patchEnsureZaoSlotForLink - Default-Slot creditiert Schild', () => {
     })
     await patchEnsureZaoSlotForLink('hero-a', 'mother', 1)
     expect(itemMetaRef.current[KR_ZAO_SLOTS]['mother'].kind).toBe('ang')
+    expect(marksFromChargeValue(itemMetaRef.current[KR_ABW])).toBe(0)
+  })
+})
+
+describe('patchZaoSlot - skipShieldCredit fuer render-seitige Reparatur', () => {
+  it('skipShieldCredit verhindert Schild-Gutschrift beim Uebergang in lodged', async () => {
+    // L.H.-Mutter: render-seitige Auto-Anlage eines uo/lodged-Slots fuer eine
+    // churnende Wurzel. Mit skipShieldCredit darf KR_ABW (hier 0 nach Stempel)
+    // NICHT auf 1 zurueckspringen.
+    setMeta({
+      initiative: '12',
+      [KR_FIRST_SLOT_KIND]: 'lh',
+      [KR_ABW]: chargeValueFromMarks(0),
+      [HERO_ACTION_POOL_ANG]: 1,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 2,
+      phases: { links: [] },
+      [KR_ZAO_SLOTS]: {},
+    })
+    await patchZaoSlot(
+      'hero-a',
+      'zao-churn-1',
+      { kind: 'uo', marks: 0, lodgedAbw: true },
+      { skipShieldCredit: true }
+    )
+    expect(itemMetaRef.current[KR_ZAO_SLOTS]['zao-churn-1']).toMatchObject({
+      kind: 'uo',
+      lodgedAbw: true,
+    })
     expect(marksFromChargeValue(itemMetaRef.current[KR_ABW])).toBe(0)
   })
 })

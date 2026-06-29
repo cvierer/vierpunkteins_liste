@@ -574,6 +574,12 @@ function isConvertAnytimeEnabled(meta) {
  * @param {string} itemId
  * @param {string} linkId
  * @param {{ kind?: 'ang'|'sra'|'lh'|'uo', marks?: 0|1, lodgedAbw?: boolean }} patch
+ * @param {{ skipFetch?: boolean, skipShieldCredit?: boolean }} [opts]
+ *   skipShieldCredit: true = beim Uebergang in den eingelagerten Zustand KEIN
+ *   Schild gutschreiben. Pflicht fuer render-seitige Struktur-Reparaturen
+ *   (Auto-Anlage eines Slots fuer eine ephemere/churnende 2.AO-Wurzel), sonst
+ *   wuerde jeder Render ein vom Reaktions-Stempel verbrauchtes KR_ABW wieder
+ *   auffuellen (Symptom: "Stempeln waehrend L.H. wirkt nicht").
  */
 export async function patchZaoSlot(itemId, linkId, patch, opts = {}) {
   if (!opts.skipFetch) {
@@ -627,12 +633,15 @@ export async function patchZaoSlot(itemId, linkId, patch, opts = {}) {
         if (krTransferMarkPresent(abw)) {
           m[KR_ABW] = consumeOneChargeValue(abw)
         }
-      } else if (!prevWasLodged && nextLodged) {
+      } else if (!prevWasLodged && nextLodged && !opts.skipShieldCredit) {
         // Gegenbuchung: Slot wird NEU eingelagert (z. B. ang/lh -> uo). Genau
         // EIN Schild gutschreiben. NUR beim echten Uebergang — niemals beim
         // wiederholten Schreiben eines bereits eingelagerten Slots (sonst
         // wuerde ein render-seitiger Re-Patch ein vom Reaktions-Stempel
-        // verbrauchtes KR_ABW faelschlich wieder auffuellen).
+        // verbrauchtes KR_ABW faelschlich wieder auffuellen). Render-seitige
+        // Struktur-Reparaturen setzen skipShieldCredit, da die ephemere
+        // 2.AO-Wurzel pro Render ihre UUID wechselt (Churn) und der Slot dann
+        // als "neu" erscheint, obwohl keine Aktion neu geleert wurde.
         applyUoDefaultAbwChargeIfNeeded(m, next)
       }
       slots[linkId] = /** @type {{ kind: 'ang'|'sra'|'lh'|'uo', marks: 0|1, lodgedAbw?: true }} */ (
@@ -1247,12 +1256,15 @@ export async function patchEnsureZaoSlotForLink(itemId, linkId, phaseNum) {
       const slot = defaultZaoSlotForPhaseNum(phaseNum)
       s[linkId] = slot
       m[KR_ZAO_SLOTS] = s
-      // Neu angelegter Default-Slot ist fuer phaseNum>=2 ein eingelagertes
-      // Leer-Objekt (uo/lodgedAbw). Echter Neu-Uebergang (Slot war zuvor nicht
-      // vorhanden, siehe continue-Guard) -> genau ein Schild gutschreiben.
-      // applyUo ist self-guarded auf uo/lodgedAbw (Mutter-Default 'ang' bleibt
-      // unberuehrt). Danach Deckel erzwingen.
-      applyUoDefaultAbwChargeIfNeeded(m, slot)
+      // SCHILD-NEUTRAL: render-seitige Struktur-Reparatur. Diese Funktion legt
+      // einen fehlenden Slot fuer eine (oft ephemere, pro Render UUID-churnende)
+      // 2.AO-Wurzel an. Wuerde sie hier ein Schild gutschreiben, fuellte jeder
+      // Render ein vom Reaktions-Stempel verbrauchtes KR_ABW wieder auf — das
+      // Stempeln waehrend einer L.H. wirkte dann nicht (Schild taucht sofort
+      // wieder auf). Die korrekten Schild-Gutschriften passieren am KR-Start
+      // (initKrActionPoolsFromHeroDefaults) und bei nutzergetriebenen
+      // Umwandlungen (patchKrCyclePrimarySlotKind). reconcile deckelt nur nach
+      // unten und kann daher kein verbrauchtes Schild zurueckgeben.
       reconcileShieldLedger(m)
       const p = normalizePhases(m.phases)
       if (p.links.length > 0) {

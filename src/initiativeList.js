@@ -8464,11 +8464,16 @@ function layoutStampPanels(listRoot) {
           rawZaoSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
           if (canEdit) {
             fireZaoEnsurePatchOnce(`uo|${ownerId}|${link.id}`, () =>
-              patchZaoSlot(ownerId, link.id, {
-                kind: 'uo',
-                marks: 0,
-                lodgedAbw: true,
-              })
+              patchZaoSlot(
+                ownerId,
+                link.id,
+                {
+                  kind: 'uo',
+                  marks: 0,
+                  lodgedAbw: true,
+                },
+                { skipShieldCredit: true }
+              )
             )
           }
         }
