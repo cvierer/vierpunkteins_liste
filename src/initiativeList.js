@@ -1073,7 +1073,7 @@ function listHasLhSanduhrContext(items) {
   for (const it of items) {
     const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
     if (!m) continue
-    if (readKrFirstSlotKind(m) === 'lh') return true
+    // Nur laufende L.H. (rem>0) — nicht reines Setup kind=lh/max=0, sonst Render-Sturm.
     if (isLhActive(m)) return true
   }
   return false
@@ -1086,67 +1086,73 @@ function listHasLhSanduhrContext(items) {
  * @param {import('@owlbear-rodeo/sdk').Item[]} items
  */
 function syncAbwStampCellsInList(listRoot, items) {
-  if (!listRoot || !items?.length || !getShowActionStamps()) return
-  const listItems = filterItemsForListViewer(items, isGmSync())
-  const tokenRows = collectSortedParticipants(
-    listItems,
-    getIniTieOrder(),
-    getManualIniTieOverridePairs()
-  )
-  const combat = getCombat()
-  const combatRound = combat.started ? combat.round : null
-  const visibilityCtx =
-    visibilityCtxForRender ??
-    buildConvertListVisibilityCtx({
-      combatStarted: combat.started,
-      roundIntroPending: combat.roundIntroPending,
-      rowActiveId: combat.started ? combat.currentItemId : null,
-      rowActivePhaseLinkId: combat.started ? combat.currentPhaseLinkId : null,
-      currentNavIni: currentNavIniForRender,
-      roundStartStepId: ROUND_START_STEP_ID,
-      roundEndStepId: ROUND_END_STEP_ID,
-      turnSteps: navStepsForRender,
-      combatStepIndex: null,
-    })
-  const merged = buildMergedDisplayRows(
-    tokenRows,
-    listItems,
-    getIniTieOrder(),
-    combatRound,
-    visibilityCtx
-  )
-  const stampEntries = Array.isArray(getActionStamps()?.entries)
-    ? getActionStamps().entries
-    : []
-  if (stampEntries.length === 0) {
+  try {
+    if (!listRoot || !items?.length || !getShowActionStamps()) return
+    if (!listRoot.querySelector('li.init-row')) return
+    const listItems = filterItemsForListViewer(items, isGmSync())
+    const tokenRows = collectSortedParticipants(
+      listItems,
+      getIniTieOrder(),
+      getManualIniTieOverridePairs()
+    )
+    const combat = getCombat()
+    const combatRound = combat.started ? combat.round : null
+    const visibilityCtx =
+      visibilityCtxForRender ??
+      buildConvertListVisibilityCtx({
+        combatStarted: combat.started,
+        roundIntroPending: combat.roundIntroPending,
+        rowActiveId: combat.started ? combat.currentItemId : null,
+        rowActivePhaseLinkId: combat.started ? combat.currentPhaseLinkId : null,
+        currentNavIni: currentNavIniForRender,
+        roundStartStepId: ROUND_START_STEP_ID,
+        roundEndStepId: ROUND_END_STEP_ID,
+        turnSteps: navStepsForRender,
+        combatStepIndex: null,
+      })
+    const merged = buildMergedDisplayRows(
+      tokenRows,
+      listItems,
+      getIniTieOrder(),
+      combatRound,
+      visibilityCtx
+    )
+    const actionStamps = getActionStamps()
+    const stampEntries = Array.isArray(actionStamps?.entries)
+      ? actionStamps.entries
+      : []
+    if (stampEntries.length === 0) {
+      for (const li of listRoot.querySelectorAll('li.init-row')) {
+        const cell = li.querySelector('.init-col-abw-stamps')
+        if (!cell) continue
+        cell.replaceChildren()
+        li.classList.remove('init-row--has-stamps')
+      }
+      return
+    }
+    const normalized = normalizeStampEntryAnchors(
+      stampEntries,
+      navStepsForRender
+    )
+    const byAnchor = groupStampsByMergedAnchor(merged, normalized)
     for (const li of listRoot.querySelectorAll('li.init-row')) {
+      const key = listRowAnchorKeyFromLi(li)
+      if (!key) continue
       const cell = li.querySelector('.init-col-abw-stamps')
       if (!cell) continue
-      cell.replaceChildren()
-      li.classList.remove('init-row--has-stamps')
+      const rawStamps = byAnchor.get(key) ?? []
+      const reactionStamps = rawStamps.filter((st) => {
+        const k = fieldToStampKind(st.field)
+        return k === 'abw' || k === 'fa'
+      })
+      const freshCell = buildAbwStampsCell(reactionStamps, items)
+      cell.replaceWith(freshCell)
+      li.classList.toggle('init-row--has-stamps', reactionStamps.length > 0)
     }
-    return
+    layoutStampPanels(listRoot)
+  } catch (err) {
+    console.warn('[vierpunkteins] syncAbwStampCellsInList failed', err)
   }
-  const normalized = normalizeStampEntryAnchors(
-    stampEntries,
-    navStepsForRender
-  )
-  const byAnchor = groupStampsByMergedAnchor(merged, normalized)
-  for (const li of listRoot.querySelectorAll('li.init-row')) {
-    const key = listRowAnchorKeyFromLi(li)
-    if (!key) continue
-    const cell = li.querySelector('.init-col-abw-stamps')
-    if (!cell) continue
-    const rawStamps = byAnchor.get(key) ?? []
-    const reactionStamps = rawStamps.filter((st) => {
-      const k = fieldToStampKind(st.field)
-      return k === 'abw' || k === 'fa'
-    })
-    const freshCell = buildAbwStampsCell(reactionStamps, items)
-    cell.replaceWith(freshCell)
-    li.classList.toggle('init-row--has-stamps', reactionStamps.length > 0)
-  }
-  layoutStampPanels(listRoot)
 }
 
 /**
@@ -9261,9 +9267,7 @@ function layoutStampPanels(listRoot) {
 
   registerKrSlotPatchRenderFlush(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      const merged = mergeDeferredRenderItems(fresh, lastItems)
-      enqueueRenderList(merged)
-      syncAbwStampCellsInList(element, merged ?? lastItems)
+      enqueueRenderList(mergeDeferredRenderItems(fresh, lastItems))
     })
   })
 
@@ -9287,22 +9291,6 @@ function layoutStampPanels(listRoot) {
           requestAnimationFrame(() => resolve())
         })
       })
-    })
-  })
-
-  registerReactionStampRenderFlush(() => {
-    void OBR.scene.items.getItems().then((fresh) => {
-      const merged = mergeDeferredRenderItems(fresh, lastItems)
-      syncAbwStampCellsInList(element, merged ?? lastItems)
-      safeRenderList(merged, { force: true })
-    })
-  })
-
-  const offActionStamps = onActionStampsChange(() => {
-    void OBR.scene.items.getItems().then((fresh) => {
-      const merged = mergeDeferredRenderItems(fresh, lastItems)
-      syncAbwStampCellsInList(element, merged ?? lastItems)
-      safeRenderList(merged, { force: true })
     })
   })
 
@@ -9344,7 +9332,7 @@ function layoutStampPanels(listRoot) {
   const actionStampSignatureChangedVsLast = () =>
     actionStampsSignature(getActionStamps()) !== lastRenderedStampSignature
 
-  const safeRenderList = (items, opts = {}) => {
+  function safeRenderList(items, opts = {}) {
     const force = opts?.force === true
     if (!force && isKrSlotPatchSuppressingRenderList()) {
       // Reaktions-/F.A.-Stempel (Schild/Parade/freie Aktion) sollen unabhaengig
@@ -9366,6 +9354,18 @@ function layoutStampPanels(listRoot) {
     }
     enqueueRenderList(items)
   }
+
+  registerReactionStampRenderFlush(() => {
+    void OBR.scene.items.getItems().then((fresh) => {
+      safeRenderList(mergeDeferredRenderItems(fresh, lastItems), { force: true })
+    })
+  })
+
+  const offActionStamps = onActionStampsChange(() => {
+    void OBR.scene.items.getItems().then((fresh) => {
+      safeRenderList(mergeDeferredRenderItems(fresh, lastItems), { force: true })
+    })
+  })
 
   OBR.scene.items.getItems().then(safeRenderList)
   OBR.scene.items.onChange(safeRenderList)
