@@ -122,6 +122,47 @@ describe('setupInitiativeList (smoke)', () => {
     teardown()
   })
 
+  it('behält Zeilen bei transient metadatenlosem Szene-Snapshot', async () => {
+    const { TRACKER_ITEM_META_KEY } = await import('./participants.js')
+    const { getTrackedParticipantIds } = await import('./listState.js')
+    const meta = {
+      [TRACKER_ITEM_META_KEY]: { initiative: '12', phases: { links: [] } },
+    }
+    obr.items.length = 0
+    obr.items.push({
+      id: 'hero-smoke-2',
+      name: 'Testheld',
+      visible: true,
+      metadata: meta,
+    })
+
+    const { setupInitiativeList } = await import('./initiativeList.js')
+    const ul = buildListScaffold()
+    const teardown = setupInitiativeList(ul)
+
+    for (let i = 0; i < 12; i++) await flushPromises()
+    expect(ul.querySelectorAll('li.init-row').length).toBeGreaterThan(0)
+    expect(getTrackedParticipantIds()).toEqual(['hero-smoke-2'])
+
+    const onChangeCb = obr.default.scene.items.onChange.mock.calls.at(-1)?.[0]
+    expect(typeof onChangeCb).toBe('function')
+
+    obr.items.length = 0
+    obr.items.push({
+      id: 'hero-smoke-2',
+      name: 'Testheld',
+      visible: true,
+      metadata: {},
+    })
+    onChangeCb(obr.items)
+    for (let i = 0; i < 12; i++) await flushPromises()
+
+    expect(ul.querySelectorAll('li.init-row').length).toBeGreaterThan(0)
+    expect(getTrackedParticipantIds()).toEqual(['hero-smoke-2'])
+
+    teardown()
+  })
+
   it('erzeugt das Hero-Settings-Panel (Backdrop + Dialog) und räumt es beim Teardown ab', async () => {
     const { setupInitiativeList } = await import('./initiativeList.js')
     const ul = buildListScaffold()

@@ -7690,12 +7690,20 @@ function layoutStampPanels(listRoot) {
     ) {
       deactivateDistanceProbe()
     }
-    lastItems = listItems
     const tokenRows = collectSortedParticipants(
       listItems,
       getIniTieOrder(),
       getManualIniTieOverridePairs()
     )
+    // Transient leere/metadatenlose Snapshots (Szene kurz nicht lesbar, L.H.-
+    // Commit-Kaskade) duerfen lastItems und trackedParticipantIds nicht leeren —
+    // sonst verschwindet die Liste dauerhaft und „Kampf beginnen“ bleibt gesperrt.
+    if (tokenRows.length === 0 && lastItems.length > 0) {
+      if (!items?.length) return
+      const sceneIds = new Set((items ?? []).map((i) => i.id))
+      if (lastItems.some((i) => sceneIds.has(i.id))) return
+    }
+    lastItems = listItems
     setTrackedParticipantIds(tokenRows.map((r) => r.id))
 
     const combat = getCombat()
@@ -9027,15 +9035,6 @@ function layoutStampPanels(listRoot) {
           selectionEnd: activeEl.selectionEnd,
         }
       }
-    }
-
-    if (
-      frag.childNodes.length === 0 &&
-      element.querySelector('li.init-row') &&
-      tokenRows.length === 0
-    ) {
-      // Transient leerer Snapshot (Szene kurz nicht lesbar) — sichtbare Zeilen behalten.
-      return
     }
 
     element.replaceChildren(frag)
