@@ -154,6 +154,7 @@ import { resolveNavHighlightSelector } from './navHighlightTarget.js'
 import { resolveActivePhaseLinkId, setNavStepsCache } from './navActivePhaseLink.js'
 import {
   actionStampsSignature,
+  groupStampsByMergedAnchor,
   mergeActionStampsIntoMerged,
   normalizeStampEntryAnchors,
 } from './actionStampMerge.js'
@@ -362,6 +363,8 @@ const PHASE_DRAG_MARK = 'vierpphase|'
 let currentNavIniForRender = null
 /** Sichtbarkeits-/Schloss-Kontext des aktuellen Render-Passes (FirstPhase-Zugindex). */
 let visibilityCtxForRender = null
+/** Navigationsschritte des aktuellen Listen-Kontexts (Stempel-Anker-Normalisierung). */
+let navStepsForRender = null
 
 /**
  * Nav-basierter L.H.-Bruch (passive Mechanik): gleiche Logik wie
@@ -782,6 +785,8 @@ function refreshNavContextForList(items) {
     combatRound,
     null
   )
+  navStepsForRender = stepsForNav
+  setNavStepsCache(stepsForNav)
   let combatStepIndex =
     combat.started && !combat.roundIntroPending
       ? findCombatStepIndex(stepsForNav, combat)
@@ -1045,6 +1050,106 @@ function syncLhNavFractionsInList(listRoot, items) {
 }
 
 /**
+ * @param {string | null | undefined} li
+ * @returns {string | null}
+ */
+function listRowAnchorKeyFromLi(li) {
+  if (!li) return null
+  const phaseOwnerId = li.getAttribute('data-phase-owner-id')
+  const phaseLinkId = li.getAttribute('data-phase-link-id')
+  if (phaseOwnerId && phaseLinkId) return `${phaseOwnerId}|${phaseLinkId}`
+  const itemId = li.getAttribute('data-item-id')
+  if (itemId) return `${itemId}|`
+  return null
+}
+
+/**
+ * Irgendwo Sanduhr/L.H. in der Item-Liste — Render darf nicht deferriert werden.
+ *
+ * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} items
+ */
+function listHasLhSanduhrContext(items) {
+  if (!Array.isArray(items)) return false
+  for (const it of items) {
+    const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!m) continue
+    if (readKrFirstSlotKind(m) === 'lh') return true
+    if (isLhActive(m)) return true
+  }
+  return false
+}
+
+/**
+ * Reaktions-Stempel-Spalten ohne vollen renderList neu befuellen.
+ *
+ * @param {HTMLElement | null | undefined} listRoot
+ * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ */
+function syncAbwStampCellsInList(listRoot, items) {
+  if (!listRoot || !items?.length || !getShowActionStamps()) return
+  const listItems = filterItemsForListViewer(items, isGmSync())
+  const tokenRows = collectSortedParticipants(
+    listItems,
+    getIniTieOrder(),
+    getManualIniTieOverridePairs()
+  )
+  const combat = getCombat()
+  const combatRound = combat.started ? combat.round : null
+  const visibilityCtx =
+    visibilityCtxForRender ??
+    buildConvertListVisibilityCtx({
+      combatStarted: combat.started,
+      roundIntroPending: combat.roundIntroPending,
+      rowActiveId: combat.started ? combat.currentItemId : null,
+      rowActivePhaseLinkId: combat.started ? combat.currentPhaseLinkId : null,
+      currentNavIni: currentNavIniForRender,
+      roundStartStepId: ROUND_START_STEP_ID,
+      roundEndStepId: ROUND_END_STEP_ID,
+      turnSteps: navStepsForRender,
+      combatStepIndex: null,
+    })
+  const merged = buildMergedDisplayRows(
+    tokenRows,
+    listItems,
+    getIniTieOrder(),
+    combatRound,
+    visibilityCtx
+  )
+  const stampEntries = Array.isArray(getActionStamps()?.entries)
+    ? getActionStamps().entries
+    : []
+  if (stampEntries.length === 0) {
+    for (const li of listRoot.querySelectorAll('li.init-row')) {
+      const cell = li.querySelector('.init-col-abw-stamps')
+      if (!cell) continue
+      cell.replaceChildren()
+      li.classList.remove('init-row--has-stamps')
+    }
+    return
+  }
+  const normalized = normalizeStampEntryAnchors(
+    stampEntries,
+    navStepsForRender
+  )
+  const byAnchor = groupStampsByMergedAnchor(merged, normalized)
+  for (const li of listRoot.querySelectorAll('li.init-row')) {
+    const key = listRowAnchorKeyFromLi(li)
+    if (!key) continue
+    const cell = li.querySelector('.init-col-abw-stamps')
+    if (!cell) continue
+    const rawStamps = byAnchor.get(key) ?? []
+    const reactionStamps = rawStamps.filter((st) => {
+      const k = fieldToStampKind(st.field)
+      return k === 'abw' || k === 'fa'
+    })
+    const freshCell = buildAbwStampsCell(reactionStamps, items)
+    cell.replaceWith(freshCell)
+    li.classList.toggle('init-row--has-stamps', reactionStamps.length > 0)
+  }
+  layoutStampPanels(listRoot)
+}
+
+/**
  * Nav-Highlight + Nav-INI + L.H.-Bruch synchron bei Kampfwechsel.
  *
  * @param {HTMLElement | null | undefined} listRoot
@@ -1055,6 +1160,7 @@ function syncListNavFromCombat(listRoot, items, opts = {}) {
   refreshCurrentNavIniForList(items)
   syncListNavHighlightFromCombat(listRoot, getCombat(), opts)
   syncLhNavFractionsInList(listRoot, items)
+  syncAbwStampCellsInList(listRoot, items)
   syncKrPrimaryStampGatesInList(listRoot, items)
   syncKrAbwStampGatesInList(listRoot, items)
   syncKrFaStampGatesInList(listRoot, items)
@@ -2906,7 +3012,8 @@ function syncLhAbwContainer(
     lhAtAbwActive =
       zaoSlotOverride.kind === 'lh' && zaoSlotOverride.marks >= 1
   } else if (!hideAbw) {
-    lhAtAbwActive = motherKindIsLh && lhSt.max > 0
+    // Konfiguriert (max=0) oder laufend — Ablauf setzt Meta auf kind=ang.
+    lhAtAbwActive = motherKindIsLh
     if (lhAtAbwActive && isLhActive(trackerMeta)) {
       const lhEndOnList = visibleLhEndLinkForOwner(
         trackerMeta,
@@ -7594,7 +7701,6 @@ function layoutStampPanels(listRoot) {
       deactivateDistanceProbe()
     }
     lastItems = listItems
-    lastRenderedStampSignature = actionStampsSignature(getActionStamps())
     const tokenRows = collectSortedParticipants(
       listItems,
       getIniTieOrder(),
@@ -7651,6 +7757,7 @@ function layoutStampPanels(listRoot) {
     // Aktuelle Schritte cachen, damit der Stempel-Anker veraltete Phase-Link-IDs
     // (UUID-Churn der ephemeren 2.AO-Wurzel) gegen die sichtbaren Zeilen aufloesen kann.
     setNavStepsCache(stepsForNav)
+    navStepsForRender = stepsForNav
     // Veraltete currentPhaseLinkId (UUID-Churn der ephemeren 2.AO-Wurzel) gegen
     // die aktuellen Schritte aufloesen, damit navigationMatchesRow trifft und das
     // 2.AO-L.H.-Feld beschreibbar bleibt (analog Highlight-Fallback).
@@ -8934,6 +9041,7 @@ function layoutStampPanels(listRoot) {
 
     element.replaceChildren(frag)
     layoutStampPanels(element)
+    lastRenderedStampSignature = actionStampsSignature(getActionStamps())
     syncListNavHighlightFromCombat(element, combat, { scroll: false })
 
     void reconcileCombat(tokenRows, items)
@@ -9153,7 +9261,9 @@ function layoutStampPanels(listRoot) {
 
   registerKrSlotPatchRenderFlush(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      enqueueRenderList(mergeDeferredRenderItems(fresh, lastItems))
+      const merged = mergeDeferredRenderItems(fresh, lastItems)
+      enqueueRenderList(merged)
+      syncAbwStampCellsInList(element, merged ?? lastItems)
     })
   })
 
@@ -9172,6 +9282,7 @@ function layoutStampPanels(listRoot) {
         syncKrPrimaryStampGatesInList(element, merged)
         syncKrAbwStampGatesInList(element, merged)
         syncKrFaStampGatesInList(element, merged)
+        syncAbwStampCellsInList(element, merged)
         requestAnimationFrame(() => {
           requestAnimationFrame(() => resolve())
         })
@@ -9181,13 +9292,17 @@ function layoutStampPanels(listRoot) {
 
   registerReactionStampRenderFlush(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      safeRenderList(mergeDeferredRenderItems(fresh, lastItems), { force: true })
+      const merged = mergeDeferredRenderItems(fresh, lastItems)
+      syncAbwStampCellsInList(element, merged ?? lastItems)
+      safeRenderList(merged, { force: true })
     })
   })
 
   const offActionStamps = onActionStampsChange(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      safeRenderList(mergeDeferredRenderItems(fresh, lastItems), { force: true })
+      const merged = mergeDeferredRenderItems(fresh, lastItems)
+      syncAbwStampCellsInList(element, merged ?? lastItems)
+      safeRenderList(merged, { force: true })
     })
   })
 
@@ -9240,7 +9355,8 @@ function layoutStampPanels(listRoot) {
       // Gilt fuer Item-Meta (Schild/F.A./Slots) UND Raum-Meta-Stempel (Anker).
       if (
         reactionOrFaMetaChangedVsLast(items) ||
-        actionStampSignatureChangedVsLast()
+        actionStampSignatureChangedVsLast() ||
+        listHasLhSanduhrContext(items)
       ) {
         enqueueRenderList(items)
         return
