@@ -1064,22 +1064,6 @@ function listRowAnchorKeyFromLi(li) {
 }
 
 /**
- * Irgendwo Sanduhr/L.H. in der Item-Liste — Render darf nicht deferriert werden.
- *
- * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} items
- */
-function listHasLhSanduhrContext(items) {
-  if (!Array.isArray(items)) return false
-  for (const it of items) {
-    const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
-    if (!m) continue
-    // Nur laufende L.H. (rem>0) — nicht reines Setup kind=lh/max=0, sonst Render-Sturm.
-    if (isLhActive(m)) return true
-  }
-  return false
-}
-
-/**
  * Reaktions-Stempel-Spalten ohne vollen renderList neu befuellen.
  *
  * @param {HTMLElement | null | undefined} listRoot
@@ -9045,6 +9029,15 @@ function layoutStampPanels(listRoot) {
       }
     }
 
+    if (
+      frag.childNodes.length === 0 &&
+      element.querySelector('li.init-row') &&
+      tokenRows.length === 0
+    ) {
+      // Transient leerer Snapshot (Szene kurz nicht lesbar) — sichtbare Zeilen behalten.
+      return
+    }
+
     element.replaceChildren(frag)
     layoutStampPanels(element)
     lastRenderedStampSignature = actionStampsSignature(getActionStamps())
@@ -9332,6 +9325,18 @@ function layoutStampPanels(listRoot) {
   const actionStampSignatureChangedVsLast = () =>
     actionStampsSignature(getActionStamps()) !== lastRenderedStampSignature
 
+  function refreshRoomActionStampsInList(items, { includeKrGates = false } = {}) {
+    if (!element.querySelector('li.init-row')) return false
+    syncAbwStampCellsInList(element, items)
+    if (includeKrGates) {
+      syncKrPrimaryStampGatesInList(element, items)
+      syncKrAbwStampGatesInList(element, items)
+      syncKrFaStampGatesInList(element, items)
+    }
+    lastRenderedStampSignature = actionStampsSignature(getActionStamps())
+    return true
+  }
+
   function safeRenderList(items, opts = {}) {
     const force = opts?.force === true
     if (!force && isKrSlotPatchSuppressingRenderList()) {
@@ -9343,8 +9348,7 @@ function layoutStampPanels(listRoot) {
       // Gilt fuer Item-Meta (Schild/F.A./Slots) UND Raum-Meta-Stempel (Anker).
       if (
         reactionOrFaMetaChangedVsLast(items) ||
-        actionStampSignatureChangedVsLast() ||
-        listHasLhSanduhrContext(items)
+        actionStampSignatureChangedVsLast()
       ) {
         enqueueRenderList(items)
         return
@@ -9357,13 +9361,19 @@ function layoutStampPanels(listRoot) {
 
   registerReactionStampRenderFlush(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      safeRenderList(mergeDeferredRenderItems(fresh, lastItems), { force: true })
+      const merged = mergeDeferredRenderItems(fresh, lastItems)
+      if (!refreshRoomActionStampsInList(merged, { includeKrGates: true })) {
+        enqueueRenderList(merged)
+      }
     })
   })
 
   const offActionStamps = onActionStampsChange(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      safeRenderList(mergeDeferredRenderItems(fresh, lastItems), { force: true })
+      const merged = mergeDeferredRenderItems(fresh, lastItems)
+      if (!refreshRoomActionStampsInList(merged)) {
+        enqueueRenderList(merged)
+      }
     })
   })
 

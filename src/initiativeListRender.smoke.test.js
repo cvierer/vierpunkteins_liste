@@ -33,7 +33,11 @@ const obr = vi.hoisted(() => {
   }
 })
 
-vi.mock('@owlbear-rodeo/sdk', () => ({ default: obr.default }))
+vi.mock('@owlbear-rodeo/sdk', () => ({
+  default: obr.default,
+  isImage: () => false,
+  isLabel: () => false,
+}))
 
 let rafSpy
 let flushPromises
@@ -84,6 +88,38 @@ describe('setupInitiativeList (smoke)', () => {
     expect(typeof teardown).toBe('function')
 
     expect(() => teardown()).not.toThrow()
+  })
+
+  it('rendert Teilnehmer-Zeilen wenn die Szene Tracker-Tokens hat', async () => {
+    const { TRACKER_ITEM_META_KEY } = await import('./participants.js')
+    obr.items.length = 0
+    obr.items.push({
+      id: 'hero-smoke-1',
+      name: 'Testheld',
+      visible: true,
+      metadata: {
+        [TRACKER_ITEM_META_KEY]: { initiative: '12', phases: { links: [] } },
+      },
+    })
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const { setupInitiativeList } = await import('./initiativeList.js')
+    const ul = buildListScaffold()
+    const teardown = setupInitiativeList(ul)
+
+    for (let i = 0; i < 12; i++) await flushPromises()
+
+    const renderErrors = consoleError.mock.calls.filter((c) =>
+      String(c[0]).includes('renderList failed')
+    )
+
+    const rows = ul.querySelectorAll('li.init-row')
+    expect(renderErrors.length, renderErrors.map((c) => c.join(' ')).join('\n')).toBe(0)
+    expect(rows.length).toBeGreaterThan(0)
+
+    consoleError.mockRestore()
+    teardown()
   })
 
   it('erzeugt das Hero-Settings-Panel (Backdrop + Dialog) und räumt es beim Teardown ab', async () => {
