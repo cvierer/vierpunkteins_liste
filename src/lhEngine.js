@@ -152,7 +152,7 @@ export async function startOrCancelLh(itemId, text, opts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
       if (n <= 0) {
-        normalizeHeroKrStateAfterLhEnd(m)
+        normalizeHeroKrStateAfterLhEnd(m, { forcePrimaryReset: true })
       } else {
         migrateLegacyLhFields(m)
         m[LH_MAX] = n
