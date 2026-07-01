@@ -16,6 +16,7 @@ import {
   filterItemsForListViewer,
   getTokenListDisplayName,
   isSceneItemVisibleOnMap,
+  mergeSceneItemSnapshots,
   TRACKER_ITEM_META_KEY,
 } from './participants.js'
 import {
@@ -7665,7 +7666,7 @@ function layoutStampPanels(listRoot) {
       if (lastItems && lastItems.length > 0) {
         try {
           const refetched = await OBR.scene.items.getItems()
-          items = refetched.length > 0 ? refetched : lastItems
+          items = mergeSceneItemSnapshots(lastItems, refetched)
         } catch {
           items = lastItems
         }
@@ -7675,7 +7676,7 @@ function layoutStampPanels(listRoot) {
     try {
       const refetched = await OBR.scene.items.getItems()
       if (refetched.length > 0) {
-        items = refetched
+        items = mergeSceneItemSnapshots(items ?? [], refetched)
       }
     } catch {
       /* Szene kurz nicht lesbar — übergebenen Snapshot nutzen */
@@ -7695,13 +7696,31 @@ function layoutStampPanels(listRoot) {
       getIniTieOrder(),
       getManualIniTieOverridePairs()
     )
+    const priorTokenRows =
+      lastItems.length > 0
+        ? collectSortedParticipants(
+            lastItems,
+            getIniTieOrder(),
+            getManualIniTieOverridePairs()
+          )
+        : []
     // Transient leere/metadatenlose Snapshots (Szene kurz nicht lesbar, L.H.-
     // Commit-Kaskade) duerfen lastItems und trackedParticipantIds nicht leeren —
     // sonst verschwindet die Liste dauerhaft und „Kampf beginnen“ bleibt gesperrt.
-    if (tokenRows.length === 0 && lastItems.length > 0) {
-      if (!items?.length) return
+    if (tokenRows.length === 0 && priorTokenRows.length > 0) {
+      if (!items?.length) {
+        requestAnimationFrame(() => {
+          void OBR.scene.items.getItems().then((fresh) => enqueueRenderList(fresh))
+        })
+        return
+      }
       const sceneIds = new Set((items ?? []).map((i) => i.id))
-      if (lastItems.some((i) => sceneIds.has(i.id))) return
+      if (priorTokenRows.some((row) => sceneIds.has(row.id))) {
+        requestAnimationFrame(() => {
+          void OBR.scene.items.getItems().then((fresh) => enqueueRenderList(fresh))
+        })
+        return
+      }
     }
     lastItems = listItems
     setTrackedParticipantIds(tokenRows.map((r) => r.id))
@@ -9376,7 +9395,7 @@ function layoutStampPanels(listRoot) {
     })
   })
 
-  OBR.scene.items.getItems().then(safeRenderList)
+  OBR.scene.items.getItems().then((items) => safeRenderList(items, { force: true }))
   OBR.scene.items.onChange(safeRenderList)
   onCombatChange(() => {
     void (async () => {
