@@ -37,49 +37,6 @@ export function isSceneItemVisibleOnMap(item) {
   return item != null && item.visible !== false
 }
 
-function hasTrackerMeta(item) {
-  return item?.metadata?.[META_KEY] != null
-}
-
-/**
- * Szene-Snapshots pro Token-ID zusammenführen: Tracker-Meta aus dem reicheren
- * Snapshot behalten (OBR-Refetch liefert während Patches oft kurz metadatenlos).
- *
- * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} incoming
- * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} refetched
- * @returns {import('@owlbear-rodeo/sdk').Item[]}
- */
-export function mergeSceneItemSnapshots(incoming, refetched) {
-  if (!refetched?.length) return incoming ?? []
-  if (!incoming?.length) return refetched
-  const incomingById = new Map(incoming.map((item) => [item.id, item]))
-  const refById = new Map(refetched.map((item) => [item.id, item]))
-  const seen = new Set()
-  /** @type {import('@owlbear-rodeo/sdk').Item[]} */
-  const merged = []
-  const append = (id) => {
-    if (seen.has(id)) return
-    seen.add(id)
-    const a = incomingById.get(id)
-    const b = refById.get(id)
-    if (!a) {
-      merged.push(b)
-      return
-    }
-    if (!b) {
-      merged.push(a)
-      return
-    }
-    const aHas = hasTrackerMeta(a)
-    const bHas = hasTrackerMeta(b)
-    if (aHas && !bHas) merged.push(a)
-    else merged.push(b)
-  }
-  for (const item of refetched) append(item.id)
-  for (const item of incoming) append(item.id)
-  return merged
-}
-
 /**
  * @param {unknown[]} items
  * @param {boolean} isGm

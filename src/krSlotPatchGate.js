@@ -59,26 +59,25 @@ export function mergeDeferredRenderItems(pending, lastItems) {
   return fallback.length === 0 ? pending : pending.concat(fallback)
 }
 
-function scheduleDeferredRenderRetry() {
-  if (flushTimer != null) return
-  flushTimer = setTimeout(() => {
-    flushTimer = null
-    flushDeferredRenderNow()
-  }, DEFERRED_RENDER_MS)
-}
-
 function flushDeferredRenderNow() {
-  if (shouldBlockDeferredRenderFlush()) {
-    scheduleDeferredRenderRetry()
-    return
-  }
+  if (shouldBlockDeferredRenderFlush()) return
   const items = pendingDeferredItems
   pendingDeferredItems = undefined
   onFlushDeferredRender?.(items)
 }
 
 export function scheduleKrSlotPatchRenderFlush() {
-  scheduleDeferredRenderRetry()
+  if (shouldBlockDeferredRenderFlush()) return
+  // Laeuft bereits ein Flush-Timer, NICHT zuruecksetzen: bei schnell
+  // aufeinanderfolgenden Suppress-Zyklen (z. B. wiederholte Primaer-Slot-
+  // Patches waehrend eine L.H. eingestellt ist) wuerde ein Reset den Timer
+  // immer wieder verschieben und den verzoegerten Render aushungern — dann
+  // bleiben Reaktions-/F.A.-Stempel unsichtbar bis zum naechsten Force-Render.
+  if (flushTimer != null) return
+  flushTimer = setTimeout(() => {
+    flushTimer = null
+    flushDeferredRenderNow()
+  }, DEFERRED_RENDER_MS)
 }
 
 /** Sofortiger Flush ohne Debounce (z. B. nach Primär-Switch-Session). */

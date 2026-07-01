@@ -693,33 +693,6 @@ describe('normalizeHeroKrStateAfterLhEnd (radikaler L.H.-Ende-Reset)', () => {
     expect(readKrFirstSlotKind(meta)).toBe('ang')
     expect(isLhActive(meta)).toBe(false)
   })
-
-  it('normalizeHeroKrStateAfterLhEnd laesst Setup kind=lh max=0 unberuehrt', () => {
-    const meta = {
-      initiative: '12',
-      krFirstSlotKind: 'lh',
-      krAng: 1,
-      [LH_MAX]: 0,
-      [LH_REM]: 0,
-      phases: { links: [] },
-    }
-    normalizeHeroKrStateAfterLhEnd(meta)
-    expect(readKrFirstSlotKind(meta)).toBe('lh')
-  })
-
-  it('normalizeHeroKrStateAfterLhEnd setzt nach laufender L.H. kind auf ang', () => {
-    const meta = {
-      initiative: '12',
-      krFirstSlotKind: 'lh',
-      [LH_MAX]: 3,
-      [LH_REM]: 1,
-      [LH_COMMIT_ROUND]: 2,
-      phases: { links: [] },
-    }
-    normalizeHeroKrStateAfterLhEnd(meta)
-    expect(readKrFirstSlotKind(meta)).toBe('ang')
-    expect(isLhActive(meta)).toBe(false)
-  })
 })
 
 describe('patchKrCyclePrimarySlotKind: 2.AO-Transfer meldet echten Erfolg (kein Luegen)', () => {

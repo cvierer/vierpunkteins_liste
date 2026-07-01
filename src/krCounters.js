@@ -489,14 +489,8 @@ function restoreMotherPrimaryFromLhToAng(m) {
   return true
 }
 
-/**
- * @param {Record<string, unknown>} m
- * @param {{ forcePrimaryReset?: boolean }} [opts]
- */
-export function normalizeHeroKrStateAfterLhEnd(m, opts = {}) {
+export function normalizeHeroKrStateAfterLhEnd(m) {
   if (!m || typeof m !== 'object') return false
-  const forcePrimaryReset = opts.forcePrimaryReset === true
-  const wasLhRunning = isLhActive(m) || readLhState(m).max > 0
   let changed = false
   clearLhTrackerActivity(m)
   if (m[KR_LH_VOID_BY_TRANSFER] !== undefined) {
@@ -507,12 +501,9 @@ export function normalizeHeroKrStateAfterLhEnd(m, opts = {}) {
     delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
     changed = true
   }
-  // Nach Ablauf/Abbruch: hängendes Primär-Kind 'lh' auf Schwert zurücksetzen.
-  // Setup (kind=lh, max=0) bleibt unberührt — ausser bei explizitem Abbrechen.
-  if (
-    (forcePrimaryReset || wasLhRunning) &&
-    restoreMotherPrimaryFromLhToAng(m)
-  ) {
+  // Nach Ablauf/Abbruch: hängendes Primär-Kind 'lh' auf Schwert zurücksetzen,
+  // damit Umwandel-Pfeile und L.H.-Counter nicht kleben bleiben.
+  if (!isLhActive(m) && restoreMotherPrimaryFromLhToAng(m)) {
     changed = true
   }
   const p = normalizePhases(m.phases)
@@ -548,7 +539,7 @@ export function normalizeHeroKrStateAfterLhEnd(m, opts = {}) {
  * @returns {boolean}
  */
 export function restoreHeroKrCombatStartDefault(m) {
-  return normalizeHeroKrStateAfterLhEnd(m, { forcePrimaryReset: true })
+  return normalizeHeroKrStateAfterLhEnd(m)
 }
 
 /**

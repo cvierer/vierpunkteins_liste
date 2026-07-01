@@ -326,6 +326,7 @@ async function pullActionStampsFromRoom() {
   if (same) return
   actionStampsCache = next
   notifyStampListeners()
+  notify()
 }
 
 export async function patchActionStamps(mutator, opts = {}) {

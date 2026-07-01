@@ -1,5 +1,5 @@
 import OBR, { buildLabel } from '@owlbear-rodeo/sdk'
-import { getCombat, onActionStampsChange, onCombatChange } from './combatRoom.js'
+import { getCombat, onCombatChange } from './combatRoom.js'
 import { isGmSync } from './editAccess.js'
 import {
   combatOverlayKey,
@@ -301,9 +301,6 @@ export function setupHeroActionLabel() {
   const unsubCombat = onCombatChange(() => {
     void refreshTurnActionLabel()
   })
-  const unsubStamps = onActionStampsChange(() => {
-    void refreshTurnActionLabel()
-  })
   if (OBR.isAvailable) {
     itemsChangeUnsub = OBR.scene.items.onChange((items) => scheduleRefresh(items))
   }
@@ -311,7 +308,6 @@ export function setupHeroActionLabel() {
   return {
     cleanup: () => {
       unsubCombat()
-      unsubStamps()
       itemsChangeUnsub()
       lastOverlayKey = ''
       lastOverlayOwnerId = ''
