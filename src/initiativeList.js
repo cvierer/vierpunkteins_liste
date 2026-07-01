@@ -1064,6 +1064,94 @@ function listRowAnchorKeyFromLi(li) {
   return null
 }
 
+/** @param {{ kind: string, row?: { id: string }, ownerId?: string, link?: { id: string } }} entry */
+function mergedEntryAnchorKey(entry) {
+  if (entry.kind === 'token') return `${entry.row.id}|`
+  if (entry.kind === 'phase') return `${entry.ownerId}|${entry.link.id}`
+  if (entry.kind === 'roundStart') return `${ROUND_START_STEP_ID}|`
+  if (entry.kind === 'roundEnd') return `${ROUND_END_STEP_ID}|`
+  return entry.kind
+}
+
+/**
+ * Signatur der sichtbaren Listenzeilen (ohne Stempel) fuer Nav-Incremental-Sync.
+ *
+ * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ */
+function computeMergedListStructureSignature(items) {
+  refreshNavContextForList(items)
+  const listItems = filterItemsForListViewer(items ?? [], isGmSync())
+  const combat = getCombat()
+  const tokenRows = collectSortedParticipants(
+    listItems,
+    getIniTieOrder(),
+    getManualIniTieOverridePairs()
+  )
+  const combatRound = combat.started ? combat.round : null
+  const merged = buildMergedDisplayRows(
+    tokenRows,
+    listItems,
+    getIniTieOrder(),
+    combatRound,
+    visibilityCtxForRender
+  )
+  return merged
+    .filter((e) => e.kind !== 'actionStamp')
+    .map(mergedEntryAnchorKey)
+    .join('\n')
+}
+
+/**
+ * @param {HTMLElement | null | undefined} listRoot
+ */
+function domListStructureSignature(listRoot) {
+  if (!listRoot) return ''
+  /** @type {string[]} */
+  const keys = []
+  for (const li of listRoot.querySelectorAll('li.init-row')) {
+    const k = listRowAnchorKeyFromLi(li)
+    if (k) {
+      keys.push(k)
+      continue
+    }
+    if (li.classList.contains('init-row--round-start')) {
+      keys.push(`${ROUND_START_STEP_ID}|`)
+    } else if (li.classList.contains('init-row--round-end')) {
+      keys.push(`${ROUND_END_STEP_ID}|`)
+    }
+  }
+  return keys.join('\n')
+}
+
+/** @param {ReturnType<typeof getCombat>} c */
+function combatNavStructureSnapshot(c) {
+  return {
+    started: Boolean(c?.started),
+    round: Number(c?.round) || 0,
+    roundIntroPending: Boolean(c?.roundIntroPending),
+  }
+}
+
+/**
+ * @param {ReturnType<typeof combatNavStructureSnapshot>} prev
+ * @param {ReturnType<typeof combatNavStructureSnapshot>} next
+ */
+function combatNavStructureUnchanged(prev, next) {
+  return (
+    prev.started === next.started &&
+    prev.round === next.round &&
+    prev.roundIntroPending === next.roundIntroPending
+  )
+}
+
+/** @type {((listRoot: HTMLElement) => void) | null} */
+let listNavPostSyncHook = null
+
+/** @param {(listRoot: HTMLElement) => void} fn */
+export function registerListNavPostSyncHook(fn) {
+  listNavPostSyncHook = fn
+}
+
 /**
  * Irgendwo L.H.-Kontext in der Szene (laufend oder Setup-Sanduhr).
  *
@@ -4208,10 +4296,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let renderListProcessing = false
   /** @type {import('@owlbear-rodeo/sdk').Item[] | null | undefined} */
   let renderListQueuedItems = undefined
+  /** @type {{ skipItemsRefetch?: boolean, skipHeroExpandFlush?: boolean } | undefined} */
+  let renderListQueuedOpts = undefined
   /** @type {number} */
   let renderListScheduleRaf = 0
   let renderListDrainWanted = false
   let lastItems = []
+  /** @type {ReturnType<typeof combatNavStructureSnapshot> | null} */
+  let lastCombatNavStructure = null
   // Signatur der zuletzt gerenderten Raum-Action-Stempel (id/field/Anker). Wird
   // in `renderList` beim tatsaechlichen Render aktualisiert und in
   // `safeRenderList` gegen die aktuelle Signatur geprueft, damit Stempel auch
@@ -4297,6 +4389,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     syncListScrollHeight()
     runSwapLayout()
   }
+
+  registerListNavPostSyncHook((listRoot) => {
+    if (listRoot !== element) return
+    syncListScrollHeight()
+    runSwapLayout()
+  })
 
   if (listScrollEl) {
     listScrollEl.addEventListener('scroll', runSwapLayout, { passive: true })
@@ -7742,7 +7840,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
   }
 
-  const renderList = async (items) => {
+  const renderList = async (items, opts = {}) => {
+    const skipItemsRefetch = opts?.skipItemsRefetch === true
+    const skipHeroExpandFlush = opts?.skipHeroExpandFlush === true
     // Defensiver Schutz: transient leerer Items-Snapshot (kaskadierende
     // updateItems nach L.H.-Commit) — erst nachziehen, nicht komplett abbrechen.
     if (!items || items.length === 0) {
@@ -7755,14 +7855,18 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         }
       }
     }
-    await flushOpenHeroExpandPanelsBeforeRemount()
-    try {
-      const refetched = await OBR.scene.items.getItems()
-      if (refetched.length > 0) {
-        items = mergeSceneItemSnapshots(items ?? [], refetched)
+    if (!skipHeroExpandFlush) {
+      await flushOpenHeroExpandPanelsBeforeRemount()
+    }
+    if (!skipItemsRefetch) {
+      try {
+        const refetched = await OBR.scene.items.getItems()
+        if (refetched.length > 0) {
+          items = mergeSceneItemSnapshots(items ?? [], refetched)
+        }
+      } catch {
+        /* Szene kurz nicht lesbar — übergebenen Snapshot nutzen */
       }
-    } catch {
-      /* Szene kurz nicht lesbar — übergebenen Snapshot nutzen */
     }
     if ((!items || items.length === 0) && lastItems && lastItems.length > 0) {
       items = lastItems
@@ -9331,9 +9435,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     try {
       while (renderListQueuedItems !== undefined) {
         const items = renderListQueuedItems
+        const opts = renderListQueuedOpts
         renderListQueuedItems = undefined
+        renderListQueuedOpts = undefined
         try {
-          await renderList(items)
+          await renderList(items, opts ?? {})
         } catch (err) {
           console.error('[vierpunkteins] renderList failed', err)
           if (err instanceof Error && err.stack) {
@@ -9350,8 +9456,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     }
   }
 
-  const enqueueRenderList = (items) => {
+  const enqueueRenderList = (items, opts = {}) => {
     renderListQueuedItems = items ?? renderListQueuedItems
+    if (opts && Object.keys(opts).length > 0) {
+      renderListQueuedOpts = { ...(renderListQueuedOpts ?? {}), ...opts }
+    }
     if (renderListScheduleRaf) return
     renderListScheduleRaf = requestAnimationFrame(() => {
       renderListScheduleRaf = 0
@@ -9463,13 +9572,13 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         reactionOrFaMetaChangedVsLast(items) ||
         actionStampSignatureChangedVsLast()
       ) {
-        enqueueRenderList(items)
+        enqueueRenderList(items, opts)
         return
       }
       noteDeferredRenderListItems(items)
       return
     }
-    enqueueRenderList(items)
+    enqueueRenderList(items, opts)
   }
 
   registerReactionStampRenderFlush(() => {
@@ -9490,33 +9599,21 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   OBR.scene.items.onChange(safeRenderList)
   onCombatChange(() => {
     void (async () => {
-      let freshForSync = await OBR.scene.items.getItems()
-      if (!freshForSync?.length && lastItems?.length) {
-        freshForSync = lastItems
-      }
-      syncListNavFromCombat(element, freshForSync)
+      const combatNow = getCombat()
+      const combatSnap = combatNavStructureSnapshot(combatNow)
 
-      // Runden-Marken-Purge VOR dem Render, damit der einzelne Navigations-
-      // Render den bereinigten Stand zeigt (purge schreibt nur lokalen
-      // Mark-Cache, loest selbst KEIN scene.items.onChange aus).
-      const c = getCombat()
+      let items = await OBR.scene.items.getItems()
+      if (!items?.length && lastItems?.length) {
+        items = lastItems
+      }
+
       const r =
-        c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
+        combatNow?.started && Number.isFinite(Number(combatNow.round))
+          ? Number(combatNow.round)
+          : null
       if (r != null) purgeKrMarksBeforeRound(r)
 
-      // Sofort EIN Render fuer schnelle Navigations-Rueckmeldung. Die frueher
-      // hier stehende zweite (quickFresh-)Render-Runde war ein reines Duplikat
-      // ohne zwischenzeitliche Mutation und wurde zugunsten der Performance
-      // entfernt.
-      if (freshForSync?.length) {
-        safeRenderList(freshForSync, { force: true })
-      }
-
-      const items = await OBR.scene.items.getItems()
-      // Nur dann ein zweites (volles) Re-Render ausloesen, wenn die L.H.-/Mod-
-      // Nachbearbeitung tatsaechlich Items veraendert hat. Im haeufigen Fall
-      // (normale Navigation ohne L.H.-Ende/Mod-Ablauf) bleibt es bei genau
-      // EINEM Render pro Navigationsschritt statt drei.
+      // L.H./Mod-Nachbearbeitung zuerst — danach entscheiden: Sync oder Render.
       let postChanged = false
       try {
         if (await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())) {
@@ -9541,13 +9638,44 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       } catch {
         /* nicht kritisch */
       }
+
       if (postChanged) {
-        let fresh = await OBR.scene.items.getItems()
-        if (!fresh?.length && lastItems?.length) {
-          fresh = lastItems
-        }
-        safeRenderList(fresh, { force: true })
+        const refetched = await OBR.scene.items.getItems()
+        items =
+          refetched?.length > 0
+            ? refetched
+            : lastItems?.length
+              ? lastItems
+              : items
       }
+
+      const hasDomRows = Boolean(element.querySelector('li.init-row'))
+      const domSig = domListStructureSignature(element)
+      const mergedSig = computeMergedListStructureSignature(items ?? [])
+      const structureUnchanged =
+        lastCombatNavStructure != null &&
+        combatNavStructureUnchanged(lastCombatNavStructure, combatSnap)
+      const canIncrementalNav =
+        !postChanged &&
+        hasDomRows &&
+        structureUnchanged &&
+        domSig.length > 0 &&
+        domSig === mergedSig
+
+      if (canIncrementalNav) {
+        syncListNavFromCombat(element, items, { scroll: true })
+        listNavPostSyncHook?.(element)
+      } else if (items?.length) {
+        safeRenderList(items, {
+          force: true,
+          skipItemsRefetch: true,
+          skipHeroExpandFlush: structureUnchanged && hasDomRows,
+        })
+      } else {
+        syncListNavFromCombat(element, items ?? [])
+      }
+
+      lastCombatNavStructure = combatSnap
     })()
   })
   onIniTieOrderChange(() => safeRenderList(lastItems))
@@ -9572,6 +9700,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   })
 
   return () => {
+    registerListNavPostSyncHook(() => {})
     element.removeEventListener('click', onReactionStampClick, true)
     element.removeEventListener('contextmenu', onReactionStampContextMenu, true)
     document.removeEventListener('keydown', onHeroSettingsDocKey)

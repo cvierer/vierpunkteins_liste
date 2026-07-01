@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 /**
- * Regressions-Wächter: GM-Navigation darf pro Schritt nicht in Render-Kaskaden
- * oder excessive OBR-Roundtrips kippen. Zählt Full-Renders (replaceChildren) und
- * getItems-Aufrufe nach einem patchCombat-Nav-Schritt ohne L.H.-Mutation.
+ * Regressions-Wächter: GM-Navigation ohne L.H.-Mutation nutzt den inkrementellen
+ * syncListNavFromCombat-Pfad (kein element.replaceChildren pro Schritt).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -136,7 +135,7 @@ afterEach(() => {
 })
 
 describe('GM-Navigations-Performance', () => {
-  it('ein Schritt ohne L.H.: höchstens ein Full-Render und wenige getItems', async () => {
+  it('reine Positions-Navigation: kein Full-Render (replaceChildren)', async () => {
     const { ul, patchCombat } = await mountListInCombat(6, 'hero-1')
     const replaceChildrenSpy = vi.spyOn(ul, 'replaceChildren')
 
@@ -160,16 +159,16 @@ describe('GM-Navigations-Performance', () => {
     ).not.toBeNull()
 
     expect(
-      getItemsCalls,
-      `getItems ${getItemsCalls}x — jeder Aufruf ist ein OBR-Roundtrip`
-    ).toBeLessThanOrEqual(4)
+      fullRenders,
+      `replaceChildren ${fullRenders}x — erwartet 0 bei inkrementeller Nav`
+    ).toBe(0)
 
     expect(
-      fullRenders,
-      `replaceChildren ${fullRenders}x — jeder Aufruf ist ein voller Listen-Neuaufbau`
-    ).toBeLessThanOrEqual(1)
+      getItemsCalls,
+      `getItems ${getItemsCalls}x — ohne renderList-Refetch`
+    ).toBeLessThanOrEqual(2)
 
-    expect(navMs, `Nav-Schritt dauerte ${navMs.toFixed(0)} ms`).toBeLessThan(4000)
+    expect(navMs, `Nav-Schritt dauerte ${navMs.toFixed(0)} ms`).toBeLessThan(500)
   })
 
   it('syncListNavFromCombat allein: kein Full-Render, Highlight sofort', async () => {
@@ -188,18 +187,17 @@ describe('GM-Navigations-Performance', () => {
     ).not.toBeNull()
   })
 
-  it('8 Token: weiterhin höchstens ein Full-Render pro Nav-Schritt', async () => {
+  it('8 Token: Positions-Nav bleibt ohne Full-Render', async () => {
     const { ul, patchCombat } = await mountListInCombat(8, 'hero-1')
     const replaceChildrenSpy = vi.spyOn(ul, 'replaceChildren')
 
-    obr.default.scene.items.getItems.mockClear()
     replaceChildrenSpy.mockClear()
+    obr.default.scene.items.getItems.mockClear()
 
     await patchCombat({ currentItemId: 'hero-2' })
     await flushAll()
 
-    expect(replaceChildrenSpy.mock.calls.length).toBeLessThanOrEqual(1)
-    // getItems-Budget etwas großzügiger: renderList refetch + onCombatChange + ggf. Retry
-    expect(obr.default.scene.items.getItems.mock.calls.length).toBeLessThanOrEqual(6)
+    expect(replaceChildrenSpy.mock.calls.length).toBe(0)
+    expect(obr.default.scene.items.getItems.mock.calls.length).toBeLessThanOrEqual(2)
   })
 })
