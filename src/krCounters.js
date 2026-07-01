@@ -468,6 +468,27 @@ export function restoreRegularSecondActionRootAfterLh(m) {
  * @param {Record<string, unknown>} m
  * @returns {boolean} true, wenn Meta veraendert wurde
  */
+/**
+ * Mutter-Primärfeld von abgelaufener/abgebrochener L.H. auf Kampfstart-Default
+ * (Schwert mit einer Ladung). Kein volles rebuildKrActionPoolVisualsFromAngAbw.
+ *
+ * @param {Record<string, unknown>} m
+ * @returns {boolean}
+ */
+function restoreMotherPrimaryFromLhToAng(m) {
+  if (!m || typeof m !== 'object') return false
+  if (readKrFirstSlotKind(m) !== 'lh') return false
+  m[KR_FIRST_SLOT_KIND] = 'ang'
+  m[KR_PAIR_MODE] = 'ang_abw'
+  m[KR_ANG] = chargeValueFromMarks(1)
+  m[KR_LH_ACTION] = chargeValueFromMarks(0)
+  m[KR_LH_SECOND] = 0
+  delete m[KR_LH_VOID_BY_TRANSFER]
+  delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+  syncKrPrimaryLadungFromPrimaryField(m)
+  return true
+}
+
 export function normalizeHeroKrStateAfterLhEnd(m) {
   if (!m || typeof m !== 'object') return false
   let changed = false
@@ -478,6 +499,11 @@ export function normalizeHeroKrStateAfterLhEnd(m) {
   }
   if (m[KR_PRIMARY_VOID_BY_ABW_TRANSFER] !== undefined) {
     delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+    changed = true
+  }
+  // Nach Ablauf/Abbruch: hängendes Primär-Kind 'lh' auf Schwert zurücksetzen,
+  // damit Umwandel-Pfeile und L.H.-Counter nicht kleben bleiben.
+  if (!isLhActive(m) && restoreMotherPrimaryFromLhToAng(m)) {
     changed = true
   }
   const p = normalizePhases(m.phases)
@@ -504,6 +530,16 @@ export function normalizeHeroKrStateAfterLhEnd(m) {
   if (restoreRegularSecondActionRootAfterLh(m)) changed = true
   if (reconcileShieldLedger(m)) changed = true
   return changed
+}
+
+/**
+ * Held nach L.H.-Abbruch (× oder Umwandel-Pfeil) auf lokalen Kampfstart-Default.
+ *
+ * @param {Record<string, unknown>} m
+ * @returns {boolean}
+ */
+export function restoreHeroKrCombatStartDefault(m) {
+  return normalizeHeroKrStateAfterLhEnd(m)
 }
 
 /**

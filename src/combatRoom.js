@@ -28,6 +28,7 @@ const COMBAT_ACTION_REDO_KEY = `${ID}/combatActionRedo`
 
 const listeners = new Set()
 const tieListeners = new Set()
+const stampListeners = new Set()
 
 function defaultCombat() {
   return {
@@ -201,6 +202,21 @@ export function getActionStamps() {
   return actionStampsCache
 }
 
+function notifyStampListeners() {
+  for (const fn of stampListeners) {
+    try {
+      fn()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function onActionStampsChange(fn) {
+  stampListeners.add(fn)
+  return () => stampListeners.delete(fn)
+}
+
 export function onIniTieOrderChange(fn) {
   tieListeners.add(fn)
   return () => tieListeners.delete(fn)
@@ -309,6 +325,7 @@ async function pullActionStampsFromRoom() {
     )
   if (same) return
   actionStampsCache = next
+  notifyStampListeners()
   notify()
 }
 

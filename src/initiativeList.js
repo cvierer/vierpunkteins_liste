@@ -26,6 +26,7 @@ import {
   isCombatNavMutationActive,
   onCombatChange,
   onIniTieOrderChange,
+  onActionStampsChange,
   patchActionStamps,
   patchCombat,
   reorderIniTieToken,
@@ -226,6 +227,7 @@ import {
   handleReactionStampClick,
   handleReactionStampContextMenu,
   paradeLoadedSlotIndices,
+  registerReactionStampRenderFlush,
 } from './reactionStampClick.js'
 import {
   isKrSlotPatchSuppressingRenderList,
@@ -292,7 +294,11 @@ import {
   readHeroGsSchritt,
   runHeroExModsAfterCombatUpdate,
 } from './heroExMods.js'
-import { cancelLh, registerLhCommitRenderFlush } from './lhEngine.js'
+import {
+  cancelLh,
+  cancelLhAndRestoreHeroCombatDefault,
+  registerLhCommitRenderFlush,
+} from './lhEngine.js'
 import { shouldRemountLhRunningCounter } from './lhNavCounterSync.js'
 import { createHitZoneOverlay, HIT_ZONE_INFO_ICON_SVG } from './hitZoneOverlay.js'
 import {
@@ -1688,14 +1694,11 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     nextBtn.title = `Nächste Aktion (${kindLabelLong})${switchTitleSuffix}`
   }
 
-  const hideMotherSwitchForLh =
-    !isZaoSlot && kind === 'lh' && lhStatePrimary.max > 0
   const hideConvertSwitchForLock = !shouldShowKrPrimaryConvertSwitch(
     convertAllowedByLock,
     switchLocked
   )
-  const hideSwitchCol =
-    hideMotherSwitchForLh || isHeroExtraSlot || hideConvertSwitchForLock
+  const hideSwitchCol = isHeroExtraSlot || hideConvertSwitchForLock
   if (switchCol) {
     syncKrPrimarySwitchColLayout(shell, main, switchCol, hideSwitchCol)
   }
@@ -2088,6 +2091,40 @@ function appendKrPrimarySplitCell(
   /** @param {'next' | 'prev'} dir */
   let switchQueueTail = Promise.resolve()
   const enqueuePrimarySwitch = async (dir) => {
+    let freshMetaForLhCheck = trackerMeta
+    try {
+      const freshItems = await OBR.scene.items.getItems([ownerItemId])
+      freshMetaForLhCheck =
+        freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ?? trackerMeta
+    } catch {
+      /* render-closure fallback */
+    }
+    // Laufende L.H. am Mutterobjekt: Pfeil-Klick = Abbrechen (×) + Kampfstart-Default.
+    if (
+      !isZaoSlot &&
+      readLhState(freshMetaForLhCheck).max > 0 &&
+      readKrFirstSlotKind(freshMetaForLhCheck) === 'lh'
+    ) {
+      await cancelLhAndRestoreHeroCombatDefault(ownerItemId)
+      try {
+        const afterItems = await OBR.scene.items.getItems([ownerItemId])
+        const afterMeta =
+          afterItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY] ??
+          freshMetaForLhCheck
+        const afterKind = readKrFirstSlotKind(afterMeta)
+        shell.dataset.krSlotKind = afterKind
+        syncKrPrimaryShellKindVisual(
+          switchEls,
+          afterKind,
+          afterMeta,
+          visualCtx
+        )
+        refreshLhAbwAfterKind(afterMeta)
+      } catch {
+        /* nicht kritisch */
+      }
+      return
+    }
     // Optimistisches UI: Icon/Tooltip sofort auf das voraussichtliche Ziel-Kind
     // setzen, BEVOR der OBR-Roundtrip laeuft — Umwandeln fuehlt sich dadurch
     // deutlich schneller an. Rein visuelle Vorschau auf Basis des bereits
@@ -2262,16 +2299,12 @@ function appendKrPrimarySplitCell(
   }
   main.appendChild(exec)
 
-  const hideMotherSwitchForLhMount =
-    !isZaoSlot && kind === 'lh' && lhStatePrimary.max > 0
   const hideConvertSwitchForLockMount = !shouldShowKrPrimaryConvertSwitch(
     convertAllowedByLock,
     switchLocked
   )
   const hideSwitchColAtMount =
-    hideMotherSwitchForLhMount ||
-    isHeroExtraSlot ||
-    hideConvertSwitchForLockMount
+    isHeroExtraSlot || hideConvertSwitchForLockMount
   // Bei reiner L.H.-Sperre die Switch-Spalte im DOM behalten (CSS-versteckt),
   // damit sie nach L.H.-Abbruch ohne Full-Remount wieder eingeblendet werden
   // kann. Convert-Lock-/HeroExtra-Faelle bleiben abgehaengt (Verhalten unveraendert).
@@ -2873,7 +2906,7 @@ function syncLhAbwContainer(
     lhAtAbwActive =
       zaoSlotOverride.kind === 'lh' && zaoSlotOverride.marks >= 1
   } else if (!hideAbw) {
-    lhAtAbwActive = motherKindIsLh
+    lhAtAbwActive = motherKindIsLh && lhSt.max > 0
     if (lhAtAbwActive && isLhActive(trackerMeta)) {
       const lhEndOnList = visibleLhEndLinkForOwner(
         trackerMeta,
@@ -9146,6 +9179,18 @@ function layoutStampPanels(listRoot) {
     })
   })
 
+  registerReactionStampRenderFlush(() => {
+    void OBR.scene.items.getItems().then((fresh) => {
+      safeRenderList(mergeDeferredRenderItems(fresh, lastItems), { force: true })
+    })
+  })
+
+  const offActionStamps = onActionStampsChange(() => {
+    void OBR.scene.items.getItems().then((fresh) => {
+      safeRenderList(mergeDeferredRenderItems(fresh, lastItems), { force: true })
+    })
+  })
+
   // Signatur der per Klick stempelbaren/umwandelbaren Meta-Felder: Abwehr-Schild,
   // Parade-Extra, freie Aktion SOWIE 2.AO-Slots (KR_ZAO_SLOTS) und Mutter-Slot
   // (KR_FIRST_SLOT_KIND). Aenderungen hieran muessen sofort sichtbar werden —
@@ -9300,6 +9345,7 @@ function layoutStampPanels(listRoot) {
     offRoomSettings()
     offStampPref()
     offForeignHeroPref()
+    offActionStamps()
     offPlayer()
     offZaoTie()
     offFullIniTie()

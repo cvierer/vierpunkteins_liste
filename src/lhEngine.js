@@ -276,5 +276,15 @@ export async function startOrCancelLh(itemId, text, opts) {
  * @param {string} itemId
  */
 export async function cancelLh(itemId) {
+  await cancelLhAndRestoreHeroCombatDefault(itemId)
+}
+
+/**
+ * L.H. abbrechen und Held auf lokalen Kampfstart-Default zurücksetzen
+ * (wie × am L.H.-Feld; auch für Umwandel-Pfeile während laufender L.H.).
+ *
+ * @param {string} itemId
+ */
+export async function cancelLhAndRestoreHeroCombatDefault(itemId) {
   await startOrCancelLh(itemId, '')
 }

@@ -50,6 +50,8 @@ import {
   krTransferMarkPresent,
   normalizeHeroKrStateAfterLhEnd,
   patchKrCyclePrimarySlotKind,
+  readKrFirstSlotKind,
+  restoreHeroKrCombatStartDefault,
   restoreRegularSecondActionRootAfterLh,
 } from './krCounters.js'
 import { isHeroAtLhMotherEndInRound, isLhLockingActions } from './lhMeta.js'
@@ -672,6 +674,24 @@ describe('normalizeHeroKrStateAfterLhEnd (radikaler L.H.-Ende-Reset)', () => {
     }
     normalizeHeroKrStateAfterLhEnd(meta)
     expect(meta[KR_ZAO_SLOTS].lhend1).toEqual({ kind: 'lh', marks: 1 })
+  })
+
+  it('restoreHeroKrCombatStartDefault setzt krFirstSlotKind von lh auf ang', () => {
+    const meta = {
+      initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      krFirstSlotKind: 'lh',
+      krAng: 1,
+      krLhAction: 1,
+      [LH_MAX]: 0,
+      [LH_REM]: 0,
+      phases: { links: [] },
+    }
+    restoreHeroKrCombatStartDefault(meta)
+    expect(readKrFirstSlotKind(meta)).toBe('ang')
+    expect(isLhActive(meta)).toBe(false)
   })
 })
 
