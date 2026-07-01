@@ -1065,43 +1065,131 @@ function listRowAnchorKeyFromLi(li) {
 }
 
 /**
+ * Irgendwo L.H.-Kontext in der Szene (laufend oder Setup-Sanduhr).
+ *
+ * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} items
+ */
+function sceneHasLhContext(items) {
+  if (!Array.isArray(items)) return false
+  for (const it of items) {
+    const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!m) continue
+    if (isLhActive(m) || readKrFirstSlotKind(m) === 'lh') return true
+  }
+  return false
+}
+
+/** @param {unknown[] | null | undefined} entries */
+function countReactionStampsInEntries(entries) {
+  if (!Array.isArray(entries)) return 0
+  return entries.filter((e) => {
+    const f = /** @type {{ field?: string }} */ (e).field
+    return f === KR_ABW || f === KR_FREE_ACTION
+  }).length
+}
+
+/** @param {HTMLElement | null | undefined} listRoot */
+function countVisibleReactionStampsInList(listRoot) {
+  if (!listRoot) return 0
+  let n = 0
+  for (const cell of listRoot.querySelectorAll('.init-col-abw-stamps')) {
+    n += cell.querySelectorAll(
+      '.init-stamp-panel__seg--abw, .init-stamp-panel__seg--fa'
+    ).length
+  }
+  return n
+}
+
+/**
+ * Nav-Schritte + Merged-Zeilen fuer Stempel-Anker (gleiche Logik wie renderList).
+ *
+ * @param {import('@owlbear-rodeo/sdk').Item[]} listItems
+ */
+function buildStampAnchorContext(listItems) {
+  const combat = getCombat()
+  const tokenRows = collectSortedParticipants(
+    listItems,
+    getIniTieOrder(),
+    getManualIniTieOverridePairs()
+  )
+  const combatRound = combat.started ? combat.round : null
+  const rowActiveId =
+    combat.started && combat.currentItemId ? combat.currentItemId : null
+  const baseActivePhaseLinkId = combat.started ? combat.currentPhaseLinkId : null
+
+  currentNavIniForRender = resolveCurrentNavIniForCombat(
+    tokenRows,
+    listItems,
+    getIniTieOrder(),
+    combatRound,
+    combat
+  )
+  const stepsForNav = buildCombatTurnSteps(
+    tokenRows,
+    listItems,
+    getIniTieOrder(),
+    combatRound,
+    null
+  )
+  navStepsForRender = stepsForNav
+  setNavStepsCache(stepsForNav)
+
+  const rowActivePhaseLinkId = combat.started
+    ? resolveActivePhaseLinkId(combat, stepsForNav)
+    : baseActivePhaseLinkId
+
+  let combatStepIndex =
+    combat.started && !combat.roundIntroPending
+      ? findCombatStepIndex(stepsForNav, combat)
+      : null
+  if (
+    combatStepIndex != null &&
+    combatStepIndex < 0 &&
+    combat.started &&
+    !combat.roundIntroPending
+  ) {
+    combatStepIndex = findCombatStepIndexLoose(stepsForNav, combat)
+  }
+
+  const visibilityCtx = buildConvertListVisibilityCtx({
+    combatStarted: combat.started,
+    roundIntroPending: combat.roundIntroPending,
+    rowActiveId,
+    rowActivePhaseLinkId,
+    currentNavIni: currentNavIniForRender,
+    roundStartStepId: ROUND_START_STEP_ID,
+    roundEndStepId: ROUND_END_STEP_ID,
+    turnSteps: stepsForNav,
+    combatStepIndex:
+      combatStepIndex != null && combatStepIndex >= 0 ? combatStepIndex : null,
+  })
+  visibilityCtxForRender = visibilityCtx
+  mirrorListHostNavIniDataset(currentNavIniForRender)
+
+  const merged = buildMergedDisplayRows(
+    tokenRows,
+    listItems,
+    getIniTieOrder(),
+    combatRound,
+    visibilityCtx
+  )
+
+  return { stepsForNav, merged }
+}
+
+/**
  * Reaktions-Stempel-Spalten ohne vollen renderList neu befuellen.
  *
  * @param {HTMLElement | null | undefined} listRoot
  * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ * @returns {boolean}
  */
 function syncAbwStampCellsInList(listRoot, items) {
   try {
-    if (!listRoot || !items?.length || !getShowActionStamps()) return
-    if (!listRoot.querySelector('li.init-row')) return
+    if (!listRoot || !items?.length || !getShowActionStamps()) return false
+    if (!listRoot.querySelector('li.init-row')) return false
     const listItems = filterItemsForListViewer(items, isGmSync())
-    const tokenRows = collectSortedParticipants(
-      listItems,
-      getIniTieOrder(),
-      getManualIniTieOverridePairs()
-    )
-    const combat = getCombat()
-    const combatRound = combat.started ? combat.round : null
-    const visibilityCtx =
-      visibilityCtxForRender ??
-      buildConvertListVisibilityCtx({
-        combatStarted: combat.started,
-        roundIntroPending: combat.roundIntroPending,
-        rowActiveId: combat.started ? combat.currentItemId : null,
-        rowActivePhaseLinkId: combat.started ? combat.currentPhaseLinkId : null,
-        currentNavIni: currentNavIniForRender,
-        roundStartStepId: ROUND_START_STEP_ID,
-        roundEndStepId: ROUND_END_STEP_ID,
-        turnSteps: navStepsForRender,
-        combatStepIndex: null,
-      })
-    const merged = buildMergedDisplayRows(
-      tokenRows,
-      listItems,
-      getIniTieOrder(),
-      combatRound,
-      visibilityCtx
-    )
+    const { stepsForNav, merged } = buildStampAnchorContext(listItems)
     const actionStamps = getActionStamps()
     const stampEntries = Array.isArray(actionStamps?.entries)
       ? actionStamps.entries
@@ -1113,12 +1201,9 @@ function syncAbwStampCellsInList(listRoot, items) {
         cell.replaceChildren()
         li.classList.remove('init-row--has-stamps')
       }
-      return
+      return true
     }
-    const normalized = normalizeStampEntryAnchors(
-      stampEntries,
-      navStepsForRender
-    )
+    const normalized = normalizeStampEntryAnchors(stampEntries, stepsForNav)
     const byAnchor = groupStampsByMergedAnchor(merged, normalized)
     for (const li of listRoot.querySelectorAll('li.init-row')) {
       const key = listRowAnchorKeyFromLi(li)
@@ -1135,8 +1220,10 @@ function syncAbwStampCellsInList(listRoot, items) {
       li.classList.toggle('init-row--has-stamps', reactionStamps.length > 0)
     }
     layoutStampPanels(listRoot)
+    return true
   } catch (err) {
     console.warn('[vierpunkteins] syncAbwStampCellsInList failed', err)
+    return false
   }
 }
 
@@ -1437,6 +1524,177 @@ const SVG_FA_BOLT = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.or
 
 /** Leuchtendes Lila — Hover (Stand V991 / ein Prompt zuvor). */
 const SVG_FA_BOLT_HOVER = `<svg class="init-fa-cell__bolt-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 28" aria-hidden="true"><ellipse cx="9" cy="14" rx="5.2" ry="12.4" fill="currentColor" opacity="0.55"/><ellipse cx="9" cy="14" rx="4.4" ry="11.6" fill="currentColor" opacity="0.38"/><path fill="currentColor" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/><path fill="currentColor" opacity="0.78" d="M9 3.4 Q10.6 8.7 11.6 14 Q10.6 19.3 9 24.6 Q7.4 19.3 6.4 14 Q7.4 8.7 9 3.4 Z"/><path fill="currentColor" opacity="0.6" d="M9 6.6 Q9.7 10.3 10.05 14 Q9.7 17.7 9 21.4 Q8.3 17.7 7.95 14 Q8.3 10.3 9 6.6 Z"/><path fill="#ce93d8" opacity="0.72" d="M9 8.2 Q9.55 11.2 9.75 14 Q9.55 16.8 9 19.8 Q8.45 16.8 8.25 14 Q8.45 11.2 9 8.2 Z"/><path fill="#f3e5f5" opacity="0.88" d="M8.35 10.2 Q8.55 12.4 8.62 14 Q8.55 15.6 8.35 17.8 Q8.15 15.6 8.08 14 Q8.15 12.4 8.35 10.2 Z"/><path fill="none" stroke="#4a148c" stroke-width="0.45" stroke-linejoin="round" d="M9 0.8 Q11.2 8 12.4 14 Q11.2 20 9 27.2 Q6.8 20 5.6 14 Q6.8 8 9 0.8 Z"/></svg>`
+
+/**
+ * Konvertiert stamp.field in den CSS-Modifier-Suffix.
+ * @param {string} field
+ * @returns {string}
+ */
+function fieldToStampKind(field) {
+  if (field === KR_ANG) return 'ang'
+  if (field === KR_ABW) return 'abw'
+  if (field === KR_SRA) return 'sra'
+  if (field === KR_LH_ACTION) return 'lh'
+  if (field === KR_FREE_ACTION) return 'fa'
+  return 'fa'
+}
+
+const STAMP_REMOVE_HINT = ' — Rechtsklick: Stempel entfernen'
+
+function stampTooltipBase(stamp, items) {
+  const stampItem = items.find((i) => i.id === stamp?.itemId)
+  const ownerName =
+    getTokenListDisplayName(stampItem) ||
+    String(stamp?.ownerName || 'Unbekannt')
+  const action = stamp?.paradeExtra
+    ? 'Abwehr (Zusatz-Parade)'
+    : ACTION_STAMP_LABEL[stamp?.field] || 'Aktion'
+  return `${ownerName} · ${action}`
+}
+
+function stampTooltipFull(stamp, items) {
+  const base = stampTooltipBase(stamp, items)
+  const stampItem = items.find((i) => i.id === stamp?.itemId)
+  return canEditSceneItem(stampItem) ? `${base}${STAMP_REMOVE_HINT}` : base
+}
+
+function bindStampContextRemove(el, stamp, items) {
+  const stampItem = items.find((i) => i.id === stamp?.itemId)
+  if (!canEditSceneItem(stampItem)) return
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    void undoKrActionStamp(stamp.id)
+  })
+}
+
+/** Signaturfarbe je Aktionstyp (Fallback, falls keine Heldenfarbe gesetzt ist). */
+const STAMP_KIND_DEFAULT_COLOR = Object.freeze({
+  ang: '#7a1528',
+  abw: '#0d47a1',
+  sra: '#f57f17',
+  fa: '#7e57c2',
+  lh: '#00695c',
+})
+
+function stampKindIconMarkup(kind) {
+  if (kind === 'ang') return SVG_PRIMARY_ATTACK
+  if (kind === 'abw') return SVG_ABW_SHIELD
+  if (kind === 'sra') return SVG_PRIMARY_ACTION
+  if (kind === 'lh') return SVG_PRIMARY_LH_STAR
+  return SVG_FA_BOLT
+}
+
+/**
+ * Ein Stempel-Segment: Mini-Aktionsicon in der Farbe des stempelnden Helden
+ * (stamp.itemId), sonst in der Signaturfarbe des Aktionstyps.
+ */
+function buildStampSeg(stamp, items) {
+  const seg = document.createElement('div')
+  const kind = fieldToStampKind(stamp.field)
+  seg.className = `init-stamp-panel__seg init-stamp-panel__seg--${kind}`
+  seg.innerHTML = stampKindIconMarkup(kind)
+  const stampItem = items.find((i) => i.id === stamp?.itemId)
+  const heroColor = readHeroBgColor(stampItem?.metadata?.[TRACKER_ITEM_META_KEY])
+  const allowTint =
+    heroColor &&
+    (canEditSceneItem(stampItem) || !getHideForeignHeroColorsForViewer())
+  const tint = allowTint
+    ? mutedHeroColor(heroColor)
+    : STAMP_KIND_DEFAULT_COLOR[kind]
+  const svg = seg.querySelector('svg')
+  if (svg instanceof SVGElement && tint) svg.style.color = tint
+  seg.title = stampTooltipFull(stamp, items)
+  bindStampContextRemove(seg, stamp, items)
+  return seg
+}
+
+// In-flight-Dedup fuer die Render-Zeit-"ensure slot"-Patches (L.H.-Mutter-Ende
+// / n.A.-Objekt). Waehrend einer L.H. rendert die Liste mehrfach mit demselben,
+// noch nicht propagierten Item-Stand und wuerde sonst denselben idempotenten
+// Slot-Patch mehrfach abschicken — jeder Patch loest ein scene.items.onChange
+// + volles Re-Render aus (Kaskade). Wir kollabieren gleiche, noch laufende
+// Patches auf genau einen; nach Aufloesung liefert onChange frische Items,
+// sodass der naechste Render den Patch ohnehin nicht mehr ausloest.
+const inFlightZaoEnsureKeys = new Set()
+function fireZaoEnsurePatchOnce(key, run) {
+  if (inFlightZaoEnsureKeys.has(key)) return
+  inFlightZaoEnsureKeys.add(key)
+  try {
+    Promise.resolve(run()).finally(() => inFlightZaoEnsureKeys.delete(key))
+  } catch {
+    inFlightZaoEnsureKeys.delete(key)
+  }
+}
+
+/**
+ * Reservierte Reaktions-Stempel-Zelle rechts der INI-Spalte. Eigene Grid-Spalte
+ * (kein absolutes Overlay), damit gestempelte Schilde die INI-Zahl nicht
+ * überdecken. Maximal 4 Schilde pro Reihe (Wrap ab dem 5.); bei weniger als 4
+ * Schilden werden sie über `--abw-cols` dynamisch größer (1 → volle Breite,
+ * 2 → halb, 3 → Drittel). Wird immer erzeugt (auch leer), damit die Grid-
+ * Spalten ausgerichtet bleiben.
+ */
+function buildAbwStampsCell(stamps, items) {
+  const cell = document.createElement('div')
+  cell.className = 'init-col-abw-stamps'
+  if (stamps.length > 0) {
+    cell.setAttribute(
+      'aria-label',
+      'Gestempelte Reaktionen: Rechtsklick auf ein Schild zum Entfernen des Stempels'
+    )
+    const cols = Math.min(Math.max(stamps.length, 1), 4)
+    cell.style.setProperty('--abw-cols', String(cols))
+    for (const st of stamps) {
+      cell.appendChild(buildStampSeg(st, items))
+    }
+  }
+  return cell
+}
+
+/**
+ * Optimale Spaltenzahl, um n Icons (Seitenverhaeltnis r = Breite/Hoehe) in einer
+ * Box w x h moeglichst gross unterzubringen (gap zwischen den Zellen). Testet
+ * 1..n Spalten und nimmt die mit dem groessten achsentreuen Icon.
+ */
+function bestStampCols(n, w, h, gap = 1, r = 24 / 34) {
+  let best = 1
+  let bestSize = 0
+  for (let c = 1; c <= n; c++) {
+    const rows = Math.ceil(n / c)
+    const cellW = (w - (c - 1) * gap) / c
+    const cellH = (h - (rows - 1) * gap) / rows
+    if (cellW <= 0 || cellH <= 0) continue
+    const iconW = Math.min(cellW, cellH * r)
+    if (iconW > bestSize) {
+      bestSize = iconW
+      best = c
+    }
+  }
+  return best
+}
+
+/**
+ * Setzt --stamp-cols je Stempel-Panel anhand der gemessenen Boxgroesse, damit
+ * beliebig viele Icons ohne Vergroesserung der Flaeche optimal gepackt werden.
+ * Erst alle Boxen messen (reads), dann schreiben (kein Layout-Thrash).
+ */
+function layoutStampPanels(listRoot) {
+  if (!listRoot) return
+  const panels = listRoot.querySelectorAll('.init-stamp-panel')
+  const measured = []
+  panels.forEach((p) => {
+    const n = p.childElementCount
+    const rect = p.getBoundingClientRect()
+    if (n > 0 && rect.width > 0 && rect.height > 0) {
+      measured.push([p, n, rect.width, rect.height])
+    }
+  })
+  for (const [p, n, w, h] of measured) {
+    p.style.setProperty('--stamp-cols', String(bestStampCols(n, w, h)))
+  }
+}
+
 /** @param {'ang' | 'sra' | 'lh' | 'uo'} kind */
 function krPrimaryKindLabelLong(kind) {
   if (kind === 'uo') {
@@ -2297,7 +2555,7 @@ function appendKrPrimarySplitCell(
   const displayLhVoided =
     !isZaoSlot &&
     kind === 'lh' &&
-    Boolean(trackerMeta?.[KR_LH_VOID_BY_ABW_TRANSFER])
+    Boolean(trackerMeta?.[KR_LH_VOID_BY_TRANSFER])
   const vDisplay = isZaoSlot
     ? zaoSlotOverride.marks === 1
       ? 0
@@ -7329,181 +7587,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
   document.addEventListener('keydown', onHeroSettingsDocKey)
 
-/**
- * Konvertiert stamp.field in den CSS-Modifier-Suffix.
- * @param {string} field
- * @param {boolean} [paradeExtra]
- * @returns {string}
- */
-function fieldToStampKind(field) {
-  if (field === KR_ANG) return 'ang'
-  if (field === KR_ABW) return 'abw'
-  if (field === KR_SRA) return 'sra'
-  if (field === KR_LH_ACTION) return 'lh'
-  if (field === KR_FREE_ACTION) return 'fa'
-  return 'fa'
-}
-
-const STAMP_REMOVE_HINT = ' — Rechtsklick: Stempel entfernen'
-
-function stampTooltipBase(stamp, items) {
-  const stampItem = items.find((i) => i.id === stamp?.itemId)
-  const ownerName =
-    getTokenListDisplayName(stampItem) ||
-    String(stamp?.ownerName || 'Unbekannt')
-  const action = stamp?.paradeExtra
-    ? 'Abwehr (Zusatz-Parade)'
-    : ACTION_STAMP_LABEL[stamp?.field] || 'Aktion'
-  return `${ownerName} · ${action}`
-}
-
-function stampTooltipFull(stamp, items) {
-  const base = stampTooltipBase(stamp, items)
-  const stampItem = items.find((i) => i.id === stamp?.itemId)
-  return canEditSceneItem(stampItem) ? `${base}${STAMP_REMOVE_HINT}` : base
-}
-
-function bindStampContextRemove(el, stamp, items) {
-  const stampItem = items.find((i) => i.id === stamp?.itemId)
-  if (!canEditSceneItem(stampItem)) return
-  el.addEventListener('contextmenu', (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    void undoKrActionStamp(stamp.id)
-  })
-}
-
-/** Signaturfarbe je Aktionstyp (Fallback, falls keine Heldenfarbe gesetzt ist). */
-const STAMP_KIND_DEFAULT_COLOR = Object.freeze({
-  ang: '#7a1528',
-  abw: '#0d47a1',
-  sra: '#f57f17',
-  fa: '#7e57c2',
-  lh: '#00695c',
-})
-
-function stampKindIconMarkup(kind) {
-  if (kind === 'ang') return SVG_PRIMARY_ATTACK
-  if (kind === 'abw') return SVG_ABW_SHIELD
-  if (kind === 'sra') return SVG_PRIMARY_ACTION
-  if (kind === 'lh') return SVG_PRIMARY_LH_STAR
-  return SVG_FA_BOLT
-}
-
-/**
- * Ein Stempel-Segment: Mini-Aktionsicon in der Farbe des stempelnden Helden
- * (stamp.itemId), sonst in der Signaturfarbe des Aktionstyps.
- */
-function buildStampSeg(stamp, items) {
-  const seg = document.createElement('div')
-  const kind = fieldToStampKind(stamp.field)
-  seg.className = `init-stamp-panel__seg init-stamp-panel__seg--${kind}`
-  seg.innerHTML = stampKindIconMarkup(kind)
-  const stampItem = items.find((i) => i.id === stamp?.itemId)
-  const heroColor = readHeroBgColor(stampItem?.metadata?.[TRACKER_ITEM_META_KEY])
-  const allowTint =
-    heroColor &&
-    (canEditSceneItem(stampItem) || !getHideForeignHeroColorsForViewer())
-  const tint = allowTint
-    ? mutedHeroColor(heroColor)
-    : STAMP_KIND_DEFAULT_COLOR[kind]
-  const svg = seg.querySelector('svg')
-  if (svg instanceof SVGElement && tint) svg.style.color = tint
-  seg.title = stampTooltipFull(stamp, items)
-  bindStampContextRemove(seg, stamp, items)
-  return seg
-}
-
-/**
-// In-flight-Dedup fuer die Render-Zeit-"ensure slot"-Patches (L.H.-Mutter-Ende
-// / n.A.-Objekt). Waehrend einer L.H. rendert die Liste mehrfach mit demselben,
-// noch nicht propagierten Item-Stand und wuerde sonst denselben idempotenten
-// Slot-Patch mehrfach abschicken — jeder Patch loest ein scene.items.onChange
-// + volles Re-Render aus (Kaskade). Wir kollabieren gleiche, noch laufende
-// Patches auf genau einen; nach Aufloesung liefert onChange frische Items,
-// sodass der naechste Render den Patch ohnehin nicht mehr ausloest.
-const inFlightZaoEnsureKeys = new Set()
-function fireZaoEnsurePatchOnce(key, run) {
-  if (inFlightZaoEnsureKeys.has(key)) return
-  inFlightZaoEnsureKeys.add(key)
-  try {
-    Promise.resolve(run()).finally(() => inFlightZaoEnsureKeys.delete(key))
-  } catch {
-    inFlightZaoEnsureKeys.delete(key)
-  }
-}
-
-/**
- * Reservierte Reaktions-Stempel-Zelle rechts der INI-Spalte. Eigene Grid-Spalte
- * (kein absolutes Overlay), damit gestempelte Schilde die INI-Zahl nicht
- * überdecken. Maximal 4 Schilde pro Reihe (Wrap ab dem 5.); bei weniger als 4
- * Schilden werden sie über `--abw-cols` dynamisch größer (1 → volle Breite,
- * 2 → halb, 3 → Drittel). Wird immer erzeugt (auch leer), damit die Grid-
- * Spalten ausgerichtet bleiben.
- */
-function buildAbwStampsCell(stamps, items) {
-  const cell = document.createElement('div')
-  cell.className = 'init-col-abw-stamps'
-  if (stamps.length > 0) {
-    cell.setAttribute(
-      'aria-label',
-      'Gestempelte Reaktionen: Rechtsklick auf ein Schild zum Entfernen des Stempels'
-    )
-    // Max. 4 Schilde pro Reihe; je weniger Stempel, desto breiter werden sie.
-    // Die Zellhoehe ist via CSS auf --init-obj-cell fixiert (verhindert
-    // Zeilen-Wachstum), die Breite skaliert ueber --abw-cols.
-    const cols = Math.min(Math.max(stamps.length, 1), 4)
-    cell.style.setProperty('--abw-cols', String(cols))
-    for (const st of stamps) {
-      cell.appendChild(buildStampSeg(st, items))
-    }
-  }
-  return cell
-}
-
-/**
- * Optimale Spaltenzahl, um n Icons (Seitenverhaeltnis r = Breite/Hoehe) in einer
- * Box w x h moeglichst gross unterzubringen (gap zwischen den Zellen). Testet
- * 1..n Spalten und nimmt die mit dem groessten achsentreuen Icon.
- */
-function bestStampCols(n, w, h, gap = 1, r = 24 / 34) {
-  let best = 1
-  let bestSize = 0
-  for (let c = 1; c <= n; c++) {
-    const rows = Math.ceil(n / c)
-    const cellW = (w - (c - 1) * gap) / c
-    const cellH = (h - (rows - 1) * gap) / rows
-    if (cellW <= 0 || cellH <= 0) continue
-    const iconW = Math.min(cellW, cellH * r)
-    if (iconW > bestSize) {
-      bestSize = iconW
-      best = c
-    }
-  }
-  return best
-}
-
-/**
- * Setzt --stamp-cols je Stempel-Panel anhand der gemessenen Boxgroesse, damit
- * beliebig viele Icons ohne Vergroesserung der Flaeche optimal gepackt werden.
- * Erst alle Boxen messen (reads), dann schreiben (kein Layout-Thrash).
- */
-function layoutStampPanels(listRoot) {
-  if (!listRoot) return
-  const panels = listRoot.querySelectorAll('.init-stamp-panel')
-  const measured = []
-  panels.forEach((p) => {
-    const n = p.childElementCount
-    const rect = p.getBoundingClientRect()
-    if (n > 0 && rect.width > 0 && rect.height > 0) {
-      measured.push([p, n, rect.width, rect.height])
-    }
-  })
-  for (const [p, n, w, h] of measured) {
-    p.style.setProperty('--stamp-cols', String(bestStampCols(n, w, h)))
-  }
-}
-
   /** (i) + Zahnrad links im aufgeklappten Heldenblock. */
   const buildHeroExpandLeadButtons = (
     rowId,
@@ -9345,14 +9428,26 @@ function layoutStampPanels(listRoot) {
 
   function refreshRoomActionStampsInList(items, { includeKrGates = false } = {}) {
     if (!element.querySelector('li.init-row')) return false
-    syncAbwStampCellsInList(element, items)
+    const expected = countReactionStampsInEntries(getActionStamps()?.entries)
+    const synced = syncAbwStampCellsInList(element, items)
     if (includeKrGates) {
       syncKrPrimaryStampGatesInList(element, items)
       syncKrAbwStampGatesInList(element, items)
       syncKrFaStampGatesInList(element, items)
     }
-    lastRenderedStampSignature = actionStampsSignature(getActionStamps())
-    return true
+    const visible = countVisibleReactionStampsInList(element)
+    const ok = synced && (expected === 0 || visible >= expected)
+    if (ok) {
+      lastRenderedStampSignature = actionStampsSignature(getActionStamps())
+    }
+    return ok
+  }
+
+  function flushRoomActionStampsToList(items, { includeKrGates = false } = {}) {
+    const ok = refreshRoomActionStampsInList(items, { includeKrGates })
+    if (!ok || isKrSlotPatchSuppressingRenderList() || sceneHasLhContext(items)) {
+      safeRenderList(items, { force: true })
+    }
   }
 
   function safeRenderList(items, opts = {}) {
@@ -9379,19 +9474,15 @@ function layoutStampPanels(listRoot) {
 
   registerReactionStampRenderFlush(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      const merged = mergeDeferredRenderItems(fresh, lastItems)
-      if (!refreshRoomActionStampsInList(merged, { includeKrGates: true })) {
-        enqueueRenderList(merged)
-      }
+      flushRoomActionStampsToList(mergeDeferredRenderItems(fresh, lastItems), {
+        includeKrGates: true,
+      })
     })
   })
 
   const offActionStamps = onActionStampsChange(() => {
     void OBR.scene.items.getItems().then((fresh) => {
-      const merged = mergeDeferredRenderItems(fresh, lastItems)
-      if (!refreshRoomActionStampsInList(merged)) {
-        enqueueRenderList(merged)
-      }
+      flushRoomActionStampsToList(mergeDeferredRenderItems(fresh, lastItems))
     })
   })
 
