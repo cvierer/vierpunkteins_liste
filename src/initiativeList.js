@@ -1234,7 +1234,7 @@ function syncAbwStampCellsInList(listRoot, items) {
  * @param {import('@owlbear-rodeo/sdk').Item[]} items
  * @param {{ scroll?: boolean }} [opts]
  */
-function syncListNavFromCombat(listRoot, items, opts = {}) {
+export function syncListNavFromCombat(listRoot, items, opts = {}) {
   refreshCurrentNavIniForList(items)
   syncListNavHighlightFromCombat(listRoot, getCombat(), opts)
   syncLhNavFractionsInList(listRoot, items)
