@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import { KR_ANG } from './krMetaKeys.js'
 import {
   LH_MAX,
   LH_REM,
+  countMotherPrimaryStampsForItem,
   lhAwaitingCompletionStamp,
   lhCompletionStampReady,
   lhDisplayStepFromNav,
   lhEndsInRound,
   lhPieFraction,
+  priorKrSpendRawForLhFreeze,
 } from './lhMeta.js'
 
 describe('lhAwaitingCompletionStamp', () => {
@@ -230,6 +233,104 @@ describe('lhDisplayStepFromNav', () => {
       priorFrozen
     )
     expect(frac).toBeCloseTo(2 / 3, 6)
+  })
+
+  it('hero INI 11, Offset 8, max 4: KR1 Mutter → 1/4, Offset INI 3 → 2/4', () => {
+    const heroIni = 11
+    const mechanics = { actionsPerKr: 2, triggerIniStep: -8 }
+    const commitRound = 1
+    const currentRound = 1
+    const commitIni = 11
+    const lhMax = 4
+    const priorSpend = 0
+
+    expect(
+      lhDisplayStepFromNav(
+        heroIni,
+        mechanics,
+        commitRound,
+        currentRound,
+        11,
+        lhMax,
+        commitIni,
+        priorSpend
+      )
+    ).toBe(1)
+
+    expect(
+      lhDisplayStepFromNav(
+        heroIni,
+        mechanics,
+        commitRound,
+        currentRound,
+        3,
+        lhMax,
+        commitIni,
+        priorSpend
+      )
+    ).toBe(2)
+  })
+
+  it('hero INI 11, priorSpend 0: KR2 Mutter INI 11 → 3/4', () => {
+    expect(
+      lhDisplayStepFromNav(
+        11,
+        { actionsPerKr: 2, triggerIniStep: -8 },
+        1,
+        2,
+        11,
+        4,
+        11,
+        0
+      )
+    ).toBe(3)
+  })
+})
+
+describe('countMotherPrimaryStampsForItem / priorKrSpendRawForLhFreeze', () => {
+  it('zählt nur Mutter-Primär-Stempel ohne Phasen-Anker', () => {
+    const stamps = {
+      entries: [
+        {
+          itemId: 'hero-a',
+          field: KR_ANG,
+          anchorPhaseLinkId: null,
+          anchorRowId: 'hero-a',
+        },
+        {
+          itemId: 'hero-a',
+          field: KR_ANG,
+          anchorPhaseLinkId: 'phase-1',
+          anchorRowId: 'hero-a',
+        },
+        {
+          itemId: 'hero-b',
+          field: KR_ANG,
+          anchorPhaseLinkId: null,
+        },
+      ],
+    }
+    expect(countMotherPrimaryStampsForItem('hero-a', stamps)).toBe(1)
+  })
+
+  it('priorKrSpendRawForLhFreeze: counter=1 ohne Stempel → 0', () => {
+    expect(
+      priorKrSpendRawForLhFreeze('hero-a', { entries: [] }, 1)
+    ).toBe(0)
+  })
+
+  it('priorKrSpendRawForLhFreeze: Stempel zählen auch bei hohem Live-Counter', () => {
+    const stamps = {
+      entries: [
+        {
+          itemId: 'hero-a',
+          field: KR_ANG,
+          anchorPhaseLinkId: null,
+          anchorRowId: 'hero-a',
+        },
+      ],
+    }
+    expect(priorKrSpendRawForLhFreeze('hero-a', stamps, 0)).toBe(1)
   })
 })
 

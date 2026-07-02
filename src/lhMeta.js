@@ -2,6 +2,10 @@
  * L.H.-Metadaten (Schlüssel + Lesen) ohne Abhängigkeit von phaseLinks/longHandlung.
  */
 
+import { KR_ABW, KR_ANG, KR_SRA } from './krMetaKeys.js'
+
+const MOTHER_PRIMARY_STAMP_FIELDS = new Set([KR_ANG, KR_SRA, KR_ABW])
+
 export const LH_MAX = 'lhMax'
 export const LH_REM = 'lhRemaining'
 export const LH_ACTIONS_PER_KR = 'lhActionsPerKr'
@@ -667,6 +671,51 @@ export function freezeLhCommitKrPriorSpendFromLive(
   const commitRef = lhCommitIniRef(commitIni, owner)
   const commitOffset = commitOffsetFromIni(owner, ap, step, commitRef)
   return clampPriorKrSpendForCommitKr(liveCounterRaw, effAp, commitOffset)
+}
+
+/**
+ * Mutter-Primär-Stempel (Ang/SRA/Abw) am Token-Anker ohne Phasen-Link.
+ *
+ * @param {string} itemId
+ * @param {{ entries?: unknown[] } | null | undefined} stamps
+ * @returns {number}
+ */
+export function countMotherPrimaryStampsForItem(itemId, stamps) {
+  if (!itemId || !Array.isArray(stamps?.entries) || stamps.entries.length === 0) {
+    return 0
+  }
+  let count = 0
+  for (const raw of stamps.entries) {
+    if (!raw || typeof raw !== 'object') continue
+    const e = /** @type {Record<string, unknown>} */ (raw)
+    if (e.itemId !== itemId) continue
+    if (e.paradeExtra) continue
+    const field = String(e.field ?? '')
+    if (!MOTHER_PRIMARY_STAMP_FIELDS.has(field)) continue
+    const phaseLink =
+      typeof e.anchorPhaseLinkId === 'string' ? e.anchorPhaseLinkId : null
+    if (phaseLink != null && phaseLink !== '') continue
+    const rowAnchor =
+      typeof e.anchorRowId === 'string' ? e.anchorRowId : e.itemId
+    if (rowAnchor !== itemId) continue
+    count++
+  }
+  return count
+}
+
+/**
+ * Prior-Rohwert beim LH-Freeze: Stempel zählen (authoritativ), sonst Live-Counter.
+ *
+ * @param {string} itemId
+ * @param {{ entries?: unknown[] } | null | undefined} stamps
+ * @param {unknown} liveCounterRaw
+ * @returns {number}
+ */
+export function priorKrSpendRawForLhFreeze(itemId, stamps, liveCounterRaw) {
+  if (stamps && Array.isArray(stamps.entries)) {
+    return countMotherPrimaryStampsForItem(itemId, stamps)
+  }
+  return Math.max(0, Math.floor(Number(liveCounterRaw)) || 0)
 }
 
 /**

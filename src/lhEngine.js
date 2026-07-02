@@ -20,7 +20,7 @@
 import OBR from '@owlbear-rodeo/sdk'
 import { canEditSceneItem } from './editAccess.js'
 import { TRACKER_ITEM_META_KEY } from './participants.js'
-import { getCombat } from './combatRoom.js'
+import { getActionStamps, getCombat } from './combatRoom.js'
 import {
   clearKrLhStampsForItem,
   KR_MOTHER_PRIMARY_USED_THIS_ROUND,
@@ -44,6 +44,7 @@ import {
   LH_KR_FIRED_ROUND,
   LH_MAX,
   LH_REM,
+  priorKrSpendRawForLhFreeze,
   readLhMechanics,
   readLhState,
 } from './lhMeta.js'
@@ -147,6 +148,7 @@ export async function startOrCancelLh(itemId, text, opts) {
       trimmed === '' ? 0 : Math.floor(Number(trimmed.replace(',', '.')))
     if (trimmed !== '' && (!Number.isFinite(n) || n < 0)) return
     const round = getCombat().started ? getCombat().round : 1
+    const stampsAtCommit = getActionStamps()
     await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
@@ -161,9 +163,6 @@ export async function startOrCancelLh(itemId, text, opts) {
         m[LH_KR_FIRED_MASK] = 0
         m[LH_COMMIT_ROUND] = round
         delete m[LH_COMMIT_INI]
-        if (Number.isFinite(Number(o.commitIni))) {
-          m[LH_COMMIT_INI] = Number(o.commitIni)
-        }
         delete m[LH_DONE_ROUND]
         delete m[LH_DONE_INI]
         const liveMother = Math.max(
@@ -179,12 +178,22 @@ export async function startOrCancelLh(itemId, text, opts) {
         const commitIniOpt = Number.isFinite(Number(o.commitIni))
           ? Number(o.commitIni)
           : undefined
+        if (Number.isFinite(commitIniOpt)) {
+          m[LH_COMMIT_INI] = commitIniOpt
+        } else if (Number.isFinite(ownerIniStart)) {
+          m[LH_COMMIT_INI] = ownerIniStart
+        }
+        const priorRaw = priorKrSpendRawForLhFreeze(
+          itemId,
+          stampsAtCommit,
+          liveMother
+        )
         m[LH_COMMIT_KR_PRIOR_SPEND] = freezeLhCommitKrPriorSpendFromLive(
           ownerIniStart,
           mechStart.actionsPerKr,
           mechStart.triggerIniStep,
           commitIniOpt,
-          liveMother
+          priorRaw
         )
       }
     }
