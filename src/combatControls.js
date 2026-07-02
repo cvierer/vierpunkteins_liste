@@ -26,6 +26,7 @@ import {
   RESET_ROUND_INTRO,
 } from './combatRoom.js'
 import { awaitLhLifecycleIdle } from './lhEngine.js'
+import { getNavStepsCache } from './navActivePhaseLink.js'
 import { getTrackedParticipantIds } from './listState.js'
 import {
   hasPrimaryActionStampAtCombatStep,
@@ -44,6 +45,11 @@ import {
 import { getRoomSettings } from './roomSettings.js'
 
 async function combatTurnSteps() {
+  const c = getCombat()
+  const cached = getNavStepsCache()
+  if (c.started && Array.isArray(cached) && cached.length > 0) {
+    return cached
+  }
   let items = await OBR.scene.items.getItems()
   if (!items?.length) {
     await new Promise((r) => setTimeout(r, 0))
@@ -55,7 +61,6 @@ async function combatTurnSteps() {
     tieOrder,
     getManualIniTieOverridePairs()
   )
-  const c = getCombat()
   const combatRound = c.started ? c.round : null
   return buildCombatTurnSteps(rows, items, tieOrder, combatRound)
 }
@@ -317,7 +322,15 @@ export async function setupCombatControls(root) {
     })
   }
 
-  const applyCombatNext = async () => {
+  let combatNavChain = Promise.resolve()
+
+  /** @param {() => Promise<void>} fn */
+  const enqueueCombatNav = (fn) => {
+    combatNavChain = combatNavChain.then(fn, fn)
+    return combatNavChain
+  }
+
+  const applyCombatNextCore = async () => {
     try {
     await awaitLhLifecycleIdle()
     const c0 = getCombat()
@@ -435,7 +448,9 @@ export async function setupCombatControls(root) {
     }
   }
 
-  const applyCombatPrev = async () => {
+  const applyCombatNext = () => enqueueCombatNav(applyCombatNextCore)
+
+  const applyCombatPrevCore = async () => {
     try {
     await awaitLhLifecycleIdle()
     const cIntro = getCombat()
@@ -510,6 +525,8 @@ export async function setupCombatControls(root) {
       scheduleTurnActionMapRefresh()
     }
   }
+
+  const applyCombatPrev = () => enqueueCombatNav(applyCombatPrevCore)
 
   btnToggle?.addEventListener('click', () => void applyCombatStartStop())
 

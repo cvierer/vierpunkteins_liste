@@ -9650,7 +9650,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
   function flushRoomActionStampsToList(items, { includeKrGates = false } = {}) {
     const ok = refreshRoomActionStampsInList(items, { includeKrGates })
-    if (!ok || isKrSlotPatchSuppressingRenderList() || sceneHasLhContext(items)) {
+    if (!ok || isKrSlotPatchSuppressingRenderList()) {
       safeRenderList(items, { force: true })
     }
   }
@@ -9678,14 +9678,17 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   registerReactionStampRenderFlush(() => {
-    void OBR.scene.items.getItems().then((fresh) => {
-      flushRoomActionStampsToList(mergeDeferredRenderItems(fresh, lastItems), {
-        includeKrGates: true,
-      })
+    const merged = mergeDeferredRenderItems(lastItems, lastItems)
+    flushRoomActionStampsToList(merged?.length ? merged : lastItems, {
+      includeKrGates: true,
     })
   })
 
   const offActionStamps = onActionStampsChange(() => {
+    if (lastItems.length > 0) {
+      flushRoomActionStampsToList(lastItems)
+      return
+    }
     void OBR.scene.items.getItems().then((fresh) => {
       flushRoomActionStampsToList(mergeDeferredRenderItems(fresh, lastItems))
     })
@@ -9704,104 +9707,21 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       lastItems.length > 0 &&
       Boolean(element.querySelector('li.init-row'))
 
+    const needLh = sceneHasLhContext(lastItems)
+    const needHeroEx = sceneHasHeroExMods(lastItems)
+
     if (likelyIncremental) {
       refreshCurrentNavIniForList(lastItems)
       syncListNavHighlightFromCombat(element, combatNow, {
         scroll: true,
         scrollBehavior: 'auto',
       })
-    }
-
-    void (async () => {
-      const needLh = sceneHasLhContext(lastItems)
-      const needHeroEx = sceneHasHeroExMods(lastItems)
-
-      let items = lastItems
-      if (!items.length) {
-        items = await OBR.scene.items.getItems()
-        if (!items?.length && lastItems?.length) {
-          items = lastItems
-        }
-      }
-
-      const r =
-        combatNow?.started && Number.isFinite(Number(combatNow.round))
-          ? Number(combatNow.round)
-          : null
-      if (r != null) purgeKrMarksBeforeRound(r)
-
-      let postChanged = false
-      if (needLh) {
-        try {
-          if (await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())) {
-            postChanged = true
-          }
-        } catch {
-          /* nicht kritisch */
-        }
-      }
-      if (needHeroEx) {
-        try {
-          const cAfterLh = getCombat()
-          const cr =
-            cAfterLh?.started && Number.isFinite(Number(cAfterLh.round))
-              ? Number(cAfterLh.round)
-              : null
-          if (
-            await runHeroExModsAfterCombatUpdate(items, getIniTieOrder(), {
-              currentRound: cr,
-            })
-          ) {
-            postChanged = true
-          }
-        } catch {
-          /* nicht kritisch */
-        }
-      }
-
-      if (postChanged) {
-        const refetched = await OBR.scene.items.getItems()
-        items =
-          refetched?.length > 0
-            ? refetched
-            : lastItems?.length
-              ? lastItems
-              : items
-      }
-
-      const hasDomRows = Boolean(element.querySelector('li.init-row'))
-      const domSig = domListStructureSignature(element)
-      const mergedSig = postChanged
-        ? computeMergedListStructureSignature(items ?? [])
-        : cachedMergedListStructureSignature ||
-          computeMergedListStructureSignature(items ?? [])
-      const structureUnchanged =
-        lastCombatNavStructure != null &&
-        combatNavStructureUnchanged(lastCombatNavStructure, combatSnap)
-      const canIncrementalNav =
-        !postChanged &&
-        hasDomRows &&
-        structureUnchanged &&
-        domSig.length > 0 &&
-        domSig === mergedSig
-
-      if (canIncrementalNav) {
-        syncListNavFromCombat(element, items, {
-          skipHighlight: likelyIncremental,
-          prevNavPosition,
-          skipStampSync: !actionStampSignatureChangedSinceLastRender(),
-        })
-        listNavPostSyncHook?.(element)
-      } else if (items?.length) {
-        safeRenderList(items, {
-          force: true,
-          skipItemsRefetch: !postChanged,
-          skipHeroExpandFlush: structureUnchanged && hasDomRows,
-        })
-      } else {
-        syncListNavFromCombat(element, items ?? [])
-      }
-
+      syncListNavFromCombat(element, lastItems, {
+        skipHighlight: true,
+        prevNavPosition,
+        skipStampSync: !actionStampSignatureChangedSinceLastRender(),
+      })
+      listNavPostSyncHook?.(element)
       lastCombatNavStructure = combatSnap
       lastNavPosition = {
         itemId:
@@ -9813,7 +9733,127 @@ export function setupInitiativeList(element, { onListChange } = {}) {
             ? combatNow.currentPhaseLinkId
             : null,
       }
-    })()
+      if (!needLh && !needHeroEx) {
+        return
+      }
+    }
+
+    const deferWork = () => {
+      void (async () => {
+        let items = lastItems
+        if (!items.length) {
+          items = await OBR.scene.items.getItems()
+          if (!items?.length && lastItems?.length) {
+            items = lastItems
+          }
+        }
+
+        const r =
+          combatNow?.started && Number.isFinite(Number(combatNow.round))
+            ? Number(combatNow.round)
+            : null
+        if (r != null) purgeKrMarksBeforeRound(r)
+
+        let postChanged = false
+        if (needLh) {
+          try {
+            if (await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())) {
+              postChanged = true
+            }
+          } catch {
+            /* nicht kritisch */
+          }
+        }
+        if (needHeroEx) {
+          try {
+            const cAfterLh = getCombat()
+            const cr =
+              cAfterLh?.started && Number.isFinite(Number(cAfterLh.round))
+                ? Number(cAfterLh.round)
+                : null
+            if (
+              await runHeroExModsAfterCombatUpdate(items, getIniTieOrder(), {
+                currentRound: cr,
+              })
+            ) {
+              postChanged = true
+            }
+          } catch {
+            /* nicht kritisch */
+          }
+        }
+
+        if (postChanged) {
+          const refetched = await OBR.scene.items.getItems()
+          items =
+            refetched?.length > 0
+              ? refetched
+              : lastItems?.length
+                ? lastItems
+                : items
+        }
+
+        if (likelyIncremental && !postChanged) {
+          return
+        }
+
+        const hasDomRows = Boolean(element.querySelector('li.init-row'))
+        const domSig = domListStructureSignature(element)
+        const mergedSig = postChanged
+          ? computeMergedListStructureSignature(items ?? [])
+          : cachedMergedListStructureSignature ||
+            computeMergedListStructureSignature(items ?? [])
+        const structureUnchanged =
+          lastCombatNavStructure != null &&
+          combatNavStructureUnchanged(lastCombatNavStructure, combatSnap)
+        const canIncrementalNav =
+          !postChanged &&
+          hasDomRows &&
+          structureUnchanged &&
+          domSig.length > 0 &&
+          domSig === mergedSig
+
+        if (canIncrementalNav) {
+          syncListNavFromCombat(element, items, {
+            skipHighlight: likelyIncremental,
+            prevNavPosition,
+            skipStampSync: !actionStampSignatureChangedSinceLastRender(),
+          })
+          listNavPostSyncHook?.(element)
+        } else if (items?.length) {
+          safeRenderList(items, {
+            force: true,
+            skipItemsRefetch: !postChanged,
+            skipHeroExpandFlush: structureUnchanged && hasDomRows,
+          })
+        } else {
+          syncListNavFromCombat(element, items ?? [])
+        }
+
+        lastCombatNavStructure = combatSnap
+        lastNavPosition = {
+          itemId:
+            typeof combatNow.currentItemId === 'string'
+              ? combatNow.currentItemId
+              : null,
+          phaseLinkId:
+            typeof combatNow.currentPhaseLinkId === 'string'
+              ? combatNow.currentPhaseLinkId
+              : null,
+        }
+      })()
+    }
+
+    if (likelyIncremental && (needLh || needHeroEx)) {
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(deferWork, { timeout: 80 })
+      } else {
+        setTimeout(deferWork, 0)
+      }
+      return
+    }
+
+    deferWork()
   })
   onIniTieOrderChange(() => safeRenderList(lastItems))
   const offZaoTie = onZaoRootTieOrderChange(() => safeRenderList(lastItems))

@@ -78,14 +78,14 @@ function notifyLhCommitRenderFlush() {
 }
 
 /**
- * Wartet auf laufenden L.H.-Start/Abbrechen (Counter-Blur vs. Kampf-Navigation).
+ * Kurz warten auf laufenden L.H.-Start/Abbrechen — ohne Render-Flush-Blockade
+ * (die bis 400 ms Navigation verzoegerte).
  */
 export async function awaitLhLifecycleIdle() {
-  if (lhLifecyclePromise) await lhLifecyclePromise
-  if (lhRenderFlushPromise) {
+  if (lhLifecyclePromise) {
     await Promise.race([
-      lhRenderFlushPromise,
-      new Promise((r) => setTimeout(r, 400)),
+      lhLifecyclePromise,
+      new Promise((r) => setTimeout(r, 40)),
     ])
   }
 }

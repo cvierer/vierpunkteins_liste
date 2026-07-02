@@ -521,6 +521,17 @@ export async function patchCombat(partial) {
   }
   const next = normalize(merged)
   const roundIncreased = next.started && next.round > prevRound
+  const positionOnlyNav =
+    !roundIncreased &&
+    partial.started === undefined &&
+    partial.round === undefined &&
+    partial.roundIntroPending === undefined &&
+    partial.roundIntroPrevRound === undefined &&
+    partial.roundIntroPrevItemId === undefined &&
+    partial.roundIntroPrevPhaseLinkId === undefined &&
+    partial.currentTurnSubStep === undefined &&
+    (partial.currentItemId !== undefined ||
+      partial.currentPhaseLinkId !== undefined)
 
   if (roundIncreased) {
     beginCombatNavMutation()
@@ -528,6 +539,15 @@ export async function patchCombat(partial) {
   try {
     if (roundIncreased) {
       await clearEphemeralExtraIniRows()
+    }
+    if (positionOnlyNav) {
+      cache = next
+      notify()
+      void OBR.room.setMetadata({ [COMBAT_KEY]: next }).then(
+        () => pullFromRoom(),
+        () => pullFromRoom()
+      )
+      return
     }
     await OBR.room.setMetadata({ [COMBAT_KEY]: next })
     await pullFromRoom()
