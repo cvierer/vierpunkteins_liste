@@ -165,8 +165,8 @@ describe('GM-Navigations-Performance', () => {
 
     expect(
       getItemsCalls,
-      `getItems ${getItemsCalls}x — ohne renderList-Refetch`
-    ).toBeLessThanOrEqual(2)
+      `getItems ${getItemsCalls}x — ohne L.H./Mods kein OBR-Roundtrip`
+    ).toBe(0)
 
     expect(navMs, `Nav-Schritt dauerte ${navMs.toFixed(0)} ms`).toBeLessThan(500)
   })
@@ -198,6 +198,6 @@ describe('GM-Navigations-Performance', () => {
     await flushAll()
 
     expect(replaceChildrenSpy.mock.calls.length).toBe(0)
-    expect(obr.default.scene.items.getItems.mock.calls.length).toBeLessThanOrEqual(2)
+    expect(obr.default.scene.items.getItems.mock.calls.length).toBe(0)
   })
 })

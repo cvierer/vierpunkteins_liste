@@ -293,6 +293,7 @@ import {
 } from './longHandlung.js'
 import {
   effectiveDeltaForField,
+  readHeroExMods,
   readHeroGsSchritt,
   runHeroExModsAfterCombatUpdate,
 } from './heroExMods.js'
@@ -366,6 +367,61 @@ let currentNavIniForRender = null
 let visibilityCtxForRender = null
 /** Navigationsschritte des aktuellen Listen-Kontexts (Stempel-Anker-Normalisierung). */
 let navStepsForRender = null
+/** Gecachte Zeilenstruktur nach letztem renderList (Nav-Signature-Vergleich). */
+let cachedMergedListStructureSignature = ''
+/** Zuletzt gerenderte Raum-Stempel-Signatur (Nav-Sync). */
+let lastRenderedStampSignatureForNav = ''
+
+/**
+ * @param {string | null | undefined} stepId
+ */
+function isRoundBoundaryStepId(stepId) {
+  return stepId === ROUND_START_STEP_ID || stepId === ROUND_END_STEP_ID
+}
+
+/**
+ * @param {{ itemId?: string | null, phaseLinkId?: string | null } | null | undefined} prevNav
+ * @param {ReturnType<typeof getCombat>} combat
+ */
+function navNeedsFullReactionGateSync(prevNav, combat) {
+  return (
+    isRoundBoundaryStepId(combat?.currentItemId) ||
+    isRoundBoundaryStepId(prevNav?.itemId)
+  )
+}
+
+/**
+ * @param {{ itemId?: string | null, phaseLinkId?: string | null } | null | undefined} prevNav
+ * @param {ReturnType<typeof getCombat>} combat
+ */
+function navNeedsFullPrimaryGateSync(prevNav, combat) {
+  return navNeedsFullReactionGateSync(prevNav, combat)
+}
+
+/**
+ * @param {{ itemId?: string | null, phaseLinkId?: string | null } | null | undefined} prevNav
+ * @param {ReturnType<typeof getCombat>} combat
+ * @returns {Set<string>}
+ */
+function navAffectedOwnerIds(prevNav, combat) {
+  /** @type {Set<string>} */
+  const ids = new Set()
+  const prevId = prevNav?.itemId
+  if (typeof prevId === 'string' && !isRoundBoundaryStepId(prevId)) {
+    ids.add(prevId)
+  }
+  const curId = combat?.currentItemId
+  if (typeof curId === 'string' && !isRoundBoundaryStepId(curId)) {
+    ids.add(curId)
+  }
+  return ids
+}
+
+function actionStampSignatureChangedSinceLastRender() {
+  return (
+    actionStampsSignature(getActionStamps()) !== lastRenderedStampSignatureForNav
+  )
+}
 
 /**
  * Nav-basierter L.H.-Bruch (passive Mechanik): gleiche Logik wie
@@ -457,9 +513,12 @@ function livePrimaryLadungAllowed(ownerItemId, navigationPhaseLinkId) {
  *
  * @param {HTMLElement | null | undefined} listRoot
  * @param {import('@owlbear-rodeo/sdk').Item[]} items
+ * @param {{ syncAll?: boolean, ownerFilter?: Set<string> | null }} [opts]
  */
-function syncKrPrimaryStampGatesInList(listRoot, items) {
+function syncKrPrimaryStampGatesInList(listRoot, items, opts = {}) {
   if (!listRoot || !items?.length) return
+  const syncAll = opts.syncAll === true
+  const ownerFilter = opts.ownerFilter ?? null
   const itemById = new Map(items.map((i) => [i.id, i]))
   const combat = getCombat()
   const combatRound = combat.started ? combat.round : null
@@ -473,6 +532,7 @@ function syncKrPrimaryStampGatesInList(listRoot, items) {
   for (const shell of listRoot.querySelectorAll('.init-kr-primary-shell')) {
     const ownerItemId = shell.dataset.krOwnerId
     if (!ownerItemId) continue
+    if (!syncAll && ownerFilter && !ownerFilter.has(ownerItemId)) continue
     const item = itemById.get(ownerItemId)
     const trackerMeta = item?.metadata?.[TRACKER_ITEM_META_KEY]
     if (!trackerMeta) continue
@@ -729,7 +789,7 @@ function syncListNavHighlightFromCombat(listRoot, combat = getCombat(), opts = {
     target.scrollIntoView({
       block: 'nearest',
       inline: 'nearest',
-      behavior: 'smooth',
+      behavior: opts.scrollBehavior === 'smooth' ? 'smooth' : 'auto',
     })
   }
 }
@@ -1167,6 +1227,17 @@ function sceneHasLhContext(items) {
   return false
 }
 
+/** @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} items */
+function sceneHasHeroExMods(items) {
+  if (!Array.isArray(items)) return false
+  for (const it of items) {
+    const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!m) continue
+    if (readHeroExMods(m).length > 0) return true
+  }
+  return false
+}
+
 /** @param {unknown[] | null | undefined} entries */
 function countReactionStampsInEntries(entries) {
   if (!Array.isArray(entries)) return 0
@@ -1320,16 +1391,40 @@ function syncAbwStampCellsInList(listRoot, items) {
  *
  * @param {HTMLElement | null | undefined} listRoot
  * @param {import('@owlbear-rodeo/sdk').Item[]} items
- * @param {{ scroll?: boolean }} [opts]
+ * @param {{
+ *   scroll?: boolean,
+ *   scrollBehavior?: 'auto' | 'smooth',
+ *   skipHighlight?: boolean,
+ *   prevNavPosition?: { itemId?: string | null, phaseLinkId?: string | null } | null,
+ *   skipStampSync?: boolean,
+ * }} [opts]
  */
 export function syncListNavFromCombat(listRoot, items, opts = {}) {
   refreshCurrentNavIniForList(items)
-  syncListNavHighlightFromCombat(listRoot, getCombat(), opts)
-  syncLhNavFractionsInList(listRoot, items)
-  syncAbwStampCellsInList(listRoot, items)
-  syncKrPrimaryStampGatesInList(listRoot, items)
-  syncKrAbwStampGatesInList(listRoot, items)
-  syncKrFaStampGatesInList(listRoot, items)
+  if (!opts.skipHighlight) {
+    syncListNavHighlightFromCombat(listRoot, getCombat(), opts)
+  }
+
+  if (sceneHasLhContext(items)) {
+    syncLhNavFractionsInList(listRoot, items)
+  }
+
+  if (!opts.skipStampSync && actionStampSignatureChangedSinceLastRender()) {
+    syncAbwStampCellsInList(listRoot, items)
+  }
+
+  const combat = getCombat()
+  const prevNav = opts.prevNavPosition ?? null
+  const fullPrimary = navNeedsFullPrimaryGateSync(prevNav, combat)
+  syncKrPrimaryStampGatesInList(listRoot, items, {
+    syncAll: fullPrimary,
+    ownerFilter: fullPrimary ? null : navAffectedOwnerIds(prevNav, combat),
+  })
+
+  if (navNeedsFullReactionGateSync(prevNav, combat)) {
+    syncKrAbwStampGatesInList(listRoot, items)
+    syncKrFaStampGatesInList(listRoot, items)
+  }
 }
 
 /** @param {'down' | 'up'} arrowDir */
@@ -4304,11 +4399,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   let lastItems = []
   /** @type {ReturnType<typeof combatNavStructureSnapshot> | null} */
   let lastCombatNavStructure = null
-  // Signatur der zuletzt gerenderten Raum-Action-Stempel (id/field/Anker). Wird
-  // in `renderList` beim tatsaechlichen Render aktualisiert und in
-  // `safeRenderList` gegen die aktuelle Signatur geprueft, damit Stempel auch
-  // unter L.H.-Render-Suppression sofort sichtbar werden.
-  let lastRenderedStampSignature = ''
+  /** @type {{ itemId: string | null, phaseLinkId: string | null }} */
+  let lastNavPosition = { itemId: null, phaseLinkId: null }
 
   void hideDistanceRings()
 
@@ -7992,6 +8084,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       combatRoundForMerged,
       visibilityCtx
     )
+    cachedMergedListStructureSignature = merged
+      .filter((e) => e.kind !== 'actionStamp')
+      .map(mergedEntryAnchorKey)
+      .join('\n')
     const actionStamps = getActionStamps()
     const stampEntries = Array.isArray(actionStamps?.entries)
       ? actionStamps.entries
@@ -9245,7 +9341,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
     element.replaceChildren(frag)
     layoutStampPanels(element)
-    lastRenderedStampSignature = actionStampsSignature(getActionStamps())
+    lastRenderedStampSignatureForNav = actionStampsSignature(getActionStamps())
     syncListNavHighlightFromCombat(element, combat, { scroll: false })
 
     void reconcileCombat(tokenRows, items)
@@ -9533,7 +9629,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   // sich nicht in Item-Meta nieder und wuerde sonst unter Suppression nicht
   // repaintet (Stempel blieben bis zum Aktions-Wechsel unsichtbar).
   const actionStampSignatureChangedVsLast = () =>
-    actionStampsSignature(getActionStamps()) !== lastRenderedStampSignature
+    actionStampsSignature(getActionStamps()) !== lastRenderedStampSignatureForNav
 
   function refreshRoomActionStampsInList(items, { includeKrGates = false } = {}) {
     if (!element.querySelector('li.init-row')) return false
@@ -9547,7 +9643,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const visible = countVisibleReactionStampsInList(element)
     const ok = synced && (expected === 0 || visible >= expected)
     if (ok) {
-      lastRenderedStampSignature = actionStampsSignature(getActionStamps())
+      lastRenderedStampSignatureForNav = actionStampsSignature(getActionStamps())
     }
     return ok
   }
@@ -9598,13 +9694,34 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   OBR.scene.items.getItems().then((items) => safeRenderList(items, { force: true }))
   OBR.scene.items.onChange(safeRenderList)
   onCombatChange(() => {
-    void (async () => {
-      const combatNow = getCombat()
-      const combatSnap = combatNavStructureSnapshot(combatNow)
+    const combatNow = getCombat()
+    const combatSnap = combatNavStructureSnapshot(combatNow)
+    const prevNavPosition = { ...lastNavPosition }
 
-      let items = await OBR.scene.items.getItems()
-      if (!items?.length && lastItems?.length) {
-        items = lastItems
+    const likelyIncremental =
+      lastCombatNavStructure != null &&
+      combatNavStructureUnchanged(lastCombatNavStructure, combatSnap) &&
+      lastItems.length > 0 &&
+      Boolean(element.querySelector('li.init-row'))
+
+    if (likelyIncremental) {
+      refreshCurrentNavIniForList(lastItems)
+      syncListNavHighlightFromCombat(element, combatNow, {
+        scroll: true,
+        scrollBehavior: 'auto',
+      })
+    }
+
+    void (async () => {
+      const needLh = sceneHasLhContext(lastItems)
+      const needHeroEx = sceneHasHeroExMods(lastItems)
+
+      let items = lastItems
+      if (!items.length) {
+        items = await OBR.scene.items.getItems()
+        if (!items?.length && lastItems?.length) {
+          items = lastItems
+        }
       }
 
       const r =
@@ -9613,30 +9730,33 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           : null
       if (r != null) purgeKrMarksBeforeRound(r)
 
-      // L.H./Mod-Nachbearbeitung zuerst — danach entscheiden: Sync oder Render.
       let postChanged = false
-      try {
-        if (await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())) {
-          postChanged = true
+      if (needLh) {
+        try {
+          if (await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())) {
+            postChanged = true
+          }
+        } catch {
+          /* nicht kritisch */
         }
-      } catch {
-        /* nicht kritisch */
       }
-      try {
-        const cAfterLh = getCombat()
-        const cr =
-          cAfterLh?.started && Number.isFinite(Number(cAfterLh.round))
-            ? Number(cAfterLh.round)
-            : null
-        if (
-          await runHeroExModsAfterCombatUpdate(items, getIniTieOrder(), {
-            currentRound: cr,
-          })
-        ) {
-          postChanged = true
+      if (needHeroEx) {
+        try {
+          const cAfterLh = getCombat()
+          const cr =
+            cAfterLh?.started && Number.isFinite(Number(cAfterLh.round))
+              ? Number(cAfterLh.round)
+              : null
+          if (
+            await runHeroExModsAfterCombatUpdate(items, getIniTieOrder(), {
+              currentRound: cr,
+            })
+          ) {
+            postChanged = true
+          }
+        } catch {
+          /* nicht kritisch */
         }
-      } catch {
-        /* nicht kritisch */
       }
 
       if (postChanged) {
@@ -9651,7 +9771,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
       const hasDomRows = Boolean(element.querySelector('li.init-row'))
       const domSig = domListStructureSignature(element)
-      const mergedSig = computeMergedListStructureSignature(items ?? [])
+      const mergedSig = postChanged
+        ? computeMergedListStructureSignature(items ?? [])
+        : cachedMergedListStructureSignature ||
+          computeMergedListStructureSignature(items ?? [])
       const structureUnchanged =
         lastCombatNavStructure != null &&
         combatNavStructureUnchanged(lastCombatNavStructure, combatSnap)
@@ -9663,12 +9786,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         domSig === mergedSig
 
       if (canIncrementalNav) {
-        syncListNavFromCombat(element, items, { scroll: true })
+        syncListNavFromCombat(element, items, {
+          skipHighlight: likelyIncremental,
+          prevNavPosition,
+          skipStampSync: !actionStampSignatureChangedSinceLastRender(),
+        })
         listNavPostSyncHook?.(element)
       } else if (items?.length) {
         safeRenderList(items, {
           force: true,
-          skipItemsRefetch: true,
+          skipItemsRefetch: !postChanged,
           skipHeroExpandFlush: structureUnchanged && hasDomRows,
         })
       } else {
@@ -9676,6 +9803,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       }
 
       lastCombatNavStructure = combatSnap
+      lastNavPosition = {
+        itemId:
+          typeof combatNow.currentItemId === 'string'
+            ? combatNow.currentItemId
+            : null,
+        phaseLinkId:
+          typeof combatNow.currentPhaseLinkId === 'string'
+            ? combatNow.currentPhaseLinkId
+            : null,
+      }
     })()
   })
   onIniTieOrderChange(() => safeRenderList(lastItems))
