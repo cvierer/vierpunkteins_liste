@@ -387,14 +387,104 @@ export function initKrActionPoolsFromHeroDefaults(m, { skipActionInit = false } 
  * @param {Record<string, unknown>} m
  * @returns {boolean} true, wenn eine Wurzel angelegt oder korrigiert wurde
  */
+export function promoteRegularRootToLhEnd(m, linkId) {
+  if (!m || typeof m !== 'object' || typeof linkId !== 'string' || !linkId) {
+    return false
+  }
+  const p = normalizePhases(m.phases)
+  const link = p.links.find((l) => l.id === linkId)
+  if (
+    !link ||
+    link.parentId !== null ||
+    link.heroExtra ||
+    link.lhEnd === true
+  ) {
+    return false
+  }
+  m.phases = finalizePhasesWithOrderedRoots(m, {
+    ...p,
+    rowPanelOpen: true,
+    links: p.links.map((l) =>
+      l.id === linkId
+        ? { ...l, lhEnd: true, expiresNextRound: true }
+        : l
+    ),
+  })
+  const slots = readZaoSlots(m)
+  slots[linkId] = { kind: 'lh', marks: 1 }
+  m[KR_ZAO_SLOTS] = slots
+  return true
+}
+
+/**
+ * lhEnd-Wurzel nach L.H.-Abschluss wieder in reguläre 2.AO umwandeln.
+ *
+ * @param {Record<string, unknown>} m
+ * @param {string} linkId
+ * @returns {boolean}
+ */
+export function demoteLhEndRootToRegular(m, linkId) {
+  if (!m || typeof m !== 'object' || typeof linkId !== 'string' || !linkId) {
+    return false
+  }
+  const p = normalizePhases(m.phases)
+  const link = p.links.find((l) => l.id === linkId)
+  if (!link || link.parentId !== null || link.lhEnd !== true) return false
+
+  m.phases = finalizePhasesWithOrderedRoots(m, {
+    ...p,
+    rowPanelOpen: true,
+    links: p.links.map((l) => {
+      if (l.id !== linkId) return l
+      return {
+        id: l.id,
+        parentId: null,
+        offset: l.offset,
+        expiresNextRound: true,
+      }
+    }),
+  })
+  const slots = readZaoSlots(m)
+  const newSlot = { kind: 'uo', marks: 0, lodgedAbw: true }
+  slots[linkId] = newSlot
+  m[KR_ZAO_SLOTS] = slots
+  applyUoDefaultAbwChargeIfNeeded(m, newSlot)
+  reconcileShieldLedger(m)
+  return true
+}
+
+/**
+ * Alle lhEnd-Wurzeln des Helden zu regulären 2.AO demoten.
+ *
+ * @param {Record<string, unknown>} m
+ * @returns {boolean}
+ */
+export function demoteAllLhEndRootsToRegular(m) {
+  if (!m || typeof m !== 'object') return false
+  const ownerIniStr = m.initiative
+  if (typeof ownerIniStr !== 'string') return false
+  const p = normalizePhases(m.phases)
+  let changed = false
+  for (const l of p.links) {
+    if (l.parentId !== null || l.heroExtra || l.lhEnd !== true) continue
+    const hook = hookIniForLink(l.id, ownerIniStr, p.links)
+    if (!Number.isFinite(hook) || hook < 0) continue
+    if (demoteLhEndRootToRegular(m, l.id)) changed = true
+  }
+  return changed
+}
+
 export function restoreRegularSecondActionRootAfterLh(m) {
   if (!m || typeof m !== 'object') return false
   const ownerIniStr = m.initiative
   if (typeof ownerIniStr !== 'string') return false
+
+  let changed = demoteAllLhEndRootsToRegular(m)
+
   const phaseOffset = phaseOffsetFromHeroSecondAoMeta(m)
-  if (!canCreateSecondActionRoot(ownerIniStr, phaseOffset)) return false
+  if (!canCreateSecondActionRoot(ownerIniStr, phaseOffset)) return changed
   const { ang } = effectiveHeroPoolSplit(m)
-  if (ang < 1) return false
+  if (ang < 1) return changed
 
   const p = normalizePhases(m.phases)
   const links = p.links
@@ -421,7 +511,7 @@ export function restoreRegularSecondActionRootAfterLh(m) {
         reconcileShieldLedger(m)
         return true
       }
-      return false
+      return changed
     }
   }
 

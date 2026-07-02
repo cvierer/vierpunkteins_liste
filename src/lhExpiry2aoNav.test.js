@@ -212,9 +212,12 @@ describe('L.H. abgelaufen -> normales 2.AO wieder navigierbar', () => {
     expect(krTransferMarkPresent(meta['krAbw'])).toBe(true)
   })
 
-  it('lhEnd-Wurzel zaehlt nicht als regulaere 2.AO -> Wurzel wird zusaetzlich angelegt', () => {
+  it('lhEnd-Wurzel wird demoted statt dupliziertes 2.AO anzulegen', () => {
     const meta = {
       initiative: '12',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
       phases: {
         links: [{ id: 'lhend1', parentId: null, offset: 8, lhEnd: true }],
       },
@@ -225,9 +228,14 @@ describe('L.H. abgelaufen -> normales 2.AO wieder navigierbar', () => {
     const roots = normalizePhases(meta.phases).links.filter(
       (l) => l.parentId === null
     )
-    expect(roots).toHaveLength(2)
-    expect(roots.some((l) => l.lhEnd === true)).toBe(true)
-    expect(roots.some((l) => l.lhEnd !== true)).toBe(true)
+    expect(roots).toHaveLength(1)
+    expect(roots[0].lhEnd).toBeUndefined()
+    expect(meta[KR_ZAO_SLOTS].lhend1).toEqual({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
+    expect(hookIniForLink(roots[0].id, '12', normalizePhases(meta.phases).links)).toBe(4)
   })
 
   it('Budget-Guard: ohne Angriffs-Anteil (ang=0) keine 2.AO-Wurzel', () => {
@@ -293,6 +301,38 @@ describe('applyLhKrStartObjects: End-KR Mutter-Ende stellt 2.AO wieder her', () 
     expect(
       regularPhaseSteps(steps, 'hero-a').some((s) => s.sub === 'action')
     ).toBe(true)
+  })
+})
+
+describe('applyLhKrStartObjects: End-KR 2.A. promotet bestehende Wurzel statt Duplikat', () => {
+  beforeEach(() => {
+    itemMetaRef.current = {
+      initiative: '11',
+      krFirstSlotKind: 'lh',
+      [LH_MAX]: 2,
+      [LH_REM]: 1,
+      [LH_ACTIONS_PER_KR]: 2,
+      [LH_TRIGGER_INI_STEP]: -8,
+      [LH_COMMIT_ROUND]: 1,
+      [LH_COMMIT_INI]: 11,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: { zao1: { kind: 'uo', marks: 0, lodgedAbw: true } },
+    }
+    getItems.mockClear()
+    updateItems.mockClear()
+  })
+
+  it('promoted zao1 zu lhEnd — genau eine Wurzel an Hook INI 3', async () => {
+    await applyLhKrStartObjects(1)
+
+    const meta = itemMetaRef.current
+    const links = normalizePhases(meta.phases).links
+    const roots = links.filter((l) => l.parentId === null)
+    expect(roots).toHaveLength(1)
+    expect(roots[0].id).toBe('zao1')
+    expect(roots[0].lhEnd).toBe(true)
+    expect(hookIniForLink(roots[0].id, '11', links)).toBe(3)
+    expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'lh', marks: 1 })
   })
 })
 
@@ -663,7 +703,7 @@ describe('normalizeHeroKrStateAfterLhEnd (radikaler L.H.-Ende-Reset)', () => {
     expect(meta[KR_ZAO_SLOTS].zao2).toEqual({ kind: 'uo', marks: 0, lodgedAbw: true })
   })
 
-  it('laesst die lhEnd-Wurzel unberuehrt', () => {
+  it('demoted lhEnd zu regulärer 2.AO (kein Duplikat)', () => {
     const meta = {
       initiative: '12',
       [HERO_ACTION_POOL_ANG]: 2,
@@ -673,7 +713,16 @@ describe('normalizeHeroKrStateAfterLhEnd (radikaler L.H.-Ende-Reset)', () => {
       krZaoSlots: { lhend1: { kind: 'lh', marks: 1 } },
     }
     normalizeHeroKrStateAfterLhEnd(meta)
-    expect(meta[KR_ZAO_SLOTS].lhend1).toEqual({ kind: 'lh', marks: 1 })
+    const roots = normalizePhases(meta.phases).links.filter(
+      (l) => l.parentId === null
+    )
+    expect(roots).toHaveLength(1)
+    expect(roots[0].lhEnd).toBeUndefined()
+    expect(meta[KR_ZAO_SLOTS].lhend1).toEqual({
+      kind: 'uo',
+      marks: 0,
+      lodgedAbw: true,
+    })
   })
 
   it('restoreHeroKrCombatStartDefault setzt krFirstSlotKind von lh auf ang', () => {

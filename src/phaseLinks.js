@@ -545,6 +545,30 @@ export function hookIniForLink(linkId, ownerIniStr, links) {
   return hookFor(linkId)
 }
 
+/**
+ * Wurzel-Link (Mutter-Phasenzeile) an einer Hook-INI finden.
+ *
+ * @param {import('./phaseLinks.js').PhaseLink[]} links
+ * @param {string} ownerIniStr
+ * @param {number} hookIni
+ * @param {{ regularOnly?: boolean, lhEndOnly?: boolean }} [opts]
+ * @returns {import('./phaseLinks.js').PhaseLink | null}
+ */
+export function findRootLinkAtHookIni(links, ownerIniStr, hookIni, opts = {}) {
+  const hookN = Number(hookIni)
+  if (!Array.isArray(links) || !Number.isFinite(hookN)) return null
+  const regularOnly = opts.regularOnly === true
+  const lhEndOnly = opts.lhEndOnly === true
+  for (const l of links) {
+    if (!l || l.parentId !== null || l.heroExtra) continue
+    if (regularOnly && l.lhEnd === true) continue
+    if (lhEndOnly && l.lhEnd !== true) continue
+    const hook = hookIniForLink(l.id, ownerIniStr, links)
+    if (hook === hookN) return l
+  }
+  return null
+}
+
 function linkDepth(linkId, map) {
   let d = 0
   let cur = map.get(linkId)
