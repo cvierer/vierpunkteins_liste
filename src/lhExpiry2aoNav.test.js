@@ -334,6 +334,75 @@ describe('applyLhKrStartObjects: End-KR 2.A. promotet bestehende Wurzel statt Du
     expect(hookIniForLink(roots[0].id, '11', links)).toBe(3)
     expect(meta[KR_ZAO_SLOTS].zao1).toEqual({ kind: 'lh', marks: 1 })
   })
+
+  it('nach resetAllKrCountersInScene + Hook: keine zwei Wurzeln an Hook INI 3', async () => {
+    itemMetaRef.current = {
+      initiative: '11',
+      krFirstSlotKind: 'lh',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      [LH_MAX]: 2,
+      [LH_REM]: 1,
+      [LH_ACTIONS_PER_KR]: 2,
+      [LH_TRIGGER_INI_STEP]: -8,
+      [LH_COMMIT_ROUND]: 1,
+      [LH_COMMIT_INI]: 11,
+      phases: { links: [{ id: 'zao1', parentId: null, offset: 8 }] },
+      krZaoSlots: { zao1: { kind: 'uo', marks: 0, lodgedAbw: true } },
+    }
+
+    await resetAllKrCountersInScene({ targetRound: 1 })
+    await applyLhKrStartObjects(1)
+
+    const meta = itemMetaRef.current
+    const links = normalizePhases(meta.phases).links
+    const roots = links.filter((l) => l.parentId === null && !l.heroExtra)
+    const atHook3 = roots.filter(
+      (l) => hookIniForLink(l.id, '11', links) === 3
+    )
+    expect(atHook3).toHaveLength(1)
+    expect(roots).toHaveLength(1)
+    expect(atHook3[0].lhEnd).toBe(true)
+  })
+
+  it('dedupliziert reguläre + lhEnd-Wurzel an derselben Hook-INI', async () => {
+    itemMetaRef.current = {
+      initiative: '11',
+      krFirstSlotKind: 'lh',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      [LH_MAX]: 2,
+      [LH_REM]: 1,
+      [LH_ACTIONS_PER_KR]: 2,
+      [LH_TRIGGER_INI_STEP]: -8,
+      [LH_COMMIT_ROUND]: 1,
+      [LH_COMMIT_INI]: 11,
+      phases: {
+        links: [
+          { id: 'zao1', parentId: null, offset: 8 },
+          { id: 'lhend1', parentId: null, offset: 8, lhEnd: true },
+        ],
+      },
+      krZaoSlots: {
+        zao1: { kind: 'uo', marks: 0, lodgedAbw: true },
+        lhend1: { kind: 'lh', marks: 1 },
+      },
+    }
+
+    await applyLhKrStartObjects(1)
+
+    const meta = itemMetaRef.current
+    const links = normalizePhases(meta.phases).links
+    const roots = links.filter((l) => l.parentId === null && !l.heroExtra)
+    const atHook3 = roots.filter(
+      (l) => hookIniForLink(l.id, '11', links) === 3
+    )
+    expect(atHook3).toHaveLength(1)
+    expect(roots).toHaveLength(1)
+    expect(atHook3[0].lhEnd).toBe(true)
+  })
 })
 
 // In der End-KR (L.H. laeuft, sperrt aber keine Aktionen mehr) ist das
@@ -723,6 +792,34 @@ describe('normalizeHeroKrStateAfterLhEnd (radikaler L.H.-Ende-Reset)', () => {
       marks: 0,
       lodgedAbw: true,
     })
+  })
+
+  it('normalize entfernt Duplikat regulär + lhEnd an gleicher Hook-INI', () => {
+    const meta = {
+      initiative: '11',
+      [HERO_ACTION_POOL_ANG]: 2,
+      [HERO_ACTION_POOL_ABW]: 1,
+      [HERO_ACTION_POOL_MAX]: 3,
+      phases: {
+        links: [
+          { id: 'zao1', parentId: null, offset: 8 },
+          { id: 'lhend1', parentId: null, offset: 8, lhEnd: true },
+        ],
+      },
+      krZaoSlots: {
+        zao1: { kind: 'uo', marks: 0, lodgedAbw: true },
+        lhend1: { kind: 'lh', marks: 1 },
+      },
+    }
+    normalizeHeroKrStateAfterLhEnd(meta)
+    const links = normalizePhases(meta.phases).links
+    const roots = links.filter((l) => l.parentId === null)
+    const atHook3 = roots.filter(
+      (l) => hookIniForLink(l.id, '11', links) === 3
+    )
+    expect(atHook3).toHaveLength(1)
+    expect(roots).toHaveLength(1)
+    expect(atHook3[0].lhEnd).toBeUndefined()
   })
 
   it('restoreHeroKrCombatStartDefault setzt krFirstSlotKind von lh auf ang', () => {

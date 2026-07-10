@@ -25,9 +25,7 @@ import { getCombat } from './combatRoom.js'
 import {
   buildCombatTurnSteps,
   buildMergedDisplayRows,
-  ensureLhEndPhaseLink,
   findCombatStepIndex,
-  findRootLinkAtHookIni,
   hookIniForLink,
   normalizePhases,
   sortedLinksForLayout,
@@ -52,8 +50,8 @@ import {
 } from './lhMeta.js'
 import { cancelLh, startOrCancelLh } from './lhEngine.js'
 import {
+  ensureLhEndRootAtHook,
   normalizeHeroKrStateAfterLhEnd,
-  promoteRegularRootToLhEnd,
   restoreRegularSecondActionRootAfterLh,
 } from './krCounters.js'
 
@@ -287,25 +285,13 @@ export async function applyLhKrStartObjects(currentRound) {
     const offset = ownerIni - endIni
     if (!(offset > 0)) continue
     try {
-      const ownerIniStr = String(item.metadata?.initiative ?? meta.initiative ?? '')
-      const p0 = normalizePhases(meta.phases)
-      const existingRegular = findRootLinkAtHookIni(
-        p0.links,
-        ownerIniStr,
-        endIni,
-        { regularOnly: true }
-      )
-      if (existingRegular) {
-        await OBR.scene.items.updateItems([item.id], (drafts) => {
-          for (const d of drafts) {
-            const m2 = d.metadata?.[TRACKER_ITEM_META_KEY]
-            if (!m2) continue
-            promoteRegularRootToLhEnd(m2, existingRegular.id)
-          }
-        })
-      } else {
-        await ensureLhEndPhaseLink(item.id, offset)
-      }
+      await OBR.scene.items.updateItems([item.id], (drafts) => {
+        for (const d of drafts) {
+          const m2 = d.metadata?.[TRACKER_ITEM_META_KEY]
+          if (!m2) continue
+          ensureLhEndRootAtHook(m2, endIni, offset)
+        }
+      })
     } catch {
       /* nicht kritisch */
     }

@@ -725,16 +725,36 @@ export function upsertLhLinkedZaoRoot(itemId, lhMaxCommitted, ownerIniStr) {
 export function ensureLhEndPhaseLink(itemId, offset) {
   const off = clampStoredOffset(offset)
   if (!(off > 0)) return Promise.resolve()
-  return patchItemPhases(itemId, (p) => {
-    const existing = p.links.find(
+  return patchItemPhases(itemId, (p, meta) => {
+    const ownerIniStr = meta?.initiative
+    if (typeof ownerIniStr !== 'string') return p
+    const hookIni = iniNumeric(ownerIniStr)
+    if (!Number.isFinite(hookIni)) return p
+    const hookN = hookIni - off
+
+    const existingLhEnd = p.links.find(
       (l) => l.parentId === null && l.lhEnd === true && l.offset === off
     )
-    if (existing) {
-      // Sicherstellen, dass das Panel offen ist, sonst rendert
-      // buildMergedDisplayRows die Phase-Zeile nicht.
+    if (existingLhEnd) {
       if (p.rowPanelOpen) return p
       return { ...p, rowPanelOpen: true }
     }
+
+    const regularAtHook = findRootLinkAtHookIni(p.links, ownerIniStr, hookN, {
+      regularOnly: true,
+    })
+    if (regularAtHook) {
+      return {
+        ...p,
+        rowPanelOpen: true,
+        links: p.links.map((l) =>
+          l.id === regularAtHook.id
+            ? { ...l, lhEnd: true, expiresNextRound: true }
+            : l
+        ),
+      }
+    }
+
     return {
       ...p,
       rowPanelOpen: true,
