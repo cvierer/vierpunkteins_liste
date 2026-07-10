@@ -37,6 +37,7 @@ Bottom-up-Schichten (Blatt → oben), je mit eigenem Test:
 - [`src/krTransferMarks.js`](src/krTransferMarks.js) — Abwehr-Transfer-Marken (`krTransferMarkPresent`, `addOneAbwTransferChargeValue`).
 - [`src/krZaoSlots.js`](src/krZaoSlots.js) — synchrone 2.A.-Objekt-Slot-Reader (`readZaoSlots`, `defaultZaoSlotForPhaseNum`, `metaHasPendingLoadedNonHeroExtraZao`, `syncReactionShieldForDualAng`).
 - **`krCounters.js` selbst:** die **async Stempel-Engine** (`patchKrCounterByDelta`, Transfer-/Scene-Reset-Patches über `OBR.scene.items.updateItems`). Bewusst kohäsiv gehalten (tiefe sync/async-Kopplung) — vorsichtig editieren.
+- [`src/krLhAftermath.js`](src/krLhAftermath.js) — L.H.-Nachlauf nach Ende (`ensureLhEndRootAtHook`, `dedupeZaoRootsAtHookIni`, `normalizeHeroKrStateAfterLhEnd`); Barrel re-exportiert.
 
 ### Heldenblock — Barrel [`src/iniModMeta.js`](src/iniModMeta.js)
 
@@ -44,6 +45,9 @@ Bottom-up-Schichten (Blatt → oben), je mit eigenem Test:
 - [`src/heroExMods.js`](src/heroExMods.js) — Mod-Datenschicht (`addHeroExMod`, `removeHeroExMod`, …).
 - [`src/heroExpandTooltips.js`](src/heroExpandTooltips.js) — Tooltip-Texte (`LE_THRESHOLD_TOOLTIP`, `WUNDEN_DOTS_TOOLTIP_BY_ZONE`, …).
 - [`src/heroExpandDom.js`](src/heroExpandDom.js) — DOM-Factories + statische SVG-Grafiken (`mountZoneMiniWappen`, `createLeThresholdGaugeBox`, `mountSlot9Placeholder`, `SVG_*`, `TP_TZ_BRIDGE_SVG`).
+- [`src/heroExpandPersist.js`](src/heroExpandPersist.js) — debounced Persist-Controller für `mountHeroExpandBlock`.
+- [`src/heroExpandModGrid.js`](src/heroExpandModGrid.js) — Mod-Badge-Tooltip-Texte (`buildModBadgeLongSummary`).
+- [`src/trackerWrites.js`](src/trackerWrites.js) — Schreib-Choke-Point `patchHeroExpandMeta` (nur `HERO_EX_*`/Wappen/LE).
 - **`iniModMeta.js` selbst:** `mountHeroExpandBlock` ist **eine sehr große Funktion** (Render-/Event-/Persist-Closure mit gemeinsamem lokalem State). Closures **nicht entlang sync/async-Grenzen mittendrin** auftrennen; Verhalten ist nur teilweise durch Smoke-Tests abgedeckt.
 
 ### Gemeinsame UI-Helfer
@@ -58,7 +62,17 @@ Bottom-up-Schichten (Blatt → oben), je mit eigenem Test:
 - **Ang.→Abw.-Schild-Umwandlung (Marken)** → `krTransferMarks.js`; Slot-/2.A.-Logik → `krZaoSlots.js`.
 - **Stempel setzen/zurücknehmen (async, OBR)** → `krCounters.js` (`patchKrCounterByDelta` & Co.).
 - **Wappen/Trefferzonen-Zelle, LE-Schwellen-Balken, SVG-Icons** → `heroExpandDom.js`.
-- **Heldenblock-Verdrahtung/Persist/Layout** → `mountHeroExpandBlock` in `iniModMeta.js`.
+- **Heldenblock-Verdrahtung/Persist/Layout** → `mountHeroExpandBlock` in `iniModMeta.js`; Persist → `heroExpandPersist.js`; Meta-Schreiben → `patchHeroExpandMeta` in `trackerWrites.js`.
+- **Kampfliste Nav/L.H.-UI** → `initiativeListNav.js`, `initiativeListLhUi.js`, geteilter Kontext `initiativeListNavContext.js`.
+- **Kampf-Lifecycle-Hooks** → `combatLifecycle.js`; Feature-Registrierung in `lhFeature.js` / `heroExFeature.js` (Boot via `main.js`).
+
+## Feature-Isolierung
+
+- **Import-Grenzen:** `node scripts/check-import-boundaries.mjs` läuft vor Vitest (`npm test`). Regeln in [`scripts/check-import-boundaries.mjs`](scripts/check-import-boundaries.mjs).
+- **Vertrags-Tests:** L.H. → `npm run test:lh-contract` (`lh.contract.test.js`, `lhExpiry2aoNav.test.js`, …). Heldenblock → `heroExpand.contract.test.js` (kein Schreiben in `phases`/`LH_*`/`krZaoSlots`).
+- **Verbotene Muster:** `mountHeroExpandBlock` darf `phases.links` nicht mutieren; `heroExpand*` darf `runLongHandlung*` nicht importieren; L.H.-Domäne (`lhMeta`, `longHandlung`) darf `initiativeList`/`iniModMeta` nicht importieren.
+- **Checkliste vor PR:** `npm test` immer; bei Heldenblock/Liste/L.H.-Kopplung zusätzlich `npm run test:lh-contract`.
+- **Boot:** `main.js` lädt `lhFeature.js` und `heroExFeature.js` (Lifecycle-Registry); `initiativeList` ruft `runAfterCombatUpdates` statt direkter Feature-Handler.
 
 ## Tests / DOM-Harness
 

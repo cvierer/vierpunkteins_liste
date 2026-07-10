@@ -284,25 +284,39 @@ import {
   storedTriggerIniStepFromPhaseOffsetPositive,
   trackerShowsLhSyntheticRow,
 } from './lhMeta.js'
-import {
-  commitLhValue,
-  LH_DONE_INI,
-  removeLhDoneRow,
-  runLongHandlungAfterCombatUpdate,
-  tryCommitLhDoneTargetIni,
-} from './longHandlung.js'
-import {
-  effectiveDeltaForField,
-  readHeroExMods,
-  readHeroGsSchritt,
-  runHeroExModsAfterCombatUpdate,
-} from './heroExMods.js'
+import { shouldRemountLhRunningCounter } from './lhNavCounterSync.js'
 import {
   cancelLh,
   cancelLhAndRestoreHeroCombatDefault,
   registerLhCommitRenderFlush,
 } from './lhEngine.js'
-import { shouldRemountLhRunningCounter } from './lhNavCounterSync.js'
+import { runAfterCombatUpdates } from './combatLifecycle.js'
+import { sceneHasLhContext } from './lhFeature.js'
+import { sceneHasHeroExMods } from './heroExFeature.js'
+import { navRenderCtx } from './initiativeListNavContext.js'
+import {
+  applyNavActiveRowClasses,
+  mirrorListHostNavIniDataset,
+  refreshCurrentNavIniForList,
+  refreshNavContextForList,
+  syncListNavHighlightFromCombat,
+} from './initiativeListNav.js'
+import {
+  commitLhValue,
+  LH_DONE_INI,
+  removeLhDoneRow,
+  tryCommitLhDoneTargetIni,
+} from './longHandlung.js'
+import {
+  effectiveDeltaForField,
+  readHeroGsSchritt,
+} from './heroExMods.js'
+import {
+  lhActionStepLabelFromNavFraction,
+  lhFractionFromNavForMeta,
+  lhNavStepForMeta,
+  syncLhNavFractionsInList as syncLhNavFractionsInListCore,
+} from './initiativeListLhUi.js'
 import { createHitZoneOverlay, HIT_ZONE_INFO_ICON_SVG } from './hitZoneOverlay.js'
 import {
   bulkApplyIniFromIbBeW6ForTrackedParticipants,
@@ -357,20 +371,7 @@ const TOKEN_DRAG_MIME = 'application/x-vierpunkteins-token'
 
 const PHASE_DRAG_MARK = 'vierpphase|'
 
-/**
- * INI der aktuellen Kampf-Navigation (aus `merged[idx]` per renderList). Wird
- * pro Render-Pass gesetzt und dient der nav-basierten L.H.-Counter-Anzeige.
- * `null`: keine laufende Navigation (Kampf nicht gestartet oder vor Intro).
- */
-let currentNavIniForRender = null
-/** Sichtbarkeits-/Schloss-Kontext des aktuellen Render-Passes (FirstPhase-Zugindex). */
-let visibilityCtxForRender = null
-/** Navigationsschritte des aktuellen Listen-Kontexts (Stempel-Anker-Normalisierung). */
-let navStepsForRender = null
-/** Gecachte Zeilenstruktur nach letztem renderList (Nav-Signature-Vergleich). */
-let cachedMergedListStructureSignature = ''
-/** Zuletzt gerenderte Raum-Stempel-Signatur (Nav-Sync). */
-let lastRenderedStampSignatureForNav = ''
+/** Nav-/L.H.-Render-Kontext: `navRenderCtx` in initiativeListNavContext.js */
 
 /**
  * @param {string | null | undefined} stepId
@@ -419,55 +420,8 @@ function navAffectedOwnerIds(prevNav, combat) {
 
 function actionStampSignatureChangedSinceLastRender() {
   return (
-    actionStampsSignature(getActionStamps()) !== lastRenderedStampSignatureForNav
+    actionStampsSignature(getActionStamps()) !== navRenderCtx.lastRenderedStampSignatureForNav
   )
-}
-
-/**
- * Nav-basierter L.H.-Bruch (passive Mechanik): gleiche Logik wie
- * `lhDisplayStepFromNav` / Primärfeld-Counter.
- *
- * @param {unknown} trackerMeta
- * @param {number} max
- * @param {number | null | undefined} combatRound
- * @returns {string}
- */
-function lhFractionFromNavForMeta(trackerMeta, max, combatRound) {
-  if (max <= 0) return ''
-  const heroIniNum = (() => {
-    const raw = trackerMeta?.initiative
-    const n = Number(String(raw ?? '').trim().replace(',', '.'))
-    return Number.isFinite(n) ? n : null
-  })()
-  const mechanics = readLhMechanics(trackerMeta)
-  const commitRound =
-    Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
-    (combatRound ?? 1)
-  const effectiveRound = combatRound ?? commitRound
-  const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
-  const priorSpend = readLhCommitKrPriorSpendForRound(
-    trackerMeta,
-    effectiveRound
-  )
-  const step = lhDisplayStepFromNav(
-    heroIniNum,
-    mechanics,
-    commitRound,
-    effectiveRound,
-    currentNavIniForRender,
-    max,
-    Number.isFinite(commitIniStored) ? commitIniStored : undefined,
-    priorSpend
-  )
-  if (max > 1 && step >= max) return 'GO!'
-  return `${Math.max(1, step)}/${max}`
-}
-
-/** Bruch für „Aktion N / M“-Badge (Leerzeichen wie früher `actionStepText`). */
-function lhActionStepLabelFromNavFraction(fracLabel, maxForGo) {
-  if (!fracLabel) return ''
-  if (fracLabel === 'GO!') return `${maxForGo} / ${maxForGo}`
-  return fracLabel.replace('/', ' / ')
 }
 
 function navigationMatchesRow(
@@ -714,205 +668,6 @@ function syncKrFaStampGatesInList(listRoot, items) {
   }
 }
 
-/** Nav-Highlight: voller Rahmen (Aktion) oder Unterlinie (Reaktion). */
-function applyNavActiveRowClasses(li, combat) {
-  li.classList.add('init-row--active')
-  if (combat.currentTurnSubStep === 'reaction') {
-    li.classList.add('init-row--active-sub-reaction')
-  } else {
-    li.classList.add('init-row--active-sub-action')
-  }
-}
-
-function clearNavActiveRowClasses(li) {
-  li.classList.remove(
-    'init-row--active',
-    'init-row--active-sub-reaction',
-    'init-row--active-sub-action'
-  )
-}
-
-/**
- * Aktive Zeile in der bestehenden Liste sofort nachziehen (ohne renderList).
- * Verhindert hängende Nav-Ansicht wenn L.H.-Umwandel renderList verzögert/blockiert.
- *
- * @param {HTMLElement | null | undefined} listRoot
- * @param {ReturnType<typeof getCombat>} [combat]
- * @param {{ scroll?: boolean }} [opts]
- */
-function syncListNavHighlightFromCombat(listRoot, combat = getCombat(), opts = {}) {
-  if (!listRoot) return
-  const scroll = opts.scroll !== false
-  const sel = resolveNavHighlightSelector(combat)
-  if (!sel) {
-    // Kampf nicht aktiv / kein Ziel: vorhandene Markierungen entfernen.
-    for (const li of listRoot.querySelectorAll('li.init-row--active')) {
-      clearNavActiveRowClasses(li)
-    }
-    return
-  }
-
-  let target = null
-  if (sel.kind === 'roundStart') {
-    target = listRoot.querySelector('li.init-row--round-start')
-  } else if (sel.kind === 'roundEnd') {
-    target = listRoot.querySelector('li.init-row--round-end')
-  } else if (sel.kind === 'phase') {
-    // Fallback-Kette: exakte Phasenzeile -> irgendeine Phasenzeile des Owners
-    // -> Token-Zeile des Owners. So bleibt die Navigation in der L.H.-End-KR
-    // immer sichtbar, auch wenn die exakte 2.AO-Zeile gerade neu gerendert wird.
-    target =
-      listRoot.querySelector(
-        `li.init-row--phase[data-phase-owner-id="${CSS.escape(sel.activeId)}"][data-phase-link-id="${CSS.escape(sel.phaseId)}"]`
-      ) ||
-      listRoot.querySelector(
-        `li.init-row--phase[data-phase-owner-id="${CSS.escape(sel.activeId)}"]`
-      ) ||
-      listRoot.querySelector(
-        `li.init-row[data-item-id="${CSS.escape(sel.activeId)}"]`
-      )
-  } else if (sel.kind === 'token') {
-    target = listRoot.querySelector(
-      `li.init-row[data-item-id="${CSS.escape(sel.activeId)}"]`
-    )
-  }
-
-  // Erst NACH erfolgreicher Aufloesung umschalten: findet sich (transient) kein
-  // Ziel, bleibt die bisherige Markierung erhalten, bis der erzwungene
-  // Re-Render sie sauber neu setzt — kein blanker Zwischenzustand.
-  if (!target) return
-  for (const li of listRoot.querySelectorAll('li.init-row--active')) {
-    clearNavActiveRowClasses(li)
-  }
-  applyNavActiveRowClasses(target, combat)
-  if (scroll) {
-    target.scrollIntoView({
-      block: 'nearest',
-      inline: 'nearest',
-      behavior: opts.scrollBehavior === 'smooth' ? 'smooth' : 'auto',
-    })
-  }
-}
-
-/** Spiegelt Nav-INI auf `#initiative-list-host` (wie in renderList). */
-function mirrorListHostNavIniDataset(navIni) {
-  try {
-    const host = document.getElementById('initiative-list-host')
-    if (!host) return
-    if (navIni == null) {
-      delete host.dataset.currentNavIni
-    } else if (navIni === Number.POSITIVE_INFINITY) {
-      host.dataset.currentNavIni = '+inf'
-    } else if (navIni === Number.NEGATIVE_INFINITY) {
-      host.dataset.currentNavIni = '-inf'
-    } else {
-      host.dataset.currentNavIni = String(navIni)
-    }
-  } catch {
-    /* nicht kritisch */
-  }
-}
-
-/**
- * Nav-INI + Sichtbarkeitskontext aus Kampfstand setzen (ohne renderList).
- *
- * @param {import('@owlbear-rodeo/sdk').Item[]} items
- */
-function refreshNavContextForList(items) {
-  const combat = getCombat()
-  const listItems = Array.isArray(items) ? items : []
-  const tokenRows = collectSortedParticipants(
-    listItems,
-    getIniTieOrder(),
-    getManualIniTieOverridePairs()
-  )
-  const combatRound = combat.started ? combat.round : null
-  const rowActiveId =
-    combat.started && combat.currentItemId ? combat.currentItemId : null
-  const rowActivePhaseLinkId = combat.started
-    ? combat.currentPhaseLinkId
-    : null
-  currentNavIniForRender = resolveCurrentNavIniForCombat(
-    tokenRows,
-    listItems,
-    getIniTieOrder(),
-    combatRound,
-    combat
-  )
-  const stepsForNav = buildCombatTurnSteps(
-    tokenRows,
-    listItems,
-    getIniTieOrder(),
-    combatRound,
-    null
-  )
-  navStepsForRender = stepsForNav
-  setNavStepsCache(stepsForNav)
-  let combatStepIndex =
-    combat.started && !combat.roundIntroPending
-      ? findCombatStepIndex(stepsForNav, combat)
-      : null
-  if (
-    combatStepIndex != null &&
-    combatStepIndex < 0 &&
-    combat.started &&
-    !combat.roundIntroPending
-  ) {
-    combatStepIndex = findCombatStepIndexLoose(stepsForNav, combat)
-  }
-  visibilityCtxForRender = buildConvertListVisibilityCtx({
-    combatStarted: combat.started,
-    roundIntroPending: combat.roundIntroPending,
-    rowActiveId,
-    rowActivePhaseLinkId,
-    currentNavIni: currentNavIniForRender,
-    roundStartStepId: ROUND_START_STEP_ID,
-    roundEndStepId: ROUND_END_STEP_ID,
-    turnSteps: stepsForNav,
-    combatStepIndex:
-      combatStepIndex != null && combatStepIndex >= 0 ? combatStepIndex : null,
-  })
-  mirrorListHostNavIniDataset(currentNavIniForRender)
-}
-
-/** @param {import('@owlbear-rodeo/sdk').Item[]} items */
-function refreshCurrentNavIniForList(items) {
-  refreshNavContextForList(items)
-}
-
-/**
- * @param {unknown} trackerMeta
- * @param {number} max
- * @param {number | null | undefined} combatRound
- */
-function lhNavStepForMeta(trackerMeta, max, combatRound) {
-  const heroIniNum = (() => {
-    const raw = trackerMeta?.initiative
-    const n = Number(String(raw ?? '').trim().replace(',', '.'))
-    return Number.isFinite(n) ? n : null
-  })()
-  const mechanics = readLhMechanics(trackerMeta)
-  const commitRound =
-    Math.max(1, Math.floor(Number(trackerMeta?.[LH_COMMIT_ROUND])) || 0) ||
-    (combatRound ?? 1)
-  const effectiveRound = combatRound ?? commitRound
-  const commitIniStored = Number(trackerMeta?.[LH_COMMIT_INI])
-  const priorSpend = readLhCommitKrPriorSpendForRound(
-    trackerMeta,
-    effectiveRound
-  )
-  return lhDisplayStepFromNav(
-    heroIniNum,
-    mechanics,
-    commitRound,
-    effectiveRound,
-    currentNavIniForRender,
-    max,
-    Number.isFinite(commitIniStored) ? commitIniStored : undefined,
-    priorSpend
-  )
-}
-
 /**
  * L.H.-Bruch/Pie in bestehender Zeile patchen (ohne Remount).
  *
@@ -981,7 +736,7 @@ function patchLhNavVisualsInRow(li, trackerMeta, combatRound) {
     )
     const lhPieFracValue = lhPieFraction(
       effectiveRound,
-      currentNavIniForRender,
+      navRenderCtx.currentNavIniForRender,
       commitRound,
       heroIniNum,
       mechanics.actionsPerKr,
@@ -1072,7 +827,7 @@ function remountOrPatchLhCounterInRow(
       canEdit,
       primaryLadungAllowed,
       combatRound,
-      visibilityCtx: visibilityCtxForRender,
+      visibilityCtx: navRenderCtx.visibilityCtxForRender,
     })
   } else {
     patchLhNavVisualsInRow(li, trackerMeta, combatRound)
@@ -1086,28 +841,7 @@ function remountOrPatchLhCounterInRow(
  * @param {import('@owlbear-rodeo/sdk').Item[]} items
  */
 function syncLhNavFractionsInList(listRoot, items) {
-  if (!listRoot || !Array.isArray(items)) return
-  const combat = getCombat()
-  const combatRound = combat.started ? combat.round : null
-  const itemById = new Map(items.map((it) => [it.id, it]))
-
-  for (const li of listRoot.querySelectorAll('li.init-row[data-item-id]')) {
-    const itemId = li.getAttribute('data-item-id')
-    if (!itemId) continue
-    const item = itemById.get(itemId)
-    const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-    if (!meta) continue
-    remountOrPatchLhCounterInRow(li, itemId, meta, item, combatRound)
-  }
-
-  for (const li of listRoot.querySelectorAll('li.init-row--phase[data-phase-owner-id]')) {
-    const ownerId = li.getAttribute('data-phase-owner-id')
-    if (!ownerId) continue
-    const item = itemById.get(ownerId)
-    const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
-    if (!meta) continue
-    remountOrPatchLhCounterInRow(li, ownerId, meta, item, combatRound)
-  }
+  syncLhNavFractionsInListCore(listRoot, items, remountOrPatchLhCounterInRow)
 }
 
 /**
@@ -1153,7 +887,7 @@ function computeMergedListStructureSignature(items) {
     listItems,
     getIniTieOrder(),
     combatRound,
-    visibilityCtxForRender
+    navRenderCtx.visibilityCtxForRender
   )
   return merged
     .filter((e) => e.kind !== 'actionStamp')
@@ -1212,32 +946,6 @@ export function registerListNavPostSyncHook(fn) {
   listNavPostSyncHook = fn
 }
 
-/**
- * Irgendwo L.H.-Kontext in der Szene (laufend oder Setup-Sanduhr).
- *
- * @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} items
- */
-function sceneHasLhContext(items) {
-  if (!Array.isArray(items)) return false
-  for (const it of items) {
-    const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
-    if (!m) continue
-    if (isLhActive(m) || readKrFirstSlotKind(m) === 'lh') return true
-  }
-  return false
-}
-
-/** @param {import('@owlbear-rodeo/sdk').Item[] | null | undefined} items */
-function sceneHasHeroExMods(items) {
-  if (!Array.isArray(items)) return false
-  for (const it of items) {
-    const m = it?.metadata?.[TRACKER_ITEM_META_KEY]
-    if (!m) continue
-    if (readHeroExMods(m).length > 0) return true
-  }
-  return false
-}
-
 /** @param {unknown[] | null | undefined} entries */
 function countReactionStampsInEntries(entries) {
   if (!Array.isArray(entries)) return 0
@@ -1276,7 +984,7 @@ function buildStampAnchorContext(listItems) {
     combat.started && combat.currentItemId ? combat.currentItemId : null
   const baseActivePhaseLinkId = combat.started ? combat.currentPhaseLinkId : null
 
-  currentNavIniForRender = resolveCurrentNavIniForCombat(
+  navRenderCtx.currentNavIniForRender = resolveCurrentNavIniForCombat(
     tokenRows,
     listItems,
     getIniTieOrder(),
@@ -1290,7 +998,7 @@ function buildStampAnchorContext(listItems) {
     combatRound,
     null
   )
-  navStepsForRender = stepsForNav
+  navRenderCtx.navStepsForRender = stepsForNav
   setNavStepsCache(stepsForNav)
 
   const rowActivePhaseLinkId = combat.started
@@ -1315,15 +1023,15 @@ function buildStampAnchorContext(listItems) {
     roundIntroPending: combat.roundIntroPending,
     rowActiveId,
     rowActivePhaseLinkId,
-    currentNavIni: currentNavIniForRender,
+    currentNavIni: navRenderCtx.currentNavIniForRender,
     roundStartStepId: ROUND_START_STEP_ID,
     roundEndStepId: ROUND_END_STEP_ID,
     turnSteps: stepsForNav,
     combatStepIndex:
       combatStepIndex != null && combatStepIndex >= 0 ? combatStepIndex : null,
   })
-  visibilityCtxForRender = visibilityCtx
-  mirrorListHostNavIniDataset(currentNavIniForRender)
+  navRenderCtx.visibilityCtxForRender = visibilityCtx
+  mirrorListHostNavIniDataset(navRenderCtx.currentNavIniForRender)
 
   const merged = buildMergedDisplayRows(
     tokenRows,
@@ -2083,7 +1791,7 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
       )
       const lhPieFracValue = lhPieFraction(
         effectiveRound,
-        currentNavIniForRender,
+        navRenderCtx.currentNavIniForRender,
         commitRound,
         heroIniNum,
         mechanics.actionsPerKr,
@@ -2179,7 +1887,7 @@ function syncKrPrimaryShellKindVisual(els, kind, trackerMeta, ctx) {
     lhPieFullyFilled =
       lhPieFraction(
         effectiveRound,
-        currentNavIniForRender,
+        navRenderCtx.currentNavIniForRender,
         commitRound,
         heroIniNum,
         mechanics.actionsPerKr,
@@ -2441,7 +2149,7 @@ function appendKrPrimarySplitCell(
       )
       lhPieFracValue = lhPieFraction(
         effectiveRound,
-        currentNavIniForRender,
+        navRenderCtx.currentNavIniForRender,
         commitRound,
         heroIniNum,
         mechanics.actionsPerKr,
@@ -2523,7 +2231,7 @@ function appendKrPrimarySplitCell(
       canEdit,
       primaryLadungAllowed,
       combatRound,
-      visibilityCtx: visibilityCtxForRender,
+      visibilityCtx: navRenderCtx.visibilityCtxForRender,
     })
   }
 
@@ -2780,7 +2488,7 @@ function appendKrPrimarySplitCell(
       displayLhPieFullyFilled =
         lhPieFraction(
           effectiveRound,
-          currentNavIniForRender,
+          navRenderCtx.currentNavIniForRender,
           commitRound,
           heroIniNum,
           mechanics.actionsPerKr,
@@ -2940,7 +2648,7 @@ function createLhCounterInputWidget(
     if (v == null) return null
     committed = true
     commitPromise = commitLhValue(ownerItemId, String(v), {
-      commitIni: currentNavIniForRender,
+      commitIni: navRenderCtx.currentNavIniForRender,
     }).catch(() => {})
     return commitPromise
   }
@@ -3487,7 +3195,7 @@ function syncLhAbwContainer(
       mechanics,
       commitRound,
       effectiveRound,
-      currentNavIniForRender,
+      navRenderCtx.currentNavIniForRender,
       lhSt.max,
       Number.isFinite(commitIniStored) ? commitIniStored : undefined,
       priorSpendStep
@@ -3690,17 +3398,17 @@ function appendKrCounterPair(
       trackerMeta,
       rowActiveId,
       rowActivePhaseLinkId,
-      currentNavIniForRender,
+      navRenderCtx.currentNavIniForRender,
       {
         ownerItemId: ownerItemId,
-        visibilityCtx: visibilityCtxForRender,
+        visibilityCtx: navRenderCtx.visibilityCtxForRender,
       }
     ),
     {
       rowActiveId,
       rowActivePhaseLinkId,
-      currentNavIni: currentNavIniForRender,
-      visibilityCtx: visibilityCtxForRender,
+      currentNavIni: navRenderCtx.currentNavIniForRender,
+      visibilityCtx: navRenderCtx.visibilityCtxForRender,
     },
     lhSyncOpts
   )
@@ -3726,7 +3434,7 @@ function appendKrCounterPair(
       canEdit,
       primaryLadungAllowed,
       combatRound,
-      visibilityCtx: visibilityCtxForRender,
+      visibilityCtx: navRenderCtx.visibilityCtxForRender,
     })
   }
 
@@ -3856,7 +3564,7 @@ function applyLhVisual(wrap, max, _rem, trackerMeta, combatRound) {
   )
   const frac = lhPieFraction(
     effectiveRound,
-    currentNavIniForRender,
+    navRenderCtx.currentNavIniForRender,
     commitRound,
     heroIniNum,
     mechanics.actionsPerKr,
@@ -4002,7 +3710,7 @@ function appendLhCell(
       dirty = false
       void commitLhValue(ownerItemId, inp.value, {
         ...lhCommitOpts,
-        commitIni: currentNavIniForRender,
+        commitIni: navRenderCtx.currentNavIniForRender,
       })
     })
     wrap.addEventListener('contextmenu', (e) => {
@@ -4990,7 +4698,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const gsSchritt = meta
       ? readHeroGsSchritt(meta, {
           ownerIni: readOwnerIniReferenceForMods(meta),
-          navIni: currentNavIniForRender,
+          navIni: navRenderCtx.currentNavIniForRender,
           round: combat.started ? combat.round : null,
         })
       : null
@@ -8036,7 +7744,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         : combat.round
 
     const combatRoundForMerged = combat.started ? combat.round : null
-    currentNavIniForRender = resolveCurrentNavIniForCombat(
+    navRenderCtx.currentNavIniForRender = resolveCurrentNavIniForCombat(
       tokenRows,
       listItems,
       getIniTieOrder(),
@@ -8053,7 +7761,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     // Aktuelle Schritte cachen, damit der Stempel-Anker veraltete Phase-Link-IDs
     // (UUID-Churn der ephemeren 2.AO-Wurzel) gegen die sichtbaren Zeilen aufloesen kann.
     setNavStepsCache(stepsForNav)
-    navStepsForRender = stepsForNav
+    navRenderCtx.navStepsForRender = stepsForNav
     // Veraltete currentPhaseLinkId (UUID-Churn der ephemeren 2.AO-Wurzel) gegen
     // die aktuellen Schritte aufloesen, damit navigationMatchesRow trifft und das
     // 2.AO-L.H.-Feld beschreibbar bleibt (analog Highlight-Fallback).
@@ -8069,14 +7777,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       roundIntroPending: combat.roundIntroPending,
       rowActiveId,
       rowActivePhaseLinkId,
-      currentNavIni: currentNavIniForRender,
+      currentNavIni: navRenderCtx.currentNavIniForRender,
       roundStartStepId: ROUND_START_STEP_ID,
       roundEndStepId: ROUND_END_STEP_ID,
       turnSteps: stepsForNav,
       combatStepIndex:
         combatStepIndex != null && combatStepIndex >= 0 ? combatStepIndex : null,
     })
-    visibilityCtxForRender = visibilityCtx
+    navRenderCtx.visibilityCtxForRender = visibilityCtx
     const merged = buildMergedDisplayRows(
       tokenRows,
       listItems,
@@ -8084,7 +7792,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       combatRoundForMerged,
       visibilityCtx
     )
-    cachedMergedListStructureSignature = merged
+    navRenderCtx.cachedMergedListStructureSignature = merged
       .filter((e) => e.kind !== 'actionStamp')
       .map(mergedEntryAnchorKey)
       .join('\n')
@@ -8114,14 +7822,14 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     try {
       const host = document.getElementById('initiative-list-host')
       if (host) {
-        if (currentNavIniForRender == null) {
+        if (navRenderCtx.currentNavIniForRender == null) {
           delete host.dataset.currentNavIni
-        } else if (currentNavIniForRender === Number.POSITIVE_INFINITY) {
+        } else if (navRenderCtx.currentNavIniForRender === Number.POSITIVE_INFINITY) {
           host.dataset.currentNavIni = '+inf'
-        } else if (currentNavIniForRender === Number.NEGATIVE_INFINITY) {
+        } else if (navRenderCtx.currentNavIniForRender === Number.NEGATIVE_INFINITY) {
           host.dataset.currentNavIni = '-inf'
         } else {
-          host.dataset.currentNavIni = String(currentNavIniForRender)
+          host.dataset.currentNavIni = String(navRenderCtx.currentNavIniForRender)
         }
       }
     } catch {
@@ -8380,7 +8088,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
             'ib',
             ownerIniRef,
             cr,
-            currentNavIniForRender
+            navRenderCtx.currentNavIniForRender
           )
           const p = parseIniNumber(row.initiative)
           if (p === null) return row.initiative
@@ -8423,7 +8131,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               'ib',
               ownerIniRef,
               cr,
-              currentNavIniForRender
+              navRenderCtx.currentNavIniForRender
             )
             persistStr = formatHookDisplay(dispNum - d)
           }
@@ -9341,7 +9049,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
     element.replaceChildren(frag)
     layoutStampPanels(element)
-    lastRenderedStampSignatureForNav = actionStampsSignature(getActionStamps())
+    navRenderCtx.lastRenderedStampSignatureForNav = actionStampsSignature(getActionStamps())
     syncListNavHighlightFromCombat(element, combat, { scroll: false })
 
     void reconcileCombat(tokenRows, items)
@@ -9629,7 +9337,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   // sich nicht in Item-Meta nieder und wuerde sonst unter Suppression nicht
   // repaintet (Stempel blieben bis zum Aktions-Wechsel unsichtbar).
   const actionStampSignatureChangedVsLast = () =>
-    actionStampsSignature(getActionStamps()) !== lastRenderedStampSignatureForNav
+    actionStampsSignature(getActionStamps()) !== navRenderCtx.lastRenderedStampSignatureForNav
 
   function refreshRoomActionStampsInList(items, { includeKrGates = false } = {}) {
     if (!element.querySelector('li.init-row')) return false
@@ -9643,7 +9351,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     const visible = countVisibleReactionStampsInList(element)
     const ok = synced && (expected === 0 || visible >= expected)
     if (ok) {
-      lastRenderedStampSignatureForNav = actionStampsSignature(getActionStamps())
+      navRenderCtx.lastRenderedStampSignatureForNav = actionStampsSignature(getActionStamps())
     }
     return ok
   }
@@ -9755,32 +9463,21 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         if (r != null) purgeKrMarksBeforeRound(r)
 
         let postChanged = false
-        if (needLh) {
-          try {
-            if (await runLongHandlungAfterCombatUpdate(items, getIniTieOrder())) {
-              postChanged = true
-            }
-          } catch {
-            /* nicht kritisch */
+        try {
+          const cAfterLh = getCombat()
+          const cr =
+            cAfterLh?.started && Number.isFinite(Number(cAfterLh.round))
+              ? Number(cAfterLh.round)
+              : null
+          if (
+            await runAfterCombatUpdates(items, getIniTieOrder(), {
+              combatRound: cr,
+            })
+          ) {
+            postChanged = true
           }
-        }
-        if (needHeroEx) {
-          try {
-            const cAfterLh = getCombat()
-            const cr =
-              cAfterLh?.started && Number.isFinite(Number(cAfterLh.round))
-                ? Number(cAfterLh.round)
-                : null
-            if (
-              await runHeroExModsAfterCombatUpdate(items, getIniTieOrder(), {
-                currentRound: cr,
-              })
-            ) {
-              postChanged = true
-            }
-          } catch {
-            /* nicht kritisch */
-          }
+        } catch {
+          /* nicht kritisch */
         }
 
         if (postChanged) {
@@ -9801,7 +9498,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         const domSig = domListStructureSignature(element)
         const mergedSig = postChanged
           ? computeMergedListStructureSignature(items ?? [])
-          : cachedMergedListStructureSignature ||
+          : navRenderCtx.cachedMergedListStructureSignature ||
             computeMergedListStructureSignature(items ?? [])
         const structureUnchanged =
           lastCombatNavStructure != null &&

@@ -9,8 +9,9 @@
     "dev:preview": "vite --host --port 5173 --strictPort --open /",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "node scripts/check-import-boundaries.mjs && vitest run",
     "test:watch": "vitest",
+    "test:lh-contract": "vitest run src/lh.contract.test.js src/lhMeta.test.js src/lhExpiry2aoNav.test.js src/lhStampListSync.test.js src/lhNavCounterSync.test.js src/longHandlung.test.js",
     "ci": "npm test && npm run build"
   },
   "devDependencies": {

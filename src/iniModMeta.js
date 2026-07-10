@@ -127,6 +127,9 @@ import {
 } from './heroExpandGauges.js'
 export * from './heroExpandModFormat.js'
 import { formatDeltaForTooltip } from './heroExpandModFormat.js'
+import { patchHeroExpandMeta } from './trackerWrites.js'
+import { createHeroExpandPersistController } from './heroExpandPersist.js'
+import { buildModBadgeLongSummary } from './heroExpandModGrid.js'
 import {
   HERO_EX_LE,
   HERO_EX_LE_MAX,
@@ -510,11 +513,7 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
  * @param {ReturnType<typeof readHeroExpandSnapshot>} next
  */
 export async function applyHeroExpandFields(itemId, next) {
-  await OBR.scene.items.updateItems([itemId], (drafts) => {
-    for (const d of drafts) {
-      const m = d.metadata[TRACKER_ITEM_META_KEY]
-      if (!m) continue
-
+  await patchHeroExpandMeta(itemId, (m) => {
       const setStr = (key, v) => {
         const t = v.trim()
         if (t === '') delete m[key]
@@ -646,7 +645,6 @@ export async function applyHeroExpandFields(itemId, next) {
         navIni: readNavIniForModPatch(),
       })
       updateLastSafeLeIfSafe(m)
-    }
   })
 }
 
@@ -3869,7 +3867,14 @@ export function mountHeroExpandBlock(
                   navIni,
                   lhMech
                 )
-                return `${MOD_FIELD_LABEL[bm.field]} ${formatDeltaForTooltip(eff)} (${modNavFractionLabelFromNav(bm, ownerIniNum, lhMech, round, navIni)})`
+                return buildModBadgeLongSummary(
+                  bm,
+                  ownerIniNum,
+                  lhMech,
+                  round,
+                  navIni,
+                  eff
+                )
               })
         const isLeBandBundle = bidStr === AUTO_LE_BAND_BUNDLE_ID
         const isMagicLeBundle = bidStr === AUTO_LE_TAW_ZFW_BUNDLE_ID
@@ -4019,7 +4024,14 @@ export function mountHeroExpandBlock(
       }
       const abbr = MOD_FIELD_LABEL[modRec.field] || modRec.field.toUpperCase()
       const shortSummary = `${abbr}${formatDeltaForTooltip(eff)}`
-      const longSummary = `${MOD_FIELD_LABEL[modRec.field]} ${formatDeltaForTooltip(eff)} (${modNavFractionLabelFromNav(modRec, ownerIniNum, lhMech, round, navIni)})`
+      const longSummary = buildModBadgeLongSummary(
+        modRec,
+        ownerIniNum,
+        lhMech,
+        round,
+        navIni,
+        eff
+      )
       const labOnce = modRec.label ? `"${modRec.label}" — ` : ''
       const cardTitle = `${labOnce}${longSummary}${
         canEdit ? ' \u00B7 Zum Bearbeiten anklicken' : ''
@@ -4988,26 +5000,19 @@ export function mountHeroExpandBlock(
     }, LIVE_INPUT_DEBOUNCE_MS)
   }
 
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let persistTimer = null
-  let persistQueued = false
-  /** @type {ReturnType<typeof gather> | null} */
-  let persistNextSnapshot = null
-  let persistGeneration = 0
-  const PERSIST_DEBOUNCE_MS = 320
-
-  const flushPersistHeroExpand = () => {
-    persistTimer = null
-    if (!persistQueued || !persistNextSnapshot) return
-    const c = getCombat()
-    const round =
-      c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
-    const navIni = readCurrentNavIniGlobal()
-    const snapshot = persistNextSnapshot
-    persistQueued = false
-    persistNextSnapshot = null
-    const gen = ++persistGeneration
-    void (async () => {
+  /** Debounced Persist für Heldenblock-Felder (heroExpandPersist.js). */
+  const persistController = createHeroExpandPersistController({
+    debounceMs: 320,
+    onPending: (pending) => {
+      if (!(container instanceof HTMLElement)) return
+      if (pending) container[HERO_EXPAND_HAS_PENDING_INPUT] = true
+      else delete container[HERO_EXPAND_HAS_PENDING_INPUT]
+    },
+    onFlush: async (snapshot, gen) => {
+      const c = getCombat()
+      const round =
+        c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
+      const navIni = readCurrentNavIniGlobal()
       let metaForBasis = meta
       try {
         const freshItems = await OBR.scene.items.getItems([itemId])
@@ -5016,7 +5021,6 @@ export function mountHeroExpandBlock(
       } catch (_) {
         /* Szene kurz nicht lesbar — Mount-meta nutzen */
       }
-      if (gen !== persistGeneration) return
       const snap = basisHeroExpandSnapshotFromDisplayed(
         metaForBasis,
         snapshot,
@@ -5025,40 +5029,22 @@ export function mountHeroExpandBlock(
         navIni
       )
       await applyHeroExpandFields(itemId, snap)
-      if (gen !== persistGeneration) return
       await refreshModStripFromScene()
-      if (container instanceof HTMLElement) {
-        delete container[HERO_EXPAND_HAS_PENDING_INPUT]
-      }
-    })()
-  }
+    },
+  })
 
   const schedulePersistHeroExpand = (snapshot) => {
-    persistNextSnapshot = snapshot
-    persistQueued = true
-    if (container instanceof HTMLElement) {
-      container[HERO_EXPAND_HAS_PENDING_INPUT] = true
-    }
-    if (persistTimer != null) clearTimeout(persistTimer)
-    persistTimer = setTimeout(flushPersistHeroExpand, PERSIST_DEBOUNCE_MS)
+    persistController.schedule(snapshot)
   }
   const cancelPendingPersistHeroExpand = () => {
-    if (persistTimer != null) {
-      clearTimeout(persistTimer)
-      persistTimer = null
-    }
-    persistQueued = false
-    persistNextSnapshot = null
-    if (container instanceof HTMLElement) {
-      delete container[HERO_EXPAND_HAS_PENDING_INPUT]
-    }
+    persistController.cancel()
   }
 
   /** Vor Listen-Remount: Debounce abbrechen, Szene-Meta einlesen, Kästchen sofort persistieren. */
   const flushHeroExpandBeforeListRemount = async () => {
     if (!(container instanceof HTMLElement) || !container.isConnected) return
     cancelPendingPersistHeroExpand()
-    persistGeneration += 1
+    persistController.bumpGeneration()
     let metaForBasis = meta
     try {
       const freshItems = await OBR.scene.items.getItems([itemId])

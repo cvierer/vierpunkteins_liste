@@ -91,6 +91,8 @@ if (OBR.isAvailable) {
     syncViewerChrome()
     OBR.player.onChange(() => syncViewerChrome())
     void import('./turnMarkerCleanup.js').then((m) => m.cleanupLegacyTurnMarkers())
+    void import('./lhFeature.js')
+    void import('./heroExFeature.js')
 
     const combatRoot = document.querySelector('[data-combat-root]')
     const { refreshBar } = await setupCombatControls(combatRoot)
