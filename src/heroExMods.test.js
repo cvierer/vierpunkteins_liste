@@ -79,6 +79,21 @@ describe('countHeroModUiSlots', () => {
       ])
     ).toBe(1)
   })
+
+  it('counts a linked derived bundle as its own removable slot', () => {
+    expect(
+      countHeroModUiSlots([
+        mkMod({ id: 'parent', bundleId: 'bun-parent', field: 'mu' }),
+        mkMod({
+          id: 'derived',
+          bundleId: 'bun-derived',
+          parentBundleId: 'bun-parent',
+          field: 'at',
+          absolute: true,
+        }),
+      ])
+    ).toBe(2)
+  })
 })
 
 describe('readOwnerIniReferenceForMods', () => {
@@ -361,6 +376,26 @@ describe('readHeroExMods', () => {
     expect(got).toHaveLength(2)
     expect(got[0].bundleId).toBe('bun-test-1')
     expect(got[1].bundleId).toBe('bun-test-1')
+  })
+
+  it('preserves parentBundleId for linked derived bundles', () => {
+    const got = readHeroExMods({
+      [HERO_EX_MODS]: [
+        {
+          id: 'derived-at',
+          field: 'at',
+          delta: 8,
+          duration: 1,
+          permanent: true,
+          absolute: true,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+          bundleId: 'bun-derived',
+          parentBundleId: 'bun-parent',
+        },
+      ],
+    })
+    expect(got[0].parentBundleId).toBe('bun-parent')
   })
 
   it('returns [] for missing/invalid meta', () => {

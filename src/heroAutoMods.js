@@ -673,7 +673,8 @@ export function computeUnfaehigTriggerMask(snap, meta, ctx) {
 }
 
 /**
- * Bündel aus Mods entfernen; bei auto-zone-* Wundenmarker löschen; bei LE-Auto-Bundles LE heilen.
+ * Bündel samt direkt gekoppeltem Ableitungs-Bündel entfernen; bei
+ * auto-zone-* Wundenmarker löschen; bei LE-Auto-Bundles LE heilen.
  *
  * @param {Record<string, unknown>} m — Tracker-Metadaten (mutiert)
  * @param {string} bundleId
@@ -687,7 +688,12 @@ export function applyBundleRemovalCleanup(m, bundleId, ctx) {
   const hadBundle = modsBefore.some((x) => x && String(x.bundleId ?? '') === bid)
   const autoId = resolveOriginAutoId(m, bid)
 
-  const nextMods = modsBefore.filter((x) => !x || String(x.bundleId ?? '') !== bid)
+  const nextMods = modsBefore.filter(
+    (x) =>
+      !x ||
+      (String(x.bundleId ?? '') !== bid &&
+        String(x.parentBundleId ?? '') !== bid)
+  )
   if (nextMods.length === 0) delete m[HERO_EX_MODS]
   else m[HERO_EX_MODS] = nextMods
 

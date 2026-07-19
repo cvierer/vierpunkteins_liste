@@ -2464,7 +2464,7 @@ export function mountHeroExpandBlock(
   let modPopAnchorEl = null
   let modPopOutsideHandler = null
   let modPopKeyHandler = null
-  /** @type {null | { kind: 'single', modId: string } | { kind: 'bundle', bundleId: string } | { kind: 'multi', modIds: string[] }} */
+  /** @type {null | { kind: 'single', modId: string } | { kind: 'bundle', bundleId: string, parentBundleId?: string } | { kind: 'multi', modIds: string[] }} */
   let modPopEditPlan = null
   /** Overlay-+: Soft-Hide, nächster Anker-Klick hängt eine Zeile an. */
   let modPopPendingAppend = false
@@ -2889,9 +2889,10 @@ export function mountHeroExpandBlock(
   /**
    * Bearbeiten: Zeilen aus gespeicherten Mods; beim Submit erst entfernen, dann neu anlegen.
    * @param {unknown[]} mods — HeroExMod-Objekte (Reihenfolge wie Anzeige)
-   * @param {{ kind: 'single', modId: string } | { kind: 'bundle', bundleId: string } | { kind: 'multi', modIds: string[] }} editPlan
+   * @param {{ kind: 'single', modId: string } | { kind: 'bundle', bundleId: string, parentBundleId?: string } | { kind: 'multi', modIds: string[] }} editPlan
+   * @param {boolean} [hasLinkedDerived]
    */
-  const openModPopoverForEdit = (mods, editPlan) => {
+  const openModPopoverForEdit = (mods, editPlan, hasLinkedDerived = false) => {
     if (!mods?.length) return
     if (
       mods.some((m) =>
@@ -2925,7 +2926,9 @@ export function mountHeroExpandBlock(
       modPopRowsWrap.appendChild(nr.row)
     }
     modPopRowsWrap.appendChild(createAddRow())
-    setModPopDerivedRecalcChecked(isDerivedRecalcBundle(/** @type {any[]} */ (mods)))
+    setModPopDerivedRecalcChecked(
+      hasLinkedDerived || isDerivedRecalcBundle(/** @type {any[]} */ (mods))
+    )
     hideModPopDerivedExplain()
     const atT = modFieldTargets.at
     const layoutCell = atT?.cell ?? anchorCell
@@ -3158,10 +3161,18 @@ export function mountHeroExpandBlock(
     const navIni = readCurrentNavIniGlobal()
     const labelNorm = normalizeModLabel(modPopLabel.value)
     const derivedLabel = labelNorm || 'Ableitung'
-    /* Mehrere Zeilen = ein Buendel (gemeinsame bundleId); eine Zeile wie bisher ohne bundleId. */
-    const rowBundleId = specs.length >= 2 ? generateModBundleId() : undefined
-    const derivedBundleId = wantDerived ? generateModBundleId() : undefined
     const editPlanSnapshot = modPopEditPlan
+    const preservedParentBundleId =
+      editPlanSnapshot?.kind === 'bundle'
+        ? String(editPlanSnapshot.parentBundleId ?? '').trim() || undefined
+        : undefined
+    /* Mehrere Zeilen = ein Buendel (gemeinsame bundleId); eine Zeile wie bisher ohne bundleId. */
+    const rowBundleId =
+      specs.length >= 2 || (wantDerived && specs.length > 0)
+        ? generateModBundleId()
+        : undefined
+    const derivedBundleId = wantDerived ? generateModBundleId() : undefined
+    const derivedParentBundleId = preservedParentBundleId ?? rowBundleId
     if (editPlanSnapshot?.kind === 'single') {
       await removeHeroExMod(itemId, editPlanSnapshot.modId)
     } else if (editPlanSnapshot?.kind === 'bundle') {
@@ -3206,6 +3217,7 @@ export function mountHeroExpandBlock(
           absolute: true,
           label: derivedLabel,
           bundleId: derivedBundleId,
+          parentBundleId: derivedParentBundleId,
           currentRound: round,
           currentNavIni: navIni,
           ...(submitChipColor ? { chipColor: submitChipColor } : {}),
@@ -4123,6 +4135,12 @@ export function mountHeroExpandBlock(
         if (seenBundle.has(modRec.bundleId)) continue
         seenBundle.add(modRec.bundleId)
         const bundleMods = active.filter((x) => x.bundleId === modRec.bundleId)
+        const linkedDerivedMods = active.filter(
+          (x) => String(x.parentBundleId ?? '') === String(modRec.bundleId)
+        )
+        const hasLinkedDerived = isDerivedRecalcBundle(
+          /** @type {any[]} */ (linkedDerivedMods)
+        )
         const bidStr = String(modRec.bundleId ?? '')
         const isAutoBundle = bidStr.startsWith(AUTO_MOD_BUNDLE_PREFIX)
         const visibleBundleMods =
@@ -4286,7 +4304,10 @@ export function mountHeroExpandBlock(
             openModPopoverForEdit(bundleMods, {
               kind: 'bundle',
               bundleId: String(modRec.bundleId),
-            })
+              ...(modRec.parentBundleId
+                ? { parentBundleId: String(modRec.parentBundleId) }
+                : {}),
+            }, hasLinkedDerived)
           },
           onReadonlyClick: () => {
             for (const bm of bundleMods) {

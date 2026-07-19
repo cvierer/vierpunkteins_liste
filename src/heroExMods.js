@@ -215,6 +215,7 @@ const ACCRUAL_VALID = new Set(['none', 'action', 'round'])
  *   accrual?: ModAccrual,
  *   label?: string,
  *   bundleId?: string,
+ *   parentBundleId?: string,
  *   chipColor?: string,
  *   absolute?: boolean,
  * }} HeroExMod
@@ -389,6 +390,7 @@ export function readHeroExMods(meta) {
     const accrual = absolute ? 'none' : parseAccrual(m.accrual)
     const label = normalizeModLabel(m.label)
     const bundleId = normalizeBundleId(m.bundleId)
+    const parentBundleId = normalizeBundleId(m.parentBundleId)
     const chipColor = normalizeModChipColor(m.chipColor)
     /** @type {HeroExMod} */
     const rec = {
@@ -404,6 +406,7 @@ export function readHeroExMods(meta) {
     if (absolute) rec.absolute = true
     if (label) rec.label = label
     if (bundleId) rec.bundleId = bundleId
+    if (parentBundleId) rec.parentBundleId = parentBundleId
     if (chipColor) rec.chipColor = chipColor
     out.push(rec)
   }
@@ -1063,6 +1066,7 @@ export function countHeroModUiSlots(mods) {
  *   accrual?: ModAccrual | string,
  *   label?: string,
  *   bundleId?: string,
+ *   parentBundleId?: string,
  *   chipColor?: string,
  *   absolute?: boolean,
  * }} args
@@ -1113,6 +1117,10 @@ export async function addHeroExMod(itemId, args) {
   if (bundleId) {
     next.bundleId = bundleId
   }
+  const parentBundleId = normalizeBundleId(args.parentBundleId)
+  if (parentBundleId) {
+    next.parentBundleId = parentBundleId
+  }
   const chipColor = normalizeModChipColor(args.chipColor)
   if (chipColor) {
     next.chipColor = chipColor
@@ -1162,7 +1170,8 @@ export async function removeHeroExMod(itemId, modId) {
 }
 
 /**
- * Entfernt alle Mods mit derselben {@link HeroExMod#bundleId} (Mod-Buendel).
+ * Entfernt alle Mods mit derselben {@link HeroExMod#bundleId} (Mod-Buendel)
+ * sowie direkt daran gekoppelte Ableitungs-Buendel.
  *
  * @param {string} itemId
  * @param {string} bundleId
@@ -1175,7 +1184,12 @@ export async function removeHeroExModsByBundleId(itemId, bundleId) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
       const cur = Array.isArray(m[HERO_EX_MODS]) ? m[HERO_EX_MODS] : []
-      const next = cur.filter((x) => !x || String(x.bundleId || '') !== bid)
+      const next = cur.filter(
+        (x) =>
+          !x ||
+          (String(x.bundleId || '') !== bid &&
+            String(x.parentBundleId || '') !== bid)
+      )
       if (next.length === 0) delete m[HERO_EX_MODS]
       else m[HERO_EX_MODS] = next
     }
@@ -1198,13 +1212,32 @@ export async function pruneExpiredMods(itemId, ownerIni, currentRound, currentNa
   const mods = readHeroExMods(meta)
   if (mods.length === 0) return false
   const mech = readLhMechanics(meta)
-  const keep = []
+  const provisionallyKept = []
+  const expiredBundleIds = new Set()
   let changed = false
   for (const m of mods) {
     const r = modRemaining(m, ownerIni, currentRound, currentNavIni, mech)
-    if (r > 0) keep.push(m)
-    else changed = true
+    if (r > 0) {
+      provisionallyKept.push(m)
+    } else {
+      changed = true
+      const bid = normalizeBundleId(m.bundleId)
+      if (bid) expiredBundleIds.add(bid)
+    }
   }
+  const survivingBundleIds = new Set(
+    provisionallyKept
+      .map((m) => normalizeBundleId(m.bundleId))
+      .filter((bid) => bid != null)
+  )
+  const keep = provisionallyKept.filter((m) => {
+    const parentBid = normalizeBundleId(m.parentBundleId)
+    if (!parentBid) return true
+    const parentSurvives =
+      !expiredBundleIds.has(parentBid) && survivingBundleIds.has(parentBid)
+    if (!parentSurvives) changed = true
+    return parentSurvives
+  })
   if (!changed) return false
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const d of drafts) {

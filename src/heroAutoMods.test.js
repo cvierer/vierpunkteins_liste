@@ -619,6 +619,67 @@ describe('applyBundleRemovalCleanup', () => {
     applyBundleRemovalCleanup(m, 'bun-manual', ctx)
     expect(m[HERO_EX_MODS]).toBeUndefined()
   })
+
+  it('entfernt mit dem Mutter-Bündel auch das gekoppelte Ableitungs-Bündel', () => {
+    const m = /** @type {Record<string, unknown>} */ ({
+      [HERO_EX_MODS]: [
+        {
+          id: 'parent',
+          field: 'mu',
+          delta: -2,
+          duration: 3,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+          bundleId: 'bun-parent',
+        },
+        {
+          id: 'derived',
+          field: 'at',
+          delta: 7,
+          duration: 1,
+          permanent: true,
+          absolute: true,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+          bundleId: 'bun-derived',
+          parentBundleId: 'bun-parent',
+        },
+      ],
+    })
+    applyBundleRemovalCleanup(m, 'bun-parent', ctx)
+    expect(m[HERO_EX_MODS]).toBeUndefined()
+  })
+
+  it('entfernt das Ableitungs-Bündel separat und behält das Mutter-Bündel', () => {
+    const m = /** @type {Record<string, unknown>} */ ({
+      [HERO_EX_MODS]: [
+        {
+          id: 'parent',
+          field: 'mu',
+          delta: -2,
+          duration: 3,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+          bundleId: 'bun-parent',
+        },
+        {
+          id: 'derived',
+          field: 'at',
+          delta: 7,
+          duration: 1,
+          permanent: true,
+          absolute: true,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+          bundleId: 'bun-derived',
+          parentBundleId: 'bun-parent',
+        },
+      ],
+    })
+    applyBundleRemovalCleanup(m, 'bun-derived', ctx)
+    const out = /** @type {any[]} */ (m[HERO_EX_MODS] ?? [])
+    expect(out.map((x) => x.id)).toEqual(['parent'])
+  })
 })
 
 describe('armThirdWoundSidesFromSnapshot', () => {
