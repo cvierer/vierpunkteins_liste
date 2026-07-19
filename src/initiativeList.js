@@ -178,6 +178,7 @@ import {
   KR_ZAO_SLOTS,
   applyIniNegativePoolShiftForMetaMutation,
   applyIniLockCharges,
+  ensureZaoRootsForIni,
   ensureFullFreeActionQuota,
   initKrActionPoolsFromHeroDefaults,
   HERO_INI_NEG_ACTIONS_LOST,
@@ -5328,6 +5329,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
                 )
               }
               if (!getCombat().started) ensureFullFreeActionQuota(m)
+              ensureZaoRootsForIni(m)
             }
           })
           .then(() => OBR.scene.items.getItems())
@@ -8152,6 +8154,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
                 )
               }
               if (!getCombat().started) ensureFullFreeActionQuota(m)
+              ensureZaoRootsForIni(m)
             }
           })
         }

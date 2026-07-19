@@ -31,7 +31,7 @@ const RULES = [
   },
   {
     id: 'kr-leaf-no-initiative-list',
-    files: /^(krDigit|krActionPool|krCounterRead|krPrimaryField|krIniLock|krTransferMarks|krZaoSlots|krStampPredicates)\.js$/,
+    files: /^(krDigit|krActionPool|krCounterRead|krPrimaryField|krIniLock|krTransferMarks|krZaoSlots|krZaoRootEnsure|krStampPredicates)\.js$/,
     forbidden: [/from\s+['"]\.\/initiativeList\.js['"]/],
   },
   {

@@ -65,6 +65,7 @@ import {
   krTransferMarkPresent,
 } from './krTransferMarks.js'
 export * from './krZaoSlots.js'
+export * from './krZaoRootEnsure.js'
 export * from './krLhAftermath.js'
 import {
   applyUoDefaultAbwChargeIfNeeded,

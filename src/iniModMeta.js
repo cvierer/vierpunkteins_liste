@@ -59,6 +59,7 @@ import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
 import {
   applyIniLockCharges,
   applyIniNegativePoolShiftForMetaMutation,
+  ensureZaoRootsForIni,
   isHeroIniBelowZero,
 } from './krCounters.js'
 import { readLhMechanics } from './lhMeta.js'
@@ -316,6 +317,7 @@ async function writeItemInitiative(itemId, iniStr) {
           isHeroIniBelowZero(m)
         )
       }
+      ensureZaoRootsForIni(m)
     }
   })
 }
@@ -502,6 +504,7 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
           isHeroIniBelowZero(m)
         )
       }
+      ensureZaoRootsForIni(m)
     }
   })
   logCombat(`INI: IB − BE + W6 für ${updates.length} Token gesetzt`)
