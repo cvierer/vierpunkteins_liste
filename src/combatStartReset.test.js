@@ -7,6 +7,7 @@ import {
   KR_PAIR_MODE,
   KR_PRIMARY_LADUNG,
   KR_ZAO_SLOTS,
+  resolveNavRepairAfterHeroReset,
   restoreRegularSecondActionRootAfterLh,
   stripNonHeroExtraPhaseLinksFromMeta,
 } from './krCounters.js'
@@ -123,5 +124,43 @@ describe('reset-Pfad stellt reguläre 2.AO wieder her', () => {
     expect(regular[0].offset).toBe(8)
     const slot = m[KR_ZAO_SLOTS][regular[0].id]
     expect(slot).toMatchObject({ kind: 'uo', marks: 0, lodgedAbw: true })
+  })
+})
+
+describe('resolveNavRepairAfterHeroReset', () => {
+  it('null wenn Link noch existiert', () => {
+    const m = {
+      initiative: '15',
+      phases: {
+        links: [{ id: 'zao-1', parentId: null, offset: 8 }],
+        rowPanelOpen: true,
+      },
+    }
+    expect(resolveNavRepairAfterHeroReset(m, 'zao-1', 7)).toBeNull()
+  })
+
+  it('Patch auf neue Wurzel an gleicher Hook-INI', () => {
+    const m = {
+      initiative: '15',
+      phases: {
+        links: [{ id: 'zao-new', parentId: null, offset: 8 }],
+        rowPanelOpen: true,
+      },
+    }
+    expect(resolveNavRepairAfterHeroReset(m, 'zao-old', 7)).toEqual({
+      currentPhaseLinkId: 'zao-new',
+      currentTurnSubStep: 'action',
+    })
+  })
+
+  it('Patch auf Token-Zeile wenn keine Ersatzwurzel', () => {
+    const m = {
+      initiative: '15',
+      phases: { links: [], rowPanelOpen: false },
+    }
+    expect(resolveNavRepairAfterHeroReset(m, 'zao-old', 7)).toEqual({
+      currentPhaseLinkId: null,
+      currentTurnSubStep: 'action',
+    })
   })
 })

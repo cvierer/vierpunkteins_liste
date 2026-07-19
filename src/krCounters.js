@@ -13,6 +13,7 @@ import {
   getCombat,
   normalizeActionStamps,
   patchActionStamps,
+  patchCombat,
 } from './combatRoom.js'
 import { ROUND_END_STEP_ID, ROUND_START_STEP_ID } from './combatStepIds.js'
 import {
@@ -2994,9 +2995,46 @@ export function stripNonHeroExtraPhaseLinksFromMeta(m) {
 }
 
 /**
+ * Nav-Patch nach Helden-Reset, wenn `phaseId` in den Links nicht mehr
+ * existiert. Ersatzwurzel an gleicher Hook-INI, sonst Token-Zeile.
+ * `null` = kein Patch nötig (Link noch vorhanden / ungültige Eingabe).
+ *
+ * @param {Record<string, unknown> | null | undefined} metaAfter
+ * @param {string} phaseId
+ * @param {number | null | undefined} oldHook
+ * @returns {{ currentPhaseLinkId: string | null, currentTurnSubStep: 'action' } | null}
+ */
+export function resolveNavRepairAfterHeroReset(metaAfter, phaseId, oldHook) {
+  if (!metaAfter || typeof metaAfter !== 'object') return null
+  if (typeof phaseId !== 'string' || !phaseId) return null
+  const links = normalizePhases(metaAfter.phases).links
+  if (links.some((l) => l && l.id === phaseId)) return null
+  const iniStr =
+    typeof metaAfter.initiative === 'string' ? metaAfter.initiative : ''
+  const hookN = Number(oldHook)
+  if (Number.isFinite(hookN)) {
+    const replacement = findRootLinkAtHookIni(links, iniStr, hookN)
+    if (replacement) {
+      return {
+        currentPhaseLinkId: replacement.id,
+        currentTurnSubStep: 'action',
+      }
+    }
+  }
+  return {
+    currentPhaseLinkId: null,
+    currentTurnSubStep: 'action',
+  }
+}
+
+/**
  * Ein Held auf Kampfstart-Zustand: Meta-Defaults, nicht-Extra-Phasen-Links
  * und Stempel dieses Tokens. Helden-Extra-Wurzeln (z.AT/z.PA) bleiben bzw.
  * werden bei `restoreHeroExtraZat` neu aufgebaut.
+ *
+ * Steht die Navigation auf einem Phasen-Link dieses Helden, wird der
+ * Kampfcursor nach dem Reset repariert (neue Wurzel an gleicher Hook-INI
+ * oder Token-Zeile), damit Weiter/Zurück nicht stecken bleiben.
  *
  * @param {string} itemId
  * @param {{ restoreHeroExtraZat?: boolean }} [opts]
@@ -3010,6 +3048,27 @@ export async function resetTrackerItemToCombatStart(
   const item = items.find((i) => i.id === itemId)
   if (!canEditSceneItem(item)) return
   const skipGmStamp = canEditSceneItem(item) && !isGmSync()
+
+  const combat = getCombat()
+  /** @type {string | null} */
+  let navPhaseId = null
+  /** @type {number | null} */
+  let navOldHook = null
+  if (
+    combat.started &&
+    combat.currentItemId === itemId &&
+    typeof combat.currentPhaseLinkId === 'string' &&
+    combat.currentPhaseLinkId
+  ) {
+    navPhaseId = combat.currentPhaseLinkId
+    const metaBefore = item.metadata?.[TRACKER_ITEM_META_KEY]
+    const linksBefore = normalizePhases(metaBefore?.phases).links
+    const iniStr =
+      typeof metaBefore?.initiative === 'string' ? metaBefore.initiative : ''
+    const hook = hookIniForLink(navPhaseId, iniStr, linksBefore)
+    navOldHook = Number.isFinite(hook) ? hook : null
+  }
+
   await OBR.scene.items.updateItems([itemId], (drafts) => {
     for (const draft of drafts) {
       const m = draft.metadata[TRACKER_ITEM_META_KEY]
@@ -3033,6 +3092,24 @@ export async function resetTrackerItemToCombatStart(
     },
     { skipGmCheck: skipGmStamp }
   )
+
+  if (navPhaseId) {
+    const afterItems = await OBR.scene.items.getItems([itemId])
+    const after = afterItems.find((i) => i.id === itemId)
+    const metaAfter = after?.metadata?.[TRACKER_ITEM_META_KEY]
+    const repair = resolveNavRepairAfterHeroReset(
+      metaAfter,
+      navPhaseId,
+      navOldHook
+    )
+    if (repair) {
+      try {
+        await patchCombat(repair)
+      } catch {
+        /* nicht kritisch */
+      }
+    }
+  }
 }
 
 /**
