@@ -311,6 +311,7 @@ import {
   tryCommitLhDoneTargetIni,
 } from './longHandlung.js'
 import {
+  effectiveAdjustmentForField,
   effectiveDeltaForField,
   readHeroGsSchritt,
 } from './heroExMods.js'
@@ -8116,15 +8117,16 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           }
           if (ownerIniRef == null) return row.initiative
           const cr = combat.started ? combat.round : null
-          const d = effectiveDeltaForField(
+          const p = parseIniNumber(row.initiative)
+          if (p === null) return row.initiative
+          const d = effectiveAdjustmentForField(
             meta,
             'ib',
+            p,
             ownerIniRef,
             cr,
             navRenderCtx.currentNavIniForRender
           )
-          const p = parseIniNumber(row.initiative)
-          if (p === null) return row.initiative
           return formatHookDisplay(p + d)
         })()
         input.setAttribute('aria-label', 'INI')

@@ -79,8 +79,10 @@ import {
   MOD_CHIP_PALETTE,
   MOD_FIELDS,
   MOD_FIELD_LABEL,
+  activeAbsoluteValueForField,
   addHeroExMod,
   countHeroModUiSlots,
+  effectiveAdjustmentForField,
   effectiveDeltaForField,
   integratesHeroModsIntoDisplayedValue,
   generateModBundleId,
@@ -90,6 +92,7 @@ import {
   modNavFractionLabelFromNav,
   normalizeModChipColor,
   normalizeModLabel,
+  parseModValueInput,
   readHeroExMods,
   readModDisplayMode,
   removeHeroExMod,
@@ -765,14 +768,27 @@ export function mountHeroExpandBlock(
   }
 
   const microDisplayForModField = (field, baseStr) => {
-    if (!integratesHeroModsIntoDisplayedValue(meta, field) || ownerIniNum == null)
+    if (ownerIniNum == null) return baseStr
+    const navIni = readCurrentNavIniGlobal()
+    /* Fixwert: Basis im Input (durchgestrichen); Effektivwert im Mod-Band. */
+    if (
+      activeAbsoluteValueForField(
+        meta,
+        field,
+        ownerIniNum,
+        __roundNum,
+        navIni
+      ) != null
+    ) {
       return baseStr
+    }
+    if (!integratesHeroModsIntoDisplayedValue(meta, field)) return baseStr
     const d = effectiveDeltaForField(
       meta,
       field,
       ownerIniNum,
       __roundNum,
-      readCurrentNavIniGlobal()
+      navIni
     )
     if (field === 'tp') {
       return formatTpDisplayIntegrated(baseStr, d)
@@ -1997,26 +2013,45 @@ export function mountHeroExpandBlock(
       }
     )
 
-    if (!ufState.active) return
-
-    if (ufState.armOnly) {
-      const fkCell = unfaehigVisualTargets.fk
-      if (fkCell instanceof HTMLElement) {
-        fkCell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
+    if (ufState.active) {
+      if (ufState.armOnly) {
+        const fkCell = unfaehigVisualTargets.fk
+        if (fkCell instanceof HTMLElement) {
+          fkCell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
+        }
+      } else {
+        for (const key of ufState.marked) {
+          const cell = unfaehigVisualTargets[key]
+          if (cell instanceof HTMLElement) {
+            cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
+          }
+        }
+        const hasAnyFixed = Object.values(configSnap.unfaehigFixedFields || {}).some(
+          (v) => Number.isFinite(Number(v))
+        )
+        if (hasAnyFixed) gsCell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
       }
-      return
     }
 
-    for (const key of ufState.marked) {
-      const cell = unfaehigVisualTargets[key]
-      if (cell instanceof HTMLElement) {
-        cell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
+    /* Fixwert-Mods: gleiche Strike-Markierung (neben Unfähig). */
+    const navIniFixed = readCurrentNavIniGlobal()
+    for (const [field, t] of Object.entries(modFieldTargets)) {
+      const cell = t?.cell
+      if (!(cell instanceof HTMLElement)) continue
+      cell.classList.remove('init-hero-ex__micro-cell--mod-fixed-mark')
+      if (ownerIniNum == null) continue
+      if (
+        activeAbsoluteValueForField(
+          metaBase,
+          field,
+          ownerIniNum,
+          __roundNum,
+          navIniFixed
+        ) != null
+      ) {
+        cell.classList.add('init-hero-ex__micro-cell--mod-fixed-mark')
       }
     }
-    const hasAnyFixed = Object.values(configSnap.unfaehigFixedFields || {}).some((v) =>
-      Number.isFinite(Number(v))
-    )
-    if (hasAnyFixed) gsCell.classList.add('init-hero-ex__micro-cell--unfaehig-mark')
   }
 
   const stripPenaltyHighlightTarget = (t) => {
@@ -2073,13 +2108,20 @@ export function mountHeroExpandBlock(
       const modStress =
         !PENALTY_MOD_HIGHLIGHT_SKIP_FIELDS.has(field) &&
         ownerIniNum != null &&
-        effectiveDeltaForField(
+        (effectiveDeltaForField(
           modMeta,
           field,
           ownerIniNum,
           __roundNum,
           navIni
-        ) !== 0
+        ) !== 0 ||
+          activeAbsoluteValueForField(
+            modMeta,
+            field,
+            ownerIniNum,
+            __roundNum,
+            navIni
+          ) != null)
       if (!woundStress && !modStress) continue
       applyPenaltyHighlightTarget(t)
     }
@@ -2510,18 +2552,20 @@ export function mountHeroExpandBlock(
     const modPopDeltaWrap = document.createElement('label')
     modPopDeltaWrap.className =
       'init-hero-ex__mod-pop__field init-hero-ex__mod-pop__field--inrow'
+    const modValueHint =
+      '+2/\u22123 = \u00C4nderung; ohne Vorzeichen (10) = Fixwert'
     const modPopDeltaLbl = document.createElement('span')
     modPopDeltaLbl.textContent = '\u00B1'
-    modPopDeltaLbl.title = 'Delta (z. B. +2 oder -3)'
+    modPopDeltaLbl.title = modValueHint
     const modPopDelta = document.createElement('input')
     modPopDelta.type = 'text'
     modPopDelta.inputMode = 'numeric'
     modPopDelta.maxLength = 4
     modPopDelta.className =
       'init-hero-ex__mod-pop__inp init-hero-ex__mod-pop__inp--num init-hero-ex__mod-pop__inp--num-delta'
-    modPopDelta.placeholder = '\u00B1x'
-    modPopDelta.title = 'Delta (signiert), -99 bis +99'
-    modPopDelta.setAttribute('aria-label', 'Delta')
+    modPopDelta.placeholder = '\u00B1/N'
+    modPopDelta.title = modValueHint
+    modPopDelta.setAttribute('aria-label', modValueHint)
     modPopDeltaWrap.append(modPopDeltaLbl, modPopDelta)
 
     const modPopDurWrap = document.createElement('label')
@@ -2597,8 +2641,12 @@ export function mountHeroExpandBlock(
 
     if (prefillMod) {
       const dRaw = Number(prefillMod.delta)
-      if (Number.isFinite(dRaw) && dRaw !== 0) {
-        modPopDelta.value = dRaw > 0 ? `+${dRaw}` : String(dRaw)
+      if (Number.isFinite(dRaw)) {
+        if (prefillMod.absolute === true) {
+          modPopDelta.value = String(dRaw)
+        } else if (dRaw !== 0) {
+          modPopDelta.value = dRaw > 0 ? `+${dRaw}` : String(dRaw)
+        }
       }
       const perm = prefillMod.permanent === true
       if (perm) {
@@ -2907,15 +2955,6 @@ export function mountHeroExpandBlock(
     true
   )
 
-  const parseSignedDeltaSafe = (raw) => {
-    const t = String(raw ?? '')
-      .trim()
-      .replace(/^\+/, '')
-    if (t === '' || t === '-' || t === '+') return null
-    const n = parseInt(t, 10)
-    if (!Number.isFinite(n)) return null
-    return Math.min(99, Math.max(-99, n))
-  }
   const parseDurationSafe = (raw) => {
     const t = String(raw ?? '').trim()
     if (t === '') return null
@@ -2931,7 +2970,7 @@ export function mountHeroExpandBlock(
     )
     if (valueRows.length === 0) return
 
-    /** @type {{ field: string, delta: number, duration: number, permanent: boolean, accrual: 'none' | 'action' | 'round' }[]} */
+    /** @type {{ field: string, delta: number, duration: number, permanent: boolean, accrual: 'none' | 'action' | 'round', absolute: boolean }[]} */
     const specs = []
     for (const row of valueRows) {
       const rowEl = /** @type {HTMLElement} */ (row)
@@ -2955,8 +2994,16 @@ export function mountHeroExpandBlock(
       ) {
         continue
       }
-      const accrual = accR.checked ? 'round' : accA.checked ? 'action' : 'none'
-      const delta = parseSignedDeltaSafe(dInp.value)
+      const parsed = parseModValueInput(dInp.value)
+      const absolute = parsed?.absolute === true
+      const accrual = absolute
+        ? 'none'
+        : accR.checked
+          ? 'round'
+          : accA.checked
+            ? 'action'
+            : 'none'
+      const delta = parsed ? parsed.value : null
       const durTrim = String(durInp.value ?? '').trim()
       const permanent = durTrim === ''
       const duration = permanent ? 1 : parseDurationSafe(durInp.value)
@@ -2981,6 +3028,7 @@ export function mountHeroExpandBlock(
         duration: /** @type {number} */ (duration),
         permanent,
         accrual,
+        absolute,
       })
     }
     if (specs.length === 0) return
@@ -3031,6 +3079,7 @@ export function mountHeroExpandBlock(
         duration: spec.duration,
         permanent: spec.permanent,
         accrual: spec.accrual,
+        absolute: spec.absolute,
         label: labelNorm,
         bundleId,
         currentRound: round,
@@ -3605,6 +3654,14 @@ export function mountHeroExpandBlock(
         round,
         navIni
       )
+      const absFixVal = activeAbsoluteValueForField(
+        modMeta,
+        field,
+        ownerIniNum,
+        round,
+        navIni
+      )
+      const isModFixedField = absFixVal != null
       const integratedModBandForField =
         modBandIntegrated ||
         integratesHeroModsIntoDisplayedValue(modMeta, field)
@@ -3660,13 +3717,17 @@ export function mountHeroExpandBlock(
         if (!unfaehigDisplay.leg3w) return fixedFieldValues[field] ?? 0
         return fixedGs == null ? 0 : Math.min(fixedGs, 0)
       })()
-      if (sum === 0 && !isUnfaehigFixedField) {
+      if (sum === 0 && !isUnfaehigFixedField && !isModFixedField) {
         continue
       }
       cell.classList.add('init-hero-ex__mod-anchor--active')
       const badge = document.createElement('span')
       badge.className = 'init-hero-ex__mod-badge'
-      const useFixedValueView = isUnfaehigFixedField
+      const useFixedValueView = isUnfaehigFixedField || isModFixedField
+      const modFixedDisplay =
+        isModFixedField && !isUnfaehigFixedField
+          ? /** @type {number} */ (absFixVal) + sum
+          : null
       if (!useFixedValueView && sum > 0) {
         badge.classList.add('init-hero-ex__mod-badge--pos')
       } else if (!useFixedValueView && sum < 0) {
@@ -3674,7 +3735,9 @@ export function mountHeroExpandBlock(
       }
       if (useFixedValueView) {
         badge.classList.add('init-hero-ex__mod-badge--fixed')
-        badge.classList.add('init-hero-ex__mod-badge--unfaehig-fixed')
+        if (isUnfaehigFixedField) {
+          badge.classList.add('init-hero-ex__mod-badge--unfaehig-fixed')
+        }
       } else if (integratedModBandForField) {
         badge.classList.add('init-hero-ex__mod-badge--integrated')
       }
@@ -3702,8 +3765,12 @@ export function mountHeroExpandBlock(
       valSpan.className = 'init-hero-ex__mod-badge__val'
       if (useArmWoundCompactBadge) {
         valSpan.textContent = ''
+      } else if (useFixedValueView) {
+        valSpan.textContent = String(
+          isUnfaehigFixedField ? fixedValueForField : modFixedDisplay
+        )
       } else {
-        valSpan.textContent = String(useFixedValueView ? fixedValueForField : absSum)
+        valSpan.textContent = String(absSum)
       }
       if (!useFixedValueView && !hasArmWoundNote && field !== 'be') {
         const arrowSpan = document.createElement('span')
@@ -3777,8 +3844,11 @@ export function mountHeroExpandBlock(
           return `${eff > 0 ? '+' : ''}${eff} (${frac})`
         })
         .join(' \u00B7 ')
+      const fixedTitleVal = isUnfaehigFixedField
+        ? fixedValueForField
+        : modFixedDisplay
       badge.title = useFixedValueView
-        ? `${namePrefix}Fixwert ${fixedValueForField} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
+        ? `${namePrefix}Fixwert ${fixedTitleVal} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
         : `${namePrefix}Modifikator ${sum > 0 ? '+' : ''}${sum} auf ${MOD_FIELD_LABEL[field] || field.toUpperCase()}${detail ? `: ${detail}` : ''}`
       const fieldModsAutoOnly =
         fieldMods.length > 0 &&

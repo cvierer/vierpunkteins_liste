@@ -2790,7 +2790,8 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   max-width: 100%;
 }
 
-.init-hero-ex__micro-cell--unfaehig-mark::after {
+.init-hero-ex__micro-cell--unfaehig-mark::after,
+.init-hero-ex__micro-cell--mod-fixed-mark::after {
   content: '';
   position: absolute;
   left: 50%;
@@ -2805,9 +2806,11 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   z-index: 6;
 }
 
-/* Bei unfaehig-Strike: Mod-Band unter dem Wert ausblenden (Slot-Hoehe bleibt erhalten). */
+/* Bei unfaehig-/Fixwert-Strike: Mod-Band unter dem Wert ausblenden (Slot-Hoehe bleibt erhalten). */
 .init-hero-ex__micro-cell--unfaehig-mark
-  .init-hero-ex__mod-badge:not(.init-hero-ex__mod-badge--unfaehig-fixed) {
+  .init-hero-ex__mod-badge:not(.init-hero-ex__mod-badge--unfaehig-fixed),
+.init-hero-ex__micro-cell--mod-fixed-mark
+  .init-hero-ex__mod-badge:not(.init-hero-ex__mod-badge--fixed) {
   display: none !important;
 }
 

@@ -10,6 +10,7 @@ import {
   MAX_MOD_LABEL_LEN,
   MOD_DISPLAY_MODE,
   MOD_FIELDS,
+  effectiveAdjustmentForField,
   effectiveDeltaForField,
   krIntervalsPassed,
   listActiveMods,
@@ -18,6 +19,7 @@ import {
   modNavFractionLabelFromNav,
   modRemaining,
   normalizeModLabel,
+  parseModValueInput,
   readHeroExMods,
   readHeroGsSchritt,
   readModDisplayMode,
@@ -722,5 +724,82 @@ describe('effectiveDeltaForField + listActiveMods', () => {
 
     const list2 = listActiveMods(meta, owner, 1, 14)
     expect(list2.find((m) => m.id === 'm3')).toBeUndefined()
+  })
+})
+
+describe('parseModValueInput', () => {
+  it('unsigned number is absolute; signed is delta; bare signs null', () => {
+    expect(parseModValueInput('10')).toEqual({ value: 10, absolute: true })
+    expect(parseModValueInput('+2')).toEqual({ value: 2, absolute: false })
+    expect(parseModValueInput('-3')).toEqual({ value: -3, absolute: false })
+    expect(parseModValueInput('+')).toBeNull()
+    expect(parseModValueInput('')).toBeNull()
+    expect(parseModValueInput('  ')).toBeNull()
+  })
+})
+
+describe('effectiveAdjustmentForField + absolute mods', () => {
+  const owner = 15
+  const nav = Number.POSITIVE_INFINITY
+
+  it('fix replaces base; deltas still add', () => {
+    const meta = {
+      [HERO_EX_MODS]: [
+        {
+          id: 'fix',
+          field: 'at',
+          delta: 10,
+          duration: 5,
+          addedRound: 1,
+          addedNavIni: nav,
+          absolute: true,
+        },
+      ],
+    }
+    expect(effectiveDeltaForField(meta, 'at', owner, 1, nav)).toBe(0)
+    expect(effectiveAdjustmentForField(meta, 'at', 12, owner, 1, nav)).toBe(-2)
+    expect(12 + effectiveAdjustmentForField(meta, 'at', 12, owner, 1, nav)).toBe(
+      10
+    )
+
+    const withDelta = {
+      [HERO_EX_MODS]: [
+        ...meta[HERO_EX_MODS],
+        {
+          id: 'd1',
+          field: 'at',
+          delta: 2,
+          duration: 5,
+          addedRound: 1,
+          addedNavIni: nav,
+        },
+      ],
+    }
+    expect(effectiveDeltaForField(withDelta, 'at', owner, 1, nav)).toBe(2)
+    expect(
+      12 + effectiveAdjustmentForField(withDelta, 'at', 12, owner, 1, nav)
+    ).toBe(12)
+  })
+
+  it('readHeroExMods roundtrip keeps absolute and forces accrual none', () => {
+    const meta = {
+      [HERO_EX_MODS]: [
+        {
+          id: 'a1',
+          field: 'gs',
+          delta: 4,
+          duration: 2,
+          addedRound: 1,
+          addedNavIni: nav,
+          absolute: true,
+          accrual: 'round',
+        },
+      ],
+    }
+    const mods = readHeroExMods(meta)
+    expect(mods).toHaveLength(1)
+    expect(mods[0].absolute).toBe(true)
+    expect(mods[0].delta).toBe(4)
+    expect(mods[0].accrual).toBe('none')
   })
 })

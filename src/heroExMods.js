@@ -216,8 +216,25 @@ const ACCRUAL_VALID = new Set(['none', 'action', 'round'])
  *   label?: string,
  *   bundleId?: string,
  *   chipColor?: string,
+ *   absolute?: boolean,
  * }} HeroExMod
  */
+
+/**
+ * Mod-Wert aus Overlay-Eingabe: mit +/− = Delta, ohne Vorzeichen = Fixwert.
+ *
+ * @param {unknown} raw
+ * @returns {{ value: number, absolute: boolean } | null}
+ */
+export function parseModValueInput(raw) {
+  const t = String(raw ?? '').trim()
+  if (t === '' || t === '-' || t === '+') return null
+  const absolute = !/^[+-]/.test(t)
+  const n = parseInt(t.replace(/^\+/, ''), 10)
+  if (!Number.isFinite(n)) return null
+  const value = Math.min(MAX_DELTA, Math.max(MIN_DELTA, n))
+  return { value, absolute }
+}
 
 /** Gruppen-ID fuer Mod-Buendel (mehrere `HeroExMod` mit gleichem Paket). */
 export function generateModBundleId() {
@@ -330,6 +347,8 @@ export function modEffectiveContribution(
   if (!mod) return 0
   const r = modRemaining(mod, ownerIni, currentRound, currentNavIni, mechanics)
   if (r <= 0) return 0
+  // Fixwert: kein Accrual-Multiplikator
+  if (mod.absolute === true) return mod.delta
   const acc = mod.accrual ?? 'none'
   if (acc === 'none') return mod.delta
   if (acc === 'action') {
@@ -366,7 +385,8 @@ export function readHeroExMods(meta) {
           ? Number.NEGATIVE_INFINITY
           : null
     const permanent = m.permanent === true
-    const accrual = parseAccrual(m.accrual)
+    const absolute = m.absolute === true
+    const accrual = absolute ? 'none' : parseAccrual(m.accrual)
     const label = normalizeModLabel(m.label)
     const bundleId = normalizeBundleId(m.bundleId)
     const chipColor = normalizeModChipColor(m.chipColor)
@@ -381,6 +401,7 @@ export function readHeroExMods(meta) {
       permanent,
       accrual,
     }
+    if (absolute) rec.absolute = true
     if (label) rec.label = label
     if (bundleId) rec.bundleId = bundleId
     if (chipColor) rec.chipColor = chipColor
@@ -656,6 +677,9 @@ export function activeModsForField(meta, field, ownerIni, currentRound, currentN
  * @param {number | null | undefined} currentRound
  * @param {number | null | undefined} currentNavIni
  */
+/**
+ * Summe aktiver Delta-Mods (ohne Fixwert-Mods) für ein Feld.
+ */
 export function effectiveDeltaForField(
   meta,
   field,
@@ -669,9 +693,79 @@ export function effectiveDeltaForField(
   let sum = 0
   for (const m of mods) {
     if (m.field !== field) continue
+    if (m.absolute === true) continue
     sum += modEffectiveContribution(m, ownerIni, currentRound, currentNavIni, mech)
   }
   return sum
+}
+
+/**
+ * Letzter aktiver Fixwert für ein Feld, sonst `null`.
+ *
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {string} field
+ * @param {number} ownerIni
+ * @param {number | null | undefined} currentRound
+ * @param {number | null | undefined} currentNavIni
+ * @returns {number | null}
+ */
+export function activeAbsoluteValueForField(
+  meta,
+  field,
+  ownerIni,
+  currentRound,
+  currentNavIni
+) {
+  const mods = readHeroExMods(meta)
+  if (mods.length === 0) return null
+  const mech = readLhMechanics(meta)
+  let last = null
+  for (const m of mods) {
+    if (m.field !== field || m.absolute !== true) continue
+    if (modRemaining(m, ownerIni, currentRound, currentNavIni, mech) <= 0) {
+      continue
+    }
+    last = m.delta
+  }
+  return last
+}
+
+/**
+ * Anpassung relativ zur Basis: bei Fixwert `(A - base) + deltaSum`, sonst nur Deltas.
+ *
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {string} field
+ * @param {number} base
+ * @param {number} ownerIni
+ * @param {number | null | undefined} currentRound
+ * @param {number | null | undefined} currentNavIni
+ */
+export function effectiveAdjustmentForField(
+  meta,
+  field,
+  base,
+  ownerIni,
+  currentRound,
+  currentNavIni
+) {
+  const baseN = Number(base)
+  const deltaSum = effectiveDeltaForField(
+    meta,
+    field,
+    ownerIni,
+    currentRound,
+    currentNavIni
+  )
+  if (!Number.isFinite(baseN)) return deltaSum
+  const absVal = activeAbsoluteValueForField(
+    meta,
+    field,
+    ownerIni,
+    currentRound,
+    currentNavIni
+  )
+  if (absVal == null) return deltaSum
+  return absVal - baseN + deltaSum
 }
 
 const HERO_EX_GS = 'heroExGs'
@@ -690,9 +784,10 @@ export function readHeroGsSchritt(meta, context = {}) {
   let effective = base
   const ownerIni = context.ownerIni
   if (ownerIni != null && integratesHeroModsIntoDisplayedValue(meta, 'gs')) {
-    effective += effectiveDeltaForField(
+    effective += effectiveAdjustmentForField(
       meta,
       'gs',
+      base,
       ownerIni,
       context.round,
       context.navIni
@@ -756,6 +851,17 @@ export function basisTpStringFromDisplayedIntegrated(
   currentNavIni
 ) {
   if (readModDisplayMode(meta) !== 'integrated' || ownerIniNum == null) {
+    return String(displayedTp ?? '')
+  }
+  if (
+    activeAbsoluteValueForField(
+      meta,
+      'tp',
+      ownerIniNum,
+      currentRound,
+      currentNavIni
+    ) != null
+  ) {
     return String(displayedTp ?? '')
   }
   const d = effectiveDeltaForField(
@@ -837,6 +943,18 @@ export function basisHeroExpandSnapshotFromDisplayed(
     if (!/^-?\d+$/.test(t)) continue
     const n = parseInt(t, 10)
     if (!Number.isFinite(n)) continue
+    // Fixwert-Anzeige zeigt die Basis im Input — nicht umrechnen.
+    if (
+      activeAbsoluteValueForField(
+        meta,
+        field,
+        ownerIniNum,
+        currentRound,
+        currentNavIni
+      ) != null
+    ) {
+      continue
+    }
     const d = effectiveDeltaForField(
       meta,
       field,
@@ -868,6 +986,17 @@ export function basisHeroExpandSnapshotFromDisplayed(
       if (t === '' || !/^-?\d+$/.test(t)) continue
       const n = parseInt(t, 10)
       if (!Number.isFinite(n)) continue
+      if (
+        activeAbsoluteValueForField(
+          meta,
+          zid,
+          ownerIniNum,
+          currentRound,
+          currentNavIni
+        ) != null
+      ) {
+        continue
+      }
       const d = effectiveDeltaForField(
         meta,
         zid,
@@ -935,6 +1064,7 @@ export function countHeroModUiSlots(mods) {
  *   label?: string,
  *   bundleId?: string,
  *   chipColor?: string,
+ *   absolute?: boolean,
  * }} args
  * @returns {Promise<boolean>} true wenn angelegt, false bei Validierungsfehler.
  */
@@ -943,10 +1073,11 @@ export async function addHeroExMod(itemId, args) {
   if (!MOD_FIELDS.includes(/** @type {any} */ (field))) return false
   const delta = clampInt(args.delta, MIN_DELTA, MAX_DELTA)
   const permanent = args.permanent === true
+  const absolute = args.absolute === true
   const duration = clampInt(args.duration, MIN_DURATION, MAX_DURATION)
   if (delta === null) return false
   if (duration === null) return false
-  const accrual = parseAccrual(args.accrual)
+  const accrual = absolute ? 'none' : parseAccrual(args.accrual)
   const round = Math.max(1, Math.floor(Number(args.currentRound)) || 1)
   const navIni = Number(args.currentNavIni)
   const navStored =
@@ -964,6 +1095,9 @@ export async function addHeroExMod(itemId, args) {
     duration,
     addedRound: round,
     addedNavIni: navStored,
+  }
+  if (absolute) {
+    next.absolute = true
   }
   if (accrual !== 'none') {
     next.accrual = accrual
