@@ -7,6 +7,7 @@ import {
   KR_PAIR_MODE,
   KR_PRIMARY_LADUNG,
   KR_ZAO_SLOTS,
+  restoreRegularSecondActionRootAfterLh,
   stripNonHeroExtraPhaseLinksFromMeta,
 } from './krCounters.js'
 import {
@@ -87,5 +88,40 @@ describe('stripNonHeroExtraPhaseLinksFromMeta', () => {
     const ids = m.phases.links.map((l) => l.id)
     expect(ids).toEqual(['hex-ang', 'hex-par'])
     expect(m.phases.rowPanelOpen).toBe(true)
+  })
+})
+
+describe('reset-Pfad stellt reguläre 2.AO wieder her', () => {
+  it('legt nach Strip eine uo/lodgedAbw-Wurzel am Offset an (INI 15)', () => {
+    const m = {
+      initiative: '15',
+      phases: {
+        links: [
+          {
+            id: 'zao-old',
+            parentId: null,
+            offset: 8,
+            expiresNextRound: true,
+          },
+        ],
+        rowPanelOpen: true,
+      },
+      [KR_ZAO_SLOTS]: { 'zao-old': { kind: 'ang', marks: 1 } },
+    }
+    applyCombatStartDefaultsToMeta(m, { restoreHeroExtraZat: false })
+    stripNonHeroExtraPhaseLinksFromMeta(m)
+    expect(
+      m.phases.links.filter(
+        (l) => l.parentId === null && !l.heroExtra && l.lhEnd !== true
+      )
+    ).toHaveLength(0)
+    expect(restoreRegularSecondActionRootAfterLh(m)).toBe(true)
+    const regular = m.phases.links.filter(
+      (l) => l.parentId === null && !l.heroExtra && l.lhEnd !== true
+    )
+    expect(regular).toHaveLength(1)
+    expect(regular[0].offset).toBe(8)
+    const slot = m[KR_ZAO_SLOTS][regular[0].id]
+    expect(slot).toMatchObject({ kind: 'uo', marks: 0, lodgedAbw: true })
   })
 })

@@ -7516,10 +7516,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       resetCombat.type = 'button'
       resetCombat.className = 'init-row-extra-reset'
       resetCombat.innerHTML = COMBAT_START_RESET_ICON_SVG
-      resetCombat.title = 'Auf Kampfstart zurücksetzen'
+      resetCombat.title = 'Aktionen auf Kampfstart zurücksetzen'
       resetCombat.setAttribute(
         'aria-label',
-        `Kampfstart-Zustand für ${rowName}`
+        `Aktionen auf Kampfstart zurücksetzen für ${rowName}`
       )
       resetCombat.addEventListener('click', (e) => {
         e.preventDefault()

@@ -67,6 +67,7 @@ import {
 export * from './krZaoSlots.js'
 export * from './krZaoRootEnsure.js'
 export * from './krLhAftermath.js'
+import { restoreRegularSecondActionRootAfterLh } from './krLhAftermath.js'
 import {
   applyUoDefaultAbwChargeIfNeeded,
   defaultZaoSlotForPhaseNum,
@@ -3015,6 +3016,7 @@ export async function resetTrackerItemToCombatStart(
       if (!m) continue
       applyCombatStartDefaultsToMeta(m, { restoreHeroExtraZat })
       stripNonHeroExtraPhaseLinksFromMeta(m)
+      restoreRegularSecondActionRootAfterLh(m)
     }
   })
   await patchActionStamps(
