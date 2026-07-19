@@ -317,7 +317,10 @@ async function writeItemInitiative(itemId, iniStr) {
           isHeroIniBelowZero(m)
         )
       }
-      ensureZaoRootsForIni(m)
+      {
+        const c = getCombat()
+        ensureZaoRootsForIni(m, c.started ? c.round : null)
+      }
     }
   })
 }
@@ -504,7 +507,10 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
           isHeroIniBelowZero(m)
         )
       }
-      ensureZaoRootsForIni(m)
+      {
+        const c = getCombat()
+        ensureZaoRootsForIni(m, c.started ? c.round : null)
+      }
     }
   })
   logCombat(`INI: IB − BE + W6 für ${updates.length} Token gesetzt`)

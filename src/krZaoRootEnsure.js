@@ -4,7 +4,11 @@
  */
 import { effectiveHeroPoolSplit } from './krActionPool.js'
 import { KR_ZAO_SLOTS } from './krMetaKeys.js'
-import { isLhActive, phaseOffsetFromHeroSecondAoMeta } from './lhMeta.js'
+import {
+  isHeroAtLhMotherEndInRound,
+  isLhActive,
+  phaseOffsetFromHeroSecondAoMeta,
+} from './lhMeta.js'
 import {
   finalizePhasesWithOrderedRoots,
   nextChainedZaoParentForTransfer,
@@ -14,14 +18,18 @@ import { readZaoSlots } from './krZaoSlots.js'
 
 /**
  * Legt fehlende reguläre 2.AO-Wurzeln an, wenn Ang.-Budget und INI es erlauben.
- * Skip bei laufender L.H. (eigene Wurzel-Verwaltung).
+ * Skip bei laufender L.H., außer L.H. endet am Mutterobjekt in `currentRound`
+ * (dann ist ein reguläres 2.AO legitim).
  *
  * @param {Record<string, unknown>} m
+ * @param {number | null | undefined} [currentRound]
  * @returns {boolean} true wenn Meta mutiert wurde
  */
-export function ensureZaoRootsForIni(m) {
+export function ensureZaoRootsForIni(m, currentRound = null) {
   if (!m || typeof m !== 'object') return false
-  if (isLhActive(m)) return false
+  if (isLhActive(m) && !isHeroAtLhMotherEndInRound(m, currentRound)) {
+    return false
+  }
 
   const { ang } = effectiveHeroPoolSplit(m)
   if (ang < 1) return false

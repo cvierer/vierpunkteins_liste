@@ -5329,7 +5329,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
                 )
               }
               if (!getCombat().started) ensureFullFreeActionQuota(m)
-              ensureZaoRootsForIni(m)
+              {
+                const c = getCombat()
+                ensureZaoRootsForIni(m, c.started ? c.round : null)
+              }
             }
           })
           .then(() => OBR.scene.items.getItems())
@@ -8154,7 +8157,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
                 )
               }
               if (!getCombat().started) ensureFullFreeActionQuota(m)
-              ensureZaoRootsForIni(m)
+              {
+                const c = getCombat()
+                ensureZaoRootsForIni(m, c.started ? c.round : null)
+              }
             }
           })
         }

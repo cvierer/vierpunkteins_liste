@@ -25,6 +25,7 @@ import { getCombat } from './combatRoom.js'
 import {
   buildCombatTurnSteps,
   buildMergedDisplayRows,
+  canCreateSecondActionRoot,
   findCombatStepIndex,
   hookIniForLink,
   normalizePhases,
@@ -41,13 +42,16 @@ import {
   LH_COMMIT_ROUND,
   LH_DONE_INI,
   LH_DONE_ROUND,
+  isHeroAtLhMotherEndInRound,
   lhAwaitingCompletionStamp,
   lhDisplayStepFromNav,
   lhEndsInRound,
+  phaseOffsetFromHeroSecondAoMeta,
   readLhCommitKrPriorSpendForRound,
   readLhMechanics,
   readLhState,
 } from './lhMeta.js'
+import { effectiveHeroPoolSplit } from './krActionPool.js'
 import { cancelLh, startOrCancelLh } from './lhEngine.js'
 import {
   ensureLhEndRootAtHook,
@@ -331,6 +335,59 @@ export async function runLongHandlungAfterCombatUpdate(items, tieOrderIds) {
   return mutated
 }
 
+/**
+ * Sync-Vorprüfung: L.H. endet am Mutterobjekt in `round`, aber es fehlt eine
+ * navigierbare reguläre 2.AO-Wurzel (Budget/INI erlauben sie).
+ *
+ * @param {Record<string, unknown>} meta
+ * @param {number} round
+ * @returns {boolean}
+ */
+function needsMotherEndRegularZaoRepair(meta, round) {
+  if (!isHeroAtLhMotherEndInRound(meta, round)) return false
+  const ownerIniStr = meta.initiative
+  if (typeof ownerIniStr !== 'string') return false
+  const phaseOffset = phaseOffsetFromHeroSecondAoMeta(meta)
+  if (!canCreateSecondActionRoot(ownerIniStr, phaseOffset)) return false
+  const { ang } = effectiveHeroPoolSplit(meta)
+  if (ang < 1) return false
+  const p = normalizePhases(meta.phases)
+  for (const l of p.links) {
+    if (l.parentId !== null || l.heroExtra || l.lhEnd === true) continue
+    const hook = hookIniForLink(l.id, ownerIniStr, p.links)
+    if (Number.isFinite(hook) && hook >= 0) return false
+  }
+  return true
+}
+
+/**
+ * End-KR-Sicherheitsnetz: fehlende reguläre 2.AO-Wurzel am Mutter-Ende nachziehen.
+ *
+ * @param {import('@owlbear-rodeo/sdk').Item[]} trackerItems
+ * @param {number} round
+ * @returns {Promise<boolean>}
+ */
+async function repairMissingMotherEndZaoRoots(trackerItems, round) {
+  /** @type {string[]} */
+  const repairIds = []
+  for (const item of trackerItems) {
+    const meta = item.metadata?.[TRACKER_ITEM_META_KEY]
+    if (!meta) continue
+    if (needsMotherEndRegularZaoRepair(meta, round)) {
+      repairIds.push(item.id)
+    }
+  }
+  if (repairIds.length === 0) return false
+  await OBR.scene.items.updateItems(repairIds, (drafts) => {
+    for (const d of drafts) {
+      const m = d.metadata[TRACKER_ITEM_META_KEY]
+      if (!m) continue
+      restoreRegularSecondActionRootAfterLh(m)
+    }
+  })
+  return true
+}
+
 async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
   await migrateAwayLhDoneFields()
 
@@ -348,6 +405,7 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
     getManualIniTieOverridePairs()
   )
   const currCtx = getCurrentStepContext(rows, items, tieOrderIds, curr)
+  const trackerItems = items.filter((i) => i.metadata?.[TRACKER_ITEM_META_KEY])
 
   if (currCtx.idx < 0 || !isGmSync()) {
     lhPrevCombat = combatSnapshot(curr)
@@ -355,14 +413,18 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
   }
 
   if (!prev || !prev.started) {
+    // Erste Navigation nach KR-Start: fehlende Mutter-Ende-2.AO nachziehen.
+    const repaired = await repairMissingMotherEndZaoRoots(
+      trackerItems,
+      curr.round
+    )
     lhPrevCombat = combatSnapshot(curr)
-    return false
+    return repaired
   }
 
   const prevCtx = getCurrentStepContext(rows, items, tieOrderIds, prev)
   const prevIni = prevCtx.activeIni
   const currIni = currCtx.activeIni
-  const trackerItems = items.filter((i) => i.metadata?.[TRACKER_ITEM_META_KEY])
 
   // Phase 6: Vorbei-Navigieren ohne Stempel = Tracker-Reset.
   // Trigger: aktuelle Navigation strikt unter endIni UND vorherige Position
@@ -437,6 +499,12 @@ async function runLongHandlungAfterCombatUpdateInner(items, tieOrderIds) {
       lhPrevCombat = combatSnapshot(curr)
       return true
     }
+  }
+
+  // End-KR-Sicherheitsnetz: fehlende 2.AO am Mutter-Ende bei jeder Nav nachziehen.
+  if (await repairMissingMotherEndZaoRoots(trackerItems, curr.round)) {
+    lhPrevCombat = combatSnapshot(curr)
+    return true
   }
 
   lhPrevCombat = combatSnapshot(curr)
