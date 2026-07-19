@@ -62,7 +62,7 @@ import {
   ensureZaoRootsForIni,
   isHeroIniBelowZero,
 } from './krCounters.js'
-import { readLhMechanics } from './lhMeta.js'
+import { rebaseLhCounterForIniChange, readLhMechanics } from './lhMeta.js'
 import { getManualIniTieOverridePairs } from './manualIniTieOverrides.js'
 import {
   buildLePopoverModSummary,
@@ -308,6 +308,10 @@ async function writeItemInitiative(itemId, iniStr) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
       const wasBelow = isHeroIniBelowZero(m)
+      {
+        const c = getCombat()
+        if (c.started) rebaseLhCounterForIniChange(m, c.round, iniStr)
+      }
       m.initiative = iniStr
       applyIniLockCharges(m)
       if (getCombat().started) {
@@ -498,6 +502,10 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
       const wasBelow = isHeroIniBelowZero(m)
+      {
+        const c = getCombat()
+        if (c.started) rebaseLhCounterForIniChange(m, c.round, iniStr)
+      }
       m.initiative = iniStr
       applyIniLockCharges(m)
       if (getCombat().started) {

@@ -30,6 +30,14 @@ export const LH_COMMIT_INI = 'lhCommitIni'
  * in der Commit-KR schon verbraucht waren — reduziert die nav-basierten LH-Ticks.
  */
 export const LH_COMMIT_KR_PRIOR_SPEND = 'lhCommitKrPriorSpend'
+/**
+ * Rebase-Baseline bei INI-Wechsel während laufender L.H.:
+ * Zu Beginn von KR `lhRebaseRound` waren bereits `lhRebaseTicks` L.H.-Ticks
+ * absolviert (Historie eingefroren). Ab dieser KR zählt `effectiveActionsPerKr`
+ * der aktuellen INI weiter — ältere KRs werden nicht rückwirkend umgerechnet.
+ */
+export const LH_REBASE_ROUND = 'lhRebaseRound'
+export const LH_REBASE_TICKS = 'lhRebaseTicks'
 
 export const DEFAULT_LH_ACTIONS_PER_KR = 2
 export const DEFAULT_LH_TRIGGER_INI_STEP = -8
@@ -345,22 +353,172 @@ export function clearLhTrackerActivity(m) {
   delete m[LH_COMMIT_ROUND]
   delete m[LH_COMMIT_INI]
   delete m[LH_COMMIT_KR_PRIOR_SPEND]
+  delete m[LH_REBASE_ROUND]
+  delete m[LH_REBASE_TICKS]
 }
 
 /**
- * Eingefrorener Mutter-Primär-Verbrauch vor LH-Start (`lhCommitKrPriorSpend`).
+ * Eingefrorener Mutter-Primär-Verbrauch vor LH-Start (`lhCommitKrPriorSpend`)
+ * plus optionale Rebase-Baseline (`lhRebaseRound` / `lhRebaseTicks`).
  * Gilt für alle Kampfrunden bis zum LH-Ende — wird für `ticksInCommitKr`,
  * Pie und Sanduhr über KR hinweg benötigt (nicht nur in der Commit-KR).
  *
  * @param {unknown} meta
  * @param {number | null | undefined} currentRound — nur API-Kompatibilität
- * @returns {number}
+ * @returns {{ prior: number, rebaseRound: number | null, rebaseTicks: number }}
  */
 export function readLhCommitKrPriorSpendForRound(meta, currentRound) {
   void currentRound
-  if (!meta || typeof meta !== 'object') return 0
+  if (!meta || typeof meta !== 'object') {
+    return { prior: 0, rebaseRound: null, rebaseTicks: 0 }
+  }
   const n = Math.floor(Number(/** @type {any} */ (meta)[LH_COMMIT_KR_PRIOR_SPEND]))
-  return Number.isFinite(n) && n >= 0 ? n : 0
+  const prior = Number.isFinite(n) && n >= 0 ? n : 0
+  const rr = Math.floor(Number(/** @type {any} */ (meta)[LH_REBASE_ROUND]))
+  const rt = Math.floor(Number(/** @type {any} */ (meta)[LH_REBASE_TICKS]))
+  return {
+    prior,
+    rebaseRound: Number.isFinite(rr) && rr >= 1 ? rr : null,
+    rebaseTicks: Number.isFinite(rt) && rt >= 0 ? rt : 0,
+  }
+}
+
+/**
+ * @param {number | { prior?: unknown, rebaseRound?: unknown, rebaseTicks?: unknown } | null | undefined} priorKrSpend
+ * @returns {{ prior: number, rebaseRound: number | null, rebaseTicks: number }}
+ */
+function normalizeLhPriorBaseline(priorKrSpend) {
+  if (priorKrSpend != null && typeof priorKrSpend === 'object') {
+    const prior = Math.max(0, Math.floor(Number(priorKrSpend.prior)) || 0)
+    const rr = Math.floor(Number(priorKrSpend.rebaseRound))
+    const rt = Math.max(0, Math.floor(Number(priorKrSpend.rebaseTicks)) || 0)
+    return {
+      prior,
+      rebaseRound: Number.isFinite(rr) && rr >= 1 ? rr : null,
+      rebaseTicks: rt,
+    }
+  }
+  return {
+    prior: Math.max(0, Math.floor(Number(priorKrSpend)) || 0),
+    rebaseRound: null,
+    rebaseTicks: 0,
+  }
+}
+
+/**
+ * Ticks, die vor Beginn von `currentRound` bereits absolviert sind
+ * (ohne Nav-Fortschritt der aktuellen KR). Rebase-aware.
+ *
+ * @param {number} currentRound
+ * @param {number} commitRound
+ * @param {number} ownerIni
+ * @param {number} ap
+ * @param {number} step
+ * @param {number} maxCommitted
+ * @param {number | null | undefined} commitIni
+ * @param {number | { prior?: unknown, rebaseRound?: unknown, rebaseTicks?: unknown } | null | undefined} priorBaseline
+ * @returns {number}
+ */
+function lhTicksBeforeRound(
+  currentRound,
+  commitRound,
+  ownerIni,
+  ap,
+  step,
+  maxCommitted,
+  commitIni,
+  priorBaseline
+) {
+  const max = Math.max(0, Math.floor(Number(maxCommitted)) || 0)
+  const cr = Math.max(1, Math.floor(Number(currentRound)) || 1)
+  const cmt = Math.max(1, Math.floor(Number(commitRound)) || 1)
+  const apN = Math.max(1, Math.floor(Number(ap)) || DEFAULT_LH_ACTIONS_PER_KR)
+  const stepN = Number(step)
+  const owner = Number(ownerIni)
+  if (max <= 0) return 0
+  if (!Number.isFinite(owner) || !Number.isFinite(stepN) || stepN === 0) return 0
+  const base = normalizeLhPriorBaseline(priorBaseline)
+  const effAp = effectiveActionsPerKr(owner, apN, stepN)
+
+  if (base.rebaseRound != null && cr >= base.rebaseRound) {
+    return Math.min(
+      max,
+      base.rebaseTicks + Math.max(0, cr - base.rebaseRound) * effAp
+    )
+  }
+  if (cr <= cmt) return 0
+
+  const commitRef = lhCommitIniRef(commitIni, owner)
+  const commitOffset = commitOffsetFromIni(owner, apN, stepN, commitRef)
+  const priorCapped = clampPriorKrSpendForCommitKr(base.prior, effAp, commitOffset)
+  const ticksInCommitKr = Math.max(0, effAp - commitOffset - priorCapped)
+  let ticks = ticksInCommitKr + Math.max(0, cr - cmt - 1) * effAp
+  ticks += implicitLhZaoCommitCarryTicks(ticksInCommitKr, commitRef, owner)
+  return Math.min(max, ticks)
+}
+
+/**
+ * Bei INI-Änderung während laufender L.H.: Historie der vergangenen KRs
+ * einfrieren, wenn die neue INI die Tick-Rate (effAp) für frühere KRs
+ * rückwirkend ändern würde. In-place; No-op wenn Tick-Zahl vor der
+ * aktuellen KR gleich bleibt (gleiche effAp, Commit-KR, erneute Änderung
+ * in derselben KR nach Freeze).
+ *
+ * Muss **vor** `m.initiative = neu` aufgerufen werden.
+ *
+ * @param {Record<string, unknown>} m
+ * @param {number | null | undefined} currentRound
+ * @param {unknown} newIniRaw
+ * @returns {boolean} true wenn Meta mutiert wurde
+ */
+export function rebaseLhCounterForIniChange(m, currentRound, newIniRaw) {
+  if (!m || typeof m !== 'object') return false
+  if (!isLhActive(m)) return false
+  const cr = Math.floor(Number(currentRound))
+  if (!Number.isFinite(cr) || cr < 1) return false
+  const oldIni = Number(
+    String(/** @type {any} */ (m).initiative ?? '')
+      .trim()
+      .replace(',', '.')
+  )
+  const newIni = Number(String(newIniRaw ?? '').trim().replace(',', '.'))
+  if (!Number.isFinite(oldIni) || !Number.isFinite(newIni)) return false
+  if (oldIni === newIni) return false
+  const { max } = readLhState(m)
+  if (max <= 0) return false
+  const mech = readLhMechanics(m)
+  const commitRound =
+    Math.max(
+      1,
+      Math.floor(Number(/** @type {any} */ (m)[LH_COMMIT_ROUND])) || 0
+    ) || cr
+  const commitIniN = Number(/** @type {any} */ (m)[LH_COMMIT_INI])
+  const commitIni = Number.isFinite(commitIniN) ? commitIniN : undefined
+  const baseline = readLhCommitKrPriorSpendForRound(m, cr)
+  const ticksOld = lhTicksBeforeRound(
+    cr,
+    commitRound,
+    oldIni,
+    mech.actionsPerKr,
+    mech.triggerIniStep,
+    max,
+    commitIni,
+    baseline
+  )
+  const ticksNew = lhTicksBeforeRound(
+    cr,
+    commitRound,
+    newIni,
+    mech.actionsPerKr,
+    mech.triggerIniStep,
+    max,
+    commitIni,
+    baseline
+  )
+  if (ticksOld === ticksNew) return false
+  m[LH_REBASE_ROUND] = cr
+  m[LH_REBASE_TICKS] = Math.min(max, Math.max(0, ticksOld))
+  return true
 }
 
 /**
@@ -503,7 +661,8 @@ export function trackerShowsLhSyntheticRow(meta, ownerIniNum, _combatRound) {
  * @param {number} ap actionsPerKr
  * @param {number} step triggerIniStep (typischerweise negativ, z. B. -8)
  * @param {number | null | undefined} [commitIni] Nav-INI beim LH-Start (fehlt → ownerIni)
- * @param {number} [priorKrSpend] Mutter-Primäraktionen vor LH-Start in der Commit-KR (eingefroren)
+ * @param {number | { prior?: unknown, rebaseRound?: unknown, rebaseTicks?: unknown }} [priorKrSpend]
+ *   Mutter-Primäraktionen vor LH-Start (Zahl) oder Baseline-Objekt inkl. Rebase
  * @returns {{ endsInThisRound: boolean, endIni: number | null }}
  */
 export function lhEndsInRound(
@@ -527,10 +686,27 @@ export function lhEndsInRound(
   if (!Number.isFinite(stepN) || stepN === 0) {
     return { endsInThisRound: false, endIni: null }
   }
+  const base = normalizeLhPriorBaseline(priorKrSpend)
   const effAp = effectiveActionsPerKr(owner, apN, stepN)
+
+  if (base.rebaseRound != null && cr >= base.rebaseRound) {
+    const remaining = max - Math.min(max, base.rebaseTicks)
+    if (remaining <= 0) {
+      if (cr !== base.rebaseRound) return { endsInThisRound: false, endIni: null }
+      return { endsInThisRound: true, endIni: owner }
+    }
+    const extraKrs = Math.ceil(remaining / effAp)
+    const lastKr = base.rebaseRound + extraKrs - 1
+    if (cr !== lastKr) return { endsInThisRound: false, endIni: null }
+    const kInLastKr = remaining - (extraKrs - 1) * effAp - 1
+    const endIni = owner + kInLastKr * stepN
+    if (!Number.isFinite(endIni)) return { endsInThisRound: false, endIni: null }
+    return { endsInThisRound: true, endIni }
+  }
+
   const commitRef = lhCommitIniRef(commitIni, owner)
   const commitOffset = commitOffsetFromIni(owner, apN, stepN, commitRef)
-  const priorCapped = clampPriorKrSpendForCommitKr(priorKrSpend, effAp, commitOffset)
+  const priorCapped = clampPriorKrSpendForCommitKr(base.prior, effAp, commitOffset)
   const ticksInCommitKr = Math.max(0, effAp - commitOffset - priorCapped)
   const carryTicks = implicitLhZaoCommitCarryTicks(
     ticksInCommitKr,
@@ -761,7 +937,7 @@ function implicitLhZaoCommitCarryTicks(ticksInCommitKr, commitRef, ownerIni) {
  * @param {number} step triggerIniStep (typischerweise negativ)
  * @param {number} maxCommitted
  * @param {number | null | undefined} [commitIni] Nav-INI beim LH-Start
- * @param {number} [priorKrSpend]
+ * @param {number | { prior?: unknown, rebaseRound?: unknown, rebaseTicks?: unknown }} [priorKrSpend]
  */
 export function lhPieFraction(
   currentRound,
@@ -785,14 +961,21 @@ export function lhPieFraction(
   if (!Number.isFinite(owner) || !Number.isFinite(stepN) || stepN === 0) {
     return 0
   }
+  const base = normalizeLhPriorBaseline(priorKrSpend)
   const effAp = effectiveActionsPerKr(owner, apN, stepN)
+  const useRebase = base.rebaseRound != null && cr >= base.rebaseRound
   const commitRef = lhCommitIniRef(commitIni, owner)
   const commitOffset = commitOffsetFromIni(owner, apN, stepN, commitRef)
-  const priorCapped = clampPriorKrSpendForCommitKr(priorKrSpend, effAp, commitOffset)
+  const priorCapped = clampPriorKrSpendForCommitKr(base.prior, effAp, commitOffset)
   const ticksInCommitKr = Math.max(0, effAp - commitOffset - priorCapped)
 
   let ticksPassed = 0
-  if (cr > cmt) {
+  if (useRebase) {
+    ticksPassed = Math.min(
+      max,
+      base.rebaseTicks + Math.max(0, cr - base.rebaseRound) * effAp
+    )
+  } else if (cr > cmt) {
     ticksPassed = Math.min(max, ticksInCommitKr + (cr - cmt - 1) * effAp)
     ticksPassed = Math.min(
       max,
@@ -808,7 +991,7 @@ export function lhPieFraction(
     }
     const navRaw = navNum
     const remaining = max - ticksPassed
-    if (cr === cmt) {
+    if (!useRebase && cr === cmt) {
       for (let i = commitOffset + priorCapped; i < effAp && ticksPassed < max; i++) {
         const triggerIni = owner + i * stepN
         if (i > 0 && triggerIni < 0) continue
@@ -926,16 +1109,18 @@ export function lhDisplayStepFromNav(
   )
   const step = Number(mechanics?.triggerIniStep)
   const heroIni = Number(heroIniNum)
+  const base = normalizeLhPriorBaseline(priorKrSpend)
   const effAp = effectiveActionsPerKr(heroIni, ap, step)
+  const useRebase = base.rebaseRound != null && cr >= base.rebaseRound
   const commitRef = lhCommitIniRef(commitIni, heroIni)
   const commitOffset = commitOffsetFromIni(heroIni, ap, step, commitRef)
-  const priorCapped = clampPriorKrSpendForCommitKr(priorKrSpend, effAp, commitOffset)
+  const priorCapped = clampPriorKrSpendForCommitKr(base.prior, effAp, commitOffset)
   const ticksInCommitKr = Math.max(0, effAp - commitOffset - priorCapped)
 
   let positionInCurrentKr = 0
   if (Number.isFinite(heroIni) && Number.isFinite(step) && step !== 0) {
     const roundEndNav = currNavIni === Number.NEGATIVE_INFINITY
-    if (cr === commit) {
+    if (!useRebase && cr === commit) {
       for (let k = commitOffset + priorCapped; k < effAp; k++) {
         const T = heroIni + k * step
         if (!Number.isFinite(T) || (k > 0 && T < 0)) continue
@@ -962,7 +1147,12 @@ export function lhDisplayStepFromNav(
     }
   }
   let passedPriorKr = 0
-  if (cr > commit) {
+  if (useRebase) {
+    passedPriorKr = Math.min(
+      max,
+      base.rebaseTicks + Math.max(0, cr - base.rebaseRound) * effAp
+    )
+  } else if (cr > commit) {
     passedPriorKr = ticksInCommitKr + Math.max(0, cr - commit - 1) * effAp
     passedPriorKr = Math.min(
       max,

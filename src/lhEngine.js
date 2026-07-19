@@ -43,6 +43,8 @@ import {
   LH_KR_FIRED_MASK,
   LH_KR_FIRED_ROUND,
   LH_MAX,
+  LH_REBASE_ROUND,
+  LH_REBASE_TICKS,
   LH_REM,
   priorKrSpendRawForLhFreeze,
   readLhMechanics,
@@ -165,6 +167,8 @@ export async function startOrCancelLh(itemId, text, opts) {
         delete m[LH_COMMIT_INI]
         delete m[LH_DONE_ROUND]
         delete m[LH_DONE_INI]
+        delete m[LH_REBASE_ROUND]
+        delete m[LH_REBASE_TICKS]
         const liveMother = Math.max(
           0,
           Math.floor(Number(m[KR_MOTHER_PRIMARY_USED_THIS_ROUND])) || 0

@@ -279,6 +279,7 @@ import {
   lhPieFraction,
   lhProgressFractionText,
   phaseOffsetFromLhMeta,
+  rebaseLhCounterForIniChange,
   readLhCommitKrPriorSpendForRound,
   readLhMechanics,
   readLhState,
@@ -5319,6 +5320,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               const m = d.metadata[TRACKER_ITEM_META_KEY]
               if (!m) continue
               const wasBelow = isHeroIniBelowZero(m)
+              {
+                const c = getCombat()
+                if (c.started) {
+                  rebaseLhCounterForIniChange(m, c.round, proposedStr)
+                }
+              }
               m.initiative = proposedStr
               applyIniLockCharges(m)
               if (getCombat().started) {
@@ -8147,6 +8154,12 @@ export function setupInitiativeList(element, { onListChange } = {}) {
               const m = d.metadata[TRACKER_ITEM_META_KEY]
               if (!m) continue
               const wasBelow = isHeroIniBelowZero(m)
+              {
+                const c = getCombat()
+                if (c.started) {
+                  rebaseLhCounterForIniChange(m, c.round, persistStr)
+                }
+              }
               m.initiative = persistStr
               applyIniLockCharges(m)
               if (getCombat().started) {
