@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeDerivedRecalcFixes,
   DERIVED_RECALC_FIELDS,
+  diffDerivedRecalcFixes,
   isDerivedRecalcBundle,
 } from './heroExpandDerivedRecalc.js'
 
@@ -86,5 +87,49 @@ describe('isDerivedRecalcBundle', () => {
         { field: 'gs', absolute: true },
       ])
     ).toBe(false)
+  })
+})
+
+describe('diffDerivedRecalcFixes', () => {
+  it('liefert nur geaenderte Felder mit neuem Wert', () => {
+    const prev = computeDerivedRecalcFixes({
+      mu: 14,
+      kl: 11,
+      inn: 13,
+      ff: 14,
+      ge: 10,
+      kk: 15,
+      ko: 11,
+    })
+    const next = computeDerivedRecalcFixes({
+      mu: 9,
+      kl: 11,
+      inn: 13,
+      ff: 14,
+      ge: 10,
+      kk: 15,
+      ko: 11,
+    })
+    // AT: (14+10+15)/5=7.8→8 vs (9+10+15)/5=6.8→7
+    expect(prev?.at).not.toBe(next?.at)
+    const diff = diffDerivedRecalcFixes(prev, next)
+    expect(diff.at).toBe(next?.at)
+    expect(diff.ib).toBe(next?.ib)
+    expect(diff.mr).toBe(next?.mr)
+    expect(diff.ws).toBeUndefined()
+    expect(diff.pa).toBeUndefined()
+  })
+
+  it('leerer Diff bei gleichen Snapshots', () => {
+    const fixes = computeDerivedRecalcFixes({
+      mu: 12,
+      kl: 11,
+      inn: 13,
+      ff: 14,
+      ge: 10,
+      kk: 15,
+      ko: 11,
+    })
+    expect(diffDerivedRecalcFixes(fixes, fixes)).toEqual({})
   })
 })

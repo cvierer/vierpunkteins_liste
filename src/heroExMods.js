@@ -215,6 +215,7 @@ const ACCRUAL_VALID = new Set(['none', 'action', 'round'])
  *   accrual?: ModAccrual,
  *   label?: string,
  *   bundleId?: string,
+ *   parentBundleId?: string,
  *   chipColor?: string,
  *   absolute?: boolean,
  * }} HeroExMod
@@ -389,6 +390,7 @@ export function readHeroExMods(meta) {
     const accrual = absolute ? 'none' : parseAccrual(m.accrual)
     const label = normalizeModLabel(m.label)
     const bundleId = normalizeBundleId(m.bundleId)
+    const parentBundleId = normalizeBundleId(m.parentBundleId)
     const chipColor = normalizeModChipColor(m.chipColor)
     /** @type {HeroExMod} */
     const rec = {
@@ -404,6 +406,7 @@ export function readHeroExMods(meta) {
     if (absolute) rec.absolute = true
     if (label) rec.label = label
     if (bundleId) rec.bundleId = bundleId
+    if (parentBundleId) rec.parentBundleId = parentBundleId
     if (chipColor) rec.chipColor = chipColor
     out.push(rec)
   }
@@ -1034,13 +1037,15 @@ export function listActiveMods(meta, ownerIni, currentRound, currentNavIni) {
 
 /**
  * Anzahl Mod-„Kacheln“ wie im Streifen: Einzelmods je 1, gleiche bundleId nur einmal.
+ * Verschachtelte Kind-Bundles (`parentBundleId`) zählen nicht extra.
  *
- * @param {readonly { bundleId?: string }[]} mods
+ * @param {readonly { bundleId?: string, parentBundleId?: string }[]} mods
  */
 export function countHeroModUiSlots(mods) {
   const seenBundles = new Set()
   let n = 0
   for (const mod of mods) {
+    if (normalizeBundleId(mod.parentBundleId)) continue
     const bid = normalizeBundleId(mod.bundleId)
     if (bid) {
       if (seenBundles.has(bid)) continue
@@ -1063,6 +1068,7 @@ export function countHeroModUiSlots(mods) {
  *   accrual?: ModAccrual | string,
  *   label?: string,
  *   bundleId?: string,
+ *   parentBundleId?: string,
  *   chipColor?: string,
  *   absolute?: boolean,
  * }} args
@@ -1112,6 +1118,10 @@ export async function addHeroExMod(itemId, args) {
   const bundleId = normalizeBundleId(args.bundleId)
   if (bundleId) {
     next.bundleId = bundleId
+  }
+  const parentBundleId = normalizeBundleId(args.parentBundleId)
+  if (parentBundleId) {
+    next.parentBundleId = parentBundleId
   }
   const chipColor = normalizeModChipColor(args.chipColor)
   if (chipColor) {
@@ -1175,7 +1185,13 @@ export async function removeHeroExModsByBundleId(itemId, bundleId) {
       const m = d.metadata[TRACKER_ITEM_META_KEY]
       if (!m) continue
       const cur = Array.isArray(m[HERO_EX_MODS]) ? m[HERO_EX_MODS] : []
-      const next = cur.filter((x) => !x || String(x.bundleId || '') !== bid)
+      /* Eltern-Bundle und alle Kind-Mods mit parentBundleId === bid. */
+      const next = cur.filter(
+        (x) =>
+          x &&
+          String(x.bundleId || '') !== bid &&
+          String(x.parentBundleId || '') !== bid
+      )
       if (next.length === 0) delete m[HERO_EX_MODS]
       else m[HERO_EX_MODS] = next
     }

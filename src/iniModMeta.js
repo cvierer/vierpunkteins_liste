@@ -132,9 +132,12 @@ import {
 export * from './heroExpandModFormat.js'
 import { formatModChipValue } from './heroExpandModFormat.js'
 import {
+  ATTR_FIELDS_FOR_DERIVED,
   computeDerivedRecalcFixes,
   DERIVED_RECALC_EXPLAIN,
   DERIVED_RECALC_FIELDS,
+  DERIVED_RECALC_NEST_LABEL,
+  diffDerivedRecalcFixes,
   isDerivedRecalcBundle,
 } from './heroExpandDerivedRecalc.js'
 import { patchHeroExpandMeta } from './trackerWrites.js'
@@ -2470,17 +2473,11 @@ export function mountHeroExpandBlock(
   let modPopPendingAppend = false
   /** @type {HTMLInputElement | null} */
   let modPopDerivedRecalcChk = null
-  /** @type {HTMLElement | null} */
-  let modPopDerivedExplain = null
 
   const setModPopDerivedRecalcChecked = (on) => {
     if (modPopDerivedRecalcChk instanceof HTMLInputElement) {
       modPopDerivedRecalcChk.checked = !!on
     }
-  }
-
-  const hideModPopDerivedExplain = () => {
-    if (modPopDerivedExplain) modPopDerivedExplain.hidden = true
   }
 
   const detachModPopoverDismissHandlers = () => {
@@ -2506,7 +2503,6 @@ export function mountHeroExpandBlock(
     modPopEditPlan = null
     modPopAnchorEl = null
     modPopDerivedRecalcChk = null
-    modPopDerivedExplain = null
     detachModPopoverDismissHandlers()
   }
 
@@ -2767,7 +2763,6 @@ export function mountHeroExpandBlock(
     const derivedChk = document.createElement('input')
     derivedChk.type = 'checkbox'
     derivedChk.className = 'init-hero-ex__mod-pop__derived-chk'
-    derivedChk.title = DERIVED_RECALC_EXPLAIN
     derivedChk.setAttribute(
       'aria-label',
       'abgeleitete Werte neu berechnen'
@@ -2775,29 +2770,11 @@ export function mountHeroExpandBlock(
     const derivedTxt = document.createElement('span')
     derivedTxt.className = 'init-hero-ex__mod-pop__derived-txt'
     derivedTxt.textContent = 'abgeleitete Werte neu berechnen'
+    derivedTxt.title = DERIVED_RECALC_EXPLAIN
+    derivedTxt.setAttribute('aria-description', DERIVED_RECALC_EXPLAIN)
     derivedLab.append(derivedChk, derivedTxt)
-    const infoBtn = document.createElement('button')
-    infoBtn.type = 'button'
-    infoBtn.className = 'init-hero-ex__mod-pop__derived-info'
-    infoBtn.textContent = 'i'
-    infoBtn.title = 'Formeln der Neuberechnung anzeigen'
-    infoBtn.setAttribute('aria-label', 'Formeln der Neuberechnung anzeigen')
-    infoBtn.setAttribute('aria-expanded', 'false')
-    const explain = document.createElement('div')
-    explain.className = 'init-hero-ex__mod-pop__derived-explain'
-    explain.hidden = true
-    explain.setAttribute('role', 'note')
-    explain.textContent = DERIVED_RECALC_EXPLAIN
-    infoBtn.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const open = explain.hidden
-      explain.hidden = !open
-      infoBtn.setAttribute('aria-expanded', open ? 'true' : 'false')
-    })
-    derivedWrap.append(derivedLab, infoBtn, explain)
+    derivedWrap.appendChild(derivedLab)
     modPopDerivedRecalcChk = derivedChk
-    modPopDerivedExplain = explain
 
     inner.append(pad, derivedWrap)
     row.appendChild(inner)
@@ -2878,7 +2855,6 @@ export function mountHeroExpandBlock(
     const first = createModValueRow(field)
     modPopRowsWrap.append(first.row, createAddRow())
     setModPopDerivedRecalcChecked(false)
-    hideModPopDerivedExplain()
     const atT = modFieldTargets.at
     const layoutCell = atT?.cell ?? t.cell
     positionModPopover(layoutCell)
@@ -2926,7 +2902,6 @@ export function mountHeroExpandBlock(
     }
     modPopRowsWrap.appendChild(createAddRow())
     setModPopDerivedRecalcChecked(isDerivedRecalcBundle(/** @type {any[]} */ (mods)))
-    hideModPopDerivedExplain()
     const atT = modFieldTargets.at
     const layoutCell = atT?.cell ?? anchorCell
     positionModPopover(layoutCell)
@@ -3158,9 +3133,9 @@ export function mountHeroExpandBlock(
     const navIni = readCurrentNavIniGlobal()
     const labelNorm = normalizeModLabel(modPopLabel.value)
     const derivedLabel = labelNorm || 'Ableitung'
-    /* Mehrere Zeilen = ein Buendel (gemeinsame bundleId); eine Zeile wie bisher ohne bundleId. */
-    const rowBundleId = specs.length >= 2 ? generateModBundleId() : undefined
-    const derivedBundleId = wantDerived ? generateModBundleId() : undefined
+    const attrSpecs = specs.filter((s) =>
+      ATTR_FIELDS_FOR_DERIVED.includes(/** @type {any} */ (s.field))
+    )
     const editPlanSnapshot = modPopEditPlan
     if (editPlanSnapshot?.kind === 'single') {
       await removeHeroExMod(itemId, editPlanSnapshot.modId)
@@ -3175,6 +3150,46 @@ export function mountHeroExpandBlock(
     const sceneItems = await OBR.scene.items.getItems([itemId])
     const fm = sceneItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
     const ownerIniFresh = fm ? readOwnerIniReferenceForMods(fm) : null
+
+    /** Effektive Eigenschaften vor den neuen Specs (nach Edit-Remove). */
+    const basisSnapForNest = persistBasisFromGathered(gather())
+    /** @type {Record<string, number>} */
+    const attrsBefore = {}
+    for (const af of ATTR_FIELDS_FOR_DERIVED) {
+      const baseN = parseWholeIntFieldString(basisSnapForNest[af])
+      if (baseN == null || ownerIniFresh == null) {
+        attrsBefore[af] = baseN ?? NaN
+        continue
+      }
+      attrsBefore[af] =
+        baseN +
+        effectiveAdjustmentForField(
+          fm,
+          af,
+          baseN,
+          ownerIniFresh,
+          round,
+          navIni
+        )
+    }
+    /** @type {Record<string, number>} */
+    const attrsAfter = { ...attrsBefore }
+    for (const s of attrSpecs) {
+      if (s.absolute) attrsAfter[s.field] = s.delta
+      else attrsAfter[s.field] = (Number(attrsAfter[s.field]) || 0) + s.delta
+    }
+    const prevDerived = computeDerivedRecalcFixes(attrsBefore)
+    const nextDerived = computeDerivedRecalcFixes(attrsAfter)
+    const nestDiff = diffDerivedRecalcFixes(prevDerived, nextDerived)
+    const nestFields = Object.keys(nestDiff)
+    const wantsNest = attrSpecs.length > 0 && nestFields.length > 0
+
+    /* Mehrere Zeilen / Nesting-Auslöser = Bundle; Einzelzeile ohne Nest ohne bundleId. */
+    let rowBundleId =
+      specs.length >= 2 || wantsNest ? generateModBundleId() : undefined
+    const derivedBundleId = wantDerived ? generateModBundleId() : undefined
+    const nestBundleId = wantsNest ? generateModBundleId() : undefined
+
     let curSlots = 0
     if (fm && ownerIniFresh != null && Number.isFinite(ownerIniFresh)) {
       curSlots = countHeroModUiSlots(
@@ -3185,6 +3200,7 @@ export function mountHeroExpandBlock(
     }
     const rowSlots = specs.length === 0 ? 0 : rowBundleId ? 1 : specs.length
     const derivedSlots = wantDerived ? 1 : 0
+    /* Kind-Bundle zählt nicht extra (countHeroModUiSlots). */
     const addingSlots = rowSlots + derivedSlots
     if (curSlots + addingSlots > MAX_HERO_EX_MOD_UI_SLOTS) {
       window.alert(
@@ -3194,6 +3210,10 @@ export function mountHeroExpandBlock(
     }
 
     const submitChipColor = modPopChipColorId
+    const nestPermanent = attrSpecs[0]?.permanent === true
+    const nestDuration = nestPermanent
+      ? 1
+      : Math.max(1, Number(attrSpecs[0]?.duration) || 1)
     closeModPopover()
     if (wantDerived && derivedFixes && derivedBundleId) {
       for (const field of DERIVED_RECALC_FIELDS) {
@@ -3226,6 +3246,24 @@ export function mountHeroExpandBlock(
         currentNavIni: navIni,
         ...(submitChipColor ? { chipColor: submitChipColor } : {}),
       })
+    }
+    if (wantsNest && nestBundleId && rowBundleId) {
+      for (const field of nestFields) {
+        await addHeroExMod(itemId, {
+          field,
+          delta: nestDiff[field],
+          duration: nestDuration,
+          permanent: nestPermanent,
+          accrual: 'none',
+          absolute: true,
+          label: DERIVED_RECALC_NEST_LABEL,
+          bundleId: nestBundleId,
+          parentBundleId: rowBundleId,
+          currentRound: round,
+          currentNavIni: navIni,
+          ...(submitChipColor ? { chipColor: submitChipColor } : {}),
+        })
+      }
     }
     await refreshAutoBundlesForItem(itemId)
     await refreshModStripFromScene()
@@ -3538,6 +3576,7 @@ export function mountHeroExpandBlock(
      *   isBundle?: boolean,
      *   isAutoBundle?: boolean,
      *   isFixed?: boolean,
+     *   isNested?: boolean,
      *   onRemove: () => void,
      *   onEditClick: () => void,
      *   onReadonlyClick?: () => void,
@@ -3560,6 +3599,9 @@ export function mountHeroExpandBlock(
           ? 'init-hero-ex__mod-chip-card--editable'
           : 'init-hero-ex__mod-chip-card--readonly'
       }`
+      if (o.isNested) {
+        chip.classList.add('init-hero-ex__mod-chip-card--nested')
+      }
       if (bidStr === AUTO_LE_UNFAEHIG_BUNDLE_ID) {
         chip.classList.add('init-hero-ex__mod-chip-card--auto-unfaehig')
       }
@@ -4063,6 +4105,88 @@ export function mountHeroExpandBlock(
     primaryStack.className = 'init-hero-ex__mods-stack'
 
     const seenBundle = new Set()
+
+    /**
+     * Kind-Chips (Neuberechnung) direkt unter dem Auslöser-Bundle einhängen.
+     * @param {string} parentBid
+     */
+    const mountNestedDerivedChipsForParent = (parentBid) => {
+      const pBid = String(parentBid || '')
+      if (!pBid) return
+      const childMods = active.filter(
+        (x) => String(x.parentBundleId ?? '') === pBid
+      )
+      if (childMods.length === 0) return
+      const childBundles = new Map()
+      for (const cm of childMods) {
+        const cBid = String(cm.bundleId ?? '')
+        if (!cBid) continue
+        if (!childBundles.has(cBid)) childBundles.set(cBid, [])
+        childBundles.get(cBid).push(cm)
+      }
+      for (const [cBid, bundleMods] of childBundles) {
+        if (seenBundle.has(cBid)) continue
+        seenBundle.add(cBid)
+        const packLabel =
+          bundleMods.find((x) => x.label)?.label || DERIVED_RECALC_NEST_LABEL
+        const shortParts = bundleMods.map((bm) => {
+          const eff = modEffectiveContribution(
+            bm,
+            ownerIniNum,
+            round,
+            navIni,
+            lhMech
+          )
+          const abbr = MOD_FIELD_LABEL[bm.field] || bm.field.toUpperCase()
+          return `${abbr}${formatModChipValue(eff, bm.absolute === true)}`
+        })
+        const shortSummary = shortParts.join(', ')
+        let netSum = 0
+        for (const bm of bundleMods) {
+          netSum += modEffectiveContribution(
+            bm,
+            ownerIniNum,
+            round,
+            navIni,
+            lhMech
+          )
+        }
+        const allFixed = bundleMods.every((bm) => bm.absolute === true)
+        mountModListChip(primaryStack, {
+          isBundle: true,
+          isNested: true,
+          isFixed: allFixed,
+          bundleId: cBid,
+          label: packLabel,
+          chipColor: bundleMods.find((x) => x.chipColor)?.chipColor,
+          shortSummary,
+          netSum,
+          cardTitle: `"${packLabel}" — ${shortSummary}`,
+          removeTitle: 'Neuberechnung entfernen',
+          removeAria: `${packLabel} entfernen`,
+          onRemove: () => {
+            void removeBundleWithAutoCleanup(itemId, cBid)
+          },
+          onEditClick: () => {
+            openModPopoverForEdit(bundleMods, {
+              kind: 'bundle',
+              bundleId: cBid,
+            })
+          },
+          onReadonlyClick: () => {
+            for (const bm of bundleMods) {
+              const t = modFieldTargets[bm.field]
+              if (!t || !t.cell) continue
+              t.cell.classList.add('init-hero-ex__mod-anchor--flash')
+              window.setTimeout(() => {
+                t.cell.classList.remove('init-hero-ex__mod-anchor--flash')
+              }, 900)
+            }
+          },
+        })
+      }
+    }
+
     const hasActiveSterbendOrRip = active.some((x) => {
       const bid = String(x?.bundleId ?? '')
       if (!bid.startsWith(AUTO_MOD_BUNDLE_PREFIX)) return false
@@ -4100,6 +4224,8 @@ export function mountHeroExpandBlock(
       readHeroExpandSnapshot(modMeta)
     )
     for (const modRec of active) {
+      /* Kind-Bundles nur unter dem Eltern-Chip rendern. */
+      if (modRec.parentBundleId) continue
       if (modRec.bundleId) {
         if (
           hasThirdWoundAutoZoneChip &&
@@ -4299,6 +4425,7 @@ export function mountHeroExpandBlock(
             }
           },
         })
+        mountNestedDerivedChipsForParent(String(modRec.bundleId))
         continue
       }
 

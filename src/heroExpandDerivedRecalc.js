@@ -13,6 +13,20 @@ export const DERIVED_RECALC_FIELDS = Object.freeze([
   'ws',
 ])
 
+/** Eigenschaften, die Ableitungen beeinflussen. */
+export const ATTR_FIELDS_FOR_DERIVED = Object.freeze([
+  'mu',
+  'kl',
+  'inn',
+  'ff',
+  'ge',
+  'kk',
+  'ko',
+])
+
+/** Chip-Label für verschachtelte Neuberechnung unter einem Attribut-Auslöser. */
+export const DERIVED_RECALC_NEST_LABEL = 'Neuberechnung abgeleiteter Werte'
+
 const MIN_FIX = -99
 const MAX_FIX = 99
 
@@ -105,7 +119,27 @@ export function isDerivedRecalcBundle(mods) {
   return fields.size === DERIVED_RECALC_FIELDS.length
 }
 
-/** Tooltip-/Popover-Text mit Formeln. */
+/**
+ * Felder, deren Fixwert sich zwischen zwei Ableitungs-Snapshots unterscheidet.
+ *
+ * @param {Record<string, number> | null | undefined} prevFixes
+ * @param {Record<string, number> | null | undefined} nextFixes
+ * @returns {Partial<Record<'at'|'pa'|'fk'|'ib'|'mr'|'ws', number>>}
+ */
+export function diffDerivedRecalcFixes(prevFixes, nextFixes) {
+  /** @type {Partial<Record<'at'|'pa'|'fk'|'ib'|'mr'|'ws', number>>} */
+  const out = {}
+  if (!prevFixes || !nextFixes) return out
+  for (const field of DERIVED_RECALC_FIELDS) {
+    const a = prevFixes[field]
+    const b = nextFixes[field]
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue
+    if (a !== b) out[field] = b
+  }
+  return out
+}
+
+/** Tooltip-Text mit Formeln. */
 export const DERIVED_RECALC_EXPLAIN =
   'Beim Anlegen werden AT, PA, FK, IB, MR und WS einmalig aus den aktuellen Eigenschaften berechnet (Fixwerte). Entfernen des Mod-Chips stellt die Basiswerte wieder her.\n\n' +
   'AT = (MU + GE + KK) / 5\n' +

@@ -79,6 +79,52 @@ describe('countHeroModUiSlots', () => {
       ])
     ).toBe(1)
   })
+
+  it('ignores nested child bundles for slot count', () => {
+    expect(
+      countHeroModUiSlots([
+        mkMod({ id: 'a', bundleId: 'bun-parent', field: 'mu' }),
+        mkMod({
+          id: 'c1',
+          bundleId: 'bun-child',
+          parentBundleId: 'bun-parent',
+          field: 'at',
+          absolute: true,
+        }),
+        mkMod({
+          id: 'c2',
+          bundleId: 'bun-child',
+          parentBundleId: 'bun-parent',
+          field: 'pa',
+          absolute: true,
+        }),
+      ])
+    ).toBe(1)
+  })
+})
+
+describe('readHeroExMods parentBundleId', () => {
+  it('roundtrips parentBundleId', () => {
+    const meta = {
+      [HERO_EX_MODS]: [
+        {
+          id: 'n1',
+          field: 'at',
+          delta: 7,
+          duration: 1,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+          absolute: true,
+          bundleId: 'bun-child',
+          parentBundleId: 'bun-parent',
+        },
+      ],
+    }
+    const mods = readHeroExMods(meta)
+    expect(mods[0].parentBundleId).toBe('bun-parent')
+    expect(mods[0].bundleId).toBe('bun-child')
+    expect(mods[0].absolute).toBe(true)
+  })
 })
 
 describe('readOwnerIniReferenceForMods', () => {
