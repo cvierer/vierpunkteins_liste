@@ -2406,13 +2406,10 @@ export function mountHeroExpandBlock(
   let modPopKeyHandler = null
   /** @type {null | { kind: 'single', modId: string } | { kind: 'bundle', bundleId: string } | { kind: 'multi', modIds: string[] }} */
   let modPopEditPlan = null
+  /** Overlay-+: Soft-Hide, nächster Anker-Klick hängt eine Zeile an. */
+  let modPopPendingAppend = false
 
-  const closeModPopover = () => {
-    if (modPop.style.display === 'none') return
-    modPop.style.display = 'none'
-    modPop.style.width = ''
-    modPopEditPlan = null
-    modPopAnchorEl = null
+  const detachModPopoverDismissHandlers = () => {
     if (modPopOutsideHandler) {
       document.removeEventListener('mousedown', modPopOutsideHandler, true)
       modPopOutsideHandler = null
@@ -2421,6 +2418,20 @@ export function mountHeroExpandBlock(
       document.removeEventListener('keydown', modPopKeyHandler, true)
       modPopKeyHandler = null
     }
+  }
+
+  const closeModPopover = () => {
+    const forceCleanup = modPopPendingAppend
+    modPopPendingAppend = false
+    if (modPop.style.display === 'none' && !forceCleanup) {
+      detachModPopoverDismissHandlers()
+      return
+    }
+    modPop.style.display = 'none'
+    modPop.style.width = ''
+    modPopEditPlan = null
+    modPopAnchorEl = null
+    detachModPopoverDismissHandlers()
   }
 
   let modPopRowSeq = 0
@@ -2655,15 +2666,15 @@ export function mountHeroExpandBlock(
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = 'init-hero-ex__mod-pop__add-btn'
-    btn.title = 'Weiteres Feld hinzufuegen'
-    btn.setAttribute('aria-label', 'Weiteres Feld hinzufuegen')
+    btn.title = 'Weiteres Feld aus dem Heldenblock waehlen'
+    btn.setAttribute('aria-label', 'Weiteres Feld aus dem Heldenblock waehlen')
     btn.textContent = '+'
     btn.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      const nr = createModValueRow(null)
-      modPopRowsWrap.insertBefore(nr.row, row)
-      nr.focusSelect()
+      modPopPendingAppend = true
+      softHideModPopover()
+      setModPickMode(true)
     })
     pad.appendChild(btn)
     inner.appendChild(pad)
@@ -2693,6 +2704,7 @@ export function mountHeroExpandBlock(
   }
 
   const attachModPopoverDismissHandlers = () => {
+    detachModPopoverDismissHandlers()
     modPopOutsideHandler = (e) => {
       const tgt = e.target
       if (modPop.contains(tgt)) return
@@ -2707,6 +2719,27 @@ export function mountHeroExpandBlock(
       }
     }
     document.addEventListener('keydown', modPopKeyHandler, true)
+  }
+
+  /** Overlay ausblenden, Zeilen/Plan behalten (Feld-Pick nach Overlay-+). */
+  const softHideModPopover = () => {
+    modPop.style.display = 'none'
+    detachModPopoverDismissHandlers()
+  }
+
+  /**
+   * Soft-Hide aufheben: Overlay wieder positionieren.
+   * @param {{ focusDelta?: () => void } | null} [focusRowApi]
+   */
+  const revealModPopover = (focusRowApi = null) => {
+    const atT = modFieldTargets.at
+    const layoutCell = atT?.cell ?? modPopAnchorEl
+    if (!layoutCell) return
+    positionModPopover(layoutCell)
+    attachModPopoverDismissHandlers()
+    if (focusRowApi && typeof focusRowApi.focusDelta === 'function') {
+      focusRowApi.focusDelta()
+    }
   }
 
   const openModPopoverFor = (field) => {
@@ -2787,7 +2820,10 @@ export function mountHeroExpandBlock(
     } catch {
       /* ignore */
     }
-    if (!modPickActive) closeModPopover()
+    if (!modPickActive) {
+      // Pending clear + hartes Schliessen (auch wenn Soft-Hide display:none)
+      closeModPopover()
+    }
   }
   /* Restore-After-Mount: wenn der Modus vor dem letzten Render aktiv war,
      visuelle Klassen + Toggle-Beschriftung wiederherstellen. */
@@ -2805,10 +2841,17 @@ export function mountHeroExpandBlock(
     })
   }
 
-  /* Esc beendet Mod-Pick-Modus (auch wenn das Popover gerade nicht offen ist). */
+  /* Esc: Pending-Append → Overlay wieder einblenden; sonst Pick-Modus beenden
+     (nur wenn Overlay nicht sichtbar). */
   const modPickEscHandler = (e) => {
     if (e.key !== 'Escape') return
     if (!modPickActive) return
+    if (modPopPendingAppend && modPop.style.display === 'none') {
+      e.stopPropagation()
+      modPopPendingAppend = false
+      revealModPopover()
+      return
+    }
     if (modPop.style.display !== 'none') return
     e.stopPropagation()
     setModPickMode(false)
@@ -2846,6 +2889,19 @@ export function mountHeroExpandBlock(
       if (!field || !modFieldTargets[field]) return
       e.preventDefault()
       e.stopPropagation()
+      if (modPopPendingAppend) {
+        const t = modFieldTargets[field]
+        if (t?.cell) modPopAnchorEl = t.cell
+        const addRowEl = modPopRowsWrap.querySelector(
+          ':scope > .init-hero-ex__mod-pop__add-row'
+        )
+        const nr = createModValueRow(field)
+        if (addRowEl) modPopRowsWrap.insertBefore(nr.row, addRowEl)
+        else modPopRowsWrap.appendChild(nr.row)
+        modPopPendingAppend = false
+        revealModPopover(nr)
+        return
+      }
       openModPopoverFor(field)
     },
     true
