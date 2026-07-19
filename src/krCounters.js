@@ -2919,11 +2919,124 @@ export async function resetAllKrCountersInScene(opts = {}) {
 }
 
 /**
+ * Sync: Tracker-Meta auf Kampfstart-Defaults (Zähler, L.H., Pools, z.AT).
+ * Phasen-Links und Stempel werden hier nicht angefasst — das erledigt
+ * `clearAllRootPhaseLinksInScene` (scene-weit) bzw. `resetTrackerItemToCombatStart`.
+ *
+ * @param {Record<string, unknown>} m
+ * @param {{ restoreHeroExtraZat?: boolean }} [opts]
+ */
+export function applyCombatStartDefaultsToMeta(
+  m,
+  { restoreHeroExtraZat = true } = {}
+) {
+  if (!m || typeof m !== 'object') return
+  migrateHeroExtraCountFields(m)
+  Object.assign(m, DEFAULT_TRACKER_KR_COUNTERS)
+  delete m[LEGACY_KR_ACTION]
+  delete m[KR_LH_VOID_BY_TRANSFER]
+  delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
+  delete m[KR_ZAO_SLOTS]
+  clearLhTrackerActivity(m)
+  delete m[KR_INI_LOCK_MINUS_A]
+  delete m[KR_INI_LOCK_MINUS_B]
+  // Mutex z.AT vs schwarzes Schild: Voll-Reset gibt die Wahl wieder frei.
+  delete m.krExtraChoiceUsed
+  if (restoreHeroExtraZat) {
+    rebuildHeroExtraAttackRootAndSlot(m)
+  } else {
+    stripHeroExtraZatAfterCombatFullReset(m)
+  }
+  const parCount = readHeroExtraParCount(m)
+  if (parCount > 0) {
+    for (let i = 0; i < parCount; i++) {
+      m[paradeExtraFieldForIndex(i)] = 0
+    }
+    for (let i = parCount; i < HERO_EXTRA_MAX; i++) {
+      delete m[paradeExtraFieldForIndex(i)]
+    }
+  } else {
+    for (let i = 0; i < HERO_EXTRA_MAX; i++) {
+      delete m[paradeExtraFieldForIndex(i)]
+    }
+  }
+  ensureFullFreeActionQuota(m)
+  initKrActionPoolsFromHeroDefaults(m)
+  applyIniLockCharges(m)
+}
+
+/**
+ * Entfernt alle Phasen-Links außer Root-Helden-Extras (z.AT / z.PA), analog
+ * zu `clearAllRootPhaseLinksInScene` für ein einzelnes Meta.
+ *
+ * @param {Record<string, unknown>} m
+ */
+export function stripNonHeroExtraPhaseLinksFromMeta(m) {
+  if (!m || typeof m !== 'object') return
+  const p = normalizePhases(m.phases)
+  if (p.links.length === 0 && p.rowPanelOpen !== true) return
+  const keepIds = new Set(
+    p.links
+      .filter(
+        (l) =>
+          l.parentId === null &&
+          (l.heroExtra === 'ang' || l.heroExtra === 'par')
+      )
+      .map((l) => l.id)
+  )
+  const nextLinks = p.links.filter((l) => keepIds.has(l.id))
+  m.phases = normalizePhases({
+    ...p,
+    links: nextLinks,
+    rowPanelOpen: nextLinks.length > 0,
+  })
+}
+
+/**
+ * Ein Held auf Kampfstart-Zustand: Meta-Defaults, nicht-Extra-Phasen-Links
+ * und Stempel dieses Tokens. Helden-Extra-Wurzeln (z.AT/z.PA) bleiben bzw.
+ * werden bei `restoreHeroExtraZat` neu aufgebaut.
+ *
+ * @param {string} itemId
+ * @param {{ restoreHeroExtraZat?: boolean }} [opts]
+ */
+export async function resetTrackerItemToCombatStart(
+  itemId,
+  { restoreHeroExtraZat = true } = {}
+) {
+  if (!itemId) return
+  const items = await OBR.scene.items.getItems([itemId])
+  const item = items.find((i) => i.id === itemId)
+  if (!canEditSceneItem(item)) return
+  const skipGmStamp = canEditSceneItem(item) && !isGmSync()
+  await OBR.scene.items.updateItems([itemId], (drafts) => {
+    for (const draft of drafts) {
+      const m = draft.metadata[TRACKER_ITEM_META_KEY]
+      if (!m) continue
+      applyCombatStartDefaultsToMeta(m, { restoreHeroExtraZat })
+      stripNonHeroExtraPhaseLinksFromMeta(m)
+    }
+  })
+  await patchActionStamps(
+    (stamps) => {
+      const entries = stamps.entries.filter((e) => e.itemId !== itemId)
+      const anchorId =
+        entries.length > 0
+          ? stamps.anchorId ||
+            (typeof getCombat().currentItemId === 'string'
+              ? getCombat().currentItemId
+              : null)
+          : null
+      return { anchorId, entries }
+    },
+    { skipGmCheck: skipGmStamp }
+  )
+}
+
+/**
  * Voll-Reset für Kampfstart / Kampfende: löscht zusätzlich die
  * 2.A.-Slot-Zustände (`KR_ZAO_SLOTS`) und die komplette L.H.-Aktivität
- * (`LH_MAX`, `LH_REM`, `LH_KR_FIRED_ROUND`, `LH_KR_FIRED_MASK`,
- * `LH_DONE_ROUND`, `LH_DONE_INI`) sowie alle Paar-Modi zurück auf Standard
- * (Angriff + Abwehr, Zähler leer).
+ * sowie alle Paar-Modi zurück auf Standard (Angriff + Abwehr, Zähler leer).
  *
  * Die 2.A.-Wurzel-Phasen-Links werden separat über
  * `clearAllRootPhaseLinksInScene` aus `phaseLinks.js` geleert.
@@ -2947,44 +3060,7 @@ export async function resetAllTrackerStateForCombatStart(
       for (const draft of drafts) {
         const m = draft.metadata[TRACKER_ITEM_META_KEY]
         if (!m) continue
-        migrateHeroExtraCountFields(m)
-        Object.assign(m, DEFAULT_TRACKER_KR_COUNTERS)
-        delete m[LEGACY_KR_ACTION]
-        delete m[KR_LH_VOID_BY_TRANSFER]
-        delete m[KR_PRIMARY_VOID_BY_ABW_TRANSFER]
-        delete m[KR_ZAO_SLOTS]
-        delete m[LH_MAX]
-        delete m[LH_REM]
-        delete m[LH_KR_FIRED_ROUND]
-        delete m[LH_KR_FIRED_MASK]
-        delete m[LH_DONE_ROUND]
-        delete m[LH_DONE_INI]
-        delete m[KR_INI_LOCK_MINUS_A]
-        delete m[KR_INI_LOCK_MINUS_B]
-        // Mutex z.AT vs schwarzes Schild: Voll-Reset gibt die Wahl wieder
-        // vollstaendig frei.
-        delete m.krExtraChoiceUsed
-        if (restoreHeroExtraZat) {
-          rebuildHeroExtraAttackRootAndSlot(m)
-        } else {
-          stripHeroExtraZatAfterCombatFullReset(m)
-        }
-        const parCount = readHeroExtraParCount(m)
-        if (parCount > 0) {
-          for (let i = 0; i < parCount; i++) {
-            m[paradeExtraFieldForIndex(i)] = 0
-          }
-          for (let i = parCount; i < HERO_EXTRA_MAX; i++) {
-            delete m[paradeExtraFieldForIndex(i)]
-          }
-        } else {
-          for (let i = 0; i < HERO_EXTRA_MAX; i++) {
-            delete m[paradeExtraFieldForIndex(i)]
-          }
-        }
-        ensureFullFreeActionQuota(m)
-        initKrActionPoolsFromHeroDefaults(m)
-        applyIniLockCharges(m)
+        applyCombatStartDefaultsToMeta(m, { restoreHeroExtraZat })
       }
     }
   )

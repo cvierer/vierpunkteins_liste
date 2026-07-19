@@ -1492,6 +1492,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   box-sizing: border-box;
 }
 
+.init-hero-ex__lead--tools .init-row-extra-reset,
 .init-hero-ex__lead--tools .init-row-extra-info,
 .init-hero-ex__lead--tools .init-row-extra-gear {
   min-width: 0.68rem;
@@ -1499,6 +1500,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   padding: 0.03rem;
 }
 
+.init-hero-ex__lead--tools .init-row-extra-reset svg,
 .init-hero-ex__lead--tools .init-row-extra-info svg,
 .init-hero-ex__lead--tools .init-row-extra-gear svg {
   width: 11px;
@@ -3397,6 +3399,7 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   cursor: not-allowed;
 }
 
+.init-row-extra-reset,
 .init-row-extra-info {
   display: flex;
   align-items: center;
@@ -3415,16 +3418,19 @@ html:not(.v4-is-gm) .combat-toolbar--grid > .kampf-settings-gear-host {
   -webkit-tap-highlight-color: transparent;
 }
 
+.init-row-extra-reset:hover,
 .init-row-extra-info:hover {
   color: var(--color-accent);
   background: rgba(var(--rgb-umber), 0.06);
 }
 
+.init-row-extra-reset:focus-visible,
 .init-row-extra-info:focus-visible {
   outline: 2px solid rgba(var(--rgb-gold), 0.45);
   outline-offset: 1px;
 }
 
+.init-row-extra-reset svg,
 .init-row-extra-info svg {
   width: 12px;
   height: 12px;

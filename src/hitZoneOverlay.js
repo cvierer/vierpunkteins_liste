@@ -5,6 +5,13 @@ export const HIT_ZONE_INFO_ICON_SVG = `
   <path d="M12 10v6M12 7.5h.01" stroke-width="2.2"/>
 </svg>`.trim()
 
+/** Reset-Symbol (Rotate-CCW), gleiche Größe wie Info-/Zahnrad-Icons. */
+export const COMBAT_START_RESET_ICON_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M3 12a9 9 0 1 0 3-6.7"/>
+  <path d="M3 4v5h5"/>
+</svg>`.trim()
+
 import {
   formatCombatLogForDisplay,
   getCombatLogUiSnapshot,

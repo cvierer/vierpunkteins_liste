@@ -221,6 +221,7 @@ import {
   readZaoSlot,
   readZaoSlots,
   undoKrActionStamp,
+  resetTrackerItemToCombatStart,
 } from './krCounters.js'
 import {
   liveAbwCombatAllowsStamp,
@@ -319,7 +320,11 @@ import {
   lhNavStepForMeta,
   syncLhNavFractionsInList as syncLhNavFractionsInListCore,
 } from './initiativeListLhUi.js'
-import { createHitZoneOverlay, HIT_ZONE_INFO_ICON_SVG } from './hitZoneOverlay.js'
+import {
+  COMBAT_START_RESET_ICON_SVG,
+  createHitZoneOverlay,
+  HIT_ZONE_INFO_ICON_SVG,
+} from './hitZoneOverlay.js'
 import {
   bulkApplyIniFromIbBeW6ForTrackedParticipants,
   HERO_EX_EXTRA_FIELD,
@@ -7497,7 +7502,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
   document.addEventListener('keydown', onHeroSettingsDocKey)
 
-  /** (i) + Zahnrad links im aufgeklappten Heldenblock. */
+  /** Kampfstart-Reset + (i) + Zahnrad links im aufgeklappten Heldenblock. */
   const buildHeroExpandLeadButtons = (
     rowId,
     rowName,
@@ -7507,6 +7512,22 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     /** @type {HTMLElement[]} */
     const leadButtons = []
     if (isGmSync()) {
+      const resetCombat = document.createElement('button')
+      resetCombat.type = 'button'
+      resetCombat.className = 'init-row-extra-reset'
+      resetCombat.innerHTML = COMBAT_START_RESET_ICON_SVG
+      resetCombat.title = 'Auf Kampfstart zurücksetzen'
+      resetCombat.setAttribute(
+        'aria-label',
+        `Kampfstart-Zustand für ${rowName}`
+      )
+      resetCombat.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        void resetTrackerItemToCombatStart(rowId)
+      })
+      leadButtons.push(resetCombat)
+
       const infoHit = document.createElement('button')
       infoHit.type = 'button'
       infoHit.className = 'init-row-extra-info'
