@@ -130,7 +130,7 @@ import {
   resolveDeathModeForLeUi,
 } from './heroExpandGauges.js'
 export * from './heroExpandModFormat.js'
-import { formatDeltaForTooltip } from './heroExpandModFormat.js'
+import { formatModChipValue } from './heroExpandModFormat.js'
 import { patchHeroExpandMeta } from './trackerWrites.js'
 import { createHeroExpandPersistController } from './heroExpandPersist.js'
 import { buildModBadgeLongSummary } from './heroExpandModGrid.js'
@@ -708,6 +708,8 @@ export function mountHeroExpandBlock(
       ? Number(__combatRound.round)
       : null
   if (__roundNum != null) purgeKrMarksBeforeRound(__roundNum)
+  /** Frisches Szene-/Preview-Meta fuer Poll/Commit (nicht Mount-Snapshot). */
+  let latestModsMeta = meta
 
   /* Nav-INI fuer Mod-Anzeige und Commit (gleiche Logik wie spaeter bei renderModBadges). */
   function readCurrentNavIniGlobal() {
@@ -1995,13 +1997,13 @@ export function mountHeroExpandBlock(
     fk: fk.cell,
     gs: gsCell,
   }
-  const applyUnfaehigVisualOverlay = (metaForMods = meta) => {
+  const applyUnfaehigVisualOverlay = (metaForMods = latestModsMeta) => {
     for (const cell of Object.values(unfaehigVisualTargets)) {
       if (!(cell instanceof HTMLElement)) continue
       cell.classList.remove('init-hero-ex__micro-cell--unfaehig-mark')
     }
 
-    const metaBase = metaForMods ?? meta
+    const metaBase = metaForMods ?? latestModsMeta
     const configSnap = readHeroExpandSnapshot(metaBase)
     const ufState = resolveUnfaehigOverlayState(
       metaBase,
@@ -2035,6 +2037,11 @@ export function mountHeroExpandBlock(
 
     /* Fixwert-Mods: gleiche Strike-Markierung (neben Unfähig). */
     const navIniFixed = readCurrentNavIniGlobal()
+    const cFixed = getCombat()
+    const roundFixed =
+      cFixed?.started && Number.isFinite(Number(cFixed.round))
+        ? Number(cFixed.round)
+        : null
     for (const [field, t] of Object.entries(modFieldTargets)) {
       const cell = t?.cell
       if (!(cell instanceof HTMLElement)) continue
@@ -2045,7 +2052,7 @@ export function mountHeroExpandBlock(
           metaBase,
           field,
           ownerIniNum,
-          __roundNum,
+          roundFixed,
           navIniFixed
         ) != null
       ) {
@@ -2092,7 +2099,7 @@ export function mountHeroExpandBlock(
    * @param {Record<string, unknown> | undefined} [metaForMods]
    */
   const refreshComputedPenaltyHighlights = (metaForMods) => {
-    const modMeta = metaForMods ?? meta
+    const modMeta = metaForMods ?? latestModsMeta
     const leMalusForPop = computeLeThresholdMalus()
     const modSum = buildLePopoverModSummary(zoneUiMid, leMalusForPop, {
       wappenDefs: snap.wappenDefs,
@@ -2103,6 +2110,11 @@ export function mountHeroExpandBlock(
       stripPenaltyHighlightTarget(t)
     }
     const navIni = readCurrentNavIniGlobal()
+    const cPen = getCombat()
+    const roundPen =
+      cPen?.started && Number.isFinite(Number(cPen.round))
+        ? Number(cPen.round)
+        : null
     for (const [field, t] of Object.entries(merged)) {
       const woundStress = woundActive.has(field)
       const modStress =
@@ -2112,14 +2124,14 @@ export function mountHeroExpandBlock(
           modMeta,
           field,
           ownerIniNum,
-          __roundNum,
+          roundPen,
           navIni
         ) !== 0 ||
           activeAbsoluteValueForField(
             modMeta,
             field,
             ownerIniNum,
-            __roundNum,
+            roundPen,
             navIni
           ) != null)
       if (!woundStress && !modStress) continue
@@ -3243,10 +3255,11 @@ export function mountHeroExpandBlock(
 
   /* Render von Sub-Badges + Mod-Strip: beim Mount und nach Szene-Persistenz,
      damit neue Auto-Bündel (z. B. LE-Schwelle) ohne volllständigen Listen-Remount sichtbar sind. */
-  const renderModBadgesAndStrip = (metaForMods = meta) => {
+  const renderModBadgesAndStrip = (metaForMods = latestModsMeta) => {
     heroLayoutRoLock = true
     try {
-    const modMeta = metaForMods ?? meta
+    const modMeta = metaForMods ?? latestModsMeta
+    latestModsMeta = modMeta
     syncModToggleUiFromMeta(modMeta)
     const c = getCombat()
     const round =
@@ -3396,6 +3409,7 @@ export function mountHeroExpandBlock(
      *   removeAria: string,
      *   isBundle?: boolean,
      *   isAutoBundle?: boolean,
+     *   isFixed?: boolean,
      *   onRemove: () => void,
      *   onEditClick: () => void,
      *   onReadonlyClick?: () => void,
@@ -3516,6 +3530,11 @@ export function mountHeroExpandBlock(
             arrowWrap.innerHTML = SVG_MOD_CHIP_UNFAEHIG_MARK
             arrowWrap.title = 'kampfunfähig'
           }
+        } else if (o.isFixed === true) {
+          arrowWrap.className =
+            'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--fixed'
+          arrowWrap.textContent = '='
+          arrowWrap.title = 'Fixwert'
         } else if (ns > 0) {
           arrowWrap.className =
             'init-hero-ex__mod-chip-card__sum-arrow init-hero-ex__mod-chip-card__sum-arrow--up'
@@ -3993,7 +4012,7 @@ export function mountHeroExpandBlock(
             lhMech
           )
           const abbr = MOD_FIELD_LABEL[bm.field] || bm.field.toUpperCase()
-          return `${abbr}${formatDeltaForTooltip(eff)}`
+          return `${abbr}${formatModChipValue(eff, bm.absolute === true)}`
         })
         const shortSummary =
           String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
@@ -4111,9 +4130,13 @@ export function mountHeroExpandBlock(
             )
           }
         }
+        const bundleAllFixed =
+          visibleBundleMods.length > 0 &&
+          visibleBundleMods.every((bm) => bm.absolute === true)
         mountModListChip(primaryStack, {
           isBundle: true,
           isAutoBundle,
+          isFixed: bundleAllFixed,
           bundleId: String(modRec.bundleId),
           label: packLabel,
           chipColor: bundleMods.find((x) => x.chipColor)?.chipColor,
@@ -4166,7 +4189,8 @@ export function mountHeroExpandBlock(
         continue
       }
       const abbr = MOD_FIELD_LABEL[modRec.field] || modRec.field.toUpperCase()
-      const shortSummary = `${abbr}${formatDeltaForTooltip(eff)}`
+      const isFixed = modRec.absolute === true
+      const shortSummary = `${abbr}${formatModChipValue(eff, isFixed)}`
       const longSummary = buildModBadgeLongSummary(
         modRec,
         ownerIniNum,
@@ -4185,9 +4209,10 @@ export function mountHeroExpandBlock(
         chipColor: modRec.chipColor,
         shortSummary,
         netSum: eff,
+        isFixed,
         cardTitle,
         removeTitle: 'Modifikator entfernen',
-        removeAria: `${modRec.label ? `${modRec.label} \u00B7 ` : ''}${MOD_FIELD_LABEL[modRec.field]} ${formatDeltaForTooltip(eff)} entfernen`,
+        removeAria: `${modRec.label ? `${modRec.label} \u00B7 ` : ''}${MOD_FIELD_LABEL[modRec.field]} ${formatModChipValue(eff, isFixed)} entfernen`,
         onRemove: () => {
           void (async () => {
             await removeHeroExMod(itemId, modRec.id)

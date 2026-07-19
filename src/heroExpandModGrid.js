@@ -1,7 +1,7 @@
 /**
  * Heldenblock Mod-Grid: Tooltip-/Badge-Texte (aus iniModMeta extrahiert).
  */
-import { formatDeltaForTooltip } from './heroExpandModFormat.js'
+import { formatModChipValue } from './heroExpandModFormat.js'
 import { MOD_FIELD_LABEL, modNavFractionLabelFromNav } from './heroExMods.js'
 
 /**
@@ -20,7 +20,8 @@ export function buildModBadgeLongSummary(
   navIni,
   effectiveDelta
 ) {
-  return `${MOD_FIELD_LABEL[modRec.field]} ${formatDeltaForTooltip(effectiveDelta)} (${modNavFractionLabelFromNav(modRec, ownerIniNum, lhMech, round, navIni)})`
+  const val = formatModChipValue(effectiveDelta, modRec?.absolute === true)
+  return `${MOD_FIELD_LABEL[modRec.field]} ${val} (${modNavFractionLabelFromNav(modRec, ownerIniNum, lhMech, round, navIni)})`
 }
 
 export { MOD_FIELD_LABEL, modNavFractionLabelFromNav }

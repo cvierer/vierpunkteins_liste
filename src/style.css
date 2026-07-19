@@ -8206,6 +8206,13 @@ select.init-row-extra-select {
   color: #121212;
 }
 
+.init-hero-ex__mod-chip-card__sum-arrow--fixed {
+  color: #121212;
+  font-weight: 700;
+  font-size: calc(0.34rem * var(--init-ui-scale) * var(--init-hero-mod-scale));
+  line-height: 1;
+}
+
 .init-hero-ex__mod-chip-card__sum-arrow--unfaehig {
   color: #b71c1c;
   transform: translateX(calc(-0.06rem * var(--init-ui-scale)));

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { formatDeltaForTooltip } from './heroExpandModFormat.js'
+import {
+  formatDeltaForTooltip,
+  formatModChipValue,
+} from './heroExpandModFormat.js'
 
 describe('formatDeltaForTooltip', () => {
   it('positive Werte mit Aufwaerts-Pfeil', () => {
@@ -18,5 +21,17 @@ describe('formatDeltaForTooltip', () => {
   it('parst numerische Strings', () => {
     expect(formatDeltaForTooltip('4')).toBe('\u21914')
     expect(formatDeltaForTooltip('-1')).toBe('\u21931')
+  })
+})
+
+describe('formatModChipValue', () => {
+  it('Fixwert als =N', () => {
+    expect(formatModChipValue(5, true)).toBe('=5')
+    expect(formatModChipValue(0, true)).toBe('=0')
+    expect(formatModChipValue(-2, true)).toBe('=-2')
+  })
+  it('ohne absolute wie Delta-Pfeile', () => {
+    expect(formatModChipValue(2, false)).toBe('\u21912')
+    expect(formatModChipValue(-3)).toBe('\u21933')
   })
 })
