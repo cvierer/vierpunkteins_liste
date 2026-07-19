@@ -6,6 +6,7 @@ import {
   imageRenderSize,
   markerOutsideOffset,
   markerScenePosition,
+  MARKER_H,
   MARKER_OUTSIDE_PADDING,
   orientationRingIds,
   ORIENTATION_RING_COLOR_FALLBACK,
@@ -104,7 +105,7 @@ describe('ringDiameter', () => {
 
 describe('markerOutsideOffset', () => {
   it('addiert Stroke, halbe Dreieck-Hoehe und Luft', () => {
-    expect(markerOutsideOffset()).toBe(3 + 10 + MARKER_OUTSIDE_PADDING)
+    expect(markerOutsideOffset()).toBe(3 + MARKER_H / 2 + MARKER_OUTSIDE_PADDING)
   })
 })
 

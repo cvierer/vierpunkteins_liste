@@ -16,8 +16,8 @@ import {
 const ORIENTATION_ID_PREFIX = 'vierpunkteins/hero-orientation/'
 export const ORIENTATION_RING_COLOR_FALLBACK = '#9e9e9e'
 
-const MARKER_W = 16
-const MARKER_H = 20
+export const MARKER_W = 24
+export const MARKER_H = 30
 const RING_DIAMETER_PAD = 1.04
 const RING_STROKE_WIDTH = 6
 /** Abstand Dreieck-Mitte zum aeusseren Ringrand (px). */
