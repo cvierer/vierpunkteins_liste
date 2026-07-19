@@ -131,6 +131,12 @@ import {
 } from './heroExpandGauges.js'
 export * from './heroExpandModFormat.js'
 import { formatModChipValue } from './heroExpandModFormat.js'
+import {
+  computeDerivedRecalcFixes,
+  DERIVED_RECALC_EXPLAIN,
+  DERIVED_RECALC_FIELDS,
+  isDerivedRecalcBundle,
+} from './heroExpandDerivedRecalc.js'
 import { patchHeroExpandMeta } from './trackerWrites.js'
 import { createHeroExpandPersistController } from './heroExpandPersist.js'
 import { buildModBadgeLongSummary } from './heroExpandModGrid.js'
@@ -2462,6 +2468,20 @@ export function mountHeroExpandBlock(
   let modPopEditPlan = null
   /** Overlay-+: Soft-Hide, nächster Anker-Klick hängt eine Zeile an. */
   let modPopPendingAppend = false
+  /** @type {HTMLInputElement | null} */
+  let modPopDerivedRecalcChk = null
+  /** @type {HTMLElement | null} */
+  let modPopDerivedExplain = null
+
+  const setModPopDerivedRecalcChecked = (on) => {
+    if (modPopDerivedRecalcChk instanceof HTMLInputElement) {
+      modPopDerivedRecalcChk.checked = !!on
+    }
+  }
+
+  const hideModPopDerivedExplain = () => {
+    if (modPopDerivedExplain) modPopDerivedExplain.hidden = true
+  }
 
   const detachModPopoverDismissHandlers = () => {
     if (modPopOutsideHandler) {
@@ -2485,6 +2505,8 @@ export function mountHeroExpandBlock(
     modPop.style.width = ''
     modPopEditPlan = null
     modPopAnchorEl = null
+    modPopDerivedRecalcChk = null
+    modPopDerivedExplain = null
     detachModPopoverDismissHandlers()
   }
 
@@ -2737,7 +2759,47 @@ export function mountHeroExpandBlock(
       setModPickMode(true)
     })
     pad.appendChild(btn)
-    inner.appendChild(pad)
+
+    const derivedWrap = document.createElement('div')
+    derivedWrap.className = 'init-hero-ex__mod-pop__derived'
+    const derivedLab = document.createElement('label')
+    derivedLab.className = 'init-hero-ex__mod-pop__derived-lab'
+    const derivedChk = document.createElement('input')
+    derivedChk.type = 'checkbox'
+    derivedChk.className = 'init-hero-ex__mod-pop__derived-chk'
+    derivedChk.title = DERIVED_RECALC_EXPLAIN
+    derivedChk.setAttribute(
+      'aria-label',
+      'abgeleitete Werte neu berechnen'
+    )
+    const derivedTxt = document.createElement('span')
+    derivedTxt.className = 'init-hero-ex__mod-pop__derived-txt'
+    derivedTxt.textContent = 'abgeleitete Werte neu berechnen'
+    derivedLab.append(derivedChk, derivedTxt)
+    const infoBtn = document.createElement('button')
+    infoBtn.type = 'button'
+    infoBtn.className = 'init-hero-ex__mod-pop__derived-info'
+    infoBtn.textContent = 'i'
+    infoBtn.title = 'Formeln der Neuberechnung anzeigen'
+    infoBtn.setAttribute('aria-label', 'Formeln der Neuberechnung anzeigen')
+    infoBtn.setAttribute('aria-expanded', 'false')
+    const explain = document.createElement('div')
+    explain.className = 'init-hero-ex__mod-pop__derived-explain'
+    explain.hidden = true
+    explain.setAttribute('role', 'note')
+    explain.textContent = DERIVED_RECALC_EXPLAIN
+    infoBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const open = explain.hidden
+      explain.hidden = !open
+      infoBtn.setAttribute('aria-expanded', open ? 'true' : 'false')
+    })
+    derivedWrap.append(derivedLab, infoBtn, explain)
+    modPopDerivedRecalcChk = derivedChk
+    modPopDerivedExplain = explain
+
+    inner.append(pad, derivedWrap)
     row.appendChild(inner)
     return row
   }
@@ -2815,6 +2877,8 @@ export function mountHeroExpandBlock(
     modPopRowsWrap.replaceChildren()
     const first = createModValueRow(field)
     modPopRowsWrap.append(first.row, createAddRow())
+    setModPopDerivedRecalcChecked(false)
+    hideModPopDerivedExplain()
     const atT = modFieldTargets.at
     const layoutCell = atT?.cell ?? t.cell
     positionModPopover(layoutCell)
@@ -2861,6 +2925,8 @@ export function mountHeroExpandBlock(
       modPopRowsWrap.appendChild(nr.row)
     }
     modPopRowsWrap.appendChild(createAddRow())
+    setModPopDerivedRecalcChecked(isDerivedRecalcBundle(/** @type {any[]} */ (mods)))
+    hideModPopDerivedExplain()
     const atT = modFieldTargets.at
     const layoutCell = atT?.cell ?? anchorCell
     positionModPopover(layoutCell)
@@ -2977,10 +3043,13 @@ export function mountHeroExpandBlock(
 
   const submitMod = async () => {
     if (!modPopAnchorEl) return
+    const wantDerived =
+      modPopDerivedRecalcChk instanceof HTMLInputElement &&
+      modPopDerivedRecalcChk.checked
     const valueRows = modPopRowsWrap.querySelectorAll(
       ':scope > .init-hero-ex__mod-pop__field-row--value'
     )
-    if (valueRows.length === 0) return
+    if (valueRows.length === 0 && !wantDerived) return
 
     /** @type {{ field: string, delta: number, duration: number, permanent: boolean, accrual: 'none' | 'action' | 'round', absolute: boolean }[]} */
     const specs = []
@@ -3004,6 +3073,11 @@ export function mountHeroExpandBlock(
         !(accR instanceof HTMLInputElement) ||
         !(accA instanceof HTMLInputElement)
       ) {
+        continue
+      }
+      const deltaRaw = String(dInp.value ?? '').trim()
+      /* Checkbox Ableitung: leere/unvollständige Zeilen überspringen. */
+      if (wantDerived && (deltaRaw === '' || deltaRaw === '+' || deltaRaw === '-')) {
         continue
       }
       const parsed = parseModValueInput(dInp.value)
@@ -3043,15 +3117,50 @@ export function mountHeroExpandBlock(
         absolute,
       })
     }
-    if (specs.length === 0) return
+    /* Ableitung deckt AT/PA/FK/IB/MR/WS als Fixwerte ab — keine Doppel-Zeilen (Edit). */
+    if (wantDerived) {
+      for (let i = specs.length - 1; i >= 0; i--) {
+        const s = specs[i]
+        if (
+          s.absolute &&
+          DERIVED_RECALC_FIELDS.includes(/** @type {any} */ (s.field))
+        ) {
+          specs.splice(i, 1)
+        }
+      }
+    }
+    if (specs.length === 0 && !wantDerived) return
+
+    /** @type {ReturnType<typeof computeDerivedRecalcFixes>} */
+    let derivedFixes = null
+    if (wantDerived) {
+      const basisSnap = persistBasisFromGathered(gather())
+      derivedFixes = computeDerivedRecalcFixes({
+        mu: parseWholeIntFieldString(basisSnap.mu),
+        kl: parseWholeIntFieldString(basisSnap.kl),
+        inn: parseWholeIntFieldString(basisSnap.inn),
+        ff: parseWholeIntFieldString(basisSnap.ff),
+        ge: parseWholeIntFieldString(basisSnap.ge),
+        kk: parseWholeIntFieldString(basisSnap.kk),
+        ko: parseWholeIntFieldString(basisSnap.ko),
+      })
+      if (!derivedFixes) {
+        window.alert(
+          'Ableitung nicht möglich: MU, KL, IN, FF, GE, KK und KO müssen gültige Zahlen sein.'
+        )
+        return
+      }
+    }
 
     const c = getCombat()
     const round =
       c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : 1
     const navIni = readCurrentNavIniGlobal()
     const labelNorm = normalizeModLabel(modPopLabel.value)
+    const derivedLabel = labelNorm || 'Ableitung'
     /* Mehrere Zeilen = ein Buendel (gemeinsame bundleId); eine Zeile wie bisher ohne bundleId. */
-    const bundleId = specs.length >= 2 ? generateModBundleId() : undefined
+    const rowBundleId = specs.length >= 2 ? generateModBundleId() : undefined
+    const derivedBundleId = wantDerived ? generateModBundleId() : undefined
     const editPlanSnapshot = modPopEditPlan
     if (editPlanSnapshot?.kind === 'single') {
       await removeHeroExMod(itemId, editPlanSnapshot.modId)
@@ -3074,7 +3183,9 @@ export function mountHeroExpandBlock(
     } else if (fm) {
       curSlots = countHeroModUiSlots(readHeroExMods(fm))
     }
-    const addingSlots = bundleId ? 1 : specs.length
+    const rowSlots = specs.length === 0 ? 0 : rowBundleId ? 1 : specs.length
+    const derivedSlots = wantDerived ? 1 : 0
+    const addingSlots = rowSlots + derivedSlots
     if (curSlots + addingSlots > MAX_HERO_EX_MOD_UI_SLOTS) {
       window.alert(
         `Maximal ${MAX_HERO_EX_MOD_UI_SLOTS} Modifikationen gleichzeitig. Bitte erst eine entfernen oder ablaufen lassen.`
@@ -3084,6 +3195,23 @@ export function mountHeroExpandBlock(
 
     const submitChipColor = modPopChipColorId
     closeModPopover()
+    if (wantDerived && derivedFixes && derivedBundleId) {
+      for (const field of DERIVED_RECALC_FIELDS) {
+        await addHeroExMod(itemId, {
+          field,
+          delta: derivedFixes[field],
+          duration: 1,
+          permanent: true,
+          accrual: 'none',
+          absolute: true,
+          label: derivedLabel,
+          bundleId: derivedBundleId,
+          currentRound: round,
+          currentNavIni: navIni,
+          ...(submitChipColor ? { chipColor: submitChipColor } : {}),
+        })
+      }
+    }
     for (const spec of specs) {
       await addHeroExMod(itemId, {
         field: spec.field,
@@ -3093,7 +3221,7 @@ export function mountHeroExpandBlock(
         accrual: spec.accrual,
         absolute: spec.absolute,
         label: labelNorm,
-        bundleId,
+        bundleId: rowBundleId,
         currentRound: round,
         currentNavIni: navIni,
         ...(submitChipColor ? { chipColor: submitChipColor } : {}),
