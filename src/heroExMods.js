@@ -218,6 +218,7 @@ const ACCRUAL_VALID = new Set(['none', 'action', 'round'])
  *   parentBundleId?: string,
  *   chipColor?: string,
  *   absolute?: boolean,
+ *   derivedDynamic?: boolean,
  * }} HeroExMod
  */
 
@@ -387,6 +388,7 @@ export function readHeroExMods(meta) {
           : null
     const permanent = m.permanent === true
     const absolute = m.absolute === true
+    const derivedDynamic = m.derivedDynamic === true
     const accrual = absolute ? 'none' : parseAccrual(m.accrual)
     const label = normalizeModLabel(m.label)
     const bundleId = normalizeBundleId(m.bundleId)
@@ -404,6 +406,7 @@ export function readHeroExMods(meta) {
       accrual,
     }
     if (absolute) rec.absolute = true
+    if (derivedDynamic) rec.derivedDynamic = true
     if (label) rec.label = label
     if (bundleId) rec.bundleId = bundleId
     if (parentBundleId) rec.parentBundleId = parentBundleId
@@ -1069,6 +1072,7 @@ export function countHeroModUiSlots(mods) {
  *   parentBundleId?: string,
  *   chipColor?: string,
  *   absolute?: boolean,
+ *   derivedDynamic?: boolean,
  * }} args
  * @returns {Promise<boolean>} true wenn angelegt, false bei Validierungsfehler.
  */
@@ -1078,6 +1082,7 @@ export async function addHeroExMod(itemId, args) {
   const delta = clampInt(args.delta, MIN_DELTA, MAX_DELTA)
   const permanent = args.permanent === true
   const absolute = args.absolute === true
+  const derivedDynamic = args.derivedDynamic === true
   const duration = clampInt(args.duration, MIN_DURATION, MAX_DURATION)
   if (delta === null) return false
   if (duration === null) return false
@@ -1102,6 +1107,9 @@ export async function addHeroExMod(itemId, args) {
   }
   if (absolute) {
     next.absolute = true
+  }
+  if (derivedDynamic) {
+    next.derivedDynamic = true
   }
   if (accrual !== 'none') {
     next.accrual = accrual
@@ -1332,6 +1340,22 @@ export async function runHeroExModsAfterCombatUpdate(items, tieOrderIds, ctx) {
     } catch {
       /* nicht kritisch */
     }
+  }
+  /* Dynamischer Import vermeidet Zyklus heroExMods ↔ heroDerivedRecalcSync. */
+  try {
+    const { runDerivedRecalcSyncAfterCombatUpdate } = await import(
+      './heroDerivedRecalcSync.js'
+    )
+    if (
+      await runDerivedRecalcSyncAfterCombatUpdate(items, {
+        currentRound: round,
+        currentNavIni: navIni,
+      })
+    ) {
+      mutated = true
+    }
+  } catch {
+    /* nicht kritisch */
   }
   return mutated
 }

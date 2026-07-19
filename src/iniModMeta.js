@@ -132,11 +132,13 @@ import {
 export * from './heroExpandModFormat.js'
 import { formatModChipValue } from './heroExpandModFormat.js'
 import {
-  computeDerivedRecalcFixes,
   DERIVED_RECALC_EXPLAIN,
   DERIVED_RECALC_FIELDS,
+  DERIVED_RECALC_NEST_LABEL,
   isDerivedRecalcBundle,
+  isDynamicDerivedRecalcBundle,
 } from './heroExpandDerivedRecalc.js'
+import { syncDerivedRecalcDeltasForItem } from './heroDerivedRecalcSync.js'
 import { patchHeroExpandMeta } from './trackerWrites.js'
 import { createHeroExpandPersistController } from './heroExpandPersist.js'
 import { buildModBadgeLongSummary } from './heroExpandModGrid.js'
@@ -3093,34 +3095,23 @@ export function mountHeroExpandBlock(
         absolute,
       })
     }
-    /* Ableitung deckt AT/PA/FK/IB/MR/WS als Fixwerte ab — keine Doppel-Zeilen (Edit). */
+    /* Ableitung deckt AT/PA/FK/IB/MR/WS ab — keine Doppel-Zeilen (Edit). */
     if (wantDerived) {
       for (let i = specs.length - 1; i >= 0; i--) {
         const s = specs[i]
-        if (
-          s.absolute &&
-          DERIVED_RECALC_FIELDS.includes(/** @type {any} */ (s.field))
-        ) {
+        if (DERIVED_RECALC_FIELDS.includes(/** @type {any} */ (s.field))) {
           specs.splice(i, 1)
         }
       }
     }
     if (specs.length === 0 && !wantDerived) return
 
-    /** @type {ReturnType<typeof computeDerivedRecalcFixes>} */
-    let derivedFixes = null
     if (wantDerived) {
       const basisSnap = persistBasisFromGathered(gather())
-      derivedFixes = computeDerivedRecalcFixes({
-        mu: parseWholeIntFieldString(basisSnap.mu),
-        kl: parseWholeIntFieldString(basisSnap.kl),
-        inn: parseWholeIntFieldString(basisSnap.inn),
-        ff: parseWholeIntFieldString(basisSnap.ff),
-        ge: parseWholeIntFieldString(basisSnap.ge),
-        kk: parseWholeIntFieldString(basisSnap.kk),
-        ko: parseWholeIntFieldString(basisSnap.ko),
-      })
-      if (!derivedFixes) {
+      const attrsOk = ['mu', 'kl', 'inn', 'ff', 'ge', 'kk', 'ko'].every(
+        (f) => parseWholeIntFieldString(basisSnap[f]) != null
+      )
+      if (!attrsOk) {
         window.alert(
           'Ableitung nicht möglich: MU, KL, IN, FF, GE, KK und KO müssen gültige Zahlen sein.'
         )
@@ -3133,7 +3124,7 @@ export function mountHeroExpandBlock(
       c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : 1
     const navIni = readCurrentNavIniGlobal()
     const labelNorm = normalizeModLabel(modPopLabel.value)
-    const derivedLabel = labelNorm || 'Ableitung'
+    const derivedLabel = labelNorm || DERIVED_RECALC_NEST_LABEL
     const editPlanSnapshot = modPopEditPlan
     const preservedParentBundleId =
       editPlanSnapshot?.kind === 'bundle'
@@ -3179,24 +3170,7 @@ export function mountHeroExpandBlock(
 
     const submitChipColor = modPopChipColorId
     closeModPopover()
-    if (wantDerived && derivedFixes && derivedBundleId) {
-      for (const field of DERIVED_RECALC_FIELDS) {
-        await addHeroExMod(itemId, {
-          field,
-          delta: derivedFixes[field],
-          duration: 1,
-          permanent: true,
-          accrual: 'none',
-          absolute: true,
-          label: derivedLabel,
-          bundleId: derivedBundleId,
-          parentBundleId: derivedParentBundleId,
-          currentRound: round,
-          currentNavIni: navIni,
-          ...(submitChipColor ? { chipColor: submitChipColor } : {}),
-        })
-      }
-    }
+    /* Mutter zuerst, dann dynamisches Ableitungs-Paket (Deltas werden synchronisiert). */
     for (const spec of specs) {
       await addHeroExMod(itemId, {
         field: spec.field,
@@ -3212,6 +3186,29 @@ export function mountHeroExpandBlock(
         ...(submitChipColor ? { chipColor: submitChipColor } : {}),
       })
     }
+    if (wantDerived && derivedBundleId && derivedParentBundleId) {
+      for (const field of DERIVED_RECALC_FIELDS) {
+        await addHeroExMod(itemId, {
+          field,
+          delta: 0,
+          duration: 1,
+          permanent: true,
+          accrual: 'none',
+          absolute: false,
+          derivedDynamic: true,
+          label: derivedLabel,
+          bundleId: derivedBundleId,
+          parentBundleId: derivedParentBundleId,
+          currentRound: round,
+          currentNavIni: navIni,
+          ...(submitChipColor ? { chipColor: submitChipColor } : {}),
+        })
+      }
+    }
+    await syncDerivedRecalcDeltasForItem(itemId, {
+      currentRound: round,
+      currentNavIni: navIni,
+    })
     await refreshAutoBundlesForItem(itemId)
     await refreshModStripFromScene()
   }
@@ -4116,10 +4113,25 @@ export function mountHeroExpandBlock(
         )
         const bidStr = String(modRec.bundleId ?? '')
         const isAutoBundle = bidStr.startsWith(AUTO_MOD_BUNDLE_PREFIX)
-        const visibleBundleMods =
+        const isDynamicDerived = isDynamicDerivedRecalcBundle(
+          /** @type {any[]} */ (bundleMods)
+        )
+        let visibleBundleMods =
           isAutoBundle && gsZeroPriorityActive
             ? bundleMods.filter((bm) => String(bm.field ?? '') !== 'gs')
             : bundleMods
+        if (isDynamicDerived) {
+          visibleBundleMods = visibleBundleMods.filter((bm) => {
+            const eff = modEffectiveContribution(
+              bm,
+              ownerIniNum,
+              round,
+              navIni,
+              lhMech
+            )
+            return eff !== 0
+          })
+        }
         /* LA/RA unfähig nicht ausblenden: Zonenpakete bleiben sichtbar, wenn auto-le-unfaehig bei anderer Zone 3W verborgen ist */
         const packLabel = bundleMods.find((x) => x.label)?.label
         const shortParts = visibleBundleMods.map((bm) => {
@@ -4136,7 +4148,11 @@ export function mountHeroExpandBlock(
         const shortSummary =
           String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
             ? 'rein optische Überlagerung'
-            : shortParts.join(', ')
+            : shortParts.length > 0
+              ? shortParts.join(', ')
+              : isDynamicDerived
+                ? 'keine Formeländerung'
+                : ''
         const detailLines =
           String(modRec.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
             ? ['rein optische Überlagerung (keine Zahlenänderung)']
@@ -4273,6 +4289,15 @@ export function mountHeroExpandBlock(
           onRemove: () => {
             void (async () => {
               await removeBundleWithAutoCleanup(itemId, String(modRec.bundleId))
+              const cRm = getCombat()
+              const roundRm =
+                cRm?.started && Number.isFinite(Number(cRm.round))
+                  ? Number(cRm.round)
+                  : 1
+              await syncDerivedRecalcDeltasForItem(itemId, {
+                currentRound: roundRm,
+                currentNavIni: readCurrentNavIniGlobal(),
+              })
               await refreshModStripFromScene()
             })()
           },
@@ -4341,6 +4366,15 @@ export function mountHeroExpandBlock(
         onRemove: () => {
           void (async () => {
             await removeHeroExMod(itemId, modRec.id)
+            const cRm = getCombat()
+            const roundRm =
+              cRm?.started && Number.isFinite(Number(cRm.round))
+                ? Number(cRm.round)
+                : 1
+            await syncDerivedRecalcDeltasForItem(itemId, {
+              currentRound: roundRm,
+              currentNavIni: readCurrentNavIniGlobal(),
+            })
             await refreshAutoBundlesForItem(itemId)
             await refreshModStripFromScene()
           })()

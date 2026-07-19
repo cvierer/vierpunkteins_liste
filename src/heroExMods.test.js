@@ -398,6 +398,28 @@ describe('readHeroExMods', () => {
     expect(got[0].parentBundleId).toBe('bun-parent')
   })
 
+  it('preserves derivedDynamic for signed Ableitung rows', () => {
+    const got = readHeroExMods({
+      [HERO_EX_MODS]: [
+        {
+          id: 'derived-at',
+          field: 'at',
+          delta: -3,
+          duration: 1,
+          permanent: true,
+          derivedDynamic: true,
+          addedRound: 1,
+          addedNavIni: Number.POSITIVE_INFINITY,
+          bundleId: 'bun-derived',
+          parentBundleId: 'bun-parent',
+        },
+      ],
+    })
+    expect(got[0].derivedDynamic).toBe(true)
+    expect(got[0].absolute).toBeUndefined()
+    expect(got[0].delta).toBe(-3)
+  })
+
   it('returns [] for missing/invalid meta', () => {
     expect(readHeroExMods(undefined)).toEqual([])
     expect(readHeroExMods({})).toEqual([])

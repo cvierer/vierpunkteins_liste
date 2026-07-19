@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyAttrDeltasToSnap,
+  computeDerivedRecalcDeltas,
   computeDerivedRecalcFixes,
   DERIVED_RECALC_FIELDS,
   isDerivedRecalcBundle,
+  isDynamicDerivedRecalcBundle,
+  nonZeroDerivedRecalcDeltas,
 } from './heroExpandDerivedRecalc.js'
+
+const ATTRS = {
+  mu: 14,
+  kl: 11,
+  inn: 13,
+  ff: 14,
+  ge: 10,
+  kk: 15,
+  ko: 11,
+}
 
 describe('computeDerivedRecalcFixes', () => {
   it('berechnet DSA-Formeln und rundet', () => {
@@ -55,14 +69,56 @@ describe('computeDerivedRecalcFixes', () => {
   })
 })
 
+describe('computeDerivedRecalcDeltas', () => {
+  it('Beispiel: Formel 10→7 ergibt AT −3 (Grundaufschlag bleibt separat)', () => {
+    // Formel vorher: (14+10+15)/5 = 7.8 → 8 — wir brauchen Formel 10 vor MU-Senkung.
+    // AT Formel 10: (MU+GE+KK)/5 = 10 → MU+GE+KK = 50, z.B. MU=25, GE=10, KK=15
+    const before = { mu: 25, kl: 11, inn: 13, ff: 14, ge: 10, kk: 15, ko: 11 }
+    expect(computeDerivedRecalcFixes(before)?.at).toBe(10)
+    // MU so senken, dass Formel AT 7: (MU+10+15)/5 = 7 → MU+25 = 35 → MU=10
+    const after = { ...before, mu: 10 }
+    expect(computeDerivedRecalcFixes(after)?.at).toBe(7)
+    const deltas = computeDerivedRecalcDeltas(before, after)
+    expect(deltas?.at).toBe(-3)
+    // Basis-AT 12 behält den +2-Abstand: 12 + (−3) = 9 = Formel 7 + Offset 2
+  })
+
+  it('liefert 0 für unveränderte Felder', () => {
+    const before = ATTRS
+    const after = { ...ATTRS, mu: ATTRS.mu - 5 }
+    const deltas = computeDerivedRecalcDeltas(before, after)
+    expect(deltas?.ws).toBe(0) // WS hängt nur von KO ab
+    expect(nonZeroDerivedRecalcDeltas(deltas).ws).toBeUndefined()
+    expect(nonZeroDerivedRecalcDeltas(deltas).at).toBeDefined()
+  })
+})
+
+describe('applyAttrDeltasToSnap', () => {
+  it('addiert Deltas auf Basis-Attribute', () => {
+    const next = applyAttrDeltasToSnap(ATTRS, { mu: -5 })
+    expect(next?.mu).toBe(9)
+    expect(next?.ge).toBe(10)
+  })
+})
+
 describe('isDerivedRecalcBundle', () => {
-  it('erkennt genau die sechs absolute Felder', () => {
+  it('erkennt genau die sechs absolute Felder (Legacy)', () => {
     const mods = DERIVED_RECALC_FIELDS.map((field) => ({
       field,
       absolute: true,
       delta: 1,
     }))
     expect(isDerivedRecalcBundle(mods)).toBe(true)
+  })
+
+  it('erkennt dynamische Ableitungspakete', () => {
+    const mods = DERIVED_RECALC_FIELDS.map((field) => ({
+      field,
+      derivedDynamic: true,
+      delta: 0,
+    }))
+    expect(isDerivedRecalcBundle(mods)).toBe(true)
+    expect(isDynamicDerivedRecalcBundle(mods)).toBe(true)
   })
 
   it('lehnt fehlende absolute-Flags und falsche Felder ab', () => {
