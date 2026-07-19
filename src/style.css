@@ -8944,7 +8944,7 @@ select.init-row-extra-select {
   flex-shrink: 0;
 }
 
-/* Zeile 1: MOD | Name | Farbpalette | Anlegen */
+/* Zeile 1: MOD | Name | Farbpalette | Werte ableiten */
 .init-hero-ex__mod-pop__head-top {
   display: flex;
   flex-direction: row;
@@ -9063,11 +9063,34 @@ select.init-row-extra-select {
   background: #e59880;
 }
 
+/* Anlegen: rechts in der +-Zeile (gleiche horizontale Position wie früher im Kopf). */
 .init-hero-ex__mod-pop__ok--head {
   flex: 0 0 auto;
   margin-left: auto;
   padding: calc(0.04rem * var(--init-ui-scale)) calc(0.08rem * var(--init-ui-scale));
   font-size: calc(0.42rem * var(--init-ui-scale));
+  align-self: center;
+}
+
+/* Checkbox „Werte ableiten“ rechts in der Kopfzeile (Position des früheren Anlegen). */
+.init-hero-ex__mod-pop__derived-head-lab {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(0.05rem * var(--init-ui-scale));
+  margin: 0 0 0 auto;
+  flex: 0 0 auto;
+  font-family: var(--font-body);
+  font-size: calc(0.46rem * var(--init-ui-scale));
+  line-height: 1.2;
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.init-hero-ex__mod-pop__derived-head-lab input {
+  margin: 0;
+  flex-shrink: 0;
 }
 
 /* Nur die Zeilen scrollen; Kopfzeile bleibt sichtbar. */
@@ -9184,7 +9207,8 @@ select.init-row-extra-select {
   align-items: center;
   justify-content: flex-start;
   gap: calc(0.28rem * var(--init-ui-scale));
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  width: 100%;
 }
 
 .init-hero-ex__mod-pop__pill-slot--add {
@@ -9193,34 +9217,8 @@ select.init-row-extra-select {
   width: calc(var(--init-hero-cell) * 1.15);
 }
 
-.init-hero-ex__mod-pop__derived {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: calc(0.12rem * var(--init-ui-scale));
-  min-height: calc(0.72rem * var(--init-ui-scale));
-  position: relative;
-}
-
-.init-hero-ex__mod-pop__derived-lab {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: calc(0.1rem * var(--init-ui-scale));
-  min-height: calc(0.72rem * var(--init-ui-scale));
-  margin: 0;
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: calc(0.46rem * var(--init-ui-scale));
-  line-height: 1.2;
-  color: var(--color-ink, #1a1a1a);
-}
-
 .init-hero-ex__mod-pop__derived-chk {
   margin: 0;
-  width: calc(0.36rem * var(--init-ui-scale));
-  height: calc(0.36rem * var(--init-ui-scale));
   flex-shrink: 0;
   cursor: pointer;
 }

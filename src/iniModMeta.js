@@ -2300,7 +2300,26 @@ export function mountHeroExpandBlock(
   modPopOk.textContent = 'Anlegen'
   modPopOk.title = 'Alle Zeilen als Modifikator(en) anlegen'
 
-  modPopHeadTop.append(modPopHeadMod, modPopLabelWrap, modPopColorWrap, modPopOk)
+  const derivedHeadLab = document.createElement('label')
+  derivedHeadLab.className = 'init-hero-ex__mod-pop__derived-head-lab'
+  const derivedHeadChk = document.createElement('input')
+  derivedHeadChk.type = 'checkbox'
+  derivedHeadChk.className = 'init-hero-ex__mod-pop__derived-chk'
+  derivedHeadChk.title = DERIVED_RECALC_EXPLAIN
+  derivedHeadChk.setAttribute('aria-label', 'abgeleitete Werte neu berechnen')
+  const derivedHeadTxt = document.createElement('span')
+  derivedHeadTxt.className = 'init-hero-ex__mod-pop__derived-txt'
+  derivedHeadTxt.textContent = 'Werte ableiten'
+  derivedHeadTxt.title = DERIVED_RECALC_EXPLAIN
+  derivedHeadTxt.setAttribute('aria-description', DERIVED_RECALC_EXPLAIN)
+  derivedHeadLab.append(derivedHeadChk, derivedHeadTxt)
+
+  modPopHeadTop.append(
+    modPopHeadMod,
+    modPopLabelWrap,
+    modPopColorWrap,
+    derivedHeadLab
+  )
   modPopHeadRow.append(modPopHeadTop)
 
   const modPopRowsWrap = document.createElement('div')
@@ -2470,13 +2489,11 @@ export function mountHeroExpandBlock(
   let modPopEditPlan = null
   /** Overlay-+: Soft-Hide, nächster Anker-Klick hängt eine Zeile an. */
   let modPopPendingAppend = false
-  /** @type {HTMLInputElement | null} */
-  let modPopDerivedRecalcChk = null
+  /** Dauerhafte Kopf-Checkbox „Werte ableiten“ (nicht bei close nullen). */
+  const modPopDerivedRecalcChk = derivedHeadChk
 
   const setModPopDerivedRecalcChecked = (on) => {
-    if (modPopDerivedRecalcChk instanceof HTMLInputElement) {
-      modPopDerivedRecalcChk.checked = !!on
-    }
+    modPopDerivedRecalcChk.checked = !!on
   }
 
   const detachModPopoverDismissHandlers = () => {
@@ -2501,7 +2518,6 @@ export function mountHeroExpandBlock(
     modPop.style.width = ''
     modPopEditPlan = null
     modPopAnchorEl = null
-    modPopDerivedRecalcChk = null
     detachModPopoverDismissHandlers()
   }
 
@@ -2754,29 +2770,8 @@ export function mountHeroExpandBlock(
       setModPickMode(true)
     })
     pad.appendChild(btn)
-
-    const derivedWrap = document.createElement('div')
-    derivedWrap.className = 'init-hero-ex__mod-pop__derived'
-    const derivedLab = document.createElement('label')
-    derivedLab.className = 'init-hero-ex__mod-pop__derived-lab'
-    const derivedChk = document.createElement('input')
-    derivedChk.type = 'checkbox'
-    derivedChk.className = 'init-hero-ex__mod-pop__derived-chk'
-    derivedChk.title = DERIVED_RECALC_EXPLAIN
-    derivedChk.setAttribute(
-      'aria-label',
-      'abgeleitete Werte neu berechnen'
-    )
-    const derivedTxt = document.createElement('span')
-    derivedTxt.className = 'init-hero-ex__mod-pop__derived-txt'
-    derivedTxt.textContent = 'abgeleitete Werte neu berechnen'
-    derivedTxt.title = DERIVED_RECALC_EXPLAIN
-    derivedTxt.setAttribute('aria-description', DERIVED_RECALC_EXPLAIN)
-    derivedLab.append(derivedChk, derivedTxt)
-    derivedWrap.appendChild(derivedLab)
-    modPopDerivedRecalcChk = derivedChk
-
-    inner.append(pad, derivedWrap)
+    /* Anlegen-Button umhängen (gleiche Instanz, rechtsbündig auf +-Höhe). */
+    inner.append(pad, modPopOk)
     row.appendChild(inner)
     return row
   }
@@ -3021,9 +3016,7 @@ export function mountHeroExpandBlock(
 
   const submitMod = async () => {
     if (!modPopAnchorEl) return
-    const wantDerived =
-      modPopDerivedRecalcChk instanceof HTMLInputElement &&
-      modPopDerivedRecalcChk.checked
+    const wantDerived = modPopDerivedRecalcChk.checked === true
     const valueRows = modPopRowsWrap.querySelectorAll(
       ':scope > .init-hero-ex__mod-pop__field-row--value'
     )
