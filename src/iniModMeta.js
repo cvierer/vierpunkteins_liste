@@ -2470,17 +2470,11 @@ export function mountHeroExpandBlock(
   let modPopPendingAppend = false
   /** @type {HTMLInputElement | null} */
   let modPopDerivedRecalcChk = null
-  /** @type {HTMLElement | null} */
-  let modPopDerivedExplain = null
 
   const setModPopDerivedRecalcChecked = (on) => {
     if (modPopDerivedRecalcChk instanceof HTMLInputElement) {
       modPopDerivedRecalcChk.checked = !!on
     }
-  }
-
-  const hideModPopDerivedExplain = () => {
-    if (modPopDerivedExplain) modPopDerivedExplain.hidden = true
   }
 
   const detachModPopoverDismissHandlers = () => {
@@ -2506,7 +2500,6 @@ export function mountHeroExpandBlock(
     modPopEditPlan = null
     modPopAnchorEl = null
     modPopDerivedRecalcChk = null
-    modPopDerivedExplain = null
     detachModPopoverDismissHandlers()
   }
 
@@ -2775,29 +2768,11 @@ export function mountHeroExpandBlock(
     const derivedTxt = document.createElement('span')
     derivedTxt.className = 'init-hero-ex__mod-pop__derived-txt'
     derivedTxt.textContent = 'abgeleitete Werte neu berechnen'
+    derivedTxt.title = DERIVED_RECALC_EXPLAIN
+    derivedTxt.setAttribute('aria-description', DERIVED_RECALC_EXPLAIN)
     derivedLab.append(derivedChk, derivedTxt)
-    const infoBtn = document.createElement('button')
-    infoBtn.type = 'button'
-    infoBtn.className = 'init-hero-ex__mod-pop__derived-info'
-    infoBtn.textContent = 'i'
-    infoBtn.title = 'Formeln der Neuberechnung anzeigen'
-    infoBtn.setAttribute('aria-label', 'Formeln der Neuberechnung anzeigen')
-    infoBtn.setAttribute('aria-expanded', 'false')
-    const explain = document.createElement('div')
-    explain.className = 'init-hero-ex__mod-pop__derived-explain'
-    explain.hidden = true
-    explain.setAttribute('role', 'note')
-    explain.textContent = DERIVED_RECALC_EXPLAIN
-    infoBtn.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const open = explain.hidden
-      explain.hidden = !open
-      infoBtn.setAttribute('aria-expanded', open ? 'true' : 'false')
-    })
-    derivedWrap.append(derivedLab, infoBtn, explain)
+    derivedWrap.appendChild(derivedLab)
     modPopDerivedRecalcChk = derivedChk
-    modPopDerivedExplain = explain
 
     inner.append(pad, derivedWrap)
     row.appendChild(inner)
@@ -2878,7 +2853,6 @@ export function mountHeroExpandBlock(
     const first = createModValueRow(field)
     modPopRowsWrap.append(first.row, createAddRow())
     setModPopDerivedRecalcChecked(false)
-    hideModPopDerivedExplain()
     const atT = modFieldTargets.at
     const layoutCell = atT?.cell ?? t.cell
     positionModPopover(layoutCell)
@@ -2929,7 +2903,6 @@ export function mountHeroExpandBlock(
     setModPopDerivedRecalcChecked(
       hasLinkedDerived || isDerivedRecalcBundle(/** @type {any[]} */ (mods))
     )
-    hideModPopDerivedExplain()
     const atT = modFieldTargets.at
     const layoutCell = atT?.cell ?? anchorCell
     positionModPopover(layoutCell)
