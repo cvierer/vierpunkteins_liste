@@ -4298,7 +4298,10 @@ export function mountHeroExpandBlock(
             : 'Mod-Paket entfernen',
           removeAria: `${packLabel ? `${packLabel} \u00B7 ` : ''}${isAutoBundle ? 'Automatik-Paket entfernen' : 'Paket entfernen'}`,
           onRemove: () => {
-            void removeBundleWithAutoCleanup(itemId, String(modRec.bundleId))
+            void (async () => {
+              await removeBundleWithAutoCleanup(itemId, String(modRec.bundleId))
+              await refreshModStripFromScene()
+            })()
           },
           onEditClick: () => {
             openModPopoverForEdit(bundleMods, {
