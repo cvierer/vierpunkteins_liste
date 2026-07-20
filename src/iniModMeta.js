@@ -494,6 +494,12 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
     getIniTieOrder(),
     getManualIniTieOverridePairs()
   )
+  const comb = getCombat()
+  const round =
+    comb?.started && Number.isFinite(Number(comb.round))
+      ? Number(comb.round)
+      : null
+  const navIni = readNavIniForModPatch()
   /** @type {{ id: string, iniStr: string }[]} */
   const updates = []
   for (const row of rows) {
@@ -501,8 +507,18 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
     if (!item || !meta) continue
     const snap = readHeroExpandSnapshot(meta)
-    const n = computeIniFromIbBeW6(snap.ib, snap.be, snap.w6)
-    if (n === null) continue
+    const base = computeIniFromIbBeW6(snap.ib, snap.be, snap.w6)
+    if (base === null) continue
+    /* IB-/BE-Mods (z. B. AU-Band auf IB) erst hier in die Listen-INI einrechnen —
+       nicht live bei Auto-Mod, sondern nur bei Klick auf INI berechnen. */
+    const ownerIni = readOwnerIniReferenceForMods(meta)
+    let n = base
+    if (ownerIni != null && Number.isFinite(ownerIni)) {
+      const dIb = effectiveDeltaForField(meta, 'ib', ownerIni, round, navIni)
+      const dBe = effectiveDeltaForField(meta, 'be', ownerIni, round, navIni)
+      if (Number.isFinite(dIb)) n += dIb
+      if (Number.isFinite(dBe)) n -= dBe
+    }
     updates.push({ id: row.id, iniStr: String(Math.round(n)) })
   }
   if (updates.length === 0) return 0
@@ -4238,7 +4254,7 @@ export function mountHeroExpandBlock(
           detailLines.length = 0
           detailLines.push('gestorben')
         } else if (isAuBandBundle) {
-          /* Ta&Za / unmöglich leben im Stern-Chip — AU-Chip nur AT/PA/IB. */
+          /* Ta&Za / unmöglich leben im Stern-Chip — AU-Chip nur IB. */
           detailLines.length = 0
         } else if (isMagicLeBundle) {
           const nMatch = String(packLabel ?? '').match(/↓\s*(\d+)/u)

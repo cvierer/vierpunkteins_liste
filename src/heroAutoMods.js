@@ -185,7 +185,7 @@ export function auBand(au, auMax) {
 
 /**
  * @param {number} band
- * @returns {number} Malusbetrag für AT/PA/IB
+ * @returns {number} Malusbetrag für IB (INI-Basis)
  */
 export function auAtPaIbMalusForBand(band) {
   if (band >= 2) return 2
@@ -194,7 +194,7 @@ export function auAtPaIbMalusForBand(band) {
 }
 
 /**
- * Mouseover-Text für das AU-Band-Chip (AT/PA/IB — Ta&Za lebt im Stern-Chip).
+ * Mouseover-Text für das AU-Band-Chip (nur IB — Ta&Za lebt im Stern-Chip).
  *
  * @param {number} band
  * @deprecated Ta&Za-Texte liegen im auto-le-tawzfw-Stern; bleibt für Tests/Legacy.
@@ -1080,10 +1080,7 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
   if (auGate.active && auGate.au !== null && auGate.auMax !== null) {
     const am = auAtPaIbMalusForBand(auBand(auGate.au, auGate.auMax))
     if (am > 0) {
-      const d = -am
-      add('at', d)
-      add('pa', d)
-      add('ib', d)
+      add('ib', -am)
     }
   }
 
@@ -1295,12 +1292,13 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       if (band >= 3) label = 'unfähig'
       else if (band === 2) label = 'AU<1/4 ↓2'
       else if (band === 1) label = 'AU<1/3 ↓1'
-      const rows = [
-        { field: 'at', delta: -m },
-        { field: 'pa', delta: -m },
-        { field: 'ib', delta: -m },
-      ]
-      pushRows(AUTO_AU_BAND_BUNDLE_ID, label, rows)
+      const rows =
+        m > 0
+          ? [{ field: 'ib', delta: -m }]
+          : [{ field: 'ib', delta: 0 }]
+      pushRows(AUTO_AU_BAND_BUNDLE_ID, label, rows, {
+        includeZero: m <= 0,
+      })
     }
   }
 
