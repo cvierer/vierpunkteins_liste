@@ -171,6 +171,54 @@ describe('buildHeroAutoModRecords', () => {
     expect(zf[0].label).toBe('Ta&Za ↓3')
   })
 
+  it('AU-Band <1/3 allein → Stern Ta&Za ↓3', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '30', leMax: '40', au: '9', auMax: '30', showAu: '1' }),
+      ctx
+    )
+    const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
+    expect(zf.length).toBe(1)
+    expect(zf[0].label).toBe('Ta&Za ↓3')
+    expect(mods.filter((m) => m.bundleId === 'auto-le-tawzfw').length).toBe(1)
+  })
+
+  it('LE<1/2 + AU<1/4 → ein Stern Ta&Za ↓9 (3+6)', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '15', leMax: '40', au: '7', auMax: '30', showAu: '1' }),
+      ctx
+    )
+    const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
+    expect(zf.length).toBe(1)
+    expect(zf[0].label).toBe('Ta&Za ↓9')
+  })
+
+  it('AU ≤ 0 allein → Stern unmöglich', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ le: '30', leMax: '40', au: '0', auMax: '30', showAu: '1' }),
+      ctx
+    )
+    const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
+    expect(zf.length).toBe(1)
+    expect(zf[0].label).toBe('unmöglich')
+  })
+
+  it('LE ≤ X bleibt dominant gegenüber AU-Summe', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({
+        le: '4',
+        leMax: '40',
+        unfaehigThreshold: '5',
+        au: '7',
+        auMax: '30',
+        showAu: '1',
+      }),
+      ctx
+    )
+    const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
+    expect(zf.length).toBe(1)
+    expect(zf[0].label).toBe('LE ≤ 5')
+  })
+
   it('auto-le-tawzfw nutzt gleiche Todes-Priorität und zeigt R.I.P.', () => {
     const mods = buildHeroAutoModRecords(
       snap({ le: '-8', leMax: '40', ko: '8', deathMode: 'minusKo', unfaehigThreshold: '5' }),

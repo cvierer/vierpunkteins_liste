@@ -39,7 +39,6 @@ import {
   AUTO_AU_BAND_BUNDLE_ID,
   AUTO_MOD_BUNDLE_PREFIX,
   auBand,
-  auBandTooltipDe,
   computeKrAutoPenaltyWorseningMarks,
   effectiveLeForThresholds,
   hasGsZeroPriorityFromSnapshot,
@@ -4239,14 +4238,8 @@ export function mountHeroExpandBlock(
           detailLines.length = 0
           detailLines.push('gestorben')
         } else if (isAuBandBundle) {
+          /* Ta&Za / unmöglich leben im Stern-Chip — AU-Chip nur AT/PA/IB. */
           detailLines.length = 0
-          const pl = String(packLabel ?? '')
-          let auTipBand = -1
-          if (pl === 'unfähig') auTipBand = 3
-          else if (pl.includes('1/4')) auTipBand = 2
-          else if (pl.includes('1/3')) auTipBand = 1
-          const tip = auBandTooltipDe(auTipBand)
-          if (tip) detailLines.push(tip)
         } else if (isMagicLeBundle) {
           const nMatch = String(packLabel ?? '').match(/↓\s*(\d+)/u)
           const nTxt = nMatch?.[1] ?? '0'
@@ -4257,6 +4250,8 @@ export function mountHeroExpandBlock(
             if (hasActiveLeMaxLossBand) detailLines.push(permanentLossTooltip)
           } else if (String(packLabel ?? '').startsWith('LE ≤')) {
             detailLines.push(unfaehigIgnoreTooltip)
+          } else if (String(packLabel ?? '') === 'unmöglich') {
+            detailLines.push('unmöglich')
           } else {
             detailLines.push(`Zauber und Talentproben um ↓${nTxt} erschwert`)
           }

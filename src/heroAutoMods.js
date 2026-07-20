@@ -194,9 +194,10 @@ export function auAtPaIbMalusForBand(band) {
 }
 
 /**
- * Mouseover-Text für das AU-Band-Chip.
+ * Mouseover-Text für das AU-Band-Chip (AT/PA/IB — Ta&Za lebt im Stern-Chip).
  *
  * @param {number} band
+ * @deprecated Ta&Za-Texte liegen im auto-le-tawzfw-Stern; bleibt für Tests/Legacy.
  */
 export function auBandTooltipDe(band) {
   if (band >= 3) return 'unmöglich'
@@ -212,6 +213,17 @@ export function leTalentZauberErschwernis(band) {
   if (band >= 2) return 9
   if (band === 1) return 6
   if (band === 0) return 3
+  return 0
+}
+
+/**
+ * AU-Beitrag zu Talent- & Zauberproben (Band ≥3 = unmöglich, nicht numerisch).
+ *
+ * @param {number} band
+ */
+export function auTalentZauberErschwernis(band) {
+  if (band === 2) return 6
+  if (band === 1) return 3
   return 0
 }
 
@@ -906,7 +918,7 @@ export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxFo
     const wsNum = parseSignedInt(snap.ws)
     return isBelowNegativeWsThreshold(leNum, wsNum) ? 1 : null
   }
-  if (bid === AUTO_LE_BAND_BUNDLE_ID || bid === AUTO_LE_TAW_ZFW_BUNDLE_ID) {
+  if (bid === AUTO_LE_BAND_BUNDLE_ID) {
     const leNum = effectiveLeForThresholds(snap, metaForLe, ctxForLe)
     const leMaxNum = parseNonNegInt(snap.leMax)
     const koNum = parseSignedInt(snap.ko)
@@ -922,6 +934,35 @@ export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxFo
       return 400
     }
     return band
+  }
+  if (bid === AUTO_LE_TAW_ZFW_BUNDLE_ID) {
+    let lePart = 0
+    const leNum = effectiveLeForThresholds(snap, metaForLe, ctxForLe)
+    const leMaxNum = parseNonNegInt(snap.leMax)
+    const koNum = parseSignedInt(snap.ko)
+    if (leNum !== null && leMaxNum !== null && leMaxNum > 0) {
+      const band = leBand(leNum, leMaxNum, readLeThresholdFromSnapshot(snap))
+      if (leAtPaMalusForBand(band) > 0) {
+        if (leNum <= 0) {
+          const depth = -leNum
+          if (!(koNum != null && koNum > 0)) lePart = 400
+          else if (depth > 1.5 * koNum) lePart = 403
+          else if (depth > koNum) lePart = 402
+          else if (depth > 0.5 * koNum) lePart = 401
+          else lePart = 400
+        } else {
+          lePart = band + 1
+        }
+      }
+    }
+    let auPart = 0
+    const gate = readAuAutoGate(snap, metaForLe, ctxForLe)
+    if (gate.active && gate.au !== null && gate.auMax !== null) {
+      const ab = auBand(gate.au, gate.auMax)
+      if (ab >= 1) auPart = ab + 1
+    }
+    if (lePart === 0 && auPart === 0) return null
+    return lePart * 10 + auPart
   }
   if (bid === AUTO_AU_BAND_BUNDLE_ID) {
     const gate = readAuAutoGate(snap, metaForLe, ctxForLe)
@@ -1186,28 +1227,38 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
   const leMaxNum = parseNonNegInt(snap.leMax)
   const koNum = parseSignedInt(snap.ko)
   const wsNum = parseSignedInt(snap.ws)
+
+  /** @type {string | null} */
+  let leLabelKind = null
+  let leBandForTaZa = -1
+  let leCriticalThreshold = 5
+  let leHasBandMalus = false
+
   if (leNum !== null && leMaxNum !== null && leMaxNum > 0) {
     const leThreshold = readLeThresholdFromSnapshot(snap)
     const band = leBand(leNum, leMaxNum, leThreshold)
     const m = leAtPaMalusForBand(band)
     if (m > 0) {
+      leHasBandMalus = true
+      leBandForTaZa = band
       const unfaehigFix = readUnfaehigFixedLeFromSnapshot(snap)
       const unfaehigThreshold = readUnfaehigThresholdFromSnapshot(snap)
       const criticalThreshold = unfaehigFix ?? unfaehigThreshold
+      leCriticalThreshold = criticalThreshold
       const deathMode = deathModeFromSnapshot(snap)
-      const labelKind = leAutoLabelKind(leNum, koNum, deathMode, band, criticalThreshold)
+      leLabelKind = leAutoLabelKind(leNum, koNum, deathMode, band, criticalThreshold)
       let label = ''
-      if (labelKind === 'rip') {
+      if (leLabelKind === 'rip') {
         label = 'R.I.P.'
-      } else if (labelKind === 'sterbend') {
+      } else if (leLabelKind === 'sterbend') {
         label = 'sterbend'
-      } else if (labelKind === 'unfaehig') {
+      } else if (leLabelKind === 'unfaehig') {
         label = `LE ≤ ${Math.floor(Number(criticalThreshold))}`
-      } else if (labelKind === 'band0') {
+      } else if (leLabelKind === 'band0') {
         label = 'LE<1/2 ↓1'
-      } else if (labelKind === 'band1') {
+      } else if (leLabelKind === 'band1') {
         label = 'LE<1/3 ↓2'
-      } else if (labelKind === 'band2plus') {
+      } else if (leLabelKind === 'band2plus') {
         label = 'LE<1/4 ↓3'
       } else {
         const fallback = leKoCriticalLabel(leNum, koNum) || leAutoChipLabelDe(band, leThreshold)
@@ -1222,21 +1273,7 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
       }))
       pushRows(AUTO_LE_BAND_BUNDLE_ID, label, rows)
 
-      let magicLabel = ''
-      if (labelKind === 'rip') magicLabel = 'R.I.P.'
-      else if (labelKind === 'sterbend') magicLabel = 'sterbend'
-      else if (labelKind === 'unfaehig') magicLabel = `LE ≤ ${Math.floor(Number(criticalThreshold))}`
-      else if (labelKind === 'band0') magicLabel = 'Ta&Za ↓3'
-      else if (labelKind === 'band1') magicLabel = 'Ta&Za ↓6'
-      else if (labelKind === 'band2plus') magicLabel = 'Ta&Za ↓9'
-      else magicLabel = 'Ta&Za'
-      pushRows(
-        AUTO_LE_TAW_ZFW_BUNDLE_ID,
-        magicLabel,
-        [{ field: 'ib', delta: 0 }],
-        { includeZero: true }
-      )
-      if (labelKind === 'sterbend' && isBelowNegativeWsThreshold(leNum, wsNum)) {
+      if (leLabelKind === 'sterbend' && isBelowNegativeWsThreshold(leNum, wsNum)) {
         pushRows(
           AUTO_LE_MAXLOSS_BUNDLE_ID,
           'MAX ↓1',
@@ -1247,9 +1284,11 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
     }
   }
 
+  let auBandForTaZa = -1
   const auGate = readAuAutoGate(snap, metaForLe, ctx)
   if (auGate.active && auGate.au !== null && auGate.auMax !== null) {
     const band = auBand(auGate.au, auGate.auMax)
+    auBandForTaZa = band
     const m = auAtPaIbMalusForBand(band)
     if (m > 0 || band >= 3) {
       let label = 'AU'
@@ -1262,6 +1301,32 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
         { field: 'ib', delta: -m },
       ]
       pushRows(AUTO_AU_BAND_BUNDLE_ID, label, rows)
+    }
+  }
+
+  {
+    const leTaZa = leHasBandMalus ? leTalentZauberErschwernis(leBandForTaZa) : 0
+    const auTaZa =
+      auBandForTaZa >= 1 ? auTalentZauberErschwernis(auBandForTaZa) : 0
+    const auImpossible = auBandForTaZa >= 3
+    /** @type {string | null} */
+    let magicLabel = null
+    if (leHasBandMalus && leLabelKind === 'rip') magicLabel = 'R.I.P.'
+    else if (leHasBandMalus && leLabelKind === 'sterbend') magicLabel = 'sterbend'
+    else if (leHasBandMalus && leLabelKind === 'unfaehig') {
+      magicLabel = `LE ≤ ${Math.floor(Number(leCriticalThreshold))}`
+    } else if (auImpossible) magicLabel = 'unmöglich'
+    else {
+      const sum = leTaZa + auTaZa
+      if (sum > 0) magicLabel = `Ta&Za ↓${sum}`
+    }
+    if (magicLabel) {
+      pushRows(
+        AUTO_LE_TAW_ZFW_BUNDLE_ID,
+        magicLabel,
+        [{ field: 'ib', delta: 0 }],
+        { includeZero: true }
+      )
     }
   }
 
