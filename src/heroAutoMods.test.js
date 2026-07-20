@@ -105,17 +105,17 @@ describe('buildHeroAutoModRecords', () => {
     ).toBe(false)
   })
 
-  it('AU-Band <1/3 → auto-au-band nur IB −1', () => {
+  it('AU-Band <1/3 → auto-au-band AT/PA/IB je −1', () => {
     const mods = buildHeroAutoModRecords(
       snap({ au: '9', auMax: '30', showAu: '1' }),
       ctx
     )
     const aub = mods.filter((m) => m.bundleId === 'auto-au-band')
-    expect(aub.length).toBe(1)
+    expect(aub.length).toBe(3)
     expect(aub[0].label).toBe('AU<1/3 ↓1')
-    expect(aub[0].field).toBe('ib')
-    expect(aub[0].delta).toBe(-1)
-    expect(aub.some((m) => m.field === 'at' || m.field === 'pa')).toBe(false)
+    for (const f of ['at', 'pa', 'ib']) {
+      expect(aub.find((m) => m.field === f)?.delta).toBe(-1)
+    }
     expect(mods.some((m) => m.bundleId === 'auto-le-unfaehig')).toBe(false)
   })
 
@@ -127,28 +127,30 @@ describe('buildHeroAutoModRecords', () => {
     expect(mods.some((m) => m.bundleId === 'auto-au-band')).toBe(true)
   })
 
-  it('AU-Band <1/4 → auto-au-band nur IB −2', () => {
+  it('AU-Band <1/4 → auto-au-band AT/PA/IB je −2', () => {
     const mods = buildHeroAutoModRecords(
       snap({ au: '7', auMax: '30', showAu: '1' }),
       ctx
     )
     const aub = mods.filter((m) => m.bundleId === 'auto-au-band')
-    expect(aub.length).toBe(1)
+    expect(aub.length).toBe(3)
     expect(aub[0].label).toBe('AU<1/4 ↓2')
-    expect(aub[0].field).toBe('ib')
-    expect(aub[0].delta).toBe(-2)
+    for (const f of ['at', 'pa', 'ib']) {
+      expect(aub.find((m) => m.field === f)?.delta).toBe(-2)
+    }
   })
 
-  it('AU ≤ 0 → auto-au-band unfähig + IB −2 + kein auto-le-unfaehig', () => {
+  it('AU ≤ 0 → auto-au-band unfähig + kein auto-le-unfaehig', () => {
     const mods = buildHeroAutoModRecords(
       snap({ au: '0', auMax: '30', showAu: '1', le: '20', leMax: '40' }),
       ctx
     )
     const aub = mods.filter((m) => m.bundleId === 'auto-au-band')
-    expect(aub.length).toBe(1)
+    expect(aub.length).toBe(3)
     expect(aub[0].label).toBe('unfähig')
-    expect(aub[0].field).toBe('ib')
-    expect(aub[0].delta).toBe(-2)
+    for (const f of ['at', 'pa', 'ib']) {
+      expect(aub.find((m) => m.field === f)?.delta).toBe(-2)
+    }
     expect(mods.some((m) => m.bundleId === 'auto-le-unfaehig')).toBe(false)
   })
 
