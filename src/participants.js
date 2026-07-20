@@ -99,6 +99,21 @@ export function getTokenListDisplayName(item) {
 }
 
 /**
+ * Optional: effektive Listen-INI (Roh + IB-Mods) für Sortierung.
+ * Wird aus main.js gesetzt, um Import-Zyklen mit heroExMods zu vermeiden.
+ *
+ * @type {((meta: Record<string, unknown>, storedIni: string) => string) | null}
+ */
+let effectiveListIniResolver = null
+
+/**
+ * @param {((meta: Record<string, unknown>, storedIni: string) => string) | null} fn
+ */
+export function registerEffectiveListIniResolver(fn) {
+  effectiveListIniResolver = typeof fn === 'function' ? fn : null
+}
+
+/**
  * Sammelt + sortiert die Listenteilnehmer.
  *
  * @param {unknown[]} items Szenen-Items.
@@ -116,12 +131,17 @@ export function collectSortedParticipants(
   for (const item of items) {
     const metadata = item.metadata[META_KEY]
     if (metadata) {
+      const initiative =
+        metadata.initiative === undefined || metadata.initiative === null
+          ? ''
+          : String(metadata.initiative)
+      const initiativeForSort = effectiveListIniResolver
+        ? effectiveListIniResolver(metadata, initiative)
+        : initiative
       rows.push({
         id: item.id,
-        initiative:
-          metadata.initiative === undefined || metadata.initiative === null
-            ? ''
-            : String(metadata.initiative),
+        initiative,
+        initiativeForSort,
         name: getTokenListDisplayName(item),
         ibValue: readIbValue(metadata),
       })

@@ -1,8 +1,42 @@
 import './style.css'
 import OBR from '@owlbear-rodeo/sdk'
 import { initEditAccess, isGmSync } from './editAccess.js'
-import { initCombatRoom } from './combatRoom.js'
+import { getCombat, initCombatRoom } from './combatRoom.js'
 import { setupCombatControls } from './combatControls.js'
+import { registerEffectiveListIniResolver } from './participants.js'
+import { effectiveListInitiativeString } from './listIniEffective.js'
+
+function readNavIniForListSort() {
+  try {
+    const host = document.querySelector('#initiative-list-host')
+    if (host instanceof HTMLElement) {
+      const raw = host.dataset.currentNavIni
+      if (raw === '+inf') return Number.POSITIVE_INFINITY
+      if (raw === '-inf') return Number.NEGATIVE_INFINITY
+      if (raw && raw !== '') {
+        const n = Number(raw)
+        if (Number.isFinite(n)) return n
+      }
+    }
+  } catch {
+    /* fall-through */
+  }
+  return Number.POSITIVE_INFINITY
+}
+
+registerEffectiveListIniResolver((meta, storedIni) => {
+  const combat = getCombat()
+  const round =
+    combat?.started && Number.isFinite(Number(combat.round))
+      ? Number(combat.round)
+      : null
+  return effectiveListInitiativeString(
+    meta,
+    storedIni,
+    round,
+    readNavIniForListSort()
+  )
+})
 
 const appRoot = document.querySelector('#app')
 appRoot.innerHTML = `

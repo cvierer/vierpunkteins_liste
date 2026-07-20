@@ -2,7 +2,15 @@
  * Reihenfolge wie Battle Board: höhere Ganzzahl zuerst, bei gleicher Ganzzahl
  * kleinere Nachkommastellen zuerst (z. B. 15 → 14 → 13.1 → 13.9 → 12).
  * Leere oder ungültige Werte sortieren ans Ende, danach Name.
+ *
+ * Sort-Schlüssel: `initiativeForSort` (effektive Listen-INI) falls gesetzt,
+ * sonst `initiative` (Rohwert).
  */
+
+/** @param {{ initiative?: string, initiativeForSort?: string }} row */
+function iniSortValue(row) {
+  return row?.initiativeForSort ?? row?.initiative
+}
 
 export function initiativeRank(value) {
   const normalized = String(value ?? '')
@@ -17,8 +25,8 @@ export function initiativeRank(value) {
 }
 
 export function compareInitiativeRows(a, b) {
-  const ra = initiativeRank(a.initiative)
-  const rb = initiativeRank(b.initiative)
+  const ra = initiativeRank(iniSortValue(a))
+  const rb = initiativeRank(iniSortValue(b))
   if (ra === null && rb === null)
     return (a.name || '').localeCompare(b.name || '', undefined, {
       sensitivity: 'base',
@@ -34,8 +42,8 @@ export function compareInitiativeRows(a, b) {
 
 /** Nur INI-Rang (Ganzzahl + Bruch), 0 = gleiche Kampfstufe. */
 export function initiativeCompareOnlyIni(a, b) {
-  const ra = initiativeRank(a.initiative)
-  const rb = initiativeRank(b.initiative)
+  const ra = initiativeRank(iniSortValue(a))
+  const rb = initiativeRank(iniSortValue(b))
   if (ra === null && rb === null) return 0
   if (ra === null) return 1
   if (rb === null) return -1
