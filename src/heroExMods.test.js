@@ -14,6 +14,7 @@ import {
   effectiveDeltaForField,
   krIntervalsPassed,
   listActiveMods,
+  integratesHeroModsIntoDisplayedValue,
   modEffectiveContribution,
   modNavCountdownLabelFromNav,
   modNavFractionLabelFromNav,
@@ -858,5 +859,55 @@ describe('effectiveAdjustmentForField + absolute mods', () => {
     expect(mods[0].absolute).toBe(true)
     expect(mods[0].delta).toBe(4)
     expect(mods[0].accrual).toBe('none')
+  })
+})
+
+describe('IB always-integrated (AU/Wunden-Stil)', () => {
+  const owner = 10
+  const round = 1
+  const nav = Number.POSITIVE_INFINITY
+
+  it('IB ist immer integriert; ↓2 → Anzeige 8, Persist-Basis wieder 10', () => {
+    const meta = {
+      [MOD_DISPLAY_MODE]: 'separate',
+      [HERO_EX_MODS]: [
+        mkMod({
+          id: 'au-ib',
+          field: 'ib',
+          delta: -2,
+          duration: 1,
+          permanent: true,
+          addedRound: 1,
+          addedNavIni: nav,
+          bundleId: 'auto-au-band',
+          label: 'AU<1/4 ↓2',
+        }),
+      ],
+    }
+    expect(integratesHeroModsIntoDisplayedValue(meta, 'ib')).toBe(true)
+    expect(effectiveDeltaForField(meta, 'ib', owner, round, nav)).toBe(-2)
+    const shown = String(10 + effectiveDeltaForField(meta, 'ib', owner, round, nav))
+    expect(shown).toBe('8')
+    const basis = basisHeroExpandSnapshotFromDisplayed(
+      meta,
+      { ib: '8' },
+      owner,
+      round,
+      nav
+    )
+    expect(basis.ib).toBe('10')
+  })
+
+  it('ohne IB-Mod bleibt Anzeige = Basis 10', () => {
+    const meta = { [MOD_DISPLAY_MODE]: 'separate', [HERO_EX_MODS]: [] }
+    expect(effectiveDeltaForField(meta, 'ib', owner, round, nav)).toBe(0)
+    const basis = basisHeroExpandSnapshotFromDisplayed(
+      meta,
+      { ib: '10' },
+      owner,
+      round,
+      nav
+    )
+    expect(basis.ib).toBe('10')
   })
 })

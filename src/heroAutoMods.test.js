@@ -17,7 +17,7 @@ import {
   updateLastSafeLeIfSafe,
 } from './heroAutoMods.js'
 import { cloneDefaultWappenDefs } from './wappenDefs.js'
-import { HERO_EX_MODS } from './heroExMods.js'
+import { HERO_EX_MODS, basisHeroExpandSnapshotFromDisplayed, effectiveDeltaForField } from './heroExMods.js'
 
 /** @returns {Record<string, { rs: string, w: number }>} */
 function emptyZones() {
@@ -138,6 +138,48 @@ describe('buildHeroAutoModRecords', () => {
     for (const f of ['at', 'pa', 'ib']) {
       expect(aub.find((m) => m.field === f)?.delta).toBe(-2)
     }
+  })
+
+  it('AU-Band IB ↓2: Anzeige 8 aus Basis 10; Persist zieht Delta ab → Basis 10', () => {
+    const s = snap({ au: '7', auMax: '30', showAu: '1', ib: '10' })
+    const m = { [HERO_EX_MODS]: [] }
+    patchHeroExModsWithAutoBundles(m, s, ctx)
+    const owner = 12
+    const d = effectiveDeltaForField(
+      m,
+      'ib',
+      owner,
+      ctx.round,
+      ctx.navIni
+    )
+    expect(d).toBe(-2)
+    expect(String(10 + d)).toBe('8')
+    const basis = basisHeroExpandSnapshotFromDisplayed(
+      m,
+      { ib: '8' },
+      owner,
+      ctx.round,
+      ctx.navIni
+    )
+    expect(basis.ib).toBe('10')
+    /* AU wieder hoch → kein Band → Anzeige = Basis */
+    patchHeroExModsWithAutoBundles(
+      m,
+      snap({ au: '20', auMax: '30', showAu: '1', ib: '10' }),
+      ctx
+    )
+    expect(
+      effectiveDeltaForField(m, 'ib', owner, ctx.round, ctx.navIni)
+    ).toBe(0)
+    expect(
+      basisHeroExpandSnapshotFromDisplayed(
+        m,
+        { ib: '10' },
+        owner,
+        ctx.round,
+        ctx.navIni
+      ).ib
+    ).toBe('10')
   })
 
   it('AU ≤ 0 → auto-au-band unfähig + kein auto-le-unfaehig', () => {

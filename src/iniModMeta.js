@@ -782,24 +782,30 @@ export function mountHeroExpandBlock(
   const microDisplayForModField = (field, baseStr) => {
     if (ownerIniNum == null) return baseStr
     const navIni = readCurrentNavIniGlobal()
+    const modMeta = latestModsMeta ?? meta
+    const cNow = getCombat()
+    const roundNow =
+      cNow?.started && Number.isFinite(Number(cNow.round))
+        ? Number(cNow.round)
+        : null
     /* Fixwert: Basis im Input (durchgestrichen); Effektivwert im Mod-Band. */
     if (
       activeAbsoluteValueForField(
-        meta,
+        modMeta,
         field,
         ownerIniNum,
-        __roundNum,
+        roundNow,
         navIni
       ) != null
     ) {
       return baseStr
     }
-    if (!integratesHeroModsIntoDisplayedValue(meta, field)) return baseStr
+    if (!integratesHeroModsIntoDisplayedValue(modMeta, field)) return baseStr
     const d = effectiveDeltaForField(
-      meta,
+      modMeta,
       field,
       ownerIniNum,
-      __roundNum,
+      roundNow,
       navIni
     )
     if (field === 'tp') {
@@ -3358,6 +3364,34 @@ export function mountHeroExpandBlock(
     }
   }
 
+  /**
+   * Immer-integrierte Felder (IB/LE/BE/…) und Mod-Display „integriert“:
+   * Basis aus Meta + Delta → Kästchenwert (wie Wunden auf IB).
+   * Fokus-Input nicht überschreiben.
+   */
+  const syncIntegratedDisplayedInputs = (modMeta) => {
+    if (ownerIniNum == null || !modMeta) return
+    const snap = readHeroExpandSnapshot(modMeta)
+    const active = document.activeElement
+    const setIf = (field, inp, raw) => {
+      if (!(inp instanceof HTMLInputElement)) return
+      if (active === inp) return
+      if (!integratesHeroModsIntoDisplayedValue(modMeta, field)) return
+      const next = microDisplayForModField(field, String(raw ?? ''))
+      if (inp.value !== next) inp.value = next
+    }
+    for (const [field, t] of Object.entries(modFieldTargets)) {
+      if (!t?.inp) continue
+      if (HIT_ZONE_MOD_FIELD_IDS.includes(field)) {
+        setIf(field, t.inp, snap.hitZones?.zones?.[field]?.rs)
+        continue
+      }
+      if (Object.prototype.hasOwnProperty.call(snap, field)) {
+        setIf(field, t.inp, /** @type {any} */ (snap)[field])
+      }
+    }
+  }
+
   /* Render von Sub-Badges + Mod-Strip: beim Mount und nach Szene-Persistenz,
      damit neue Auto-Bündel (z. B. LE-Schwelle) ohne volllständigen Listen-Remount sichtbar sind. */
   const renderModBadgesAndStrip = (metaForMods = latestModsMeta) => {
@@ -4057,6 +4091,7 @@ export function mountHeroExpandBlock(
       refreshComputedPenaltyHighlights(modMeta)
       syncHeroMicroModDisplayTones()
       applyUnfaehigVisualOverlay(modMeta)
+      syncIntegratedDisplayedInputs(modMeta)
       requestAnimationFrame(() => {
         try {
           runSyncModStripLayoutOnly()
@@ -4075,6 +4110,7 @@ export function mountHeroExpandBlock(
       refreshComputedPenaltyHighlights(modMeta)
       syncHeroMicroModDisplayTones()
       applyUnfaehigVisualOverlay(modMeta)
+      syncIntegratedDisplayedInputs(modMeta)
       requestAnimationFrame(() => {
         try {
           runSyncModStripLayoutOnly()
@@ -4457,6 +4493,7 @@ export function mountHeroExpandBlock(
     refreshComputedPenaltyHighlights(modMeta)
     syncHeroMicroModDisplayTones()
     applyUnfaehigVisualOverlay(modMeta)
+    syncIntegratedDisplayedInputs(modMeta)
     requestAnimationFrame(() => {
       try {
         runSyncModStripLayoutOnly()
@@ -5247,8 +5284,10 @@ export function mountHeroExpandBlock(
     const c = getCombat()
     const round =
       c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
+    /* latestModsMeta: Live-AU/LE-Preview inkl. Auto-Bündel — sonst würde
+       integriertes IB (z. B. 8) ohne AU-Delta als Basis 8 persistiert. */
     return basisHeroExpandSnapshotFromDisplayed(
-      meta,
+      latestModsMeta ?? meta,
       snapLike,
       ownerIniNum,
       round,
@@ -5410,13 +5449,14 @@ export function mountHeroExpandBlock(
       const round =
         c?.started && Number.isFinite(Number(c.round)) ? Number(c.round) : null
       const navIni = readCurrentNavIniGlobal()
-      let metaForBasis = meta
+      /* Prefer latestModsMeta (Live-AU/LE-Preview inkl. Auto-Bündel), sonst Szene. */
+      let metaForBasis = latestModsMeta ?? meta
       try {
         const freshItems = await OBR.scene.items.getItems([itemId])
         const fm = freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
-        if (fm && typeof fm === 'object') metaForBasis = fm
+        if (fm && typeof fm === 'object' && !latestModsMeta) metaForBasis = fm
       } catch (_) {
-        /* Szene kurz nicht lesbar — Mount-meta nutzen */
+        /* Szene kurz nicht lesbar — Mount-/Preview-meta nutzen */
       }
       const snap = basisHeroExpandSnapshotFromDisplayed(
         metaForBasis,
@@ -5442,13 +5482,13 @@ export function mountHeroExpandBlock(
     if (!(container instanceof HTMLElement) || !container.isConnected) return
     cancelPendingPersistHeroExpand()
     persistController.bumpGeneration()
-    let metaForBasis = meta
+    let metaForBasis = latestModsMeta ?? meta
     try {
       const freshItems = await OBR.scene.items.getItems([itemId])
       const fm = freshItems?.[0]?.metadata?.[TRACKER_ITEM_META_KEY]
-      if (fm && typeof fm === 'object') metaForBasis = fm
+      if (fm && typeof fm === 'object' && !latestModsMeta) metaForBasis = fm
     } catch (_) {
-      /* Szene kurz nicht lesbar — Mount-meta nutzen */
+      /* Szene kurz nicht lesbar — Mount-/Preview-meta nutzen */
     }
     try {
       const cFlush = getCombat()
