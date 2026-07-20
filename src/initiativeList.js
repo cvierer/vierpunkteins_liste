@@ -310,11 +310,7 @@ import {
   removeLhDoneRow,
   tryCommitLhDoneTargetIni,
 } from './longHandlung.js'
-import {
-  effectiveAdjustmentForField,
-  effectiveDeltaForField,
-  readHeroGsSchritt,
-} from './heroExMods.js'
+import { readHeroGsSchritt } from './heroExMods.js'
 import {
   lhActionStepLabelFromNavFraction,
   lhFractionFromNavForMeta,
@@ -7924,7 +7920,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         const tokenSceneItem = items.find((i) => i.id === row.id)
         const canEdit = canEditSceneItem(tokenSceneItem)
         const meta = tokenSceneItem?.metadata?.[TRACKER_ITEM_META_KEY]
-        const ownerIniRef = readOwnerIniReferenceForMods(meta)
         const phases = normalizePhases(meta?.phases)
         const lhStToken = readLhState(meta)
         const phaseOffToken =
@@ -8111,24 +8106,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         input.inputMode = 'decimal'
         input.autocomplete = 'off'
         input.spellcheck = false
-        input.value = (() => {
-          if (restoreIniInputFocus?.itemId === row.id) {
-            return restoreIniInputFocus.value
-          }
-          if (ownerIniRef == null) return row.initiative
-          const cr = combat.started ? combat.round : null
-          const p = parseIniNumber(row.initiative)
-          if (p === null) return row.initiative
-          const d = effectiveAdjustmentForField(
-            meta,
-            'ib',
-            p,
-            ownerIniRef,
-            cr,
-            navRenderCtx.currentNavIniForRender
-          )
-          return formatHookDisplay(p + d)
-        })()
+        input.value =
+          restoreIniInputFocus?.itemId === row.id
+            ? restoreIniInputFocus.value
+            : row.initiative
         input.setAttribute('aria-label', 'INI')
         input.readOnly = !canEdit
         if (!canEdit) {
@@ -8156,20 +8137,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
 
         const commit = () => {
           if (!canEdit) return
-          const raw = input.value.trim()
-          let persistStr = raw
-          const cr = combat.started ? combat.round : null
-          const dispNum = parseIniNumber(raw)
-          if (ownerIniRef != null && dispNum != null) {
-            const d = effectiveDeltaForField(
-              meta,
-              'ib',
-              ownerIniRef,
-              cr,
-              navRenderCtx.currentNavIniForRender
-            )
-            persistStr = formatHookDisplay(dispNum - d)
-          }
+          const persistStr = input.value.trim()
           if (persistStr === row.initiative) return
           restoreFocusItemId = row.id
           OBR.scene.items.updateItems([row.id], (drafts) => {

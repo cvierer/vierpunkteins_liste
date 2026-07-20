@@ -27,3 +27,43 @@ export function computeIniFromIbBeW6(ibRaw, beRaw, w6Raw) {
   const result = ibNum - beNum + w6Num
   return Number.isFinite(result) ? result : null
 }
+
+/**
+ * Basis-IB/BE-Strings um Feld-Mods anpassen (wie integriertes IB-Kästchen).
+ * Nicht-ganzzahlige Basis bleibt unverändert (computeIniFromIbBeW6 kann a+b).
+ *
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {string} ibRaw
+ * @param {string} beRaw
+ * @param {number | null} ownerIni
+ * @param {number | null} round
+ * @param {number | null} navIni
+ * @param {(meta: any, field: string, base: number, ownerIni: number, round: number | null, navIni: number | null) => number} adjustFn
+ * @returns {{ ib: string, be: string }}
+ */
+export function applyIbBeModsForIniCompute(
+  meta,
+  ibRaw,
+  beRaw,
+  ownerIni,
+  round,
+  navIni,
+  adjustFn
+) {
+  let ibEff = String(ibRaw ?? '').trim()
+  let beEff = String(beRaw ?? '').trim()
+  if (ownerIni == null || typeof adjustFn !== 'function') {
+    return { ib: ibEff, be: beEff }
+  }
+  const ibNum = Number(String(ibEff).replace(',', '.'))
+  const beNum = Number(String(beEff).replace(',', '.'))
+  if (Number.isFinite(ibNum)) {
+    const dIb = adjustFn(meta, 'ib', ibNum, ownerIni, round, navIni)
+    if (Number.isFinite(dIb)) ibEff = String(ibNum + dIb)
+  }
+  if (Number.isFinite(beNum)) {
+    const dBe = adjustFn(meta, 'be', beNum, ownerIni, round, navIni)
+    if (Number.isFinite(dBe)) beEff = String(beNum + dBe)
+  }
+  return { ib: ibEff, be: beEff }
+}

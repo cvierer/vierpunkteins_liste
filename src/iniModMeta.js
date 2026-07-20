@@ -54,7 +54,7 @@ import {
   updateLastSafeLeIfSafe,
 } from './heroAutoMods.js'
 import { applyHitZoneStrikeFromSpTz } from './hitZoneStrike.js'
-import { computeIniFromIbBeW6 } from './iniCompute.js'
+import { applyIbBeModsForIniCompute, computeIniFromIbBeW6 } from './iniCompute.js'
 import { mutedHeroColor, readHeroBgColor } from './heroColors.js'
 import { getHideForeignHeroColorsForViewer } from './localUiPrefs.js'
 import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
@@ -494,6 +494,12 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
     getIniTieOrder(),
     getManualIniTieOverridePairs()
   )
+  const combat = getCombat()
+  const round =
+    combat?.started && Number.isFinite(Number(combat.round))
+      ? Number(combat.round)
+      : null
+  const navIni = readNavIniForModPatch()
   /** @type {{ id: string, iniStr: string }[]} */
   const updates = []
   for (const row of rows) {
@@ -501,7 +507,22 @@ export async function bulkApplyIniFromIbBeW6ForTrackedParticipants(items) {
     const meta = item?.metadata?.[TRACKER_ITEM_META_KEY]
     if (!item || !meta) continue
     const snap = readHeroExpandSnapshot(meta)
-    const n = computeIniFromIbBeW6(snap.ib, snap.be, snap.w6)
+    const ownerIni = readOwnerIniReferenceForMods(meta)
+    const ibBase = String(snap.ib ?? '').trim()
+    const beBase = String(snap.be ?? '').trim()
+    if (ibBase === '' || beBase === '' || String(snap.w6 ?? '').trim() === '') {
+      continue
+    }
+    const { ib: ibEff, be: beEff } = applyIbBeModsForIniCompute(
+      meta,
+      ibBase,
+      beBase,
+      ownerIni,
+      round,
+      navIni,
+      effectiveAdjustmentForField
+    )
+    const n = computeIniFromIbBeW6(ibEff, beEff, snap.w6)
     if (n === null) continue
     updates.push({ id: row.id, iniStr: String(Math.round(n)) })
   }

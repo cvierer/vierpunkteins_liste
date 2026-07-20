@@ -29,19 +29,7 @@ function ibMod(delta) {
 }
 
 describe('effectiveListInitiativeString', () => {
-  it('Rohwert ohne IB-Mods unverändert', () => {
-    const meta = {
-      initiative: '12',
-      heroExIb: '12',
-      heroExBe: '0',
-      heroExW6: '0',
-    }
-    expect(
-      effectiveListInitiativeString(meta, '12', null, Number.POSITIVE_INFINITY)
-    ).toBe('12')
-  })
-
-  it('addiert permanente IB-Mods wie das Listen-INI-Feld', () => {
+  it('gibt den gespeicherten Rohwert unverändert zurück', () => {
     const meta = {
       initiative: '12',
       heroExIb: '12',
@@ -51,19 +39,17 @@ describe('effectiveListInitiativeString', () => {
     }
     expect(
       effectiveListInitiativeString(meta, '12', null, Number.POSITIVE_INFINITY)
-    ).toBe('10')
+    ).toBe('12')
   })
 })
 
-describe('collectSortedParticipants + initiativeForSort', () => {
+describe('collectSortedParticipants ohne Live-IB-Resolver', () => {
   afterEach(() => {
     registerEffectiveListIniResolver(null)
   })
 
-  it('sortiert nach effektiver INI (IB-Mod), nicht nur Rohwert', () => {
-    registerEffectiveListIniResolver((meta, stored) =>
-      effectiveListInitiativeString(meta, stored, null, Number.POSITIVE_INFINITY)
-    )
+  it('sortiert nach gespeicherter INI; IB-Mods ändern die Position nicht', () => {
+    registerEffectiveListIniResolver(null)
     const items = [
       {
         id: 'a',
@@ -83,19 +69,17 @@ describe('collectSortedParticipants + initiativeForSort', () => {
         name: 'Beta',
         metadata: {
           [META]: {
-            initiative: '12',
-            heroExIb: '12',
+            initiative: '11',
+            heroExIb: '11',
             heroExBe: '0',
             heroExW6: '0',
           },
         },
       },
     ]
-    const rows = collectSortedParticipants(items, [])
-    expect(rows.map((r) => r.id)).toEqual(['b', 'a'])
+    const rows = collectSortedParticipants(items, [], [])
+    expect(rows.map((r) => r.id)).toEqual(['a', 'b'])
     expect(rows[0].initiative).toBe('12')
-    expect(rows[0].initiativeForSort).toBe('12')
-    expect(rows[1].initiative).toBe('12')
-    expect(rows[1].initiativeForSort).toBe('10')
+    expect(rows[1].initiative).toBe('11')
   })
 })

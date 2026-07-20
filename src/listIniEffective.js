@@ -1,33 +1,16 @@
 /**
- * Effektive Listen-INI (= Anzeige im INI-Feld): Rohwert + IB-Mods.
- * Zyklussicher von participants getrennt (heroExMods → participants).
+ * Listen-INI: gespeicherter Rohwert (kein Live-IB-Overlay).
+ * IB-Mods fließen erst nach „INI berechnen“ in die gespeicherte INI ein.
+ * Modul bleibt als klarer Hook-Punkt / Test-Anker.
  */
-
-import { effectiveAdjustmentForField } from './heroExMods.js'
-import { formatHookDisplay, parseIniNumber } from './initiativeListIniDrag.js'
-import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
 
 /**
- * @param {Record<string, unknown> | undefined} meta
+ * @param {Record<string, unknown> | undefined} _meta
  * @param {string} storedIni
- * @param {number | null | undefined} round
- * @param {number | null | undefined} navIni
+ * @param {number | null | undefined} [_round]
+ * @param {number | null | undefined} [_navIni]
  * @returns {string}
  */
-export function effectiveListInitiativeString(meta, storedIni, round, navIni) {
-  const stored = String(storedIni ?? '')
-  const ownerIniRef = readOwnerIniReferenceForMods(meta)
-  if (ownerIniRef == null) return stored
-  const p = parseIniNumber(stored)
-  if (p === null) return stored
-  const d = effectiveAdjustmentForField(
-    meta,
-    'ib',
-    p,
-    ownerIniRef,
-    round ?? null,
-    navIni ?? null
-  )
-  if (!Number.isFinite(d) || d === 0) return stored
-  return formatHookDisplay(p + d)
+export function effectiveListInitiativeString(_meta, storedIni, _round, _navIni) {
+  return String(storedIni ?? '')
 }
