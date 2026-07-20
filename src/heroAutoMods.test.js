@@ -82,6 +82,78 @@ describe('buildHeroAutoModRecords', () => {
     expect(mods.some((m) => m.bundleId === 'auto-le-unfaehig')).toBe(false)
   })
 
+  it('ohne showAu → kein auto-au-band', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ au: '5', auMax: '30', showAu: '0' }),
+      ctx
+    )
+    expect(mods.some((m) => m.bundleId === 'auto-au-band')).toBe(false)
+  })
+
+  it('ohne gültiges au/auMax → kein auto-au-band', () => {
+    expect(
+      buildHeroAutoModRecords(
+        snap({ au: '', auMax: '30', showAu: '1' }),
+        ctx
+      ).some((m) => m.bundleId === 'auto-au-band')
+    ).toBe(false)
+    expect(
+      buildHeroAutoModRecords(
+        snap({ au: '5', auMax: '0', showAu: '1' }),
+        ctx
+      ).some((m) => m.bundleId === 'auto-au-band')
+    ).toBe(false)
+  })
+
+  it('AU-Band <1/3 → auto-au-band AT/PA/IB je −1', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ au: '9', auMax: '30', showAu: '1' }),
+      ctx
+    )
+    const aub = mods.filter((m) => m.bundleId === 'auto-au-band')
+    expect(aub.length).toBe(3)
+    expect(aub[0].label).toBe('AU<1/3 ↓1')
+    for (const f of ['at', 'pa', 'ib']) {
+      expect(aub.find((m) => m.field === f)?.delta).toBe(-1)
+    }
+    expect(mods.some((m) => m.bundleId === 'auto-le-unfaehig')).toBe(false)
+  })
+
+  it('AU-Band <1/4 → auto-au-band AT/PA/IB je −2', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ au: '7', auMax: '30', showAu: '1' }),
+      ctx
+    )
+    const aub = mods.filter((m) => m.bundleId === 'auto-au-band')
+    expect(aub.length).toBe(3)
+    expect(aub[0].label).toBe('AU<1/4 ↓2')
+    for (const f of ['at', 'pa', 'ib']) {
+      expect(aub.find((m) => m.field === f)?.delta).toBe(-2)
+    }
+  })
+
+  it('AU ≤ 0 → auto-au-band unfähig + kein auto-le-unfaehig', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ au: '0', auMax: '30', showAu: '1', le: '20', leMax: '40' }),
+      ctx
+    )
+    const aub = mods.filter((m) => m.bundleId === 'auto-au-band')
+    expect(aub.length).toBe(3)
+    expect(aub[0].label).toBe('unfähig')
+    for (const f of ['at', 'pa', 'ib']) {
+      expect(aub.find((m) => m.field === f)?.delta).toBe(-2)
+    }
+    expect(mods.some((m) => m.bundleId === 'auto-le-unfaehig')).toBe(false)
+  })
+
+  it('AU ≥ 1/3 → kein auto-au-band', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ au: '10', auMax: '30', showAu: '1' }),
+      ctx
+    )
+    expect(mods.some((m) => m.bundleId === 'auto-au-band')).toBe(false)
+  })
+
   it('LE-Band <1/2 → zusätzlicher auto-le-tawzfw mit Ta&Za ↓3', () => {
     const mods = buildHeroAutoModRecords(snap({ le: '15', leMax: '40' }), ctx)
     const zf = mods.filter((m) => m.bundleId === 'auto-le-tawzfw')
@@ -396,6 +468,32 @@ describe('patchHeroExModsWithAutoBundles + heroExAutoSuppressed', () => {
     expect(m[HERO_EX_AUTO_SUPPRESSED]?.['auto-le-band']).toBeUndefined()
   })
 
+  it('unterdrückt auto-au-band bei gleicher AU-Band-Signatur', () => {
+    const s = snap({ au: '9', auMax: '30', showAu: '1' })
+    expect(computeAutoTriggerSignature(s, 'auto-au-band')).toBe(1)
+    const m = {
+      [HERO_EX_AUTO_SUPPRESSED]: { 'auto-au-band': 1 },
+      [HERO_EX_MODS]: [],
+    }
+    patchHeroExModsWithAutoBundles(m, s, ctx)
+    const mods = /** @type {any[]} */ (m[HERO_EX_MODS] ?? [])
+    expect(mods.some((x) => x.bundleId === 'auto-au-band')).toBe(false)
+    expect(m[HERO_EX_AUTO_SUPPRESSED]['auto-au-band']).toBe(1)
+  })
+
+  it('hebt AU-Suppression auf, wenn AU-Band wechselt', () => {
+    const s = snap({ au: '7', auMax: '30', showAu: '1' })
+    expect(computeAutoTriggerSignature(s, 'auto-au-band')).toBe(2)
+    const m = {
+      [HERO_EX_AUTO_SUPPRESSED]: { 'auto-au-band': 1 },
+      [HERO_EX_MODS]: [],
+    }
+    patchHeroExModsWithAutoBundles(m, s, ctx)
+    const mods = /** @type {any[]} */ (m[HERO_EX_MODS])
+    expect(mods.some((x) => x.bundleId === 'auto-au-band')).toBe(true)
+    expect(m[HERO_EX_AUTO_SUPPRESSED]?.['auto-au-band']).toBeUndefined()
+  })
+
   it('auto-le-unfaehig Signatur: Bitmaske (Bit 0 = LE-Schwelle)', () => {
     const sOn = snap({ le: '0', unfaehigThreshold: '0' })
     const sOff = snap({ le: '6', unfaehigThreshold: '5' })
@@ -457,6 +555,28 @@ describe('resolveUnfaehigOverlayState', () => {
     const state = resolveUnfaehigOverlayState(meta, gathered, ctx)
     expect(state.active).toBe(false)
     expect(state.marked.size).toBe(0)
+  })
+
+  it('AU ≤ 0 mit showAu → Unfähig-Overlay über auto-au-band', () => {
+    const meta = {
+      heroExLe: '20',
+      heroExLeMax: '40',
+      heroExAu: '0',
+      heroExAuMax: '30',
+      heroExShowAu: '1',
+    }
+    const gathered = snap({
+      le: '20',
+      leMax: '40',
+      au: '0',
+      auMax: '30',
+      showAu: '1',
+    })
+    const state = resolveUnfaehigOverlayState(meta, gathered, ctx)
+    expect(state.active).toBe(true)
+    expect(state.ufSrc.auTriggered).toBe(true)
+    expect(state.ufSrc.leTriggered).toBe(false)
+    expect(state.marked.has('at')).toBe(true)
   })
 
   it('persistiertes LE=-2 → active (Meta und gathered gleich)', () => {

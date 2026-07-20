@@ -1,5 +1,5 @@
 /**
- * Automatische Helden-Mods aus Trefferzonen-Wunden und LE-Schwellen.
+ * Automatische Helden-Mods aus Trefferzonen-Wunden und LE-/AU-Schwellen.
  * Reine Ableitung — Basiswerte (heroExAt, …) bleiben unverändert.
  */
 
@@ -44,6 +44,9 @@ export const HERO_EX_LAST_SAFE_LE = 'heroExLastSafeLe'
 
 const HERO_EX_LE = 'heroExLe'
 const HERO_EX_LE_MAX = 'heroExLeMax'
+const HERO_EX_AU = 'heroExAu'
+const HERO_EX_AU_MAX = 'heroExAuMax'
+const HERO_EX_SHOW_AU = 'heroExShowAu'
 const HERO_EX_KO = 'heroExKo'
 const HERO_EX_GS = 'heroExGs'
 const HERO_EX_WS = 'heroExWs'
@@ -61,6 +64,7 @@ const AUTO_LE_BAND_BUNDLE_ID = 'auto-le-band'
 const AUTO_LE_TAW_ZFW_BUNDLE_ID = 'auto-le-tawzfw'
 export const AUTO_LE_UNFAEHIG_BUNDLE_ID = 'auto-le-unfaehig'
 const AUTO_LE_MAXLOSS_BUNDLE_ID = 'auto-le-maxloss'
+export const AUTO_AU_BAND_BUNDLE_ID = 'auto-au-band'
 const AUTO_BLUTEND_BUNDLE_ID = 'auto-blutend'
 
 const THREE_WOUND_PRIORITY_ZONE_IDS = Object.freeze([
@@ -163,6 +167,42 @@ export function leAtPaMalusForBand(band) {
   if (band === 1) return 2
   if (band === 0) return 1
   return 0
+}
+
+/**
+ * AU-Band: kein &lt;1/2; ≤0 ist eigenes Band für kampfunfähig.
+ *
+ * @param {number} au
+ * @param {number} auMax
+ * @returns {number} 3 = ≤0, 2 = &lt;1/4, 1 = &lt;1/3, −1 = ok
+ */
+export function auBand(au, auMax) {
+  if (au <= 0) return 3
+  if (au * 4 < auMax) return 2
+  if (au * 3 < auMax) return 1
+  return -1
+}
+
+/**
+ * @param {number} band
+ * @returns {number} Malusbetrag für AT/PA/IB
+ */
+export function auAtPaIbMalusForBand(band) {
+  if (band >= 2) return 2
+  if (band === 1) return 1
+  return 0
+}
+
+/**
+ * Mouseover-Text für das AU-Band-Chip.
+ *
+ * @param {number} band
+ */
+export function auBandTooltipDe(band) {
+  if (band >= 3) return 'unmöglich'
+  if (band === 2) return 'Talent- & Zauberproben ↓6'
+  if (band === 1) return 'Talent- & Zauberproben ↓3'
+  return ''
 }
 
 /**
@@ -484,6 +524,64 @@ export function effectiveLeForThresholds(snap, meta, ctx) {
   return leBase + dLe
 }
 
+/**
+ * Effektive AU inkl. aktiver AU-Mods (wie {@link effectiveLeForThresholds}).
+ *
+ * @param {Record<string, unknown>} snap
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {HeroAutoModCtx | undefined} ctx
+ * @returns {number | null}
+ */
+export function effectiveAuForThresholds(snap, meta, ctx) {
+  const auBase = parseSignedInt(snap.au)
+  if (auBase === null) return null
+  if (!meta) return auBase
+  const ownerIni = readOwnerIniReferenceForMods(meta)
+  if (!(ownerIni != null && Number.isFinite(ownerIni))) return auBase
+  const round =
+    ctx?.round != null && Number.isFinite(Number(ctx.round))
+      ? Number(ctx.round)
+      : null
+  const navIni =
+    ctx?.navIni === Number.POSITIVE_INFINITY || ctx?.navIni === Number.NEGATIVE_INFINITY
+      ? ctx.navIni
+      : Number.isFinite(Number(ctx?.navIni))
+        ? Number(ctx.navIni)
+        : null
+  const dAu = effectiveDeltaForField(meta, 'au', ownerIni, round, navIni)
+  if (!Number.isFinite(dAu) || dAu === 0) return auBase
+  return auBase + dAu
+}
+
+/**
+ * @param {Record<string, unknown>} snap
+ * @returns {boolean}
+ */
+export function showAuFromSnapshot(snap) {
+  const raw = String(snap?.showAu ?? '').trim().toLowerCase()
+  return raw === '1' || ['true', 'on', 'yes', 'ja'].includes(raw)
+}
+
+/**
+ * Gate: AU sichtbar und AU/AUmax gültig.
+ *
+ * @param {Record<string, unknown>} snap
+ * @param {Record<string, unknown> | undefined} meta
+ * @param {HeroAutoModCtx | undefined} ctx
+ * @returns {{ active: boolean, au: number | null, auMax: number | null }}
+ */
+export function readAuAutoGate(snap, meta, ctx) {
+  if (!showAuFromSnapshot(snap)) {
+    return { active: false, au: null, auMax: null }
+  }
+  const au = effectiveAuForThresholds(snap, meta, ctx)
+  const auMax = parseNonNegInt(snap.auMax)
+  if (au === null || auMax === null || auMax <= 0) {
+    return { active: false, au, auMax }
+  }
+  return { active: true, au, auMax }
+}
+
 /** Nicht-Arm-Zonen für „3. Wunde“ → kampfunfähig (Bits 3–9 der Signatur). */
 const UNFAEHIG_NON_ARM_ZONE_IDS = Object.freeze([
   'kopf',
@@ -511,6 +609,9 @@ export function computeUnfaehigSources(snap, meta, ctx) {
   const leNum = effectiveLeForThresholds(snap, meta, ctx)
   const threshold = readUnfaehigThresholdFromSnapshot(snap)
   const leTriggered = leNum !== null && leNum <= threshold
+
+  const auGate = readAuAutoGate(snap, meta, ctx)
+  const auTriggered = auGate.active && auGate.au !== null && auGate.au <= 0
 
   /** @type {string[]} */
   const armSet = []
@@ -545,7 +646,7 @@ export function computeUnfaehigSources(snap, meta, ctx) {
       UNFAEHIG_ARM_ZONE_ORDER.indexOf(a) - UNFAEHIG_ARM_ZONE_ORDER.indexOf(b)
   )
 
-  return { leTriggered, armSet, nonArm3w, leg3w }
+  return { leTriggered, auTriggered, armSet, nonArm3w, leg3w }
 }
 
 const UNFAEHIG_MARK_ALLOWED_FIELDS = Object.freeze([
@@ -577,10 +678,15 @@ export function resolveUnfaehigOverlayState(metaBase, gatheredSnap, ctx, opts = 
   const ctxResolved = ctx ?? defaultHeroAutoModCtx()
   patchHeroExModsWithAutoBundles(evalMeta, snap, ctxResolved)
 
-  const active = readHeroExMods(evalMeta).some(
+  const mods = readHeroExMods(evalMeta)
+  const hasLeUnfaehig = mods.some(
     (m) => String(m?.bundleId ?? '') === AUTO_LE_UNFAEHIG_BUNDLE_ID
   )
   const ufSrc = computeUnfaehigSources(snap, evalMeta, ctxResolved)
+  const hasAuUnfaehig =
+    ufSrc.auTriggered === true &&
+    mods.some((m) => String(m?.bundleId ?? '') === AUTO_AU_BAND_BUNDLE_ID)
+  const active = hasLeUnfaehig || hasAuUnfaehig
   /** @type {Set<string>} */
   const marked = new Set()
 
@@ -589,7 +695,10 @@ export function resolveUnfaehigOverlayState(metaBase, gatheredSnap, ctx, opts = 
   }
 
   const armOnly =
-    !ufSrc.leTriggered && !ufSrc.nonArm3w && ufSrc.armSet.length > 0
+    !ufSrc.leTriggered &&
+    !ufSrc.auTriggered &&
+    !ufSrc.nonArm3w &&
+    ufSrc.armSet.length > 0
 
   if (armOnly) {
     if (mode === 'display') {
@@ -812,6 +921,13 @@ export function computeAutoTriggerSignature(snap, autoBundleId, metaForLe, ctxFo
     }
     return band
   }
+  if (bid === AUTO_AU_BAND_BUNDLE_ID) {
+    const gate = readAuAutoGate(snap, metaForLe, ctxForLe)
+    if (!gate.active || gate.au === null || gate.auMax === null) return null
+    const band = auBand(gate.au, gate.auMax)
+    if (auAtPaIbMalusForBand(band) <= 0 && band < 3) return null
+    return band
+  }
   if (bid.startsWith(AUTO_ZONE_PREFIX)) {
     const zoneId = bid.slice(AUTO_ZONE_PREFIX.length)
     const zd = snap.hitZones?.zones?.[zoneId]
@@ -851,6 +967,9 @@ export function snapshotFromTrackerMeta(m) {
   return {
     le: String(m?.[HERO_EX_LE] ?? ''),
     leMax: String(m?.[HERO_EX_LE_MAX] ?? ''),
+    au: String(m?.[HERO_EX_AU] ?? ''),
+    auMax: String(m?.[HERO_EX_AU_MAX] ?? ''),
+    showAu: String(m?.[HERO_EX_SHOW_AU] ?? ''),
     ko: String(m?.[HERO_EX_KO] ?? ''),
     ws: String(m?.[HERO_EX_WS] ?? ''),
     gs: String(m?.[HERO_EX_GS] ?? ''),
@@ -911,6 +1030,17 @@ export function aggregateHeroAutoPenaltyDeltasFromExpandSnapshot(snap) {
       add('pa', d)
       add('a', d)
       if (showFkFromSnapshot(snap)) add('fk', d)
+    }
+  }
+
+  const auGate = readAuAutoGate(snap, undefined, undefined)
+  if (auGate.active && auGate.au !== null && auGate.auMax !== null) {
+    const am = auAtPaIbMalusForBand(auBand(auGate.au, auGate.auMax))
+    if (am > 0) {
+      const d = -am
+      add('at', d)
+      add('pa', d)
+      add('ib', d)
     }
   }
 
@@ -1112,6 +1242,24 @@ export function buildHeroAutoModRecords(snap, ctx, metaForLe) {
           { includeZero: true }
         )
       }
+    }
+  }
+
+  const auGate = readAuAutoGate(snap, metaForLe, ctx)
+  if (auGate.active && auGate.au !== null && auGate.auMax !== null) {
+    const band = auBand(auGate.au, auGate.auMax)
+    const m = auAtPaIbMalusForBand(band)
+    if (m > 0 || band >= 3) {
+      let label = 'AU'
+      if (band >= 3) label = 'unfähig'
+      else if (band === 2) label = 'AU<1/4 ↓2'
+      else if (band === 1) label = 'AU<1/3 ↓1'
+      const rows = [
+        { field: 'at', delta: -m },
+        { field: 'pa', delta: -m },
+        { field: 'ib', delta: -m },
+      ]
+      pushRows(AUTO_AU_BAND_BUNDLE_ID, label, rows)
     }
   }
 
