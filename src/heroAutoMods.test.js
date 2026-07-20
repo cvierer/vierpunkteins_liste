@@ -119,6 +119,14 @@ describe('buildHeroAutoModRecords', () => {
     expect(mods.some((m) => m.bundleId === 'auto-le-unfaehig')).toBe(false)
   })
 
+  it('AU-Band akzeptiert boolean showAu wie gather()', () => {
+    const mods = buildHeroAutoModRecords(
+      snap({ au: '9', auMax: '30', showAu: true }),
+      ctx
+    )
+    expect(mods.some((m) => m.bundleId === 'auto-au-band')).toBe(true)
+  })
+
   it('AU-Band <1/4 → auto-au-band AT/PA/IB je −2', () => {
     const mods = buildHeroAutoModRecords(
       snap({ au: '7', auMax: '30', showAu: '1' }),

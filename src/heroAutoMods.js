@@ -558,6 +558,8 @@ export function effectiveAuForThresholds(snap, meta, ctx) {
  * @returns {boolean}
  */
 export function showAuFromSnapshot(snap) {
+  if (snap?.showAu === true) return true
+  if (snap?.showAu === false) return false
   const raw = String(snap?.showAu ?? '').trim().toLowerCase()
   return raw === '1' || ['true', 'on', 'yes', 'ja'].includes(raw)
 }

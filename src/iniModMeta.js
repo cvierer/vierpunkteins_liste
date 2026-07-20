@@ -38,6 +38,7 @@ import {
 import {
   AUTO_AU_BAND_BUNDLE_ID,
   AUTO_MOD_BUNDLE_PREFIX,
+  auBand,
   auBandTooltipDe,
   computeKrAutoPenaltyWorseningMarks,
   effectiveLeForThresholds,
@@ -3455,6 +3456,21 @@ export function mountHeroExpandBlock(
       wrap.title = LE_THRESHOLD_TOOLTIP + extra
     }
 
+    const syncModChipAuRingTitle = (
+      /** @type {HTMLElement} */ wrap,
+      auV,
+      maxV
+    ) => {
+      let extra = ''
+      if (auV != null && auV <= 0) extra = ' · aktuell AU≤0'
+      else if (auV != null && maxV != null && maxV > 0) {
+        const band = auBand(auV, maxV)
+        if (band === 2) extra = ' · aktuell AU<1/4'
+        else if (band === 1) extra = ' · aktuell AU<1/3'
+      }
+      wrap.title = 'Ausdauer-Schwellen (AU)' + extra
+    }
+
     const syncModChipLeRing = (wrap, m) => {
       const snap = readHeroExpandSnapshot(m)
       const leV = parseIntOrNull(snap.le)
@@ -3500,6 +3516,34 @@ export function mountHeroExpandBlock(
       syncModChipLeRingTitle(wrap, leV, maxV, false, false)
     }
 
+    const syncModChipAuRing = (wrap, m) => {
+      const snap = readHeroExpandSnapshot(m)
+      const auV = parseIntOrNull(snap.au)
+      const maxV = parseIntOrNull(snap.auMax)
+      const slice = wrap.querySelector('.init-hero-ex__mod-chip-le-ring__slice')
+      if (!(slice instanceof HTMLElement)) return
+
+      wrap.classList.remove('init-hero-ex__mod-chip-le-ring--neg')
+      wrap.style.removeProperty('--le-neg-frac')
+
+      if (auV != null && auV <= 0) {
+        wrap.style.setProperty('--le-frac', '0')
+        wrap.dataset.leBand = 'crit'
+        syncModChipAuRingTitle(wrap, auV, maxV)
+        return
+      }
+
+      if (auV != null && maxV != null && maxV > 0) {
+        const frac = Math.max(0, Math.min(1, auV / maxV))
+        wrap.style.setProperty('--le-frac', String(frac))
+        wrap.dataset.leBand = leBarColorBand(auV, maxV)
+      } else {
+        wrap.style.setProperty('--le-frac', '0')
+        delete wrap.dataset.leBand
+      }
+      syncModChipAuRingTitle(wrap, auV, maxV)
+    }
+
     /**
      * Kopf: Summen-Pfeil (+/−) links neben ×; eine Zeile: Bezeichnung oder Kurztext AT+1, …
      * @param {HTMLElement} strip
@@ -3527,6 +3571,7 @@ export function mountHeroExpandBlock(
       const isAutoLeTawZfw = bidStr === AUTO_LE_TAW_ZFW_BUNDLE_ID
       const autoCompactLabel =
         bidStr === AUTO_LE_BAND_BUNDLE_ID ||
+        bidStr === AUTO_AU_BAND_BUNDLE_ID ||
         bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX)
       const chipEditable = canEdit && !o.isAutoBundle
 
@@ -3568,6 +3613,8 @@ export function mountHeroExpandBlock(
         o.isAutoBundle && bidStr.startsWith(AUTO_ZONE_BUNDLE_PREFIX)
       const useAutoLeRing =
         o.isAutoBundle && bidStr === AUTO_LE_BAND_BUNDLE_ID
+      const useAutoAuRing =
+        o.isAutoBundle && bidStr === AUTO_AU_BAND_BUNDLE_ID
 
       /** @type {HTMLElement} */
       let arrowWrap
@@ -3588,14 +3635,15 @@ export function mountHeroExpandBlock(
             d.classList.add('init-hero-ex__mod-chip-card__wound-dot--inactive')
           arrowWrap.appendChild(d)
         }
-      } else if (useAutoLeRing) {
+      } else if (useAutoLeRing || useAutoAuRing) {
         arrowWrap = document.createElement('span')
         arrowWrap.className =
           'init-hero-ex__mod-chip-card__marks-slot init-hero-ex__mod-chip-card__marks-slot--le'
         arrowWrap.setAttribute('aria-hidden', 'true')
         const leInner = buildModChipLeRing()
         arrowWrap.appendChild(leInner)
-        syncModChipLeRing(leInner, modMeta)
+        if (useAutoAuRing) syncModChipAuRing(leInner, modMeta)
+        else syncModChipLeRing(leInner, modMeta)
       } else if (isAutoLeTawZfw) {
         arrowWrap = document.createElement('span')
         arrowWrap.className =
@@ -5266,6 +5314,13 @@ export function mountHeroExpandBlock(
     inp === leMax.inp ||
     inp === koAttr.inp
 
+  /** AU-Eingaben: gleiche Live-Auto-Mod-Vorschau wie LE (Chip/Band sofort). */
+  const isAuRelatedLiveInput = (inp) =>
+    showAuField && (inp === au.inp || inp === auMaxInp)
+
+  const isAutoThresholdLiveInput = (inp) =>
+    isLeRelatedLiveInput(inp) || isAuRelatedLiveInput(inp)
+
   const buildLiveLePreviewMeta = () => {
     const cNow = getCombat()
     const roundNow =
@@ -5297,7 +5352,7 @@ export function mountHeroExpandBlock(
   }
 
   /**
-   * LE-abgeleitete Anzeige (Schwellen, Mod-Chips) ohne separates Overlay.
+   * LE/AU-abgeleitete Anzeige (Schwellen, Mod-Chips) ohne separates Overlay.
    *
    * @param {{ usePreview?: boolean, commitAfter?: boolean }} [opts]
    */
@@ -5325,7 +5380,7 @@ export function mountHeroExpandBlock(
     if (liveRefreshTimer != null) clearTimeout(liveRefreshTimer)
     liveRefreshTimer = setTimeout(() => {
       liveRefreshTimer = null
-      if (isLeRelatedLiveInput(inp)) {
+      if (isAutoThresholdLiveInput(inp)) {
         runSilentLeDerivedSync({ usePreview: true })
       } else {
         refreshDerivedUiFromInputs(metaForVisuals)
@@ -5729,14 +5784,22 @@ export function mountHeroExpandBlock(
       // die 4s-Debounce von syncLeThreshold / Popover zu warten).
       refreshComputedPenaltyHighlights()
       const len = inp.value.trim().length
-      const immediateDerivedForLe = isLeRelatedLiveInput(inp)
+      const immediateDerivedForThreshold = isAutoThresholdLiveInput(inp)
       const criticalLeNow =
-        immediateDerivedForLe &&
+        isLeRelatedLiveInput(inp) &&
         (() => {
           const leNow = parseIntAllowSignedLocal(le.inp.value)
           return leNow != null && leNow <= 0
         })()
-      const previewMeta = immediateDerivedForLe ? buildLiveLePreviewMeta() : null
+      const criticalAuNow =
+        isAuRelatedLiveInput(inp) &&
+        (() => {
+          const auNow = parseIntAllowSignedLocal(au.inp.value)
+          return auNow != null && auNow <= 0
+        })()
+      const previewMeta = immediateDerivedForThreshold
+        ? buildLiveLePreviewMeta()
+        : null
       if (inp === tpInp) {
         if (len >= 2) {
           if (liveRefreshTimer != null) {
@@ -5751,12 +5814,17 @@ export function mountHeroExpandBlock(
       }
       // Wie LE/MAX: bei mindestens zwei Zeichen sofort ableitende UI; bei
       // einstelliger Eingabe 4 s warten, damit weitere Ziffern folgen können.
-      if (immediateDerivedForLe || criticalLeNow || len >= 2) {
+      if (
+        immediateDerivedForThreshold ||
+        criticalLeNow ||
+        criticalAuNow ||
+        len >= 2
+      ) {
         if (liveRefreshTimer != null) {
           clearTimeout(liveRefreshTimer)
           liveRefreshTimer = null
         }
-        if (immediateDerivedForLe) {
+        if (immediateDerivedForThreshold) {
           runSilentLeDerivedSync({ usePreview: true })
         } else {
           refreshDerivedUiFromInputs(previewMeta ?? undefined)
