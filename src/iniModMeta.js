@@ -3518,8 +3518,11 @@ export function mountHeroExpandBlock(
 
     const syncModChipAuRing = (wrap, m) => {
       const snap = readHeroExpandSnapshot(m)
-      const auV = parseIntOrNull(snap.au)
-      const maxV = parseIntOrNull(snap.auMax)
+      /* Vorrang: aktuelle AU-Felder (= sichtbarer AU-Balken), sonst Meta. */
+      const auV =
+        parseIntAllowSignedLocal(au.inp.value) ?? parseIntOrNull(snap.au)
+      const maxV =
+        parseNonNegIntLoose(auMaxInp.value) ?? parseIntOrNull(snap.auMax)
       const slice = wrap.querySelector('.init-hero-ex__mod-chip-le-ring__slice')
       if (!(slice instanceof HTMLElement)) return
 
@@ -5329,6 +5332,17 @@ export function mountHeroExpandBlock(
         : null
     const previewMeta = { ...(meta ?? {}) }
     const snapPreview = persistBasisFromGathered(gather())
+    /* Live LE/AU in Preview-Meta, damit Chip-Ringe den aktuellen Balkenstand zeigen. */
+    const setPreviewStr = (key, raw) => {
+      const t = String(raw ?? '').trim()
+      if (t === '') delete previewMeta[key]
+      else previewMeta[key] = t
+    }
+    setPreviewStr(HERO_EX_LE, snapPreview.le)
+    setPreviewStr(HERO_EX_LE_MAX, snapPreview.leMax)
+    setPreviewStr(HERO_EX_AU, snapPreview.au)
+    setPreviewStr(HERO_EX_AU_MAX, snapPreview.auMax)
+    setPreviewStr(HERO_EX_KO, snapPreview.ko)
     patchHeroExModsWithAutoBundles(previewMeta, snapPreview, {
       round: roundNow,
       navIni: readCurrentNavIniGlobal(),
