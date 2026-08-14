@@ -59,7 +59,7 @@ export function setupSettingsPanel(gearHost) {
     </div>
     <div class="kampf-settings-panel__tabs" data-kset-tablist hidden></div>
     <div class="kampf-settings-panel__body" data-kset-pages>
-      <div data-kset-page="raum" data-kset-page-label="Raum" data-kampf-settings-gm-page>
+      <div data-kset-page="raum" data-kset-page-label="Raum (SL)" data-kampf-settings-gm-page>
         <div class="kset-group">
           <h3 class="kset-group__title">Raum-Regeln</h3>
           <div class="kset-check" title="Bei INI strikt über 20, 30 bzw. 40 je eine zusätzliche Freie Aktion (Obergrenze 4 statt 2; Werte genau 20/30/40 zählen zur niedrigeren Stufe).">
@@ -85,10 +85,9 @@ export function setupSettingsPanel(gearHost) {
           </div>
         </div>
       </div>
-      <div data-kset-page="anzeige" data-kset-page-label="Anzeige">
+      <div data-kset-page="anzeige" data-kset-page-label="Anzeige (Gerät)">
         <div class="kset-group">
-          <h3 class="kset-group__title">Dieses Gerät</h3>
-          <p class="kampf-settings-panel__microhint">Diese Optionen gelten nur auf deinem Gerät.</p>
+          <p class="kampf-settings-panel__microhint">Gilt nur auf deinem Gerät.</p>
           <div class="kset-check" title="Horizontale Linien zu Angriff, Abwehr, S.R.A. und F.A. in der Initiative-Liste. SL und Spieler können das unabhängig einstellen.">
             <label class="kampf-settings-checkbox-label">
               <input type="checkbox" data-kampf-setting-show-action-stamps />
@@ -111,11 +110,8 @@ export function setupSettingsPanel(gearHost) {
         </div>
       </div>
       <div data-kset-page="wunden" data-kset-page-label="Wunden &amp; Zonen" data-kampf-settings-gm-page data-kampf-settings-wappen-section>
-        <div class="kset-group">
-          <h3 class="kset-group__title">Raum-Default</h3>
-          <p class="kampf-settings-panel__microhint" title="Pro Kämpfer kann die SL in den Helden-Einstellungen eine eigene Liste setzen.">Standard-Kästchen für alle Helden. In den Rüstungskästchen den RS eintragen.</p>
-          <div data-kampf-settings-wappen-host></div>
-        </div>
+        <p class="kampf-settings-panel__microhint" title="Pro Kämpfer kann die SL in den Helden-Einstellungen eine abweichende Liste setzen.">Standard-Zonen für alle Helden. Pro Kämpfer überschreibbar.</p>
+        <div data-kampf-settings-wappen-host></div>
       </div>
     </div>
     <div class="kampf-settings-panel__actions">

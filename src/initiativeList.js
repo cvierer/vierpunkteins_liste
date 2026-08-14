@@ -6724,6 +6724,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       closeHeroSettings()
       return
     }
+    const room = getRoomSettings()
     const heroItemBefore = lastItems.find((i) => i.id === id)
     const metaBefore = heroItemBefore?.metadata?.[TRACKER_ITEM_META_KEY]
     const prevAng = readHeroExtraAngCount(metaBefore)
