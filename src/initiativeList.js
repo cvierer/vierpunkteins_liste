@@ -338,7 +338,9 @@ import {
   readHeroExtraField,
 } from './iniModMeta.js'
 import { purgeKrMarksBeforeRound } from './krCombatMarks.js'
+import { buildHeroSettingsPanelHtml } from './heroSettingsPanelDom.js'
 import { KAMPF_GEAR_ICON_SVG } from './settingsPanel.js'
+import { mountSettingsTabs } from './settingsShell.js'
 import {
   ensureRandomHeroBgColor,
   HERO_PALETTE_ROWS,
@@ -5492,196 +5494,17 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   heroSettingsBackdrop.style.display = 'none'
 
   const heroSettingsPanel = document.createElement('div')
-  heroSettingsPanel.className = 'kampf-settings-panel'
+  heroSettingsPanel.className =
+    'kampf-settings-panel kampf-settings-panel--hero kampf-settings-panel--shell'
   heroSettingsPanel.setAttribute('role', 'dialog')
   heroSettingsPanel.setAttribute('aria-modal', 'true')
   heroSettingsPanel.setAttribute('aria-labelledby', 'kampf-hero-settings-title')
-  heroSettingsPanel.innerHTML = `
-    <h2 class="kampf-settings-panel__title" id="kampf-hero-settings-title">Helden-Einstellungen</h2>
-    <p class="kampf-settings-panel__hint" id="kampf-hero-settings-hint"></p>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="init-row-extra-label" for="kampf-hero-settings-offset">Phasen-Offset L.H.</label>
-      <input type="text" id="kampf-hero-settings-offset" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Abstand der L.H.-Auslöser-INI unter der Helden-INI (Standard 8)" />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="init-row-extra-label" for="kampf-hero-settings-zat-offset">Phasen-Offset z.AT</label>
-      <input type="text" id="kampf-hero-settings-zat-offset" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Abstand zusätzlicher Angriffe unter der Helden-INI (Standard 4)" />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="init-row-extra-label" for="kampf-hero-settings-ao-offset">Phasen-Offset 2.AO / Parade→Angriff</label>
-      <input type="text" id="kampf-hero-settings-ao-offset" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Abstand der 2.A.-Wurzel bei Plus/Umwandlung unter der Helden-INI (Standard 8)" />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="init-row-extra-label" for="kampf-hero-settings-apkr">Max. Aktionen / KR für längerfristige Handlungen</label>
-      <input type="text" id="kampf-hero-settings-apkr" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Längerfristige Handlung: Auslöser pro Kampfrunde (1–10)" />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <p class="kampf-settings-panel__microhint">Ladungs-Erhaltung: Aktions-Ladungen + Reaktions-Schilde + gestempelte Ladungen = <strong>Ladungen gesamt</strong> (konstant). Beim Rundenstart werden Aktionsobjekte und Schilde automatisch aus diesen Werten befüllt. <strong>Ladungen gesamt</strong> = Summe beider Seiten (1–20).</p>
-      <label class="init-row-extra-label" for="kampf-hero-settings-pool-max">Ladungen gesamt / KR</label>
-      <input type="text" id="kampf-hero-settings-pool-max" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Gesamtbudget Angriff+Abwehr pro KR (1–20)" />
-      <label class="init-row-extra-label" for="kampf-hero-settings-pool-ang">Aktionsladungen (Rundenstart)</label>
-      <input type="text" id="kampf-hero-settings-pool-ang" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Ladungen als Aktionsobjekte beim Rundenstart (0…Max); Reaktion = Rest" />
-      <label class="init-row-extra-label" for="kampf-hero-settings-pool-abw">Reaktionsladungen (Rundenstart)</label>
-      <input type="text" id="kampf-hero-settings-pool-abw" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Ladungen als blaue Schilde beim Rundenstart (0…Max); Aktion = Rest" />
-      <p class="kampf-settings-panel__microhint"><strong>INI im positiven Bereich (≥ 0):</strong> Beim Kampfstart und Kampfrundenstart gelten die eingetragenen Aktions- und Reaktionsladungen wie oben. <strong>INI unter 0:</strong> Es wird intern eine Aktionsladung zugunsten der Reaktionsladungen verschoben (<strong>Ladungen gesamt</strong> bleibt gleich). Wechselt die INI in der laufenden Kampfrunde über die Null-Grenze, wird diese Verschiebung angepasst oder zurückgenommen — ohne dass sich die Gesamtkapazität dauerhaft ändern würde.</p>
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="init-row-extra-label" for="kampf-hero-settings-fa-max">Freie Aktionen (Obergrenze)</label>
-      <input type="text" id="kampf-hero-settings-fa-max" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="0–10; leer = globale Regel (highIniFreeActions + INI)" />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="init-row-extra-label" for="kampf-hero-settings-ang-count">Zusätzliche Angriffe (AT)</label>
-      <input type="text" id="kampf-hero-settings-ang-count" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="0–10 zusätzliche Angriffs-ZAOs" />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="init-row-extra-label" for="kampf-hero-settings-par-count">Zusätzliche Paraden</label>
-      <input type="text" id="kampf-hero-settings-par-count" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="0–10 zusätzliche schwarze Schilde" />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <p class="kampf-settings-panel__microhint"><strong>Verhalten bei negativen INI-Werten:</strong> Legt fest, wie viele Ladungen bei INI &lt; 0 gesperrt werden und ob das Schwert weiterhin verfügbar bleibt.</p>
-      <label class="init-row-extra-label" for="kampf-hero-settings-ini-neg-lost">Weniger verfügbare Aktionen (Standard 1)</label>
-      <input type="text" id="kampf-hero-settings-ini-neg-lost" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Wie viele Ladungen im negativen INI-Bereich gesperrt werden (0–10). Standard: 1." />
-      <label class="init-row-extra-label" for="kampf-hero-settings-ini-neg-ang">Angriffe im negativen INI-Bereich</label>
-      <select id="kampf-hero-settings-ini-neg-ang" class="init-row-extra-input init-row-extra-select">
-        <option value="no">Nein (kein Schwert)</option>
-        <option value="yes">Ja (Schwert erlaubt)</option>
-        <option value="zatOnly">Nur z.AT zulassen</option>
-      </select>
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <p class="kampf-settings-panel__microhint"><strong>Ansageoptionen — Umwandlungs-Schloss „Automatik“:</strong> greifen nur, wenn das Schloss in der Liste auf <em>Automatik</em> steht und die Navigation nicht am Beginn/Ende der Kampfrunde ist. Es ist nur <strong>eine</strong> der beiden Regeln wählbar oder <strong>keine</strong>.</p>
-      <fieldset class="kampf-settings-convert-announce">
-        <legend class="kampf-settings-convert-announce__legend">Umwandlung (Automatik, außerhalb KR-Beginn/-Ende)</legend>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-convert-announce" value="none" />
-          <span><strong>Keine Zusatzregel:</strong> Es gelten nur die allgemeinen Schloss-Regeln.</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-convert-announce" value="firstPhase" />
-          <span><strong>Bis einschließlich erster INI-Phase:</strong> Solange die globale Kampf-Navigation noch nicht den Mutter-Zug dieses Helden verlassen hat (einschließlich seiner 2.-Aktionszeilen mit gleicher INI), darf der Spieler die Umwandlungs-Pfeile nutzen.</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-convert-announce" value="entireRound" />
-          <span><strong>Gesamte Kampfrunde:</strong> Der Spieler darf die Umwandlungs-Pfeile in jeder Navigations-Position der Kampfrunde nutzen; dabei gilt automatisch auch der frühere „Umwandeln jederzeit“-Effekt (inkl. Spiegelanzeige an regulären 2.-Aktionszeilen, ohne Zusatzladungen).</span>
-        </label>
-      </fieldset>
-    </div>
-    <div class="kampf-settings-panel__section">
-      <label class="init-row-extra-label" data-kampf-hero-color-field-label>Heldenfarbe</label>
-      <p class="kampf-settings-panel__microhint" id="kampf-hero-color-microhint">Für alle in der Szene sichtbar (SL und Spieler). Klick setzt die Farbe sofort; „×“ entfernt sie.</p>
-      <div class="kampf-hero-color-grid" data-kampf-hero-color-grid></div>
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-hero-hide-foreign-colors />
-        <span><strong>Fremde Heldenfarben ausblenden (Raum-Standard):</strong> Voreinstellung für alle, die in den <strong>Kampf-Einstellungen</strong> (Zahnrad unten) keine eigene Wahl getroffen haben. Wenn aktiv, sehen sie nur die Farbe des eigenen Helden; sonst alle Farben.</span>
-      </label>
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-wappen-section>
-      <h3 class="kampf-settings-panel__sub">Wunden und Trefferzonen</h3>
-      <p class="kampf-settings-panel__microhint">Standard-Vorlage Mensch oder Vierbeiner pro Kämpfer wählen, oder eine eigene Liste anlegen. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen. Eigene startet wahlweise aus Mensch oder Vierbeiner und ist danach komplett bearbeitbar (W20-Zonen, Auto-Mods).</p>
-      <fieldset class="kampf-settings-convert-announce">
-        <legend class="kampf-settings-convert-announce__legend">Vorlage: Kästchen für Wunden und Trefferzonen</legend>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-wappen-source" value="global" />
-          <span><strong>Mensch</strong> (Standard).</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-wappen-source" value="vierbeiner" />
-          <span><strong>Vierbeiner (Tiere)</strong> — Standard-Vorlage für vierbeinige Wesen.</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-wappen-source" value="own" />
-          <span><strong>Eigene Kästchen für Wunden und Trefferzonen für diesen Kämpfer.</strong> Im Editor wählst du Mensch oder Vierbeiner als Startpunkt; danach individuell anpassbar. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen.</span>
-        </label>
-      </fieldset>
-      <div data-kampf-hero-wappen-host hidden></div>
-      <label class="kampf-settings-checkbox-label" data-kampf-hero-slot9-toggle-wrap>
-        <input type="checkbox" data-kampf-hero-slot9-enabled />
-        <span><strong>9. Trefferzone aktivieren</strong> (SW-Platzhalter im Heldenblock; optional für Wesen mit neun Zonen).</span>
-      </label>
-      <div data-kampf-hero-slot9-host hidden></div>
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only>
-      <h3 class="kampf-settings-panel__sub">Feldsichtbarkeit</h3>
-      <fieldset class="kampf-settings-convert-announce">
-        <legend class="kampf-settings-convert-announce__legend">Zusatzfeld im Heldenblock (zwischen AE und IB-Kette)</legend>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-extra-field" value="none" />
-          <span><strong>Keins</strong> (Platzhalter unsichtbar).</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-extra-field" value="ke" />
-          <span><strong>KE</strong> — Karmaenergie.</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-extra-field" value="gw" />
-          <span><strong>GW</strong> — Gefahrenwert.</span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-extra-field" value="lo" />
-          <span><strong>LO</strong> — Loyalität.</span>
-        </label>
-      </fieldset>
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-hero-show-fk />
-        <span><strong>FK anzeigen:</strong> bei Vierbeiner standardmäßig ausblendbar.</span>
-      </label>
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-hero-show-au />
-        <span><strong>AU anzeigen (Ausdauer):</strong> zwischen FK und AE in der Wertezeile; standardmäßig aus.</span>
-      </label>
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-hero-le-threshold-enabled />
-        <span><strong>LE-Schwelle aktivieren:</strong> zusätzliche Schwelle unterhalb der Prozentbänder.</span>
-      </label>
-      <label class="init-row-extra-label" for="kampf-hero-le-threshold-value">LE-Schwelle (Zahl)</label>
-      <input type="text" id="kampf-hero-le-threshold-value" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="Positive Zahl, z. B. 5. Leer oder deaktiviert = keine zusätzliche Schwelle." />
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-hero-unfaehig-enabled />
-        <span><strong>Auto-Mod „unfähig“ aktivieren:</strong> rein optische Überlagerung bei LE-Schwelle.</span>
-      </label>
-      <fieldset class="kampf-settings-convert-announce">
-        <legend class="kampf-settings-convert-announce__legend">Todesregel</legend>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-death-mode" value="lt0" />
-          <span><strong>Tod schon bei LE ≤ 0</strong></span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-death-mode" value="minusKo" />
-          <span><strong>Tod ab LE ≤ -KO</strong></span>
-        </label>
-        <label class="kampf-settings-radio-label">
-          <input type="radio" name="kampf-hero-death-mode" value="minusOnePointFiveKo" />
-          <span><strong>Tod erst bei LE ≤ -1,5KO</strong></span>
-        </label>
-      </fieldset>
-      <label class="init-row-extra-label" for="kampf-hero-unfaehig-threshold-value">Schwelle „unfähig“ (LE ≤)</label>
-      <input type="text" id="kampf-hero-unfaehig-threshold-value" class="init-row-extra-input" inputmode="numeric" autocomplete="off" spellcheck="false" title="0 oder größer. Standard Mensch: 5, Vierbeiner: 0." />
-      <label class="init-row-extra-label" for="kampf-hero-unfaehig-mark-fields">Markierung (rote Diagonale)</label>
-      <input type="text" id="kampf-hero-unfaehig-mark-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, z. B. at,pa,a,tp,fk" />
-      <label class="init-row-extra-label" for="kampf-hero-unfaehig-fixed-fields">Optische Fixwerte</label>
-      <input type="text" id="kampf-hero-unfaehig-fixed-fields" class="init-row-extra-input" autocomplete="off" spellcheck="false" title="Kommagetrennt, z. B. at=0,pa=0,a=0,tp=0,fk=0,gs=1" />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-dist-ring-section>
-      <h3 class="kampf-settings-panel__sub">Distanzkreise auf der Karte</h3>
-      <p class="kampf-settings-panel__microhint">Beim Halten des Dist-Kästchens nur aktivierte Ring-Typen anzeigen.</p>
-      <div class="kampf-hero-dist-ring__grid" data-kampf-hero-dist-ring-host></div>
-      <label class="init-row-extra-label kampf-hero-dist-class-x__label" for="kampf-hero-dist-class-x-schritt">Grenze Klasse X (Schritt, 1–999)</label>
-      <input type="text" id="kampf-hero-dist-class-x-schritt" class="init-row-extra-input kampf-hero-dist-class-x__input" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="3" title="Leer = Klasse X aus. Ring X nur mit gesetztem Wert und aktivierter Checkbox." />
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-hero-gm-only data-kampf-hero-custom-dist-section>
-      <h3 class="kampf-settings-panel__sub">Reichweiten-Profile</h3>
-      <p class="kampf-settings-panel__microhint">Für Fernkampf, Zauber und andere Reichweiten: beliebig viele Profile, je bis zu 99 Distanzstufen (+ / ×).</p>
-      <div data-kampf-hero-custom-dist-host></div>
-    </div>
-    <div class="kampf-settings-panel__actions">
-      <button type="button" class="btn kampf-settings-panel__cancel" data-kampf-hero-settings-cancel>Abbrechen</button>
-      <button type="button" class="btn btn--primary kampf-settings-panel__save" data-kampf-hero-settings-save>Speichern und schließen</button>
-    </div>
-  `
+  heroSettingsPanel.innerHTML = buildHeroSettingsPanelHtml()
+
   heroSettingsBackdrop.appendChild(heroSettingsPanel)
   document.body.appendChild(heroSettingsBackdrop)
+
+  const heroSettingsTabs = mountSettingsTabs(heroSettingsPanel)
 
   const hitZoneOverlay = createHitZoneOverlay({
     trackerMetaKey: TRACKER_ITEM_META_KEY,
@@ -5718,10 +5541,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     '#kampf-hero-settings-pool-abw'
   )
   const heroConvertAnnounceFieldset = heroSettingsPanel.querySelector(
-    'fieldset.kampf-settings-convert-announce'
-  )
-  const heroHideForeignCb = heroSettingsPanel.querySelector(
-    '[data-kampf-hero-hide-foreign-colors]'
+    '[data-kampf-hero-convert-announce]'
   )
   const heroColorGrid = heroSettingsPanel.querySelector(
     '[data-kampf-hero-color-grid]'
@@ -5809,6 +5629,9 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   )
 
   const heroDistClassXInp = heroSettingsPanel.querySelector('#kampf-hero-dist-class-x-schritt')
+  const heroDistClassXWrap = heroSettingsPanel.querySelector(
+    '[data-kampf-hero-dist-class-x-wrap]'
+  )
 
   const DIST_RING_LABELS = {
     H: '(H) Handnah',
@@ -5848,6 +5671,11 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         cb.disabled = !heroSettingsGmMode
       }
     }
+    if (heroDistClassXWrap instanceof HTMLElement) {
+      const showX = Boolean(prefs.X)
+      heroDistClassXWrap.hidden = !showX
+      heroDistClassXWrap.style.display = showX ? '' : 'none'
+    }
   }
 
   const initHeroDistRingUi = () => {
@@ -5866,7 +5694,10 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       label.append(cb, span)
       heroDistRingHost.appendChild(label)
       heroDistRingCheckboxRefs[code] = cb
-      cb.addEventListener('change', pullDistRingPendingFromUi)
+      cb.addEventListener('change', () => {
+        pullDistRingPendingFromUi()
+        if (code === 'X') syncDistRingUiFromPending()
+      })
     }
   }
 
@@ -6132,7 +5963,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         heroSettingsHintEl.hidden = false
         heroSettingsHintEl.style.display = ''
         heroSettingsHintEl.textContent =
-          'Spielleitung: Werte gelten für dieses Token in der Szene. Die Zeilen-Hintergrundfarbe ist für alle sichtbar.'
+          'Werte gelten für dieses Token. Speichern übernimmt die Änderungen.'
       } else {
         heroSettingsHintEl.textContent = ''
         heroSettingsHintEl.hidden = true
@@ -6154,6 +5985,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
       cancelHeroBtn.hidden = !gm
       cancelHeroBtn.style.display = gm ? '' : 'none'
     }
+    heroSettingsTabs.refresh()
   }
 
   /**
@@ -6404,12 +6236,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
 
   const syncHeroSettingsCheckboxes = () => {
-    const room = getRoomSettings()
-    if (heroHideForeignCb instanceof HTMLInputElement) {
-      heroHideForeignCb.checked = heroPending
-        ? Boolean(heroPending.hideForeignHeroColors)
-        : Boolean(room.hideForeignHeroColors)
-    }
     const energyMode = heroPending?.extraField ?? 'none'
     const extraRadios = heroSettingsPanel.querySelectorAll(
       'input[name="kampf-hero-extra-field"]'
@@ -6596,7 +6422,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
           : 0,
       heroExtraParCount: readHeroExtraParCount(m),
       convertAnnounceMode: convertAnnounceModeFromHeroMeta(m),
-      hideForeignHeroColors: Boolean(room.hideForeignHeroColors),
       heroActionPoolAng: poolPair.ang,
       heroActionPoolAbw: poolPair.abw,
       heroActionPoolMax: poolMax,
@@ -6898,15 +6723,6 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     if (!isGmSync()) {
       closeHeroSettings()
       return
-    }
-    const room = getRoomSettings()
-    const needsRoomUpdate =
-      room.hideForeignHeroColors !== pend.hideForeignHeroColors
-    if (needsRoomUpdate) {
-      await patchRoomSettings((cur) => ({
-        ...cur,
-        hideForeignHeroColors: pend.hideForeignHeroColors,
-      }))
     }
     const heroItemBefore = lastItems.find((i) => i.id === id)
     const metaBefore = heroItemBefore?.metadata?.[TRACKER_ITEM_META_KEY]
@@ -7349,10 +7165,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     })
   }
 
-  heroHideForeignCb?.addEventListener('change', () => {
-    if (!isGmSync() || !(heroHideForeignCb instanceof HTMLInputElement)) return
-    if (heroPending) heroPending.hideForeignHeroColors = heroHideForeignCb.checked
-  })
+  // Raum-Standard „fremde Heldenfarben“ liegt in den Kampf-Einstellungen (Tab Raum).
 
   if (inpHeroOff instanceof HTMLInputElement) {
     inpHeroOff.addEventListener('keydown', (e) => {

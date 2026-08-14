@@ -7442,6 +7442,8 @@ select.init-row-extra-select {
 }
 
 .kampf-settings-panel {
+  --kset-gap: 0.65rem;
+  --kset-gap-tight: 0.35rem;
   width: min(
     calc(22rem * var(--kampf-settings-panel-width-scale)),
     calc(100vw - 2rem)
@@ -7450,9 +7452,11 @@ select.init-row-extra-select {
     calc(22rem * var(--kampf-settings-panel-width-scale)),
     calc(100vw - 2rem)
   );
-  max-height: min(90vh, 28rem);
-  overflow: auto;
-  padding: 1rem 1.1rem 0.85rem;
+  max-height: min(88vh, 46rem);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  padding: 0;
   border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -7461,8 +7465,13 @@ select.init-row-extra-select {
   box-sizing: border-box;
 }
 
+.kampf-settings-panel__head {
+  padding: 0.9rem 1.1rem 0.45rem;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.14);
+}
+
 .kampf-settings-panel__title {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.25rem;
   font-family: var(--font-heading);
   font-size: 1rem;
   font-weight: 600;
@@ -7470,18 +7479,154 @@ select.init-row-extra-select {
 }
 
 .kampf-settings-panel__hint {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 0.78rem;
   line-height: 1.35;
   color: var(--color-ink-muted);
 }
 
 .kampf-settings-panel__hint--tight {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.15rem;
+}
+
+.kampf-settings-panel__hint:empty {
+  display: none;
+}
+
+.kampf-settings-panel__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0 0.85rem;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.18);
+  background: rgba(255, 248, 236, 0.55);
+}
+
+.kampf-settings-panel__tabs[hidden] {
+  display: none !important;
+}
+
+.kampf-settings-panel__tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  margin: 0;
+  padding: 0.55rem 0.7rem 0.5rem;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.kampf-settings-panel__tab:hover {
+  color: var(--color-ink);
+}
+
+.kampf-settings-panel__tab--active,
+.kampf-settings-panel__tab[aria-selected='true'] {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
+.kampf-settings-panel__tab:focus-visible {
+  outline: 2px solid rgba(var(--rgb-gold), 0.45);
+  outline-offset: 2px;
+}
+
+.kampf-settings-panel__body {
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem 1.1rem 0.55rem;
+}
+
+.kset-page--inactive {
+  display: none !important;
 }
 
 .kampf-settings-panel__section {
-  margin-bottom: 0.85rem;
+  margin-bottom: var(--kset-gap);
+}
+
+.kset-group {
+  margin-bottom: var(--kset-gap);
+  padding: 0.55rem 0.65rem 0.6rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.kset-group__title {
+  margin: 0 0 var(--kset-gap-tight);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted);
+}
+
+.kset-group > .kset-group__title:first-child {
+  margin-top: 0;
+}
+
+.kset-field {
+  display: grid;
+  grid-template-columns: 1fr minmax(4.5rem, 5.5rem);
+  gap: 0.35rem 0.65rem;
+  align-items: center;
+  margin-top: var(--kset-gap-tight);
+}
+
+.kset-field:first-child {
+  margin-top: 0;
+}
+
+.kset-field__label {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  color: var(--color-ink);
+}
+
+.kset-field__hint {
+  grid-column: 1 / -1;
+  margin: -0.15rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--color-ink-muted);
+}
+
+.kset-field .init-row-extra-input,
+.kset-field .init-row-extra-select {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  justify-self: stretch;
+}
+
+.kset-check {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  margin-top: var(--kset-gap-tight);
+}
+
+.kset-check:first-child {
+  margin-top: 0;
+}
+
+.kset-check .kampf-settings-checkbox-label {
+  margin: 0;
+}
+
+.kset-check__hint {
+  margin: 0 0 0 1.35rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--color-ink-muted);
 }
 
 .kampf-settings-checkbox-label {
@@ -7489,13 +7634,13 @@ select.init-row-extra-select {
   gap: 0.45rem;
   align-items: flex-start;
   font-size: 0.82rem;
-  line-height: 1.4;
+  line-height: 1.35;
   cursor: pointer;
 }
 
 .kampf-settings-checkbox-label input {
   flex-shrink: 0;
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
 .kampf-settings-checkbox-label input:disabled {
@@ -7503,16 +7648,18 @@ select.init-row-extra-select {
 }
 
 .kampf-settings-convert-announce,
-.kampf-settings-extra-action {
-  margin: 0.35rem 0 0;
-  padding: 0.5rem 0.65rem 0.55rem;
+.kampf-settings-extra-action,
+.kset-radios {
+  margin: var(--kset-gap-tight) 0 0;
+  padding: 0.45rem 0.55rem 0.5rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.02);
 }
 
 .kampf-settings-convert-announce__legend,
-.kampf-settings-extra-action__legend {
+.kampf-settings-extra-action__legend,
+.kset-radios__legend {
   padding: 0 0.15rem;
   font-size: 0.78rem;
   font-weight: 600;
@@ -7524,39 +7671,26 @@ select.init-row-extra-select {
   gap: 0.45rem;
   align-items: flex-start;
   font-size: 0.82rem;
-  line-height: 1.4;
+  line-height: 1.35;
   cursor: pointer;
-  margin-top: 0.45rem;
+  margin-top: 0.35rem;
 }
 
 .kampf-settings-radio-label:first-of-type {
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
 }
 
 .kampf-settings-radio-label input {
   flex-shrink: 0;
-  margin-top: 0.2rem;
-}
-
-.kampf-settings-panel__future {
-  padding-top: 0.35rem;
-  border-top: 1px solid rgba(127, 127, 127, 0.2);
+  margin-top: 0.15rem;
 }
 
 .kampf-settings-panel__sub {
-  margin: 0 0 0.35rem;
+  margin: 0 0 var(--kset-gap-tight);
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-ink-muted);
-}
-
-.kampf-settings-panel__ideas {
-  margin: 0;
-  padding-left: 1.1rem;
-  font-size: 0.75rem;
-  line-height: 1.45;
   color: var(--color-ink-muted);
 }
 
@@ -7568,18 +7702,19 @@ select.init-row-extra-select {
 }
 
 .kampf-settings-panel__version {
-  margin: 0.5rem 0 0;
+  margin: 0;
   font-size: 0.68rem;
   line-height: 1.25;
-  text-align: center;
   color: var(--color-ink-muted);
   letter-spacing: 0.04em;
+  flex: 0 0 auto;
+  align-self: center;
 }
 
 .kampf-settings-panel__microhint {
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  margin: 0.15rem 0 var(--kset-gap-tight);
+  font-size: 0.72rem;
+  line-height: 1.3;
   color: var(--color-ink-muted, rgba(0, 0, 0, 0.62));
 }
 
@@ -7673,20 +7808,32 @@ select.init-row-extra-select {
 .kampf-settings-panel__actions {
   position: relative;
   z-index: 2;
-  margin-top: 0.45rem;
+  margin: 0;
+  padding: 0.55rem 1.1rem 0.75rem;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
+  border-top: 1px solid rgba(127, 127, 127, 0.14);
+  background: rgba(255, 248, 236, 0.45);
 }
 .kampf-settings-panel__actions .btn {
   flex: 1 1 0;
-  min-width: 9rem;
+  min-width: 7.5rem;
+}
+.kampf-settings-panel__actions .kampf-settings-panel__version {
+  margin-right: auto;
+  min-width: 3.5rem;
 }
 .kampf-settings-panel__cancel {
   background: rgba(0, 0, 0, 0.08);
 }
 .kampf-settings-panel__save {
   font-weight: 600;
+}
+
+.kampf-hero-dist-class-x-wrap[hidden] {
+  display: none !important;
 }
 
 /* 11 Heldenfarben (+ „×“ rechts unter der Reihe). */
@@ -9875,5 +10022,17 @@ select.init-row-extra-select {
     calc(34rem * var(--kampf-settings-panel-width-scale)),
     calc(100vw - 2rem)
   );
-  max-height: min(95vh, 60rem);
+  max-height: min(88vh, 52rem);
+}
+
+/* Helden-Einstellungen: etwas breiter für Tabs + Feldreihen */
+.kampf-settings-panel--hero {
+  width: min(
+    calc(30rem * var(--kampf-settings-panel-width-scale)),
+    calc(100vw - 2rem)
+  );
+  max-width: min(
+    calc(30rem * var(--kampf-settings-panel-width-scale)),
+    calc(100vw - 2rem)
+  );
 }

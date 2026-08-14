@@ -17,6 +17,7 @@ import {
   onRoomSettingsChange,
   patchRoomSettings,
 } from './roomSettings.js'
+import { mountSettingsTabs } from './settingsShell.js'
 import { mountWappenEditor } from './wappenEditor.js'
 import { cloneDefaultWappenDefs } from './wappenDefs.js'
 
@@ -45,61 +46,80 @@ export function setupSettingsPanel(gearHost) {
   backdrop.style.display = 'none'
 
   const panel = document.createElement('div')
-  panel.className = 'kampf-settings-panel kampf-settings-panel--with-wappen'
+  panel.className =
+    'kampf-settings-panel kampf-settings-panel--with-wappen kampf-settings-panel--shell'
   panel.setAttribute('role', 'dialog')
   panel.setAttribute('aria-modal', 'true')
   panel.setAttribute('aria-labelledby', 'kampf-settings-title')
 
   panel.innerHTML = `
-    <h2 class="kampf-settings-panel__title" id="kampf-settings-title">Kampf-Einstellungen</h2>
-    <p class="kampf-settings-panel__hint" data-kampf-settings-role-hint></p>
-    <div class="kampf-settings-panel__section">
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-setting-high-ini-fa />
-        <span><strong>Hohe Initiative (optional):</strong> Bei INI strikt über 20, 30 bzw. 40 je eine zusätzliche Freie Aktion (Obergrenze 4 statt 2; Werte genau 20/30/40 zählen zur niedrigeren Stufe).</span>
-      </label>
+    <div class="kampf-settings-panel__head">
+      <h2 class="kampf-settings-panel__title" id="kampf-settings-title">Kampf-Einstellungen</h2>
+      <p class="kampf-settings-panel__hint" data-kampf-settings-role-hint></p>
     </div>
-    <div class="kampf-settings-panel__section">
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-setting-round-intro-lowest-ini />
-        <span><strong>Kampfrunden-Beginn (umgekehrte INI):</strong> Nach Abschluss einer Runde beginnt die Navigation mit dem Eintrag <strong>„Ende der Kampfrunde“</strong> (statt „Beginn“); nach Bestätigung springt der erste Zug auf die <strong>niedrigste INI</strong>. Ohne diese Option: Navigation beginnt mit <strong>„Beginn der Kampfrunde“</strong>, danach höchste INI. Standard: aus.</span>
-      </label>
+    <div class="kampf-settings-panel__tabs" data-kset-tablist hidden></div>
+    <div class="kampf-settings-panel__body" data-kset-pages>
+      <div data-kset-page="raum" data-kset-page-label="Raum" data-kampf-settings-gm-page>
+        <div class="kset-group">
+          <h3 class="kset-group__title">Raum-Regeln</h3>
+          <div class="kset-check" title="Bei INI strikt über 20, 30 bzw. 40 je eine zusätzliche Freie Aktion (Obergrenze 4 statt 2; Werte genau 20/30/40 zählen zur niedrigeren Stufe).">
+            <label class="kampf-settings-checkbox-label">
+              <input type="checkbox" data-kampf-setting-high-ini-fa />
+              <span><strong>Hohe Initiative: mehr Freie Aktionen</strong></span>
+            </label>
+            <p class="kset-check__hint">Ab INI &gt; 20/30/40 je +1 F.A. (max. 4).</p>
+          </div>
+          <div class="kset-check" title="Nach Abschluss einer Runde beginnt die Navigation mit „Ende der Kampfrunde“; nach Bestätigung springt der erste Zug auf die niedrigste INI. Ohne Option: Beginn der Kampfrunde, danach höchste INI.">
+            <label class="kampf-settings-checkbox-label">
+              <input type="checkbox" data-kampf-setting-round-intro-lowest-ini />
+              <span><strong>Runde beginnt mit „Ende der Kampfrunde“</strong></span>
+            </label>
+            <p class="kset-check__hint">Erster Zug danach bei der niedrigsten INI. Standard: aus.</p>
+          </div>
+          <div class="kset-check" title="Voreinstellung für alle, die in den Kampf-Einstellungen keine eigene Wahl unter Anzeige getroffen haben. Wenn aktiv, sehen sie nur die Farbe des eigenen Helden.">
+            <label class="kampf-settings-checkbox-label">
+              <input type="checkbox" data-kampf-setting-hide-foreign-room />
+              <span><strong>Fremde Heldenfarben ausblenden</strong></span>
+            </label>
+            <p class="kset-check__hint">Raum-Standard, wenn keine persönliche Anzeige-Wahl gesetzt ist.</p>
+          </div>
+        </div>
+      </div>
+      <div data-kset-page="anzeige" data-kset-page-label="Anzeige">
+        <div class="kset-group">
+          <h3 class="kset-group__title">Dieses Gerät</h3>
+          <p class="kampf-settings-panel__microhint">Diese Optionen gelten nur auf deinem Gerät.</p>
+          <div class="kset-check" title="Horizontale Linien zu Angriff, Abwehr, S.R.A. und F.A. in der Initiative-Liste. SL und Spieler können das unabhängig einstellen.">
+            <label class="kampf-settings-checkbox-label">
+              <input type="checkbox" data-kampf-setting-show-action-stamps />
+              <span><strong>Aktionsstempel anzeigen</strong></span>
+            </label>
+          </div>
+          <div class="kset-check" title="Farbe = Zeilenfarbe des Helden, Dreieck = Blickrichtung. Nur auf deinem Gerät.">
+            <label class="kampf-settings-checkbox-label">
+              <input type="checkbox" data-kampf-setting-show-orientation-rings />
+              <span><strong>Orientierungsringe auf der Karte</strong></span>
+            </label>
+          </div>
+          <div class="kset-check" title="Wenn aktiv, siehst du nur die Hintergrundfarbe deines eigenen Helden; andere nutzen den Standard-Hintergrund. Persönliche Wahl überschreibt den Raum-Standard.">
+            <label class="kampf-settings-checkbox-label">
+              <input type="checkbox" data-kampf-setting-hide-foreign-hero-colors />
+              <span><strong>Fremde Heldenfarben ausblenden</strong></span>
+            </label>
+            <p class="kset-check__hint">Persönliche Ansicht; überschreibt den Raum-Standard.</p>
+          </div>
+        </div>
+      </div>
+      <div data-kset-page="wunden" data-kset-page-label="Wunden &amp; Zonen" data-kampf-settings-gm-page data-kampf-settings-wappen-section>
+        <div class="kset-group">
+          <h3 class="kset-group__title">Raum-Default</h3>
+          <p class="kampf-settings-panel__microhint" title="Pro Kämpfer kann die SL in den Helden-Einstellungen eine eigene Liste setzen.">Standard-Kästchen für alle Helden. In den Rüstungskästchen den RS eintragen.</p>
+          <div data-kampf-settings-wappen-host></div>
+        </div>
+      </div>
     </div>
-    <div class="kampf-settings-panel__section">
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-setting-show-action-stamps />
-        <span><strong>Aktionsstempel</strong> in der Initiative-Liste anzeigen (horizontale Linien zu Angriff, Abwehr, S.R.A. und F.A.). Gilt nur auf deinem Gerät; SL und Spieler können das unabhängig einstellen.</span>
-      </label>
-    </div>
-    <div class="kampf-settings-panel__section">
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-setting-show-orientation-rings />
-        <span><strong>Orientierungsringe</strong> auf der Karte (Farbe = Zeilenfarbe des Helden, Dreieck = Blickrichtung). Nur auf deinem Gerät.</span>
-      </label>
-    </div>
-    <div class="kampf-settings-panel__section">
-      <label class="kampf-settings-checkbox-label">
-        <input type="checkbox" data-kampf-setting-hide-foreign-hero-colors />
-        <span><strong>Fremde Heldenfarben ausblenden:</strong> Wenn aktiv, siehst du nur die Hintergrundfarbe deines eigenen Helden; andere Helden nutzen den Standard-Hintergrund. Gilt nur auf deinem Gerät. Ohne eigene Auswahl hier gilt der <strong>Raum-Standard</strong> (die Spielleitung kann den Standard unter Helden-Einstellungen setzen).</span>
-      </label>
-    </div>
-    <div class="kampf-settings-panel__section" data-kampf-settings-wappen-section>
-      <h3 class="kampf-settings-panel__sub">Wunden und Trefferzonen (Raum-Default)</h3>
-      <p class="kampf-settings-panel__microhint">Standard-Kästchen für Wunden und Trefferzonen für alle Helden. In den Rüstungskästchen (früher Wappenkästchen) kannst du den Rüstungsschutz eintragen. Pro Kämpfer kann die Spielleitung in den Helden-Einstellungen eine eigene Liste setzen.</p>
-      <div data-kampf-settings-wappen-host></div>
-    </div>
-    <div class="kampf-settings-panel__section kampf-settings-panel__future">
-      <h3 class="kampf-settings-panel__sub">Weitere Ideen (noch nicht umgesetzt)</h3>
-      <ul class="kampf-settings-panel__ideas">
-        <li>Abstand der L.H.-Auslöser-INI zum Heldenwert (statt fest 8)</li>
-        <li>Ob S.R.A. / Ang. / Abw. pro KR begrenzt oder unbegrenzt gezählt werden</li>
-        <li>Automatische Kampfrunden-Stempel oder Würfelprotokoll</li>
-        <li>Sichtbarkeit: nur GM sieht bestimmte Spalten</li>
-        <li>INI-Schwellen der Hohen Initiative anpassbar (20/30/40)</li>
-      </ul>
-    </div>
-    <p class="kampf-settings-panel__version" data-kampf-settings-version aria-label="Build-Version"></p>
     <div class="kampf-settings-panel__actions">
+      <p class="kampf-settings-panel__version" data-kampf-settings-version aria-label="Build-Version"></p>
       <button type="button" class="btn kampf-settings-panel__cancel" data-kampf-settings-cancel>Abbrechen</button>
       <button type="button" class="btn btn--primary kampf-settings-panel__save" data-kampf-settings-save>Speichern und schließen</button>
     </div>
@@ -108,9 +128,14 @@ export function setupSettingsPanel(gearHost) {
   backdrop.appendChild(panel)
   document.body.appendChild(backdrop)
 
+  const tabsApi = mountSettingsTabs(panel)
+
   const highIniCb = panel.querySelector('[data-kampf-setting-high-ini-fa]')
   const roundIntroLowIniCb = panel.querySelector(
     '[data-kampf-setting-round-intro-lowest-ini]'
+  )
+  const hideForeignRoomCb = panel.querySelector(
+    '[data-kampf-setting-hide-foreign-room]'
   )
   const stampsCb = panel.querySelector('[data-kampf-setting-show-action-stamps]')
   const orientationRingsCb = panel.querySelector(
@@ -125,6 +150,7 @@ export function setupSettingsPanel(gearHost) {
   const cancelBtn = panel.querySelector('button.kampf-settings-panel__cancel')
   const wappenSection = panel.querySelector('[data-kampf-settings-wappen-section]')
   const wappenHost = panel.querySelector('[data-kampf-settings-wappen-host]')
+  const gmPages = panel.querySelectorAll('[data-kampf-settings-gm-page]')
 
   /** @type {ReturnType<typeof mountWappenEditor> | null} */
   let wappenEditor = null
@@ -151,13 +177,18 @@ export function setupSettingsPanel(gearHost) {
 
   const syncUi = () => {
     const src = pendingRoom ?? getRoomSettings()
+    const gm = isGmSync()
     if (highIniCb instanceof HTMLInputElement) {
       highIniCb.checked = Boolean(src.highIniFreeActions)
-      highIniCb.disabled = !isGmSync()
+      highIniCb.disabled = !gm
     }
     if (roundIntroLowIniCb instanceof HTMLInputElement) {
       roundIntroLowIniCb.checked = Boolean(src.roundIntroFocusLowestIni)
-      roundIntroLowIniCb.disabled = !isGmSync()
+      roundIntroLowIniCb.disabled = !gm
+    }
+    if (hideForeignRoomCb instanceof HTMLInputElement) {
+      hideForeignRoomCb.checked = Boolean(src.hideForeignHeroColors)
+      hideForeignRoomCb.disabled = !gm
     }
     if (stampsCb instanceof HTMLInputElement) {
       stampsCb.checked = pendingStamps ?? getShowActionStamps()
@@ -174,18 +205,23 @@ export function setupSettingsPanel(gearHost) {
       foreignHeroCb.disabled = false
     }
     if (roleHint) {
-      roleHint.textContent = isGmSync()
-        ? 'Als Spielleitung kannst du die kampfbezogenen Raum-Optionen ändern; alle Spieler sehen dieselben Werte. „Aktionsstempel“, „Orientierungsringe“ und „Fremde Heldenfarben“ sind persönliche Anzeige-Optionen (nur bei dir). Änderungen greifen erst bei „Speichern und schließen“.'
-        : 'Nur die Spielleitung kann die Raum-Option oben ändern. „Aktionsstempel“, „Orientierungsringe“ und „Fremde Heldenfarben“ kannst du für deine Ansicht selbst einstellen. Änderungen greifen erst bei „Speichern und schließen“.'
+      roleHint.textContent = gm
+        ? 'Raum-Regeln gelten für alle. Anzeige-Optionen nur auf diesem Gerät. Speichern schließt das Fenster.'
+        : 'Raum-Regeln nur für die Spielleitung. Anzeige-Optionen kannst du selbst setzen.'
     }
     if (versionEl) {
       versionEl.textContent = `V.${BUILD_VERSION}`
     }
+    for (const page of gmPages) {
+      if (!(page instanceof HTMLElement)) continue
+      page.hidden = !gm
+      page.style.display = gm ? '' : 'none'
+    }
     if (wappenSection instanceof HTMLElement) {
-      const gm = isGmSync()
       wappenSection.hidden = !gm
       wappenSection.style.display = gm ? '' : 'none'
     }
+    tabsApi.refresh()
     refreshSaveDisabled()
   }
 
@@ -210,6 +246,7 @@ export function setupSettingsPanel(gearHost) {
     pendingRoom = {
       highIniFreeActions: Boolean(s.highIniFreeActions),
       roundIntroFocusLowestIni: Boolean(s.roundIntroFocusLowestIni),
+      hideForeignHeroColors: Boolean(s.hideForeignHeroColors),
     }
     pendingStamps = getShowActionStamps()
     pendingOrientationRings = getShowHeroOrientationRings()
@@ -320,6 +357,13 @@ export function setupSettingsPanel(gearHost) {
     }
   })
 
+  hideForeignRoomCb?.addEventListener('change', () => {
+    if (!isGmSync() || !(hideForeignRoomCb instanceof HTMLInputElement)) return
+    if (pendingRoom) {
+      pendingRoom.hideForeignHeroColors = hideForeignRoomCb.checked
+    }
+  })
+
   stampsCb?.addEventListener('change', () => {
     if (!(stampsCb instanceof HTMLInputElement)) return
     pendingStamps = stampsCb.checked
@@ -370,6 +414,7 @@ export function setupSettingsPanel(gearHost) {
     offOrientationPref()
     offForeignHeroPref()
     offPlayer()
+    tabsApi.destroy()
     gear.remove()
     backdrop.remove()
   }
