@@ -2,10 +2,13 @@ const SHOW_ACTION_STAMPS_KEY = 'vierp_show_action_stamps_v1'
 /** Persönlich: Fremde Helden-Hintergrundfarben ausblenden. Fehlt der Eintrag, Standard an. */
 const HIDE_FOREIGN_HERO_COLORS_KEY = 'vierp_hide_foreign_hero_colors_v1'
 const SHOW_HERO_ORIENTATION_RINGS_KEY = 'vierp_show_hero_orientation_rings_v1'
+/** Persönlich: Detail-Ansicht (Tabs) im Helden-Aufklappbereich. Default: aus (Kompakt). */
+const HERO_DETAILED_VIEW_KEY = 'vierp_hero_detailed_view_v1'
 
 const listeners = new Set()
 const foreignHeroColorListeners = new Set()
 const orientationRingListeners = new Set()
+const heroDetailedViewListeners = new Set()
 
 export function getShowActionStamps() {
   try {
@@ -105,4 +108,40 @@ export function setShowHeroOrientationRings(show) {
 export function onShowHeroOrientationRingsChange(fn) {
   orientationRingListeners.add(fn)
   return () => orientationRingListeners.delete(fn)
+}
+
+/**
+ * Detail-Ansicht (Tabs) im aufklappbaren Heldenblock. Persönlich pro Gerät.
+ * Ohne lokalen Eintrag: Standard **aus** (Kompakt-Ansicht wie bisher).
+ */
+export function getHeroDetailedView() {
+  try {
+    const v = localStorage.getItem(HERO_DETAILED_VIEW_KEY)
+    return v === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * @param {boolean} on
+ */
+export function setHeroDetailedView(on) {
+  try {
+    localStorage.setItem(HERO_DETAILED_VIEW_KEY, on ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+  for (const fn of heroDetailedViewListeners) {
+    try {
+      fn()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function onHeroDetailedViewChange(fn) {
+  heroDetailedViewListeners.add(fn)
+  return () => heroDetailedViewListeners.delete(fn)
 }

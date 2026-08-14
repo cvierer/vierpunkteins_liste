@@ -56,7 +56,10 @@ import {
 import { applyHitZoneStrikeFromSpTz } from './hitZoneStrike.js'
 import { applyIbBeModsForIniCompute, computeIniFromIbBeW6 } from './iniCompute.js'
 import { mutedHeroColor, readHeroBgColor } from './heroColors.js'
-import { getHideForeignHeroColorsForViewer } from './localUiPrefs.js'
+import {
+  getHeroDetailedView,
+  getHideForeignHeroColorsForViewer,
+} from './localUiPrefs.js'
 import { readOwnerIniReferenceForMods } from './ownerIniReference.js'
 import {
   applyIniLockCharges,
@@ -2394,7 +2397,77 @@ export function mountHeroExpandBlock(
 
   const energyRailRoots = [aeEnergyRail.root, auEnergyRail.root]
   if (keEnergyRail) energyRailRoots.push(keEnergyRail.root)
+
+  /*
+   * Detail-Ansicht (per Spieler): Sektionen gruppieren und Tab-Leiste einfuegen.
+   * - Kompakt (Default): --detailed fehlt, Tabbar via CSS hidden, alle Sektionen sichtbar.
+   * - Detail: --detailed + data-hex-tab steuern per CSS Sichtbarkeit pro Gruppe.
+   *   DOM/Handler bleiben identisch -> Umschalten ohne Re-Mount.
+   */
+  strip.classList.add('hex-group-kampf')
+  zoneMidRow.classList.add('hex-group-zonen')
+  bottomStrip.classList.add('hex-group-werte')
+  sRailRoot.classList.add('hex-group-werte')
+  for (const rr of energyRailRoots) {
+    rr.classList.add('hex-group-werte')
+  }
+  const detailTabs = document.createElement('div')
+  detailTabs.className = 'init-hero-ex__detail-tabs'
+  detailTabs.setAttribute('role', 'tablist')
+  detailTabs.setAttribute('aria-label', 'Detail-Ansicht Kategorien')
+  const detailTabDefs = [
+    { id: 'kampf', label: 'Kampf', title: 'Kampfwerte, Mods und Rails' },
+    { id: 'zonen', label: 'Wunden & Zonen', title: 'Trefferzonen, RS, Wunden und SP/TZ' },
+    { id: 'werte', label: 'Werte', title: 'Eigenschaften und Energien' },
+  ]
+  const detailTabBtns = []
+  for (const def of detailTabDefs) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'init-hero-ex__detail-tab'
+    b.setAttribute('role', 'tab')
+    b.dataset.hexTabBtn = def.id
+    b.title = def.title
+    b.setAttribute('aria-label', def.label)
+    b.textContent = def.label
+    detailTabs.appendChild(b)
+    detailTabBtns.push(b)
+  }
+  const applyDetailTab = (id) => {
+    const norm = detailTabDefs.some((d) => d.id === id) ? id : 'kampf'
+    root.dataset.hexTab = norm
+    for (const b of detailTabBtns) {
+      const active = b.dataset.hexTabBtn === norm
+      b.classList.toggle('init-hero-ex__detail-tab--active', active)
+      b.setAttribute('aria-selected', active ? 'true' : 'false')
+      b.tabIndex = active ? 0 : -1
+    }
+  }
+  detailTabs.addEventListener('click', (ev) => {
+    const t = ev.target instanceof Element ? ev.target.closest('[data-hex-tab-btn]') : null
+    if (!(t instanceof HTMLElement)) return
+    const id = t.dataset.hexTabBtn || 'kampf'
+    applyDetailTab(id)
+  })
+  detailTabs.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return
+    const idx = detailTabDefs.findIndex((d) => d.id === (root.dataset.hexTab || 'kampf'))
+    const dir = ev.key === 'ArrowRight' ? 1 : -1
+    const next = detailTabDefs[(idx + dir + detailTabDefs.length) % detailTabDefs.length]
+    if (next) {
+      applyDetailTab(next.id)
+      const btn = detailTabBtns.find((b) => b.dataset.hexTabBtn === next.id)
+      if (btn) btn.focus()
+      ev.preventDefault()
+    }
+  })
+  applyDetailTab('kampf')
+  if (getHeroDetailedView()) {
+    root.classList.add('init-hero-ex--detailed')
+  }
+
   root.append(
+    detailTabs,
     leadSpacer,
     strip,
     zoneMidRow,

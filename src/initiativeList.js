@@ -250,11 +250,14 @@ import {
   areOrientationRingsAtTokenCenter,
 } from './heroOrientationRingsOverlay.js'
 import {
+  getHeroDetailedView,
   getHideForeignHeroColorsForViewer,
   getShowActionStamps,
   getShowHeroOrientationRings,
+  onHeroDetailedViewChange,
   onHideForeignHeroColorsForViewerChange,
   onShowActionStampsChange,
+  setHeroDetailedView,
 } from './localUiPrefs.js'
 import {
   getRoomSettings,
@@ -341,6 +344,12 @@ import { purgeKrMarksBeforeRound } from './krCombatMarks.js'
 import { buildHeroSettingsPanelHtml } from './heroSettingsPanelDom.js'
 import { KAMPF_GEAR_ICON_SVG } from './settingsPanel.js'
 import { mountSettingsTabs } from './settingsShell.js'
+
+/**
+ * Icon fuer die Detail-Ansicht (Tabs-Layout) im Heldenblock.
+ * Lucide-artig: Rechteck mit Kopfleiste (Tabs). CurrentColor + non-scaling.
+ */
+const HERO_DETAIL_VIEW_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`
 import {
   ensureRandomHeroBgColor,
   HERO_PALETTE_ROWS,
@@ -7313,7 +7322,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   }
   document.addEventListener('keydown', onHeroSettingsDocKey)
 
-  /** Kampfstart-Reset + (i) + Zahnrad links im aufgeklappten Heldenblock. */
+  /** Kampfstart-Reset + Detail-Toggle + (i) + Zahnrad links im aufgeklappten Heldenblock. */
   const buildHeroExpandLeadButtons = (
     rowId,
     rowName,
@@ -7322,6 +7331,32 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   ) => {
     /** @type {HTMLElement[]} */
     const leadButtons = []
+    /**
+     * Persoenlich pro Spieler: Detail-Ansicht (Tabs) im Heldenblock.
+     * Position: zwischen Kampfstart-Reset und Kampfprotokoll (bzw. allein
+     * am Anfang fuer Spieler ohne SL-Buttons).
+     */
+    const detailToggle = document.createElement('button')
+    detailToggle.type = 'button'
+    detailToggle.className = 'init-row-extra-detail-toggle'
+    detailToggle.innerHTML = HERO_DETAIL_VIEW_ICON_SVG
+    const syncDetailToggle = () => {
+      const on = getHeroDetailedView()
+      detailToggle.classList.toggle('init-row-extra-detail-toggle--active', on)
+      detailToggle.setAttribute('aria-pressed', on ? 'true' : 'false')
+      const label = on
+        ? 'Auf Kompakt-Ansicht umschalten'
+        : 'Auf Detail-Ansicht (Tabs) umschalten'
+      detailToggle.title = label
+      detailToggle.setAttribute('aria-label', `${label} für ${rowName}`)
+    }
+    syncDetailToggle()
+    detailToggle.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setHeroDetailedView(!getHeroDetailedView())
+    })
+
     if (isGmSync()) {
       const resetCombat = document.createElement('button')
       resetCombat.type = 'button'
@@ -7338,6 +7373,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         void resetTrackerItemToCombatStart(rowId)
       })
       leadButtons.push(resetCombat)
+
+      leadButtons.push(detailToggle)
 
       const infoHit = document.createElement('button')
       infoHit.type = 'button'
@@ -7358,6 +7395,8 @@ export function setupInitiativeList(element, { onListChange } = {}) {
         )
       })
       leadButtons.push(infoHit)
+    } else {
+      leadButtons.push(detailToggle)
     }
     if (isGmSync() || canEditRow) {
       const gearHero = document.createElement('button')
@@ -9395,6 +9434,35 @@ export function setupInitiativeList(element, { onListChange } = {}) {
   const offForeignHeroPref = onHideForeignHeroColorsForViewerChange(() => {
     void OBR.scene.items.getItems().then(safeRenderList)
   })
+  /*
+   * Detail-Ansicht (Tabs) im Helden-Aufklappbereich: pure UI-Praeferenz.
+   * Live umschalten ohne Re-Mount, damit Formularzustand/Rails erhalten
+   * bleiben. Auch die Toggle-Buttons in der Toolbar synchronisieren.
+   */
+  const offHeroDetailedView = onHeroDetailedViewChange(() => {
+    const on = getHeroDetailedView()
+    for (const el of document.querySelectorAll('.init-hero-ex')) {
+      el.classList.toggle('init-hero-ex--detailed', on)
+      if (el instanceof HTMLElement && !el.dataset.hexTab) {
+        el.dataset.hexTab = 'kampf'
+      }
+    }
+    for (const btn of document.querySelectorAll(
+      '.init-row-extra-detail-toggle'
+    )) {
+      if (!(btn instanceof HTMLElement)) continue
+      btn.classList.toggle('init-row-extra-detail-toggle--active', on)
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false')
+      const label = on
+        ? 'Auf Kompakt-Ansicht umschalten'
+        : 'Auf Detail-Ansicht (Tabs) umschalten'
+      btn.title = label
+      const prev = btn.getAttribute('aria-label') || ''
+      const idx = prev.indexOf(' für ')
+      const suffix = idx >= 0 ? prev.slice(idx) : ''
+      btn.setAttribute('aria-label', `${label}${suffix}`)
+    }
+  })
   const offPlayer = OBR.player.onChange(() => {
     if (!isGmSync()) closeHeroSettings()
     void OBR.scene.items.getItems().then(safeRenderList)
@@ -9410,6 +9478,7 @@ export function setupInitiativeList(element, { onListChange } = {}) {
     offRoomSettings()
     offStampPref()
     offForeignHeroPref()
+    offHeroDetailedView()
     offActionStamps()
     offPlayer()
     offZaoTie()
